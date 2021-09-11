@@ -4,18 +4,20 @@
 
 <h1 align="center" style="text-align: center;">UNiD</h1>
 
-<p align="center">
-  <a href="https://github.com/semantic-release/semantic-release">
-    <img src="https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg" alt="Sematic-Release" />
-  </a>
-</p>
+<a href="https://github.com/semantic-release/semantic-release">
+  <img src="https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg" alt="Sematic-Release" />
+</a>
 
-<p align="center">
-  <b>An easy to integrate, adaptable decentralized identity platform.</b></br>
-  <span>The best gear for our partners and the modern engineers to reimagine digital experience, and progress our digital society.</span></br>
-</p>
-
+<p>UNiD is an open source tool for IoT developers to build end-to-end secure pipelines for real-time data flow and processing.</p>
 <br />
+
+## Features
+
+- End-to-end authenticated channel
+- Encrypted messaging
+- Decentralized public key infrastructure
+- Root of trust Add-Ons for key management and encryption
+- Cloud Add-Ons for real-time data flow and processing
 
 ## Table of contents
 
@@ -27,7 +29,7 @@
 
 ## Introduction
 
-The SDK offers convenience and easy-to-use for embedding digital wallet capabilities into your application and/or IoT devices. It enables you to operate decentralized identifiers and verifiable credentials.
+_UNiD EDGE_ is an open source Rust libraries that are lightweight and easy-to-integrate into a wide range of devices.
 
 
 ## Tutorial
