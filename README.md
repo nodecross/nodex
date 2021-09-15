@@ -8,16 +8,16 @@
   <img src="https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg" alt="Sematic-Release" />
 </a>
 
-<p>UNiD is an open source tool for IoT developers to build end-to-end secure pipelines for real-time data flow and processing.</p>
+<p>UNiD is an open source tool for IoT developers to automate device provisioning with secure edge computing.</p>
 <br />
 
 ## Features
 
-- End-to-end authenticated channel
-- Encrypted messaging
+- End-to-end secure channel
+- E2E encrypted communication
 - Decentralized public key infrastructure
-- Root of trust Add-Ons for key management and encryption
-- Cloud Add-Ons for real-time data flow and processing
+- Hardware security module add-ons for key management
+- Cloud add-ons for data processing
 
 ## Table of contents
 
