@@ -9,7 +9,6 @@
 </a>
 
 <p>To automate device provisioning with secure edge computing.</p>
-<br />
 
 ## Features
 
@@ -27,8 +26,7 @@ _UNiD EDGE_ is an open source Rust libraries that are lightweight and easy-to-in
 
 By abstracting every device and cloud as globally unique endpoints and building an E2E secure channel, each endpoint can send encrypted messages regardless of the network topology or routing hops.
 
-<img src="IoT%20building%20blocks%20-%202.svg" alt="unid overview" />
-
+<img src="images/iot_building_blocks.svg" alt="unid overview" />
 
 ## Changelog
 
