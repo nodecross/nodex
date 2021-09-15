@@ -19,26 +19,15 @@
 - Hardware security module add-ons for key management
 - Cloud add-ons for data processing
 
-## Table of contents
-
-- [Introduction](#introduction)
-- [Tutorial](#tutorial)
-- [Changelog](#changelog)
-- [License](#license)
-
-
 ## Introduction
 
 _UNiD EDGE_ is an open source Rust libraries that are lightweight and easy-to-integrate into a wide range of devices.
 
+## Overview
 
-## Tutorial
+By abstracting every device and cloud as globally unique endpoints and building an E2E secure channel, each endpoint can send encrypted messages regardless of the network topology or routing hops.
 
-Of the UNiD SDK, a tutorial using the SDK for NodeJS is available at the following URL.
-
-- [Getting started in 15 minutes - UNiD Docs](https://docs.getunid.io/tutorial/getting-started-in-15-minutes)
-
-For more methods and how to use them, please refer to [UNiD Documentation](https://docs.getunid.io/).
+<img src="IoT%20building%20blocks%20-%202.svg" alt="unid overview" />
 
 
 ## Changelog
