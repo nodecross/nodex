@@ -2,13 +2,21 @@
   <img src="https://i.gyazo.com/2b3ac7a80e916ed0aee482ea269d1ca7.png" alt="logo" width="160" />
 </p>
 
-<h1 align="center" style="text-align: center;">UNiD</h1>
+<h1 align="center">
+  UNiD
+</h1>
 
-<a href="https://github.com/semantic-release/semantic-release">
-  <img src="https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg" alt="Sematic-Release" />
-</a>
-
-<p>To automate device provisioning with secure edge computing.</p>
+<p align="center">
+  <span>
+    <a href="https://github.com/semantic-release/semantic-release">
+      <img src="https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg" alt="Sematic-Release" />
+    </a>
+  </span>
+  <br />
+  <span>
+    To automate device provisioning with secure edge computing
+  </span>
+</p>
 
 ## Features
 
