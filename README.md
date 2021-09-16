@@ -14,17 +14,17 @@
   </span>
   <br />
   <span>
-    To automate device provisioning with secure edge computing
+    Automate device provisioning with edge intelligence
   </span>
 </p>
 
 ## Features
 
-- End-to-end secure channel
-- E2E encrypted communication
-- Decentralized public key infrastructure
-- Hardware security module add-ons for key management
-- Cloud add-ons for data processing
+- Decentralized Identity, KMS, and PKI
+- E2E(end-to-end) Secure Channel
+- E2E Encrypted Communication
+- Hardware Root of Trust Add-ons
+- Cloud Add-ons for Real-time Data Flow and Processing
 
 ## Introduction
 
