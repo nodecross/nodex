@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://i.gyazo.com/2b3ac7a80e916ed0aee482ea269d1ca7.png" alt="logo" width="160" />
+  <img src="images/unid-logo-github.svg" alt="logo" width="160" />
 </p>
 
 <h1 align="center">
@@ -28,7 +28,7 @@
 
 ## Introduction
 
-_UNiD EDGE_ is an open source Rust libraries that are lightweight and easy-to-integrate into a wide range of devices.
+Hardware Root of Trust is the security foundation for an SoC, other semiconductor device or electronic system. The RoT contains the keys for cryptographic functions and is usually a part of the secure boot process providing the foundation for the software chain of trust. _UNiD EDGE_ is a set of libraries written in Rust that can leverage the secure processing space of the hardware to autonomously generate key pairs, register the credentials in a decentralized PKI, and build end-to-end secure channel with other endpoints. This capability releases developers from manual device provisioning.
 
 ## Overview
 
