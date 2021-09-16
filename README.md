@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/unid-logo-github.svg" alt="logo" width="160" />
+  <img src="images/unid_logo_github.svg" alt="logo" width="160" />
 </p>
 
 <h1 align="center">
