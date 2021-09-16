@@ -30,14 +30,17 @@
 
 Hardware Root of Trust is the security foundation for an SoC, other semiconductor device or electronic system. The RoT contains the keys for cryptographic functions and is usually a part of the secure boot process providing the foundation for the software chain of trust. _UNiD_ is a set of libraries written by Rust that can leverage the RoT and decentralized identity technology to autonomously generate key pairs, register the credentials in a decentralized PKI, and build end-to-end secure channel for real-time data flow and processing. This capability releases developers from manual device provisioning.
 
-<img src="images/e2e_secure_channel.svg" alt="e2e secure channel" />
-
+<p align="center">
+  <img src="images/e2e_secure_channel.svg" alt="e2e secure channel" width="80%" />
+</p>
 
 ## Overview
 
 By abstracting every device and cloud as globally unique endpoints and building an E2E secure channel, each endpoint can send encrypted messages regardless of the network topology or routing hops.
 
-<img src="images/iot_building_blocks.svg" alt="UNiD Overview" />
+<p align="center">
+  <img src="images/iot_building_blocks.svg" alt="UNiD Overview" width="80%" />
+</p>
 
 ## Changelog
 
