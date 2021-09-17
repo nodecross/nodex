@@ -42,6 +42,126 @@ By abstracting every device and cloud as globally unique endpoints and building 
   <img src="images/iot_building_blocks.svg" alt="UNiD Overview" width="80%" />
 </p>
 
+---
+### Required Software:
+
+- **Wasm-pack: Build rust-generated WebAssembly and make it work with JavaScript, either in the browser or with Node.js.**
+
+---
+### Steps:
+1. Install wasm-pack
+
+```bash
+curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+```
+  for more info: https://rustwasm.github.io/wasm-pack/installer/
+
+2. Build the rust code into wasm code
+
+  -  For web:
+
+```bash
+wasm-pack build --target web
+```
+
+  - For nodejs:
+
+```bash
+wasm-pack build --target nodejs
+```
+
+After you build for specific target, you can import the exported classes from 'pkg/cipher_lib.js'
+
+----
+### Exported Classes and included methods:
+**1. Cipher**
+
+  **1.1 encrypt**
+
+    encrypt given utf-8 text input with a secure utf-8 key input into a base64 encrypted string.
+
+```jsx
+  const encrypted = Cipher.encrypt("hello", "secret");
+  console.log(encrypted); //gives aes encrypted base64 string
+```
+  **1.2 decrypt**
+
+    decrypt given base64 encrypted string input with the correct secure utf-8 key input to get the original utf-8 text
+
+```jsx
+  const decrypted = Cipher.decrypt(encrypted, "secret"); //encrypted is base64 encrypted string from previous encryption
+  console.log(decrypted); //gives the original text i.e. "hello"
+```
+
+  Further Info:
+
+        IV length = 16 bytes
+
+        SALT length = 32 bytes
+
+        KEY length = 32 bytes
+
+        - Kdf algorithm used is "scrypt"
+
+            key = Scrypt.kdf(secret, salt, desired_key_len)
+
+        - Encryption algorithm used is "AES"
+
+            Encrypted Byte = [salt, AES.encrypt(content, key, iv), iv]
+
+**2. Hasher**
+
+  **2.1 digest**
+
+  create base64 hash string from a given utf-8 text input and a secure utf-8 key input.
+
+```javascript
+  const hashed = Hasher.digest("hello", "secret");
+  console.log(hashed); //gives hmacsha512 hashed base64 string
+```
+  **2.2 verify**
+
+  verify if the given base64 hash string is the correct hash output for the given pair of utf-8 text input and secure utf-8 key input.
+
+```javascript
+  const isCorrectHashed = Hasher.verify("hello", hashed, "secret"); // hashed is base64 hashed string from previous hashing
+  console.log(isCorrectHashed); // returns true
+```
+**3. Signer**
+
+  **3.1 sign**
+
+  sign a given utf-8 string input with a base64 string secret key and get a base64 string ecdsa signature.
+
+  **3.2 verify**
+
+  verify if the given base64 string signature is the correct signature for the given pair of  utf-8 string input and a base64 string public key.
+  
+    Further Info:
+          SIGNING_ALGORITHM: ECDSA
+          PARAMETER: Secp256k1
+          secret_key: 32 bytes
+          pub_key: 65 bytes
+
+**4. Jws**
+
+  **4.1 encode**
+  
+  encode a given object input with a base64 string secret key and get a base64 string ecdsa signature.
+  **4.2 verify**
+
+  verify if the given base64 string signature is the correct signature for the given pair of object input and a base64 string public key.
+
+**5. Credential Signer**
+
+  **5.1 sign**
+
+  encode a given object input with signing suite object and get the signed object.
+
+  **5.2 verify**
+
+  verify if the given signed object is valid or not.
+
 ## Changelog
 
 [CHANGELOG](CHANGELOG.md)
