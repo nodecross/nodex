@@ -14,7 +14,7 @@
   </span>
   <br />
   <span>
-    Automate device provisioning with edge intelligence
+    Automate device security provisioning with edge intelligence
   </span>
 </p>
 
