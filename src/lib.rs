@@ -17,4 +17,5 @@ extern crate base64_url;
 extern crate js_sys;
 extern crate chrono;
 
-mod cipher;
+pub mod utils;
+pub mod cipher;

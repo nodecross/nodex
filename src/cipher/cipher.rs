@@ -5,29 +5,16 @@ use aes::Aes256;
 use block_modes::{BlockMode, Cbc};
 use block_modes::block_padding::Pkcs7;
 use base64::DecodeError;
-use rand::seq::SliceRandom;
+
 use scrypt::{
     Params,
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, Ident, Output},
     Scrypt
 };
+use serde_json::json;
+use super::super::utils::*;
 
 
-// Source to random number
-const BASE_STR: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-
-
-// #[wasm_bindgen]
-// generate random string for IV
-fn gen_ascii_chars(size: usize) -> String {
-    let mut rng = &mut rand::thread_rng();
-    String::from_utf8(
-        BASE_STR.as_bytes()
-            .choose_multiple(&mut rng, size)
-            .cloned()
-            .collect()
-    ).unwrap()
-}
 
 // declare alias for block cipher with AES-CBC and PKCS7 padding
 type AesCbc = Cbc<Aes256, Pkcs7>;
@@ -137,4 +124,68 @@ impl Cipher {
     return result;
   }
 
+}
+
+
+#[cfg(test)]
+mod tests {
+  // Note this useful idiom: importing names from outer (for mod tests) scope.
+  use super::*;
+
+  #[test]
+  fn it_should_cipher_encrypt_decrypt_1() {
+    let data: &str = "hello";
+    let secret: &str = "secret";
+    let enc: String = Cipher::encrypt(data.to_string(), secret.to_string());
+    let dec: String = Cipher::decrypt(enc, secret.to_string());
+    
+    assert_eq!(data.to_string(), dec);
+  }
+
+  #[test]
+  fn it_should_cipher_encrypt_decrypt_2() {
+    let data_serde: serde_json::Value = json!({
+      "hello0" : "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello",
+      "hello1" : "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello",
+      "hello2" : "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello",
+      "hello3" : "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello",
+      "hello4" : "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello"
+    });
+    let data: &str = &data_serde.to_string();
+    let secret: &str = "secret";
+    let enc: String = Cipher::encrypt(data.to_string(), secret.to_string());
+    let dec: String = Cipher::decrypt(enc, secret.to_string());
+    
+    assert_eq!(data.to_string(), dec);
+  }
+
+  #[test]
+  #[should_panic(expected = "called `Result::unwrap()` on an `Err` value: BlockModeError")]
+  fn it_should_cipher_encrypt_decrypt_3() {
+    let data: &str = "hello";
+    let secret1: &str = "secret1";
+    let secret2: &str = "secret2";
+    let enc: String = Cipher::encrypt(data.to_string(), secret1.to_string());
+    let dec: String = Cipher::decrypt(enc, secret2.to_string());
+  }
+  
+  #[test]
+  #[should_panic]
+  fn it_should_cipher_decrypt_1() {
+    const SALT_LENGTH: usize = 32;
+    const IV_LENGTH: usize = 16;
+    let data: String = gen_ascii_chars(SALT_LENGTH+IV_LENGTH-1);
+    let secret: &str = "secret";
+    Cipher::decrypt(data, secret.to_string());
+  }
+
+  #[test]
+  fn it_should_cipher_decrypt_2() {
+    let data: &str = "Hello world!";
+    let enc_data: &str = "d21mUXlyTWtuZEVwQ2pBMXRQT2VxTlVLbGMyVzV2Qmiodr/+/GkoY8WUiz17vj8BUWJvQklTWERaaE94SldybQ==";
+    let secret: &str = "secret";
+
+    let dec: String = Cipher::decrypt(enc_data.to_string(), secret.to_string());
+    assert_eq!(data.to_string(), dec);
+  }
 }

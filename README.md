@@ -78,7 +78,7 @@ After you build for specific target, you can import the exported classes from 'p
 
   **1.1 encrypt**
 
-    encrypt given utf-8 text input with a secure utf-8 key input into a base64 encrypted string.
+  encrypt given utf-8 text input with a secure utf-8 key input into a base64 encrypted string.
 
 ```jsx
   const encrypted = Cipher.encrypt("hello", "secret");
@@ -86,28 +86,13 @@ After you build for specific target, you can import the exported classes from 'p
 ```
   **1.2 decrypt**
 
-    decrypt given base64 encrypted string input with the correct secure utf-8 key input to get the original utf-8 text
+  decrypt given base64 encrypted string input with the correct secure utf-8 key input to get the original utf-8 text
 
 ```jsx
   const decrypted = Cipher.decrypt(encrypted, "secret"); //encrypted is base64 encrypted string from previous encryption
   console.log(decrypted); //gives the original text i.e. "hello"
 ```
 
-  Further Info:
-
-        IV length = 16 bytes
-
-        SALT length = 32 bytes
-
-        KEY length = 32 bytes
-
-        - Kdf algorithm used is "scrypt"
-
-            key = Scrypt.kdf(secret, salt, desired_key_len)
-
-        - Encryption algorithm used is "AES"
-
-            Encrypted Byte = [salt, AES.encrypt(content, key, iv), iv]
 
 **2. Hasher**
 
@@ -137,17 +122,13 @@ After you build for specific target, you can import the exported classes from 'p
 
   verify if the given base64 string signature is the correct signature for the given pair of  utf-8 string input and a base64 string public key.
   
-    Further Info:
-          SIGNING_ALGORITHM: ECDSA
-          PARAMETER: Secp256k1
-          secret_key: 32 bytes
-          pub_key: 65 bytes
 
 **4. Jws**
 
   **4.1 encode**
   
   encode a given object input with a base64 string secret key and get a base64 string ecdsa signature.
+  
   **4.2 verify**
 
   verify if the given base64 string signature is the correct signature for the given pair of object input and a base64 string public key.
