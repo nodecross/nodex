@@ -16,12 +16,21 @@ block-modes = "0.8.1"
 hex-literal = "0.3.3"
 hex = "0.4.3"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde_json = { version = "1.0", features = ["preserve_order"] }
 rand = "0.8.4"
 base64 = "0.13.0"
 bytebuffer = "0.2.1"
 getrandom = { version = "0.2", features = ["js"] }
 scrypt = "0.7.0"
+
+sha2 = "0.9.6"
+hmac = "0.11.0"
+fastcmp = "1.0.1"
+libsecp256k1 = "0.6.0"
+base64-url = "1.4.10"
+
+js-sys = "0.3.54"
+chrono = { version = "0.4.19", features = ["unstable-locales", "wasmbind"] }
 
 [dependencies.wasm-bindgen]
 version = "0.2.76"
