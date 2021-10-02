@@ -14,21 +14,21 @@
   </span>
   <br />
   <span>
-    Automate device provisioning with edge intelligence
+    Automate device security provisioning with edge intelligence
   </span>
 </p>
 
 ## Features
 
-- Decentralized Identity, KMS, and PKI
-- E2E(end-to-end) Secure Channel
-- E2E Encrypted Communication
-- Hardware Root of Trust Add-ons
-- Cloud Add-ons for Real-time Data Flow and Processing
+- Decentralized PKI(DPKI), DIDs, DKMS, and Credential Management
+- End-to-End Encrypted Communication (TLS1.3)
+- Programmable Hardware Root of Trust
+- Overlay Routing
+- Cloud Add-Ons for Real-time Data Flow and Processing
 
 ## Introduction
 
-Hardware Root of Trust is the security foundation for an SoC, other semiconductor device or electronic system. The RoT contains the keys for cryptographic functions and is usually a part of the secure boot process providing the foundation for the software chain of trust. _UNiD_ is a set of libraries written by Rust that can leverage the RoT and decentralized identity technology to autonomously generate key pairs, register the credentials in a decentralized PKI, and build end-to-end secure channel for real-time data flow and processing. This capability releases developers from manual device provisioning.
+Hardware Root of Trust is the security foundation for an SoC, other semiconductor device or electronic system. The RoT contains the keys for cryptographic functions and is usually a part of the secure boot process providing the foundation for the software chain of trust. _UNiD_ is a set of libraries written by Rust that can leverage the RoT and decentralized identity technology to autonomously generate key pairs, register the credentials on a decentralized PKI, and build end-to-end secure channel by the TLS handshake protocol. This capabilities reduce the development cost of device security, increase flexibilities, and facilitates real-time data flow and processing.
 
 <p align="center">
   <img src="images/e2e_secure_channel.svg" alt="e2e secure channel" width="80%" />
@@ -39,7 +39,7 @@ Hardware Root of Trust is the security foundation for an SoC, other semiconducto
 By abstracting every device and cloud as globally unique endpoints and building an E2E secure channel, each endpoint can send encrypted messages regardless of the network topology or routing hops.
 
 <p align="center">
-  <img src="images/iot_building_blocks.svg" alt="UNiD Overview" width="80%" />
+  <img src="images/unid_building_blocks.svg" alt="UNiD Building Blocks" />
 </p>
 
 ---

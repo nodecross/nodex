@@ -1,0 +1,14 @@
+version: '3.3'
+
+services:
+  mongo:
+    image: mongo
+    container_name: ${DOCKER_IMAGE_PREFIX}_mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+    networks:
+        - default
+    ports:
+        - 127.0.0.1:27018:27017
