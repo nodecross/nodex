@@ -143,6 +143,19 @@ After you build for specific target, you can import the exported classes from 'p
 
   verify if the given signed object is valid or not.
 
+---
+
+### Unit Testing
+There are two types of unit test depending on the target:
+1. Native test (excluding wasmbindgen's test)
+```
+cargo test
+```
+2. Wasm-pack test (only wasmbindgen's test)
+```
+wasm-pack test --node
+```
+
 ## Changelog
 
 [CHANGELOG](CHANGELOG.md)
