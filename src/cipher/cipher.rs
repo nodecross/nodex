@@ -122,7 +122,7 @@ mod tests {
   // Note this useful idiom: importing names from outer (for mod tests) scope.
   use super::*;
 
-  #[cfg_attr(not(target_arch = "wasm32"), test)]
+  #[test]
   fn it_should_cipher_encrypt_decrypt_1() {
     let data: &str = "hello";
     let secret: &str = "secret";
@@ -131,7 +131,7 @@ mod tests {
     assert_eq!(data.to_string(), dec.to_string());
   }
 
-  #[cfg_attr(not(target_arch = "wasm32"), test)]
+  #[test]
   fn it_should_cipher_encrypt_decrypt_2() {
     let data_serde: serde_json::Value = json!({
       "hello0" : "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello",
@@ -147,7 +147,7 @@ mod tests {
     assert_eq!(data.to_string(), dec.to_string());
   }
 
-  #[cfg_attr(not(target_arch = "wasm32"), test)]
+  #[test]
   #[should_panic(expected = "called `Result::unwrap()` on an `Err` value: BlockModeError")]
   fn it_should_cipher_encrypt_decrypt_3() {
     let data: &str = "hello";
@@ -156,7 +156,7 @@ mod tests {
     let enc: String = Cipher::encrypt(data.to_string(), secret1.to_string());
     let dec: String = Cipher::decrypt(enc.to_string(), secret2.to_string());
   }
-  #[cfg_attr(not(target_arch = "wasm32"), test)]
+  #[test]
   #[should_panic]
   fn it_should_cipher_decrypt_1() {
     const SALT_LENGTH: usize = 32;
@@ -166,7 +166,7 @@ mod tests {
     Cipher::decrypt(data.to_string(), secret.to_string());
   }
 
-  #[cfg_attr(not(target_arch = "wasm32"), test)]
+  #[test]
   fn it_should_cipher_decrypt_2() {
     let data: &str = "Hello world!";
     let enc_data: &str =
