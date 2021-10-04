@@ -1,27 +1,22 @@
-
-use wasm_bindgen::prelude::*;
-use std::str;
 use aes::Aes256;
-use block_modes::{BlockMode, Cbc};
-use block_modes::block_padding::Pkcs7;
 use base64::DecodeError;
+use block_modes::block_padding::Pkcs7;
+use block_modes::{BlockMode, Cbc};
+use std::str;
+use wasm_bindgen::prelude::*;
 
+use super::super::utils::*;
 use scrypt::{
-    Params,
-    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, Ident, Output},
-    Scrypt
+  password_hash::{Ident, Output, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+  Params, Scrypt,
 };
 use serde_json::json;
-use super::super::utils::*;
-
-
 
 // declare alias for block cipher with AES-CBC and PKCS7 padding
 type AesCbc = Cbc<Aes256, Pkcs7>;
 
 #[wasm_bindgen]
-pub struct Cipher {
-}
+pub struct Cipher {}
 
 #[wasm_bindgen]
 impl Cipher {
@@ -42,13 +37,13 @@ impl Cipher {
     let secret_u8: &[u8] = secret_str.as_bytes();
     // get modified Params for Scrypt Algorithm
     let params: Params = Params::new(14, 8, 1).unwrap();
-    
-    // get the phc string by hashing secret using salt with given parameters of scrypt algorithm 
-    let key_phc: PasswordHash = Scrypt.hash_password(secret_u8,Some(scrypt::ALG_ID),params, &salt_ss).unwrap();
-    
+
+    // get the phc string by hashing secret using salt with given parameters of scrypt algorithm
+    let key_phc: PasswordHash = Scrypt
+      .hash_password(secret_u8, Some(scrypt::ALG_ID), params, &salt_ss)
+      .unwrap();
     //alternative to the previous command using default params
     // let key_phc = PasswordHash::generate(Scrypt, secret_bytes,&salt_str).unwrap();
-    
     //get the key hash output only from the phc string
     let key_output: Output = key_phc.hash.unwrap();
 
@@ -59,7 +54,6 @@ impl Cipher {
     let plaintext_u8: &[u8] = (&plaintext).as_bytes();
     // create block cipher instance with AES-CBC with PKCS7 padding
     let cipher = AesCbc::new_from_slices(key_u8, iv_u8).unwrap();
-    
     // encrypt the byte slice into encrypted byte vector
     let ciphertext_vec: Vec<u8> = cipher.encrypt_vec(plaintext_u8);
     // convert the byte vector into byte slice
@@ -78,33 +72,28 @@ impl Cipher {
   }
 
   pub fn decrypt(ciphertext: String, secret: String) -> String {
-
     let ciphertext_vec: Vec<u8> = base64::decode(ciphertext.as_bytes()).unwrap();
 
     // convert ciphertext vector into byte slice
     let ciphertext_u8: &[u8] = &ciphertext_vec[..];
 
     assert_eq!(ciphertext_u8.len() > 48, true);
-    
-    
     // extract salt byte slice from the ciphertext
     let salt_u8: &[u8] = &ciphertext_u8[..32];
 
-    
     // convert secret string into byte slice
     let secret_u8: &[u8] = (&secret).as_bytes();
-    
     // let password_hash = Scrypt.hash_password_simple(key_bytes, &salt_in).unwrap();
     let salt_ss: SaltString = SaltString::b64_encode(salt_u8).unwrap();
     // let ident = Ident::new("Scrypt");
     let params: Params = Params::new(14, 8, 1).unwrap();
-    
-    // get the phc string by hashing secret using salt with given parameters of scrypt algorithm 
-    let key_phc: PasswordHash = Scrypt.hash_password(secret_u8,Some(scrypt::ALG_ID),params, &salt_ss).unwrap();
-    
+
+    // get the phc string by hashing secret using salt with given parameters of scrypt algorithm
+    let key_phc: PasswordHash = Scrypt
+      .hash_password(secret_u8, Some(scrypt::ALG_ID), params, &salt_ss)
+      .unwrap();
     //alternative to the previous command using default params
     // let key_phc = PasswordHash::generate(Scrypt, secret_bytes,&salt_str).unwrap();
-    
     //get the key hash output only from the phc string
     let key_output: Output = key_phc.hash.unwrap();
 
@@ -112,22 +101,23 @@ impl Cipher {
     let key_u8: &[u8] = key_output.as_bytes();
 
     // create block cipher instance with AES-CBC with PKCS7 padding
-    let cipher = AesCbc::new_from_slices(key_u8, &ciphertext_u8[ciphertext_u8.len()-16..]).unwrap();
+    let cipher =
+      AesCbc::new_from_slices(key_u8, &ciphertext_u8[ciphertext_u8.len() - 16..]).unwrap();
 
     // decipher the byte slice into decrypted byte vector
-    let decrypted_ciphertext_vec: Vec<u8> = cipher.decrypt_vec(&ciphertext_u8[32..ciphertext_u8.len()-16]).unwrap();
+    let decrypted_ciphertext_vec: Vec<u8> = cipher
+      .decrypt_vec(&ciphertext_u8[32..ciphertext_u8.len() - 16])
+      .unwrap();
 
     // Convert the decrypted u8 byte vector into string and return
     let result: String = String::from_utf8(decrypted_ciphertext_vec).unwrap();
 
-    
     return result;
   }
-
 }
 
-
 #[cfg(test)]
+
 mod tests {
   // Note this useful idiom: importing names from outer (for mod tests) scope.
   use super::*;
@@ -137,9 +127,8 @@ mod tests {
     let data: &str = "hello";
     let secret: &str = "secret";
     let enc: String = Cipher::encrypt(data.to_string(), secret.to_string());
-    let dec: String = Cipher::decrypt(enc, secret.to_string());
-    
-    assert_eq!(data.to_string(), dec);
+    let dec: String = Cipher::decrypt(enc.to_string(), secret.to_string());
+    assert_eq!(data.to_string(), dec.to_string());
   }
 
   #[test]
@@ -154,9 +143,8 @@ mod tests {
     let data: &str = &data_serde.to_string();
     let secret: &str = "secret";
     let enc: String = Cipher::encrypt(data.to_string(), secret.to_string());
-    let dec: String = Cipher::decrypt(enc, secret.to_string());
-    
-    assert_eq!(data.to_string(), dec);
+    let dec: String = Cipher::decrypt(enc.to_string(), secret.to_string());
+    assert_eq!(data.to_string(), dec.to_string());
   }
 
   #[test]
@@ -166,26 +154,26 @@ mod tests {
     let secret1: &str = "secret1";
     let secret2: &str = "secret2";
     let enc: String = Cipher::encrypt(data.to_string(), secret1.to_string());
-    let dec: String = Cipher::decrypt(enc, secret2.to_string());
+    let dec: String = Cipher::decrypt(enc.to_string(), secret2.to_string());
   }
-  
   #[test]
   #[should_panic]
   fn it_should_cipher_decrypt_1() {
     const SALT_LENGTH: usize = 32;
     const IV_LENGTH: usize = 16;
-    let data: String = gen_ascii_chars(SALT_LENGTH+IV_LENGTH-1);
+    let data: String = gen_ascii_chars(SALT_LENGTH + IV_LENGTH - 1);
     let secret: &str = "secret";
-    Cipher::decrypt(data, secret.to_string());
+    Cipher::decrypt(data.to_string(), secret.to_string());
   }
 
   #[test]
   fn it_should_cipher_decrypt_2() {
     let data: &str = "Hello world!";
-    let enc_data: &str = "d21mUXlyTWtuZEVwQ2pBMXRQT2VxTlVLbGMyVzV2Qmiodr/+/GkoY8WUiz17vj8BUWJvQklTWERaaE94SldybQ==";
+    let enc_data: &str =
+      "d21mUXlyTWtuZEVwQ2pBMXRQT2VxTlVLbGMyVzV2Qmiodr/+/GkoY8WUiz17vj8BUWJvQklTWERaaE94SldybQ==";
     let secret: &str = "secret";
 
     let dec: String = Cipher::decrypt(enc_data.to_string(), secret.to_string());
-    assert_eq!(data.to_string(), dec);
+    assert_eq!(data.to_string(), dec.to_string());
   }
 }
