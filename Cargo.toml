@@ -5,6 +5,16 @@ authors = [ "UNiD <>" ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[profile.test]
+opt-level = 1
+debug = true
+debug-assertions = true
+overflow-checks = true
+lto = false
+incremental = true
+codegen-units = 256
+rpath = false
+
 [lib]
 name = "cipher_lib"
 path = "src/lib.rs"
@@ -32,6 +42,10 @@ base64-url = "1.4.10"
 js-sys = "0.3.54"
 chrono = { version = "0.4.19", features = ["unstable-locales", "wasmbind"] }
 
+[dev-dependencies]
+wasm-bindgen-test = "0.3.28"
+
 [dependencies.wasm-bindgen]
-version = "0.2.76"
-features = [ "serde-serialize" ]
+version = "0.2.78"
+features = ["serde-serialize"]
+
