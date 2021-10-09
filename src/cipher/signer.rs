@@ -7,7 +7,6 @@ use serde_json::json;
 use sha2::{Digest, Sha256};
 use wasm_bindgen::prelude::*;
 
-use super::super::utils::*;
 use wasm_bindgen_test::*;
 
 const PROOF_KEY: &str = "proof";
@@ -23,7 +22,7 @@ struct SuiteSign {
 
 #[derive(Deserialize)]
 struct SuiteVerify {
-  did: Option<String>,
+  _did: Option<String>,
   key_id: String,
   pub_key64: String,
 }
@@ -212,7 +211,7 @@ impl Signer {
   }
 }
 
-// #[cfg(test)]
+#[cfg(test)]
 pub mod tests {
   // Note this useful idiom: importing names from outer (for mod tests) scope.
   use super::*;

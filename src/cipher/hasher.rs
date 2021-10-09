@@ -4,7 +4,6 @@ use hmac::{Hmac, Mac, NewMac};
 use sha2::Sha512;
 use wasm_bindgen::prelude::*;
 
-use super::super::utils::*;
 use serde_json::json;
 
 type HmacSha512 = Hmac<Sha512>;
