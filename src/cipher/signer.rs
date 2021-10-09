@@ -102,9 +102,9 @@ impl CredentialSigner {
 impl Jws {
   pub fn encode(object: JsValue, secret_key64: String) -> String {
     let header: serde_json::Value = json!({
-      "alg" : "ES256K",
-      "b64" : false,
-      "crit": [ "b64" ]
+        "alg" : "ES256K",
+        "b64" : false,
+        "crit": [ "b64" ]
     });
     let header_json_string: String = serde_json::to_string(&header).unwrap();
     let header_json_str: &str = &header_json_string;
@@ -223,7 +223,7 @@ pub mod tests {
   #[test]
   fn it_should_signer_sign_verify_1() {
     let data_serde: serde_json::Value = json!({
-      "id" : "did:self:0x0123456789012345678901234567890123456789"
+        "id" : "did:self:0x0123456789012345678901234567890123456789"
     });
     let data: &str = &data_serde.to_string();
     let signature: String = Signer::sign(data.to_string(), D.to_string());
@@ -234,29 +234,30 @@ pub mod tests {
   #[wasm_bindgen_test]
   fn it_should_jws_encode_verify_1() {
     let data_serde: serde_json::Value = json!({
-      "test" : "ok"
+        "test" : "ok"
     });
     let data_json: JsValue = JsValue::from_serde(&data_serde).unwrap();
 
     let jws: String = Jws::encode(data_json.clone(), D.to_string());
     let verified: bool = Jws::verify(data_json.clone(), jws.to_string(), XY.to_string());
+
     assert_eq!(verified, true);
   }
 
   #[wasm_bindgen_test]
   fn it_should_credential_signer_sign_verify_1() {
     let suite_sign_serde: serde_json::Value = json!({
-      "did" : "did:unid:test:EiBtzgWy130lNOyO3JsHkR75YFeSgU7h4p6zYvfQxrAXeA",
-      "key_id" : "signingKey",
-      "secret_key64" : D
+        "did" : "did:unid:test:EiBtzgWy130lNOyO3JsHkR75YFeSgU7h4p6zYvfQxrAXeA",
+        "key_id" : "signingKey",
+        "secret_key64" : D
     });
     let suite_verify_serde: serde_json::Value = json!({
-      "key_id" : "signingKey",
-      "pub_key64" : XY
+        "key_id" : "signingKey",
+        "pub_key64" : XY
     });
 
     let data_serde: serde_json::Value = json!({
-      "test" : "ok"
+        "test" : "ok"
     });
 
     let data_json: JsValue = JsValue::from_serde(&data_serde).unwrap();
