@@ -39,7 +39,7 @@ Hardware Root of Trust is the security foundation for an SoC, other semiconducto
 By abstracting every device and cloud as globally unique endpoints and building an E2E secure channel, each endpoint can send encrypted messages regardless of the network topology or routing hops.
 
 <p align="center">
-  <img src="images/unid_building_blocks.svg" alt="UNiD Building Blocks" />
+  <img src="images/UNiD_BB.svg" alt="UNiD Building Blocks" />
 </p>
 
 ---
