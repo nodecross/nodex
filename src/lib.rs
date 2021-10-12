@@ -19,6 +19,6 @@ extern crate sha2;
 extern crate wasm_bindgen;
 extern crate wasm_bindgen_test;
 
-pub mod cipher;
+pub mod ciphers;
 pub mod core;
 pub mod utils;

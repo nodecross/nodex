@@ -1,10 +1,7 @@
-use base64::DecodeError;
 use fastcmp::Compare;
 use hmac::{Hmac, Mac, NewMac};
 use sha2::Sha512;
 use wasm_bindgen::prelude::*;
-
-use serde_json::json;
 
 type HmacSha512 = Hmac<Sha512>;
 
@@ -23,7 +20,7 @@ impl Hasher {
       let result = mac.finalize();
       let result_u8: &[u8] = &result.into_bytes();
 
-      return base64::encode(result_u8.to_vec());
+      base64::encode(result_u8.to_vec())
     }
 
     pub fn verify(content: String, digest: String, secret: String) -> bool {
@@ -38,11 +35,7 @@ impl Hasher {
 
         let digest_decoded_vec: Vec<u8> = base64::decode(digest.as_bytes()).unwrap();
 
-        if (digest_decoded_vec.feq(result_u8)) {
-            return true;
-        } else {
-            return false;
-        }
+        digest_decoded_vec.feq(result_u8)
     }
 }
 
@@ -62,10 +55,10 @@ mod tests {
         let digested: String = Hasher::digest(data.to_string(), secret.to_string());
         let verified: bool = Hasher::verify(data.to_string(), digested.to_string(), secret.to_string());
 
-        assert_eq!(verified, true);
+        assert!(verified);
 
         assert_eq!(
-          digested.to_string(),
+          digested,
           "OM+bDTbUVutMpKxggbcI5HvVJU+1XO1O4IM7jzE69oYKpICBbLU/PWe0ZC8icnk6O3/TdkVajVNmlpct6oRNkQ=="
             .to_string()
         );

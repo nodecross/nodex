@@ -1,13 +1,9 @@
-use chrono::offset::LocalResult;
 use chrono::prelude::*;
-use chrono::Duration;
 use libsecp256k1::{Message, PublicKey, PublicKeyFormat, SecretKey, Signature};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use wasm_bindgen::prelude::*;
-
-use wasm_bindgen_test::*;
 
 const PROOF_KEY: &str = "proof";
 const VM_KEY: &str = "verificationMethod";
@@ -42,7 +38,7 @@ impl CredentialSigner {
     let suite_sign: SuiteSign = suite_sign_json.into_serde().unwrap();
     let obj: js_sys::Object = js_sys::Object::from(object_json.clone());
     let proof_key: JsValue = JsValue::from_str(PROOF_KEY);
-    assert_eq!(obj.has_own_property(&proof_key), false);
+    assert!(! obj.has_own_property(&proof_key));
     let created: String = Utc::now().format("%Y-%m-%dT%I:%M:%SZ").to_string();
     let jws = Jws::encode(object_json.clone(), suite_sign.secret_key64);
 
@@ -55,36 +51,38 @@ impl CredentialSigner {
     });
     let proof_json: JsValue = JsValue::from_serde(&proof_serde).unwrap();
 
-    let obj_clone = object_json.clone();
-    js_sys::Reflect::set(&obj_clone, &proof_key, &proof_json.clone());
+    let obj_clone = object_json;
+    let result1 = js_sys::Reflect::set(&obj_clone, &proof_key, &proof_json);
+    assert!(result1.is_ok());
 
-    return obj_clone;
+    obj_clone
   }
 
   pub fn verify(object_json: JsValue, suite_verify_json: JsValue) -> JsValue {
     let suite_verify: SuiteVerify = suite_verify_json.into_serde().unwrap();
     let obj: js_sys::Object = js_sys::Object::from(object_json.clone());
     let proof_key: JsValue = JsValue::from_str(PROOF_KEY);
-    assert_eq!(obj.has_own_property(&proof_key), true);
-    let proof_json: JsValue = js_sys::Reflect::get(&object_json.clone(), &proof_key).unwrap();
+    assert!(obj.has_own_property(&proof_key));
+    let proof_json: JsValue = js_sys::Reflect::get(&object_json, &proof_key).unwrap();
     let proof_obj: js_sys::Object = js_sys::Object::from(proof_json.clone());
-    assert_eq!(proof_obj.is_undefined(), false);
-    assert_eq!(proof_obj.is_null(), false);
+    assert!(! proof_obj.is_undefined());
+    assert!(! proof_obj.is_null());
     let vm_key: JsValue = JsValue::from_str(VM_KEY);
-    let vm_json: JsValue = js_sys::Reflect::get(&proof_json.clone(), &vm_key).unwrap();
-    let vm_obj: js_sys::Object = js_sys::Object::from(vm_json.clone());
+    let vm_json: JsValue = js_sys::Reflect::get(&proof_json, &vm_key).unwrap();
+    let vm_obj: js_sys::Object = js_sys::Object::from(vm_json);
     let vm_string: String = vm_obj.as_string().unwrap();
     let vm_array: Vec<&str> = vm_string.split('#').collect();
     let vm_key_id: &str = vm_array[1];
 
     assert_eq!(vm_key_id, suite_verify.key_id);
     let jws_key: JsValue = JsValue::from_str(JWS_KEY);
-    let jws_json: JsValue = js_sys::Reflect::get(&proof_json.clone(), &jws_key).unwrap();
-    let jws_obj: js_sys::Object = js_sys::Object::from(jws_json.clone());
+    let jws_json: JsValue = js_sys::Reflect::get(&proof_json, &jws_key).unwrap();
+    let jws_obj: js_sys::Object = js_sys::Object::from(jws_json);
     let jws_string: String = jws_obj.as_string().unwrap();
 
-    let obj_clone: js_sys::Object = js_sys::Object::from(object_json.clone());
-    js_sys::Reflect::delete_property(&obj_clone, &proof_key);
+    let obj_clone: js_sys::Object = js_sys::Object::from(object_json);
+    let result1 = js_sys::Reflect::delete_property(&obj_clone, &proof_key);
+    assert!(result1.is_ok());
     let payload_key: JsValue = JsValue::from_str("payload");
     let payload_json: JsValue = obj_clone.into();
 
@@ -92,9 +90,10 @@ impl CredentialSigner {
     let is_valid_serde: serde_json::Value = json!({ "isValid": is_valid });
     let is_valid_json: JsValue = JsValue::from_serde(&is_valid_serde).unwrap();
 
-    let out = is_valid_json.clone();
-    js_sys::Reflect::set(&out, &payload_key, &payload_json.clone());
-    return out;
+    let out = is_valid_json;
+    let result2 = js_sys::Reflect::set(&out, &payload_key, &payload_json);
+    assert!(result2.is_ok());
+    out
   }
 }
 
@@ -122,15 +121,13 @@ impl Jws {
     let signature64_u8: &[u8] = &signature64_vec[..];
     let signature64_url = base64_url::encode(signature64_u8);
 
-    let result = format!("{}..{}", header64_url, signature64_url);
-
-    return result;
+    format!("{}..{}", header64_url, signature64_url)
   }
 
   pub fn verify(object: JsValue, jws: String, pub_key64: String) -> bool {
     let jws_array: Vec<&str> = jws.split('.').collect();
     let header64_url: &str = jws_array[0];
-    let mut payload64_url: &str = jws_array[1];
+    let payload64_url: &str = jws_array[1];
     let signature64_url: &str = jws_array[2];
     let header_json_vec: Vec<u8> = base64_url::decode(header64_url).unwrap();
     let header_json_string: String = String::from_utf8(header_json_vec).unwrap();
@@ -139,12 +136,11 @@ impl Jws {
 
     assert_eq!(header_json["alg"], "ES256K");
     assert_eq!(header_json["b64"], false);
-    assert_eq!(
+    assert!(
       header_json["crit"]
         .as_array()
         .unwrap()
-        .contains(&json!("b64")),
-      true
+        .contains(&json!("b64"))
     );
 
     assert_eq!(payload64_url, "");
@@ -158,7 +154,7 @@ impl Jws {
     let signature64_vec: Vec<u8> = base64_url::decode(signature64_url).unwrap();
     let signature64: String = base64::encode(signature64_vec);
 
-    return Signer::verify(message, signature64, pub_key64);
+    Signer::verify(message, signature64, pub_key64)
   }
 }
 
@@ -184,7 +180,7 @@ impl Signer {
     let sig = sig_tuple.0;
     let sig_u8 = sig.serialize();
 
-    return base64::encode(sig_u8.to_vec());
+    base64::encode(sig_u8.to_vec())
   }
 
   pub fn verify(message: String, signature64: String, pub_key64: String) -> bool {
@@ -207,11 +203,14 @@ impl Signer {
     let pub_key_u8: &[u8] = &pub_key_vec[..];
     let pub_key_pk = PublicKey::parse_slice(pub_key_u8, Some(PublicKeyFormat::Full)).unwrap();
 
-    return libsecp256k1::verify(&digested_message, &sig, &pub_key_pk);
+    libsecp256k1::verify(&digested_message, &sig, &pub_key_pk)
   }
 }
 
 #[cfg(test)]
+use wasm_bindgen_test;
+use wasm_bindgen_test::*;
+
 pub mod tests {
   // Note this useful idiom: importing names from outer (for mod tests) scope.
   use super::*;
@@ -227,8 +226,8 @@ pub mod tests {
     });
     let data: &str = &data_serde.to_string();
     let signature: String = Signer::sign(data.to_string(), D.to_string());
-    let verified: bool = Signer::verify(data.to_string(), signature.to_string(), XY.to_string());
-    assert_eq!(verified, true);
+    let verified: bool = Signer::verify(data.to_string(), signature, XY.to_string());
+    assert!(verified);
   }
 
   #[wasm_bindgen_test]
@@ -239,9 +238,9 @@ pub mod tests {
     let data_json: JsValue = JsValue::from_serde(&data_serde).unwrap();
 
     let jws: String = Jws::encode(data_json.clone(), D.to_string());
-    let verified: bool = Jws::verify(data_json.clone(), jws.to_string(), XY.to_string());
+    let verified: bool = Jws::verify(data_json, jws, XY.to_string());
 
-    assert_eq!(verified, true);
+    assert!(verified);
   }
 
   #[wasm_bindgen_test]
@@ -265,22 +264,22 @@ pub mod tests {
     let suite_sign_json: JsValue = JsValue::from_serde(&suite_sign_serde).unwrap();
     let suite_verify_json: JsValue = JsValue::from_serde(&suite_verify_serde).unwrap();
 
-    let document: JsValue = CredentialSigner::sign(data_json.clone(), suite_sign_json.clone());
+    let document: JsValue = CredentialSigner::sign(data_json.clone(), suite_sign_json);
 
-    let verified = CredentialSigner::verify(document.clone(), suite_verify_json.clone());
+    let verified = CredentialSigner::verify(document, suite_verify_json);
 
     let obj: js_sys::Object = js_sys::Object::from(verified.clone());
     let is_valid_key: JsValue = JsValue::from_str("isValid");
     let payload_key: JsValue = JsValue::from_str("payload");
-    assert_eq!(obj.has_own_property(&is_valid_key), true);
-    assert_eq!(obj.has_own_property(&payload_key), true);
+    assert!(obj.has_own_property(&is_valid_key));
+    assert!(obj.has_own_property(&payload_key));
 
-    let is_valid_json: JsValue = js_sys::Reflect::get(&verified.clone(), &is_valid_key).unwrap();
+    let is_valid_json: JsValue = js_sys::Reflect::get(&verified, &is_valid_key).unwrap();
     let is_valid_json_bool = is_valid_json.as_bool();
     assert_ne!(is_valid_json_bool, None);
     let is_valid_bool: bool = is_valid_json_bool.unwrap();
-    assert_eq!(is_valid_bool.clone(), true);
-    let payload_json: JsValue = js_sys::Reflect::get(&verified.clone(), &payload_key).unwrap();
-    assert_eq!(payload_json.clone(), data_json.clone());
+    assert!(is_valid_bool);
+    let payload_json: JsValue = js_sys::Reflect::get(&verified, &payload_key).unwrap();
+    assert_eq!(payload_json, data_json);
   }
 }
