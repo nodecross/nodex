@@ -2,6 +2,7 @@
 name = "unid"
 version = "0.1.0"
 authors = [ "UNiD <>" ]
+edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -41,6 +42,9 @@ base64-url = "1.4.10"
 
 js-sys = "0.3.54"
 chrono = { version = "0.4.19", features = ["unstable-locales", "wasmbind"] }
+
+reqwest = { version = "0.11", features = ["blocking","json"] }
+tokio = { version = "1", features = ["full"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.28"

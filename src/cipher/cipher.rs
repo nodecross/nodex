@@ -5,7 +5,7 @@ use block_modes::{BlockMode, Cbc};
 use std::str;
 use wasm_bindgen::prelude::*;
 
-use super::super::utils::*;
+use super::super::utils::rand::*;
 use scrypt::{
     password_hash::{Ident, Output, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Params, Scrypt,
