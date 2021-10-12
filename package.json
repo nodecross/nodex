@@ -2,12 +2,13 @@
   "devDependencies": {
     "@commitlint/cli": "^13.2.1",
     "@commitlint/config-conventional": "^13.2.0",
-    "husky": "^7.0.2"
+    "husky": "^7.0.2",
+    "pinst": "^2.1.6"
   },
   "lint-staged": {
     "*.{rs}": "cargo clippy"
   },
   "scripts": {
-    "prepare": "husky install"
+    "postinstall": "husky install"
   }
 }
