@@ -34,20 +34,20 @@ impl HttpClient {
     }
     let client: reqwest::blocking::Client = reqwest::blocking::Client::new();
 
-    return HttpClient {
+    HttpClient {
       instance: client,
-      base_url: base_url,
-      path: path,
-    };
+      base_url,
+      path,
+    }
   }
 
   pub fn get(&self, _params: Option<DIDResolutionRequest>) -> reqwest::blocking::Response {
-    assert_eq!(reqwest::Url::parse(&self.base_url).is_ok(), true);
+    assert!(reqwest::Url::parse(&self.base_url).is_ok());
     let request_base: reqwest::Url = reqwest::Url::parse(&self.base_url).unwrap();
-    assert_eq!(request_base.join(&self.path).is_ok(), true);
+    assert!(request_base.join(&self.path).is_ok());
     let request_path: reqwest::Url = request_base.join(&self.path).unwrap();
     let params: DIDResolutionRequest;
-    if _params.is_some() {
+    if let Some(..) = _params {
       params = _params.unwrap();
     } else {
       params = DIDResolutionRequest {
@@ -58,31 +58,28 @@ impl HttpClient {
     let request_url: String = format!("{}{}", request_path_str, &params.did);
 
     let res = self.instance.get(request_url).send();
-    assert_eq!(res.is_ok(), true);
+    assert!(res.is_ok());
 
-    let res_ok = res.unwrap();
-    return res_ok;
+    res.unwrap()
   }
 
   pub fn get_kv(&self, _params: Option<DIDResolutionRequest>) -> KV {
-    let res_ok = HttpClient::get(&self, _params);
+    let res_ok = HttpClient::get(self, _params);
     let res_ok_json = res_ok.json::<KV>();
-    assert_eq!(res_ok_json.is_ok(), true);
-    let res_ok_json_ok = res_ok_json.unwrap();
-    return res_ok_json_ok;
+    assert!(res_ok_json.is_ok());
+    res_ok_json.unwrap()
   }
 
   pub fn get_text(&self, _params: Option<DIDResolutionRequest>) -> String {
-    let res_ok = HttpClient::get(&self, _params);
-    let res_ok_text = res_ok.text().unwrap();
-    return res_ok_text;
+    let res_ok = HttpClient::get(self, _params);
+    res_ok.text().unwrap()
   }
 
   pub fn get_serde(&self, _params: Option<DIDResolutionRequest>) -> serde_json::Value {
-    let res_ok_text = HttpClient::get_text(&self, _params);
+    let res_ok_text = HttpClient::get_text(self, _params);
 
     let res_json: serde_json::Value = serde_json::from_str(&res_ok_text).unwrap();
 
-    return res_json;
+    res_json
   }
 }

@@ -1,5 +1,4 @@
 use aes::Aes256;
-use base64::DecodeError;
 use block_modes::block_padding::Pkcs7;
 use block_modes::{BlockMode, Cbc};
 use std::str;
@@ -7,10 +6,10 @@ use wasm_bindgen::prelude::*;
 
 use super::super::utils::rand::*;
 use scrypt::{
-    password_hash::{Ident, Output, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    password_hash::{Output, PasswordHash, SaltString},
     Params, Scrypt,
 };
-use serde_json::json;
+use scrypt::password_hash::PasswordHasher;
 
 // declare alias for block cipher with AES-CBC and PKCS7 padding
 type AesCbc = Cbc<Aes256, Pkcs7>;
@@ -68,7 +67,7 @@ impl Cipher {
         // convert buffer into raw byte buffer aka byte vector
         let buffer_vec: Vec<u8> = buffer.to_bytes();
         // encode buffer64 into base64 representation
-        return base64::encode(buffer_vec);
+        base64::encode(buffer_vec)
     }
 
     pub fn decrypt(ciphertext: String, secret: String) -> String {
@@ -77,7 +76,7 @@ impl Cipher {
         // convert ciphertext vector into byte slice
         let ciphertext_u8: &[u8] = &ciphertext_vec[..];
 
-        assert_eq!(ciphertext_u8.len() > 48, true);
+        assert!(ciphertext_u8.len() > 48);
         // extract salt byte slice from the ciphertext
         let salt_u8: &[u8] = &ciphertext_u8[..32];
 
@@ -110,25 +109,24 @@ impl Cipher {
           .unwrap();
 
         // Convert the decrypted u8 byte vector into string and return
-        let result: String = String::from_utf8(decrypted_ciphertext_vec).unwrap();
-
-        return result;
+        String::from_utf8(decrypted_ciphertext_vec).unwrap()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
-    use super::*;
+    use serde_json::json;
+    use crate::ciphers::cipher::Cipher;
+    use crate::utils::rand::gen_ascii_chars;
 
     #[test]
     fn it_should_cipher_encrypt_decrypt_1() {
         let data: &str = "hello";
         let secret: &str = "secret";
         let enc: String = Cipher::encrypt(data.to_string(), secret.to_string());
-        let dec: String = Cipher::decrypt(enc.to_string(), secret.to_string());
+        let dec: String = Cipher::decrypt(enc, secret.to_string());
 
-        assert_eq!(data.to_string(), dec.to_string());
+        assert_eq!(data.to_string(), dec);
     }
 
     #[test]
@@ -144,9 +142,9 @@ mod tests {
         let data: &str = &data_serde.to_string();
         let secret: &str = "secret";
         let enc: String = Cipher::encrypt(data.to_string(), secret.to_string());
-        let dec: String = Cipher::decrypt(enc.to_string(), secret.to_string());
+        let dec: String = Cipher::decrypt(enc, secret.to_string());
 
-        assert_eq!(data.to_string(), dec.to_string());
+        assert_eq!(data.to_string(), dec);
     }
 
     #[test]
@@ -156,7 +154,7 @@ mod tests {
         let secret1: &str = "secret1";
         let secret2: &str = "secret2";
         let enc: String = Cipher::encrypt(data.to_string(), secret1.to_string());
-        let dec: String = Cipher::decrypt(enc.to_string(), secret2.to_string());
+        let _dec: String = Cipher::decrypt(enc, secret2.to_string());
     }
 
     #[test]
@@ -167,7 +165,7 @@ mod tests {
         let data: String = gen_ascii_chars(SALT_LENGTH + IV_LENGTH - 1);
         let secret: &str = "secret";
 
-        Cipher::decrypt(data.to_string(), secret.to_string());
+        Cipher::decrypt(data, secret.to_string());
     }
 
     #[test]
@@ -179,6 +177,6 @@ mod tests {
 
         let dec: String = Cipher::decrypt(enc_data.to_string(), secret.to_string());
 
-        assert_eq!(data.to_string(), dec.to_string());
+        assert_eq!(data, dec);
     }
 }

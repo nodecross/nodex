@@ -2,3 +2,4 @@ pkg/
 target/
 **/.vscode/
 node_modules
+.idea/
