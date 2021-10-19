@@ -10,6 +10,8 @@ extern crate hex_literal;
 extern crate hmac;
 extern crate js_sys;
 extern crate libsecp256k1;
+extern crate multihash;
+extern crate olpc_cjson;
 extern crate rand;
 extern crate reqwest;
 extern crate scrypt;

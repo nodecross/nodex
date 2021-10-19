@@ -1,6 +1,6 @@
 use chrono::prelude::*;
 use libsecp256k1::{Message, PublicKey, PublicKeyFormat, SecretKey, Signature};
-use serde::{Deserialize};
+use serde::Deserialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use wasm_bindgen::prelude::*;
@@ -38,7 +38,7 @@ impl CredentialSigner {
     let suite_sign: SuiteSign = suite_sign_json.into_serde().unwrap();
     let obj: js_sys::Object = js_sys::Object::from(object_json.clone());
     let proof_key: JsValue = JsValue::from_str(PROOF_KEY);
-    assert!(! obj.has_own_property(&proof_key));
+    assert!(!obj.has_own_property(&proof_key));
     let created: String = Utc::now().format("%Y-%m-%dT%I:%M:%SZ").to_string();
     let jws = Jws::encode(object_json.clone(), suite_sign.secret_key64);
 
@@ -65,8 +65,8 @@ impl CredentialSigner {
     assert!(obj.has_own_property(&proof_key));
     let proof_json: JsValue = js_sys::Reflect::get(&object_json, &proof_key).unwrap();
     let proof_obj: js_sys::Object = js_sys::Object::from(proof_json.clone());
-    assert!(! proof_obj.is_undefined());
-    assert!(! proof_obj.is_null());
+    assert!(!proof_obj.is_undefined());
+    assert!(!proof_obj.is_null());
     let vm_key: JsValue = JsValue::from_str(VM_KEY);
     let vm_json: JsValue = js_sys::Reflect::get(&proof_json, &vm_key).unwrap();
     let vm_obj: js_sys::Object = js_sys::Object::from(vm_json);
@@ -135,13 +135,12 @@ impl Jws {
     let header_json: serde_json::Value = serde_json::from_str(&header_json_string).unwrap();
 
     assert_eq!(header_json["alg"], "ES256K");
-    assert_eq!(header_json["b64"], false);
-    assert!(
-      header_json["crit"]
-        .as_array()
-        .unwrap()
-        .contains(&json!("b64"))
-    );
+    assert!(header_json["b64"].is_boolean());
+    assert!(!header_json["b64"].as_bool().unwrap());
+    assert!(header_json["crit"]
+      .as_array()
+      .unwrap()
+      .contains(&json!("b64")));
 
     assert_eq!(payload64_url, "");
 
