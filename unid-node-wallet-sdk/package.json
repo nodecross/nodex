@@ -32,7 +32,7 @@
     "@unid/wallet-sdk-base-connector": "^0.0.10",
     "@unid/wallet-sdk-mongo-connector": "^0.0.2",
     "async": "^3.2.0",
-    "axios": "^0.21.1",
+    "axios": "^0.21.2",
     "base64url": "^3.0.1",
     "bip32": "^2.0.6",
     "bip39": "^3.0.3",
