@@ -46,6 +46,8 @@ chrono = { version = "0.4.19", features = ["unstable-locales", "wasmbind"] }
 reqwest = { version = "0.11", features = ["blocking","json"] }
 tokio = { version = "1", features = ["full"] }
 wasm-bindgen-test = "0.3.28"
+multihash = "0.15.0"
+olpc-cjson = "0.1.1"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.28"
