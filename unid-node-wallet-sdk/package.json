@@ -43,7 +43,7 @@
     "dotenv": "^8.2.0",
     "http-status-codes": "^2.1.4",
     "jsonld": "^3.2.0",
-    "lodash": "^4.17.20",
+    "lodash": "^4.17.21",
     "moment": "^2.29.1",
     "mongodb": "^3.6.3",
     "multihashes": "^3.1.1",
