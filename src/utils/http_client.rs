@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-type KV = HashMap<String, String>;
+use crate::core::interfaces::did_operation::KV;
 
 pub struct HttpClientContext {
   pub debug: bool,
@@ -10,10 +8,7 @@ pub struct AxiosRequestConfig {
   pub base_url: String,
 }
 
-pub struct DIDResolutionRequest {
-  pub did: String,
-}
-
+#[derive(Clone, Debug)]
 pub struct HttpClient {
   pub base_url: String,
   pub instance: reqwest::blocking::Client,
@@ -107,7 +102,7 @@ pub mod tests {
 
     let client_context: HttpClientContext = HttpClientContext { debug: false };
     let client = HttpClient::new(Some(client_config), Some(client_context));
-    let mut payload_map = HashMap::new();
+    let mut payload_map = std::collections::HashMap::new();
     payload_map.insert("key".to_string(), "value".to_string());
     let res: serde_json::Value = client.post_serde(payload_map, None);
     assert!(!res.is_null());

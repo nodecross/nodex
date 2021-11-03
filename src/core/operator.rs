@@ -4,13 +4,12 @@ use super::interfaces::{did_document::*, did_operation::*};
 use super::payload::*;
 use std::collections::HashMap;
 
-pub type KV = HashMap<String, String>;
-
 pub struct UNiDDidResolverContext {
   pub _debug: Option<bool>,
   pub _endpoint: Option<String>,
 }
 
+#[derive(Clone, Debug)]
 pub struct UNiDDidOperator {
   pub debug: bool,
   pub endpoint: String,
@@ -80,13 +79,24 @@ impl UNiDDidOperator {
     let client = &self.client;
     let resolve_directory = "/api/v1/operations".to_string();
     let mut payload_map = HashMap::new();
-    payload_map.insert("create".to_string(), payload.type_field);
+    payload_map.insert("type".to_string(), payload.type_field);
     payload_map.insert("delta".to_string(), payload.delta);
     payload_map.insert("suffix_data".to_string(), payload.suffix_data);
     let res_string: String = client.post_text(payload_map, Some(resolve_directory));
     assert!(serde_json::from_str::<serde_json::Value>(&res_string).is_ok());
-    let did_root: Root = serde_json::from_str(&res_string).unwrap();
-    UNiDDidDocument::new(did_root.did_document)
+    let root: Root = serde_json::from_str(&res_string).unwrap();
+    UNiDDidDocument::new(root.did_document)
+  }
+  pub fn create_str(&self, params: DIDCreateRequest) -> String {
+    let payload = Payload::did_create_payload(params);
+    let client = &self.client;
+    let resolve_directory = "/api/v1/operations".to_string();
+    let mut payload_map = HashMap::new();
+    payload_map.insert("type".to_string(), payload.type_field);
+    payload_map.insert("delta".to_string(), payload.delta);
+    payload_map.insert("suffix_data".to_string(), payload.suffix_data);
+    let res_string: String = client.post_text(payload_map, Some(resolve_directory));
+    res_string
   }
 }
 

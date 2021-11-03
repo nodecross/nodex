@@ -1,5 +1,6 @@
 use super::did_document::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,3 +59,10 @@ pub struct DIDReplaceSuffixObject {
   pub delta_hash: String,
   pub recovery_commitment: String,
 }
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DIDResolutionRequest {
+  pub did: String,
+}
+
+pub type KV = HashMap<String, String>;
