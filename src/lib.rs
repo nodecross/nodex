@@ -1,6 +1,8 @@
 extern crate aes;
 extern crate base64;
 extern crate base64_url;
+extern crate bip32;
+extern crate bip39;
 extern crate block_modes;
 extern crate bytebuffer;
 extern crate chrono;
@@ -23,4 +25,7 @@ extern crate wasm_bindgen_test;
 
 pub mod ciphers;
 pub mod core;
+pub mod did_unid;
+pub mod runtime;
+pub mod unid;
 pub mod utils;
