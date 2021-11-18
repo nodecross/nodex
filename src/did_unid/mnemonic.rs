@@ -133,7 +133,7 @@ pub mod tests {
   fn it_should_generate_bip39_seed() {
     let bip39: BIP39Context = MnemonicKeyring::generate_bip39_seed(None);
     assert_eq!(bip39.seed.len(), 64);
-    assert!(bip39.mnemonic.clone().is_some());
+    assert!(bip39.mnemonic.is_some());
   }
 
   #[test]
