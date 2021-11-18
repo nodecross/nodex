@@ -1,8 +1,10 @@
 use super::encoder::*;
+use alloc::{string::String, vec::Vec};
 use multihash::{Code, Multihash, MultihashDigest};
 use olpc_cjson::CanonicalFormatter;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
+
 pub struct Multihasher {}
 
 impl Multihasher {

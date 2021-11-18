@@ -1,5 +1,3 @@
-use crate::core::interfaces::did_operation::KV;
-
 pub struct HttpClientContext {
     pub debug: bool,
 }
