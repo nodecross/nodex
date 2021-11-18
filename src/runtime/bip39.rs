@@ -1,9 +1,10 @@
-use bip39::{Language, Mnemonic, MnemonicType, Seed};
+use alloc::string::{String, ToString};
+use bip39::Mnemonic;
 
 pub struct BIP39 {}
 
 impl BIP39 {
-    pub fn generate_mnemonic(strength: usize) -> String {
+    pub fn generate_mnemonic(_strength: usize) -> String {
         let mnemonic_type = match strength {
             12 => MnemonicType::Words12,
             15 => MnemonicType::Words15,
@@ -13,9 +14,9 @@ impl BIP39 {
             _ => panic!("wrong strength size"),
         };
 
-        let mnemonic = Mnemonic::new(mnemonic_type, Language::English);
+        let mnemonic = Mnemonic::generate(12).unwrap();
 
-        mnemonic.phrase().to_string()
+        mnemonic.to_string()
     }
 
     pub fn mnemonic_to_seed(mnemonic_string: String, password_option: Option<String>) -> Vec<u8> {

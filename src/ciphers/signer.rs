@@ -1,38 +1,28 @@
-use chrono::prelude::*;
+use alloc::string::{String, ToString};
 use libsecp256k1::{Message, PublicKey, PublicKeyFormat, SecretKey, Signature};
-use serde::Deserialize;
-use serde_json::json;
-use sha2::{Digest, Sha256};
-use wasm_bindgen::prelude::*;
 
 const PROOF_KEY: &str = "proof";
 const VM_KEY: &str = "verificationMethod";
 const JWS_KEY: &str = "jws";
 
-#[derive(Deserialize)]
 struct SuiteSign {
     did: String,
     key_id: String,
     secret_key64: String,
 }
 
-#[derive(Deserialize)]
 struct SuiteVerify {
     _did: Option<String>,
     key_id: String,
     pub_key64: String,
 }
 
-#[wasm_bindgen]
 pub struct Signer {}
 
-#[wasm_bindgen]
 pub struct Jws {}
 
-#[wasm_bindgen]
 pub struct CredentialSigner {}
 
-#[wasm_bindgen]
 impl CredentialSigner {
     pub fn sign(object_json: JsValue, suite_sign_json: JsValue) -> JsValue {
         let suite_sign: SuiteSign = suite_sign_json.into_serde().unwrap();
@@ -97,7 +87,6 @@ impl CredentialSigner {
     }
 }
 
-#[wasm_bindgen]
 impl Jws {
     pub fn encode(object: JsValue, secret_key64: String) -> String {
         let header: serde_json::Value = json!({
@@ -157,21 +146,16 @@ impl Jws {
     }
 }
 
-#[wasm_bindgen]
 impl Signer {
-    pub fn sign(message: String, secret_key64: String) -> String {
-        let message_str: &str = &message;
-        let message_u8: &[u8] = message_str.as_bytes();
-        let message_u8_json = json!({"type":"Buffer", "data":message_u8 });
-        let message_u8_json_string: String = message_u8_json.to_string();
-        let message_u8_json_str: &str = &message_u8_json_string;
-        let message_u8_json_u8: &[u8] = message_u8_json_str.as_bytes();
+    pub fn sign(_message: String, _secret: String) -> String {
+        let message_u8 = message.as_bytes();
+        let secret_u8 = secret.as_bytes();
 
-        let digested = Sha256::digest(message_u8_json_u8);
+        let digested = Sha256::digest(message_u8);
         let digested_u8: &[u8] = &digested.to_vec()[..];
         let digested_message = Message::parse_slice(digested_u8).unwrap();
 
-        let secret_key_vec: Vec<u8> = base64::decode(secret_key64.as_bytes()).unwrap();
+        let secret_key_vec: Vec<u8> = base64::decode(secret_u8).unwrap();
         let secret_key_u8: &[u8] = &secret_key_vec[..];
 
         let secret_key_sk = SecretKey::parse_slice(secret_key_u8).unwrap();
@@ -182,7 +166,7 @@ impl Signer {
         base64::encode(sig_u8.to_vec())
     }
 
-    pub fn verify(message: String, signature64: String, pub_key64: String) -> bool {
+    pub fn verify(_message: String, _signature64: String, _pub_key64: String) -> bool {
         let message_str: &str = &message;
         let message_u8: &[u8] = message_str.as_bytes();
         let message_u8_json = json!({ "type":"Buffer", "data":message_u8 });
@@ -207,9 +191,6 @@ impl Signer {
 }
 
 #[cfg(test)]
-use wasm_bindgen_test;
-use wasm_bindgen_test::*;
-
 pub mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
@@ -229,7 +210,6 @@ pub mod tests {
         assert!(verified);
     }
 
-    #[wasm_bindgen_test]
     fn it_should_jws_encode_verify_1() {
         let data_serde: serde_json::Value = json!({
             "test" : "ok"
@@ -242,7 +222,6 @@ pub mod tests {
         assert!(verified);
     }
 
-    #[wasm_bindgen_test]
     fn it_should_credential_signer_sign_verify_1() {
         let suite_sign_serde: serde_json::Value = json!({
             "did" : "did:unid:test:EiBtzgWy130lNOyO3JsHkR75YFeSgU7h4p6zYvfQxrAXeA",
