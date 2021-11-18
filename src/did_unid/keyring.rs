@@ -2,4 +2,5 @@
 pub enum KeyRingEnum {
   Mnemonic,
 }
+
 pub type KeyRingType = KeyRingEnum;
