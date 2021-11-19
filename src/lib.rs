@@ -13,17 +13,6 @@ use cstr_core::{CStr, CString, c_char};
 #[global_allocator]
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
 
-#[no_mangle]
-pub extern "C" fn libunid_init() {
-    let heap_start = 0x20000000;
-    let heap_end   = 0x20000000 + (1024 * 10); /* 1024 bytes (1k) x 10 = 10k */
-    let heap_size  = heap_end - heap_start;
-
-    unsafe {
-        ALLOCATOR.lock().init(heap_start, heap_size);
-    }
-}
-
 // Utils
 pub mod utils;
 
@@ -33,35 +22,138 @@ pub mod ciphers;
 // Runtime
 pub mod runtime;
 
-// TODO: FREE_MEMORY
+#[repr(C)]
+pub struct UNiDConfig {
+    client_id: *const c_char,
+    client_secret: *const c_char,
+}
 
-/// runtime :: bip39 :: generate_mnemonic
-/// 
-/// # Safety
+#[repr(C)]
+pub struct UNiDContext {
+    client_id: *const c_char,
+    client_secret: *const c_char,
+}
+
+/// [TODO]: FREE_MEMORY
+
+/// unid :: init
 #[no_mangle]
-pub unsafe extern "C" fn runtime_bip39_generate_mnemonic() -> *mut c_char {
-    let r = String::from("DUMMY");
+pub extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
+    // heap
+    let heap_start = 0x20000000;
+    let heap_end   = 0x20000000 + (1024 * 10); /* 1024 bytes (1k) x 10 = 10k */
+    let heap_size  = heap_end - heap_start;
+
+    unsafe {
+        ALLOCATOR.lock().init(heap_start, heap_size);
+    }
+
+    // build context then return
+    UNiDContext {
+        client_id    : config.client_id,
+        client_secret: config.client_secret,
+    }
+}
+
+/// unid :: core :: create_did
+#[no_mangle]
+pub extern "C" fn unid_core_create_did(_context: UNiDContext) -> *mut c_char {
+    let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
     r_c_str.into_raw()
 }
 
-/// utils :: random :: get_random_bytes
-/// 
-/// # Safety
+/// unid :: core :: resolve_did
 #[no_mangle]
-pub unsafe extern "C" fn utils_random_get_random_bytes(_length: i32) -> *mut c_char {
-    let r = String::from("DUMMY");
+pub extern "C" fn unid_core_resolve_did(_context: UNiDContext) -> *mut c_char {
+    let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
     r_c_str.into_raw()
 }
 
-/// utils :: codec :: base64_encode
+/// unid :: core :: update_did
+#[no_mangle]
+pub extern "C" fn unid_core_update_did(_context: UNiDContext) -> *mut c_char {
+    let r = String::from("WIP_FOR_ROT");
+    let r_c_str = CString::new(r).unwrap();
+
+    r_c_str.into_raw()
+}
+
+/// unid :: core :: revoke_did
+#[no_mangle]
+pub extern "C" fn unid_core_revoke_did(_context: UNiDContext) -> *mut c_char {
+    let r = String::from("WIP_FOR_ROT");
+    let r_c_str = CString::new(r).unwrap();
+
+    r_c_str.into_raw()
+}
+
+/// unid :: core :: verify_credentials
+#[no_mangle]
+pub extern "C" fn unid_core_verify_credentials(_context: UNiDContext) -> *mut c_char {
+    let r = String::from("WIP_FOR_ROT");
+    let r_c_str = CString::new(r).unwrap();
+
+    r_c_str.into_raw()
+}
+
+/// unid :: core :: verify_presentations
+#[no_mangle]
+pub extern "C" fn unid_core_verify_presentations(_context: UNiDContext) -> *mut c_char {
+    let r = String::from("WIP_FOR_ROT");
+    let r_c_str = CString::new(r).unwrap();
+
+    r_c_str.into_raw()
+}
+
+/// unid :: did :: create_credentials
+#[no_mangle]
+pub extern "C" fn unid_did_create_credentials(_context: UNiDContext) -> *mut c_char {
+    let r = String::from("WIP_FOR_ROT");
+    let r_c_str = CString::new(r).unwrap();
+
+    r_c_str.into_raw()
+}
+
+/// unid :: did :: create_presentations
+#[no_mangle]
+pub extern "C" fn unid_did_create_presentations(_context: UNiDContext) -> *mut c_char {
+    let r = String::from("WIP_FOR_ROT");
+    let r_c_str = CString::new(r).unwrap();
+
+    r_c_str.into_raw()
+}
+
+/// unid :: runtime :: bip39 :: generate_mnemonic
 /// 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn utils_codec_base64_encode(content: *const c_char) -> *mut c_char {
+pub unsafe extern "C" fn unid_runtime_bip39_generate_mnemonic() -> *mut c_char {
+    let r = String::from("WIP_FOR_ROT");
+    let r_c_str = CString::new(r).unwrap();
+
+    r_c_str.into_raw()
+}
+
+/// unid :: utils :: random :: get_random_bytes
+/// 
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn unid_utils_random_get_random_bytes(_length: i32) -> *mut c_char {
+    let r = String::from("WIP_FOR_ROT");
+    let r_c_str = CString::new(r).unwrap();
+
+    r_c_str.into_raw()
+}
+
+/// unid :: utils :: codec :: base64_encode
+/// 
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn unid_utils_codec_base64_encode(content: *const c_char) -> *mut c_char {
     let v1 = {
         assert!(! content.is_null());
 
@@ -75,11 +167,11 @@ pub unsafe extern "C" fn utils_codec_base64_encode(content: *const c_char) -> *m
     r_c_str.into_raw()
 }
 
-/// utils :: codec :: base64_decode
+/// unid :: utils :: codec :: base64_decode
 /// 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn utils_codec_base64_decode(content: *const c_char) -> *mut c_char {
+pub unsafe extern "C" fn unid_utils_codec_base64_decode(content: *const c_char) -> *mut c_char {
     let v1 = {
         assert!(! content.is_null());
 
@@ -93,66 +185,66 @@ pub unsafe extern "C" fn utils_codec_base64_decode(content: *const c_char) -> *m
     r_c_str.into_raw()
 }
 
-/// utils :: multihasher :: hash
+/// unid :: utils :: multihasher :: hash
 /// 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn utils_multihasher_hash(_content: *const c_char) -> *mut c_char {
-    let r = String::from("DUMMY");
+pub unsafe extern "C" fn unid_utils_multihasher_hash(_content: *const c_char) -> *mut c_char {
+    let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
     r_c_str.into_raw()
 }
 
-/// ciphers :: signer :: sign
+/// unid :: ciphers :: signer :: sign
 /// 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn ciphers_signer_sign() -> *mut c_char {
-    let r = String::from("DUMMY");
+pub unsafe extern "C" fn unid_ciphers_signer_sign() -> *mut c_char {
+    let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
     r_c_str.into_raw()
 }
 
-/// ciphers :: signer :: verify
+/// unid :: ciphers :: signer :: verify
 /// 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn ciphers_signer_verify() -> *mut c_char {
-    let r = String::from("DUMMY");
+pub unsafe extern "C" fn unid_ciphers_signer_verify() -> *mut c_char {
+    let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
     r_c_str.into_raw()
 }
 
-/// ciphers :: cipher :: encrypt
+/// unid :: ciphers :: cipher :: encrypt
 /// 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn ciphers_cipher_encrypt() -> *mut c_char {
-    let r = String::from("DUMMY");
+pub unsafe extern "C" fn unid_ciphers_cipher_encrypt() -> *mut c_char {
+    let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
     r_c_str.into_raw()
 }
 
-/// ciphers :: cipher :: decrypt
+/// unid :: ciphers :: cipher :: decrypt
 /// 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn ciphers_cipher_decrypt() -> *mut c_char {
-    let r = String::from("DUMMY");
+pub unsafe extern "C" fn unid_ciphers_cipher_decrypt() -> *mut c_char {
+    let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
     r_c_str.into_raw()
 }
 
-/// ciphers :: hasher :: digest
+/// unid :: ciphers :: hasher :: digest
 /// 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn ciphers_hasher_digest(content: *const c_char, secret: *const c_char) -> *mut c_char {
+pub unsafe extern "C" fn unid_ciphers_hasher_digest(content: *const c_char, secret: *const c_char) -> *mut c_char {
     // v1
     let v1 = {
         assert!(! content.is_null());
@@ -176,11 +268,11 @@ pub unsafe extern "C" fn ciphers_hasher_digest(content: *const c_char, secret: *
     r_c_str.into_raw()
 }
 
-/// ciphers :: hasher :: verify
+/// unid :: ciphers :: hasher :: verify
 /// 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn ciphers_hasher_verify(content: *const c_char, digest: *const c_char, secret: *const c_char) -> bool {
+pub unsafe extern "C" fn unid_ciphers_hasher_verify(content: *const c_char, digest: *const c_char, secret: *const c_char) -> bool {
     // v1
     let v1 = {
         assert!(! content.is_null());
