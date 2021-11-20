@@ -6,21 +6,14 @@
 
 extern crate alloc;
 
+mod unid;
+mod allocator;
+
 use alloc::string::{String, ToString};
-use linked_list_allocator::LockedHeap;
 use cstr_core::{CStr, CString, c_char};
 
 #[global_allocator]
-static ALLOCATOR: LockedHeap = LockedHeap::empty();
-
-// Utils
-pub mod utils;
-
-// Ciphers
-pub mod ciphers;
-
-// Runtime
-pub mod runtime;
+static mut ALLOCATOR: allocator::ExternalHeap = allocator::ExternalHeap::empty();
 
 #[repr(C)]
 pub struct UNiDConfig {
@@ -38,14 +31,9 @@ pub struct UNiDContext {
 
 /// unid :: init
 #[no_mangle]
-pub extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
-    // heap
-    let heap_start = 0x20000000;
-    let heap_end   = 0x20000000 + (1024 * 10); /* 1024 bytes (1k) x 10 = 10k */
-    let heap_size  = heap_end - heap_start;
-
+pub extern "C" fn unid_init(config: UNiDConfig, allocator: extern "C" fn(u32) -> *mut allocator::c_void, deallocator: extern "C" fn(*mut allocator:: c_void)) -> UNiDContext {
     unsafe {
-        ALLOCATOR.lock().init(heap_start, heap_size);
+        ALLOCATOR.init(allocator, deallocator);
     }
 
     // build context then return
@@ -161,7 +149,7 @@ pub unsafe extern "C" fn unid_utils_codec_base64_encode(content: *const c_char) 
     };
     let v1_str = v1.to_str().unwrap().to_string();
 
-    let r = utils::codec::Codec::base64_encode(v1_str);
+    let r = unid::utils::codec::Codec::base64_encode(v1_str);
     let r_c_str = CString::new(r).unwrap();
 
     r_c_str.into_raw()
@@ -179,7 +167,7 @@ pub unsafe extern "C" fn unid_utils_codec_base64_decode(content: *const c_char) 
     };
     let v1_str = v1.to_str().unwrap().to_string();
 
-    let r = utils::codec::Codec::base64_decode(v1_str);
+    let r = unid::utils::codec::Codec::base64_decode(v1_str);
     let r_c_str = CString::new(r).unwrap();
 
     r_c_str.into_raw()
@@ -262,7 +250,7 @@ pub unsafe extern "C" fn unid_ciphers_hasher_digest(content: *const c_char, secr
     let v2_str = v2.to_str().unwrap().to_string();
 
     // result
-    let r = ciphers::hasher::Hasher::digest(v1_str, v2_str);
+    let r = unid::ciphers::hasher::Hasher::digest(v1_str, v2_str);
     let r_c_str = CString::new(r).unwrap();
 
     r_c_str.into_raw()
@@ -298,7 +286,7 @@ pub unsafe extern "C" fn unid_ciphers_hasher_verify(content: *const c_char, dige
     let v3_str = v3.to_str().unwrap().to_string();
 
     // result
-    ciphers::hasher::Hasher::verify(v1_str, v2_str, v3_str)
+    unid::ciphers::hasher::Hasher::verify(v1_str, v2_str, v3_str)
 }
 
 #[cfg(not(test))]
