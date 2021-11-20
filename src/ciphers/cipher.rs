@@ -39,8 +39,8 @@ impl Cipher {
 
         // get the phc string by hashing secret using salt with given parameters of scrypt algorithm
         let key_phc: PasswordHash = Scrypt
-          .hash_password(secret_u8, Some(scrypt::ALG_ID), params, &salt_ss)
-          .unwrap();
+            .hash_password(secret_u8, Some(scrypt::ALG_ID), params, &salt_ss)
+            .unwrap();
         //alternative to the previous command using default params
         // let key_phc = PasswordHash::generate(Scrypt, secret_bytes,&salt_str).unwrap();
         //get the key hash output only from the phc string
@@ -89,8 +89,8 @@ impl Cipher {
 
         // get the phc string by hashing secret using salt with given parameters of scrypt algorithm
         let key_phc: PasswordHash = Scrypt
-          .hash_password(secret_u8, Some(scrypt::ALG_ID), params, &salt_ss)
-          .unwrap();
+            .hash_password(secret_u8, Some(scrypt::ALG_ID), params, &salt_ss)
+            .unwrap();
         //alternative to the previous command using default params
         // let key_phc = PasswordHash::generate(Scrypt, secret_bytes,&salt_str).unwrap();
         //get the key hash output only from the phc string
@@ -105,8 +105,8 @@ impl Cipher {
 
         // decipher the byte slice into decrypted byte vector
         let decrypted_ciphertext_vec: Vec<u8> = cipher
-          .decrypt_vec(&ciphertext_u8[32..ciphertext_u8.len() - 16])
-          .unwrap();
+            .decrypt_vec(&ciphertext_u8[32..ciphertext_u8.len() - 16])
+            .unwrap();
 
         // Convert the decrypted u8 byte vector into string and return
         String::from_utf8(decrypted_ciphertext_vec).unwrap()
@@ -132,11 +132,11 @@ mod tests {
     #[test]
     fn it_should_cipher_encrypt_decrypt_2() {
         let data_serde: serde_json::Value = json!({
-          "hello0" : "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello",
-          "hello1" : "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello",
-          "hello2" : "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello",
-          "hello3" : "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello",
-          "hello4" : "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello"
+            "hello0" : "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello",
+            "hello1" : "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello",
+            "hello2" : "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello",
+            "hello3" : "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello",
+            "hello4" : "hellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohellohello"
         });
 
         let data: &str = &data_serde.to_string();
@@ -172,7 +172,7 @@ mod tests {
     fn it_should_cipher_decrypt_2() {
         let data: &str = "Hello world!";
         let enc_data: &str =
-          "d21mUXlyTWtuZEVwQ2pBMXRQT2VxTlVLbGMyVzV2Qmiodr/+/GkoY8WUiz17vj8BUWJvQklTWERaaE94SldybQ==";
+            "d21mUXlyTWtuZEVwQ2pBMXRQT2VxTlVLbGMyVzV2Qmiodr/+/GkoY8WUiz17vj8BUWJvQklTWERaaE94SldybQ==";
         let secret: &str = "secret";
 
         let dec: String = Cipher::decrypt(enc_data.to_string(), secret.to_string());
