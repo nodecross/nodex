@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 #![feature(libc)]
+#![feature(once_cell)]
 #![feature(default_alloc_error_handler)]
 #![feature(const_fn_fn_ptr_basics)]
 
@@ -9,6 +10,7 @@ extern crate alloc;
 mod unid;
 mod allocator;
 
+use core::lazy::OnceCell;
 use alloc::string::{String, ToString};
 use cstr_core::{CStr, CString, c_char};
 
@@ -29,12 +31,73 @@ pub struct UNiDContext {
 
 /// [TODO]: FREE_MEMORY
 
-/// unid :: init
+/**
+ * C:
+ * 
+ * void* memory_allocator_handler(size_t size) {
+ *     return malloc(size);
+ * }
+ * 
+ * int main() {
+ *     unid_regist_handler_on_memory_alloc(memory_allocator_handler);
+ * }
+ */
+
+static mut MEMORY_ALLOC_HANDLER: OnceCell<extern "C" fn(u32) -> *mut allocator::c_void> = OnceCell::new();
+static mut MEMORY_FREE_HANDLER: OnceCell<extern "C" fn(*mut allocator::c_void)> = OnceCell::new();
+static mut DEBUG_MESSAGE_HANDLER: OnceCell<extern "C" fn(*mut c_char)> = OnceCell::new();
+
+/// # Safety
 #[no_mangle]
-pub extern "C" fn unid_init(config: UNiDConfig, allocator: extern "C" fn(u32) -> *mut allocator::c_void, deallocator: extern "C" fn(*mut allocator:: c_void)) -> UNiDContext {
-    unsafe {
-        ALLOCATOR.init(allocator, deallocator);
+pub unsafe fn debug_print(message: String) {
+    let handler = DEBUG_MESSAGE_HANDLER.get();
+
+    if let Some(..) = handler {
+        let c_char = CString::new(message).unwrap();
+        let ptr = c_char.into_raw();
+
+        handler.unwrap()(ptr);
+
+        let _ = CString::from_raw(ptr);
     }
+}
+
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn unid_regist_handler_on_memory_alloc(handler: extern "C" fn(u32) -> *mut allocator::c_void) {
+    let r = MEMORY_ALLOC_HANDLER.set(handler);
+
+    assert!(r.is_ok())
+}
+
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn unid_regist_handler_on_memory_free(handler: extern "C" fn(*mut allocator::c_void)) {
+    let r = MEMORY_FREE_HANDLER.set(handler);
+
+    assert!(r.is_ok())
+}
+
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn unid_regist_handler_on_debug_message(handler: extern "C" fn(*mut c_char)) {
+    let r = DEBUG_MESSAGE_HANDLER.set(handler);
+
+    assert!(r.is_ok());
+}
+
+/// unid :: init
+/// 
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
+    let alloc_handler = MEMORY_ALLOC_HANDLER.get();
+    let free_handler = MEMORY_FREE_HANDLER.get();
+
+    assert!(! alloc_handler.is_none());
+    assert!(! free_handler.is_none());
+
+    ALLOCATOR.init(*alloc_handler.unwrap(), *free_handler.unwrap());
 
     // build context then return
     UNiDContext {
@@ -233,6 +296,8 @@ pub unsafe extern "C" fn unid_ciphers_cipher_decrypt() -> *mut c_char {
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_ciphers_hasher_digest(content: *const c_char, secret: *const c_char) -> *mut c_char {
+    debug_print("[call] unid_ciphers_hasher_digest".to_string());
+
     // v1
     let v1 = {
         assert!(! content.is_null());
