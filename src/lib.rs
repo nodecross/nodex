@@ -64,6 +64,16 @@ pub unsafe fn debug_print(message: String) {
 
 /// # Safety
 #[no_mangle]
+pub unsafe extern "C" fn unid_disposer(ptr: *mut c_char) {
+    if ptr.is_null() {
+        return;
+    }
+
+    let _ = CString::from_raw(ptr);
+}
+
+/// # Safety
+#[no_mangle]
 pub unsafe extern "C" fn unid_regist_handler_on_memory_alloc(handler: extern "C" fn(u32) -> *mut allocator::c_void) {
     let r = MEMORY_ALLOC_HANDLER.set(handler);
 
