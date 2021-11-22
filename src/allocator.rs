@@ -84,6 +84,7 @@ mod tests {
 
     extern "C" fn test_allocator(size: u32) -> *mut c_void {
         assert_eq!(size, 1);
+
         1 as *mut c_void
     }
 

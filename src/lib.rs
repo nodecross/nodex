@@ -1,5 +1,5 @@
-#![no_std]
-#![no_main]
+#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(test), no_main)]
 #![feature(libc)]
 #![feature(const_panic)]
 #![feature(const_option)]
@@ -20,7 +20,7 @@ use cstr_core::{CStr, CString, c_char};
 use logger::Logger;
 use spin::Mutex;
 
-#[global_allocator]
+#[cfg_attr(not(test), global_allocator)]
 static mut ALLOCATOR: allocator::ExternalHeap = allocator::ExternalHeap::empty();
 
 #[repr(C)]
@@ -410,4 +410,18 @@ use core::panic::PanicInfo;
 #[panic_handler]
 pub extern "C" fn panic(_panic: &PanicInfo<'_>) -> ! {
     loop {}
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate std;
+
+    #[cfg_attr(test, global_allocator)]
+    static mut A: std::alloc::System = std::alloc::System;
+
+    #[allow(clippy::eq_op)]
+    #[test]
+    fn it_works() {
+        assert_eq!("hello", "hello");
+    }
 }
