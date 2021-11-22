@@ -13,10 +13,11 @@ mod unid;
 mod logger;
 mod allocator;
 
-use core::lazy::OnceCell;
+use core::lazy::Lazy;
 use alloc::string::{String, ToString};
 use cstr_core::{CStr, CString, c_char};
 use logger::Logger;
+use spin::Mutex;
 
 #[global_allocator]
 static mut ALLOCATOR: allocator::ExternalHeap = allocator::ExternalHeap::empty();
@@ -33,14 +34,60 @@ pub struct UNiDContext {
     client_secret: *const c_char,
 }
 
-pub static mut MEMORY_ALLOC_HANDLER: OnceCell<extern "C" fn(u32) -> *mut allocator::c_void> = OnceCell::new();
-pub static mut MEMORY_DEALLOC_HANDLER: OnceCell<extern "C" fn(*mut allocator::c_void)> = OnceCell::new();
-pub static mut DEBUG_MESSAGE_HANDLER: OnceCell<extern "C" fn(u32, *mut c_char)> = OnceCell::new();
+pub struct UNiDHandler {
+    memory_alloc  : Option<extern "C" fn(u32) -> *mut allocator::c_void>,
+    memory_dealloc: Option<extern "C" fn(*mut allocator::c_void)>,
+    debug_message : Option<extern "C" fn(u32, *mut c_char)>,
+}
+
+impl UNiDHandler {
+    pub const fn new() -> UNiDHandler {
+        UNiDHandler {
+            memory_alloc  : None,
+            memory_dealloc: None,
+            debug_message : None,
+        }
+    }
+
+    // setter: memory_alloc_handler
+    pub fn set_memory_alloc_handler(&mut self, handler: extern "C" fn(u32) -> *mut allocator::c_void) {
+        self.memory_alloc = Some(handler)
+    }
+
+    // getter: memory_alloc_handler
+    pub fn get_memory_alloc_handler(&self) -> Option<extern "C" fn(u32) -> *mut allocator::c_void> {
+        self.memory_alloc
+    }
+
+    // setter: memory_dealloc_handler
+    pub fn set_memory_dealloc_handler(&mut self, handler: extern "C" fn(*mut allocator::c_void)) {
+        self.memory_dealloc = Some(handler)
+    }
+
+    // getter: memory_dealloc_handler
+    pub fn get_memory_dealloc_handler(&self) -> Option<extern "C" fn(*mut allocator::c_void)> {
+        self.memory_dealloc
+    }
+
+    // setter: debug_message_handler
+    pub fn set_debug_message_handler(&mut self, handler: extern "C" fn(u32, *mut c_char)) {
+        self.debug_message = Some(handler)
+    }
+
+    // getter: debug_message_handler
+    pub fn get_debug_message_handler(&self) -> Option<extern "C" fn(u32, *mut c_char)> {
+        self.debug_message
+    }
+}
+
+pub static mut MUTEX_HANDLERS: Lazy<Mutex<UNiDHandler>> = Lazy::new(|| {
+    Mutex::new(UNiDHandler::new())
+});
 
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_disposer(ptr: *mut c_char) {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     if ptr.is_null() {
         return;
@@ -52,25 +99,19 @@ pub unsafe extern "C" fn unid_disposer(ptr: *mut c_char) {
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_regist_handler_on_memory_alloc(handler: extern "C" fn(u32) -> *mut allocator::c_void) {
-    let r = MEMORY_ALLOC_HANDLER.set(handler);
-
-    assert!(r.is_ok())
+    MUTEX_HANDLERS.lock().set_memory_alloc_handler(handler)
 }
 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn unid_regist_handler_on_memory_free(handler: extern "C" fn(*mut allocator::c_void)) {
-    let r = MEMORY_DEALLOC_HANDLER.set(handler);
-
-    assert!(r.is_ok())
+pub unsafe extern "C" fn unid_regist_handler_on_memory_dealloc(handler: extern "C" fn(*mut allocator::c_void)) {
+    MUTEX_HANDLERS.lock().set_memory_dealloc_handler(handler)
 }
 
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_regist_handler_on_debug_message(handler: extern "C" fn(u32, *mut c_char)) {
-    let r = DEBUG_MESSAGE_HANDLER.set(handler);
-
-    assert!(r.is_ok());
+    MUTEX_HANDLERS.lock().set_debug_message_handler(handler)
 }
 
 /// unid :: init
@@ -78,15 +119,15 @@ pub unsafe extern "C" fn unid_regist_handler_on_debug_message(handler: extern "C
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
-    let alloc_handler = MEMORY_ALLOC_HANDLER.get();
-    let dealloc_handler = MEMORY_DEALLOC_HANDLER.get();
+    let alloc_handler = MUTEX_HANDLERS.lock().get_memory_alloc_handler();
+    let dealloc_handler = MUTEX_HANDLERS.lock().get_memory_dealloc_handler();
 
     assert!(! alloc_handler.is_none());
     assert!(! dealloc_handler.is_none());
 
-    ALLOCATOR.init(*(alloc_handler.unwrap()), *(dealloc_handler.unwrap()));
+    ALLOCATOR.init(alloc_handler.unwrap(), dealloc_handler.unwrap());
 
     // build context then return
     UNiDContext {
@@ -100,7 +141,7 @@ pub unsafe extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_core_create_did(_context: UNiDContext) -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
@@ -113,7 +154,7 @@ pub unsafe extern "C" fn unid_core_create_did(_context: UNiDContext) -> *mut c_c
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_core_resolve_did(_context: UNiDContext) -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
@@ -126,7 +167,7 @@ pub unsafe extern "C" fn unid_core_resolve_did(_context: UNiDContext) -> *mut c_
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_core_update_did(_context: UNiDContext) -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
@@ -139,7 +180,7 @@ pub unsafe extern "C" fn unid_core_update_did(_context: UNiDContext) -> *mut c_c
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_core_revoke_did(_context: UNiDContext) -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
@@ -152,7 +193,7 @@ pub unsafe extern "C" fn unid_core_revoke_did(_context: UNiDContext) -> *mut c_c
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_core_verify_credentials(_context: UNiDContext) -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
@@ -165,7 +206,7 @@ pub unsafe extern "C" fn unid_core_verify_credentials(_context: UNiDContext) -> 
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_core_verify_presentations(_context: UNiDContext) -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
@@ -178,7 +219,7 @@ pub unsafe extern "C" fn unid_core_verify_presentations(_context: UNiDContext) -
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_did_create_credentials(_context: UNiDContext) -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
@@ -191,7 +232,7 @@ pub unsafe extern "C" fn unid_did_create_credentials(_context: UNiDContext) -> *
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_did_create_presentations(_context: UNiDContext) -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
@@ -204,7 +245,7 @@ pub unsafe extern "C" fn unid_did_create_presentations(_context: UNiDContext) ->
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_runtime_bip39_generate_mnemonic() -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
@@ -217,7 +258,7 @@ pub unsafe extern "C" fn unid_runtime_bip39_generate_mnemonic() -> *mut c_char {
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_utils_random_get_random_bytes(_length: i32) -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
@@ -230,7 +271,7 @@ pub unsafe extern "C" fn unid_utils_random_get_random_bytes(_length: i32) -> *mu
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_utils_codec_base64_encode(content: *const c_char) -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let v1 = {
         assert!(! content.is_null());
@@ -250,7 +291,7 @@ pub unsafe extern "C" fn unid_utils_codec_base64_encode(content: *const c_char) 
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_utils_codec_base64_decode(content: *const c_char) -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let v1 = {
         assert!(! content.is_null());
@@ -270,7 +311,7 @@ pub unsafe extern "C" fn unid_utils_codec_base64_decode(content: *const c_char) 
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_utils_multihasher_hash(_content: *const c_char) -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
@@ -283,7 +324,7 @@ pub unsafe extern "C" fn unid_utils_multihasher_hash(_content: *const c_char) ->
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_ciphers_signer_sign() -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
@@ -296,7 +337,7 @@ pub unsafe extern "C" fn unid_ciphers_signer_sign() -> *mut c_char {
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_ciphers_signer_verify() -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
@@ -309,7 +350,7 @@ pub unsafe extern "C" fn unid_ciphers_signer_verify() -> *mut c_char {
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_ciphers_cipher_encrypt() -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
@@ -322,7 +363,7 @@ pub unsafe extern "C" fn unid_ciphers_cipher_encrypt() -> *mut c_char {
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_ciphers_cipher_decrypt() -> *mut c_char {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
@@ -335,7 +376,7 @@ pub unsafe extern "C" fn unid_ciphers_cipher_decrypt() -> *mut c_char {
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_ciphers_hasher_digest(content: *const c_char, secret: *const c_char) -> *mut c_char {
-    let logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     logger.debug("(BEGIN) unid_ciphers_hasher_digest");
 
@@ -370,7 +411,7 @@ pub unsafe extern "C" fn unid_ciphers_hasher_digest(content: *const c_char, secr
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_ciphers_hasher_verify(content: *const c_char, digest: *const c_char, secret: *const c_char) -> bool {
-    let logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     logger.debug("(BEGIN) unid_ciphers_hasher_verify");
 

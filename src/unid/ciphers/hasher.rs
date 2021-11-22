@@ -4,7 +4,7 @@ use hmac::{Hmac, Mac, NewMac};
 use sha2::Sha512;
 
 use crate::logger::Logger;
-use crate::DEBUG_MESSAGE_HANDLER;
+use crate::MUTEX_HANDLERS;
 
 type HmacSha512 = Hmac<Sha512>;
 
@@ -24,7 +24,7 @@ impl Hasher {
         let result = mac.finalize();
 
         unsafe {
-            let logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+            let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
             logger.debug(format!("bytes = {:?}", result.clone().into_bytes()));
         }

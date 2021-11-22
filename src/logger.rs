@@ -25,10 +25,10 @@ pub struct Logger {
 }
 
 impl Logger {
-    pub const fn new(handler: Option<&extern "C" fn(u32, *mut c_char)>) -> Logger {
+    pub const fn new(handler: Option<extern "C" fn(u32, *mut c_char)>) -> Logger {
         if let Some(..) = handler {
             Logger {
-                handler: Some(*(handler.unwrap())),
+                handler: Some(handler.unwrap()),
             }
         } else {
             Logger {
