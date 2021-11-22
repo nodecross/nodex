@@ -33,9 +33,9 @@ pub struct UNiDContext {
     client_secret: *const c_char,
 }
 
-static mut MEMORY_ALLOC_HANDLER: OnceCell<extern "C" fn(u32) -> *mut allocator::c_void> = OnceCell::new();
-static mut MEMORY_DEALLOC_HANDLER: OnceCell<extern "C" fn(*mut allocator::c_void)> = OnceCell::new();
-static mut DEBUG_MESSAGE_HANDLER: OnceCell<extern "C" fn(u32, *mut c_char)> = OnceCell::new();
+pub static mut MEMORY_ALLOC_HANDLER: OnceCell<extern "C" fn(u32) -> *mut allocator::c_void> = OnceCell::new();
+pub static mut MEMORY_DEALLOC_HANDLER: OnceCell<extern "C" fn(*mut allocator::c_void)> = OnceCell::new();
+pub static mut DEBUG_MESSAGE_HANDLER: OnceCell<extern "C" fn(u32, *mut c_char)> = OnceCell::new();
 
 /// # Safety
 #[no_mangle]
@@ -52,8 +52,6 @@ pub unsafe extern "C" fn unid_disposer(ptr: *mut c_char) {
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_regist_handler_on_memory_alloc(handler: extern "C" fn(u32) -> *mut allocator::c_void) {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
-
     let r = MEMORY_ALLOC_HANDLER.set(handler);
 
     assert!(r.is_ok())
@@ -62,8 +60,6 @@ pub unsafe extern "C" fn unid_regist_handler_on_memory_alloc(handler: extern "C"
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_regist_handler_on_memory_free(handler: extern "C" fn(*mut allocator::c_void)) {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
-
     let r = MEMORY_DEALLOC_HANDLER.set(handler);
 
     assert!(r.is_ok())

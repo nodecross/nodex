@@ -1,6 +1,10 @@
+use alloc::format;
 use alloc::string::String;
 use hmac::{Hmac, Mac, NewMac};
 use sha2::Sha512;
+
+use crate::logger::Logger;
+use crate::DEBUG_MESSAGE_HANDLER;
 
 type HmacSha512 = Hmac<Sha512>;
 
@@ -10,7 +14,7 @@ impl Hasher {
     /**
      */
     pub fn digest(content: String, secret: String) -> String {
-        let secret_u8 = secret.as_bytes();
+        let secret_u8  = secret.as_bytes();
         let content_u8 = content.as_bytes();
 
         let mut mac = HmacSha512::new_from_slice(secret_u8).unwrap();
@@ -18,6 +22,12 @@ impl Hasher {
         mac.update(content_u8);
 
         let result = mac.finalize();
+
+        unsafe {
+            let logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+
+            logger.debug(format!("bytes = {:?}", result.clone().into_bytes()));
+        }
 
         base64::encode(result.into_bytes())
     }

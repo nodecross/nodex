@@ -21,31 +21,35 @@ enum LogLevel {
 }
 
 pub struct Logger {
-    handler: extern "C" fn(u32, *mut c_char)
+    handler: Option<extern "C" fn(u32, *mut c_char)>
 }
 
 impl Logger {
     pub const fn new(handler: Option<&extern "C" fn(u32, *mut c_char)>) -> Logger {
         if let Some(..) = handler {
             Logger {
-                handler: *(handler.unwrap()),
+                handler: Some(*(handler.unwrap())),
             }
         } else {
-            panic!();
+            Logger {
+                handler: None,
+            }
         }
     }
 
     /// # Safety
     unsafe fn write<S: Into<String>>(&self, level: LogLevel, message: S) {
-        let handler = self.handler;
+        if let Some(..) = self.handler {
+            let handler = self.handler.unwrap();
 
-        let m = message.into();
-        let c = CString::new(m).unwrap();
-        let ptr = c.into_raw();
+            let m = message.into();
+            let c = CString::new(m).unwrap();
+            let ptr = c.into_raw();
 
-        handler(level as u32, ptr);
+            handler(level as u32, ptr);
 
-        let _ = CString::from_raw(ptr);
+            let _ = CString::from_raw(ptr);
+        }
     }
 
     /// # Safety
