@@ -72,8 +72,6 @@ pub unsafe extern "C" fn unid_regist_handler_on_memory_free(handler: extern "C" 
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_regist_handler_on_debug_message(handler: extern "C" fn(u32, *mut c_char)) {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
-
     let r = DEBUG_MESSAGE_HANDLER.set(handler);
 
     assert!(r.is_ok());
@@ -92,7 +90,7 @@ pub unsafe extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
     assert!(! alloc_handler.is_none());
     assert!(! dealloc_handler.is_none());
 
-    ALLOCATOR.init(*alloc_handler.unwrap(), *dealloc_handler.unwrap());
+    ALLOCATOR.init(*(alloc_handler.unwrap()), *(dealloc_handler.unwrap()));
 
     // build context then return
     UNiDContext {
@@ -343,7 +341,7 @@ pub unsafe extern "C" fn unid_ciphers_cipher_decrypt() -> *mut c_char {
 pub unsafe extern "C" fn unid_ciphers_hasher_digest(content: *const c_char, secret: *const c_char) -> *mut c_char {
     let logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
 
-    logger.debug("[call] unid_ciphers_hasher_digest");
+    logger.debug("(BEGIN) unid_ciphers_hasher_digest");
 
     // v1
     let v1 = {
@@ -364,8 +362,11 @@ pub unsafe extern "C" fn unid_ciphers_hasher_digest(content: *const c_char, secr
     // result
     let r = unid::ciphers::hasher::Hasher::digest(v1_str, v2_str);
     let r_c_str = CString::new(r).unwrap();
+    let r_ptr = r_c_str.into_raw();
 
-    r_c_str.into_raw()
+    logger.debug("( END ) unid_ciphers_hasher_digest");
+
+    r_ptr
 }
 
 /// unid :: ciphers :: hasher :: verify
@@ -373,7 +374,9 @@ pub unsafe extern "C" fn unid_ciphers_hasher_digest(content: *const c_char, secr
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_ciphers_hasher_verify(content: *const c_char, digest: *const c_char, secret: *const c_char) -> bool {
-    let _logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+    let logger = Logger::new(DEBUG_MESSAGE_HANDLER.get());
+
+    logger.debug("(BEGIN) unid_ciphers_hasher_verify");
 
     // v1
     let v1 = {
@@ -400,7 +403,11 @@ pub unsafe extern "C" fn unid_ciphers_hasher_verify(content: *const c_char, dige
     let v3_str = v3.to_str().unwrap().to_string();
 
     // result
-    unid::ciphers::hasher::Hasher::verify(v1_str, v2_str, v3_str)
+    let r_value = unid::ciphers::hasher::Hasher::verify(v1_str, v2_str, v3_str);
+
+    logger.debug("( END ) unid_ciphers_hasher_verify");
+
+    r_value
 }
 
 #[cfg(not(test))]

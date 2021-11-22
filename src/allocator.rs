@@ -35,7 +35,7 @@ pub struct c_void;
 /// )
 /// ```
 pub struct ExternalHeap {
-    allocator: extern "C" fn(u32) -> *mut c_void,
+    allocator  : extern "C" fn(u32) -> *mut c_void,
     deallocator: extern "C" fn(*mut c_void),
 }
 
@@ -44,7 +44,7 @@ impl ExternalHeap {
     /// This will always be the first call to make.
     pub const fn empty() -> ExternalHeap {
         ExternalHeap {
-            allocator: ExternalHeap::noop_allocator,
+            allocator  : ExternalHeap::noop_allocator,
             deallocator: ExternalHeap::noop_deallocator,
         }
     }
@@ -54,16 +54,15 @@ impl ExternalHeap {
     /// panics occur given null allocations.
     pub fn init(
         &mut self,
-        allocator: extern "C" fn(u32) -> *mut c_void,
+        allocator  : extern "C" fn(u32) -> *mut c_void,
         deallocator: extern "C" fn(*mut c_void),
     ) {
-        self.allocator = allocator;
+        self.allocator   = allocator;
         self.deallocator = deallocator;
     }
 
     extern "C" fn noop_allocator(_size: u32) -> *mut c_void {
         null_mut::<c_void>()
-        //0 as *mut c_void
     }
 
     extern "C" fn noop_deallocator(_ptr: *mut c_void) {}
