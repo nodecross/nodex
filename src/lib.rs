@@ -414,10 +414,41 @@ pub extern "C" fn panic(_panic: &PanicInfo<'_>) -> ! {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     extern crate std;
 
     #[cfg_attr(test, global_allocator)]
     static mut A: std::alloc::System = std::alloc::System;
+
+    #[test]
+    fn test_unid_ciphers_hasher_digest() {
+        let content = CString::new("content");
+        let secret = CString::new("secret");
+
+        unsafe {
+            let c_ptr = unid_ciphers_hasher_digest(content.unwrap().as_ptr(), secret.unwrap().as_ptr());
+            let c_str = CStr::from_ptr(c_ptr);
+
+            assert_eq!(
+                c_str.to_str().unwrap(),
+                "pfMFlg7ax3Oka6O6FiWJxyAEVels4EOHUWVIgL8YXW21G+BkA5KTxCSJGnpd7hfAsodxp0Cu2Oa2uXdwqmOmXQ=="
+            );
+        }
+    }
+
+    #[test]
+    fn test_unid_ciphers_hasher_verify() {
+        let content = CString::new("content");
+        let secret = CString::new("secret");
+        let digest = CString::new("pfMFlg7ax3Oka6O6FiWJxyAEVels4EOHUWVIgL8YXW21G+BkA5KTxCSJGnpd7hfAsodxp0Cu2Oa2uXdwqmOmXQ==");
+
+        unsafe {
+            let is_verified = unid_ciphers_hasher_verify(content.unwrap().as_ptr(), digest.unwrap().as_ptr(), secret.unwrap().as_ptr());
+
+            assert!(is_verified);
+        }
+    }
 
     #[allow(clippy::eq_op)]
     #[test]
