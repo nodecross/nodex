@@ -434,6 +434,9 @@ mod tests {
                 c_str.to_str().unwrap(),
                 "pfMFlg7ax3Oka6O6FiWJxyAEVels4EOHUWVIgL8YXW21G+BkA5KTxCSJGnpd7hfAsodxp0Cu2Oa2uXdwqmOmXQ=="
             );
+
+            // dispose!
+            unid_disposer(c_ptr);
         }
     }
 
