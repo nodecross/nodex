@@ -34,11 +34,11 @@ jobs:
         RUSTFLAGS: -Zinstrument-coverage
         LLVM_PROFILE_FILE: profraw/llvm-%p-%m.profraw
     - name: (run) coverage
-      run: grcov . --source-dir . --binary-path target/debug --output-type lcov --branch --ignore-not-existing --output-path coverage
+      run: grcov . --source-dir . --binary-path target/debug --output-type lcov --branch --ignore-not-existing --ignore "/*" --output-path coverage-lcov.info
       env:
         LLVM_PROFILE_FILE: profraw/llvm-%p-%m.profraw
     - name: (run) upload to coveralls
       uses: coverallsapp/github-action@1.1.3
       with:
         github-token: ${{ secrets.github_token }}
-        path-to-lcov: coverage
+        path-to-lcov: coverage-lcov.info
