@@ -12,8 +12,8 @@ crate-type = ["staticlib"]
 
 [features]
 default = ["std"]
-alloc = []
 std = []
+alloc = []
 
 [dependencies]
 linked_list_allocator = "0.9.1"

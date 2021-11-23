@@ -1,9 +1,8 @@
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(not(test), no_main)]
 #![feature(libc)]
-#![feature(const_panic)]
-#![feature(const_option)]
 #![feature(once_cell)]
+#![feature(const_option)]
 #![feature(default_alloc_error_handler)]
 #![feature(const_fn_fn_ptr_basics)]
 

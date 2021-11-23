@@ -11,19 +11,31 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
       with:
-          toolchain: nightly
-    - name: set nightly toolchain to default
+        toolchain: nightly
+    - name: (config) set nightly toolchain to default
       run: rustup default nightly
-    - name: add rust-src to component
+    - name: (install) llvm-tools-preview
+      run: rustup component add llvm-tools-preview
+    - name: (install) rust-src
       run: rustup component add rust-src
-    - name: run build
+    - name: (install) grcov
+      run: cargo install grcov
+    - name: (run) build
       run: make build
-    - name: run tests
+    - name: (run) tests
       run: make test
+      env:
+        RUSTFLAGS: -Zinstrument-coverage
+    - name: (run) coverage
+      run: grcov . -s . --binary-path target/debug -t html --branch --ignore-not-existing -o coverage
+    - name: (store) save coverage as artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: test_coverage
+        path: coverage

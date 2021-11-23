@@ -8,6 +8,6 @@ build-renesas: build-renesas-ra6m3
 build: build-renesas
 
 test:
-	$(CARGO) test
+	RUSTFLAGS='-Zinstrument-coverage' $(CARGO) test
 
 .PHONY: build
