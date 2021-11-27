@@ -1,26 +1,26 @@
-#![no_std]
-#![no_main]
+#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(test), no_main)]
 #![feature(libc)]
+#![feature(once_cell)]
+#![feature(const_option)]
 #![feature(default_alloc_error_handler)]
 #![feature(const_fn_fn_ptr_basics)]
 
 extern crate alloc;
 
+mod unid;
+mod logger;
+mod allocator;
+mod handler;
+
+use core::lazy::Lazy;
 use alloc::string::{String, ToString};
-use linked_list_allocator::LockedHeap;
 use cstr_core::{CStr, CString, c_char};
+use logger::Logger;
+use spin::Mutex;
 
-#[global_allocator]
-static ALLOCATOR: LockedHeap = LockedHeap::empty();
-
-// Utils
-pub mod utils;
-
-// Ciphers
-pub mod ciphers;
-
-// Runtime
-pub mod runtime;
+#[cfg_attr(not(test), global_allocator)]
+static mut ALLOCATOR: allocator::ExternalHeap = allocator::ExternalHeap::empty();
 
 #[repr(C)]
 pub struct UNiDConfig {
@@ -34,19 +34,55 @@ pub struct UNiDContext {
     client_secret: *const c_char,
 }
 
-/// [TODO]: FREE_MEMORY
+//
+pub static mut MUTEX_HANDLERS: Lazy<Mutex<handler::UNiDHandler>> = Lazy::new(|| {
+    Mutex::new(handler::UNiDHandler::new())
+});
+
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn unid_disposer(ptr: *mut c_char) {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
+    if ptr.is_null() {
+        return;
+    }
+
+    let _ = CString::from_raw(ptr);
+}
+
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn unid_regist_handler_on_memory_alloc(handler: extern "C" fn(u32) -> *mut allocator::c_void) {
+    MUTEX_HANDLERS.lock().set_memory_alloc_handler(handler)
+}
+
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn unid_regist_handler_on_memory_dealloc(handler: extern "C" fn(*mut allocator::c_void)) {
+    MUTEX_HANDLERS.lock().set_memory_dealloc_handler(handler)
+}
+
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn unid_regist_handler_on_debug_message(handler: extern "C" fn(u32, *mut c_char)) {
+    MUTEX_HANDLERS.lock().set_debug_message_handler(handler)
+}
 
 /// unid :: init
+/// 
+/// # Safety
 #[no_mangle]
-pub extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
-    // heap
-    let heap_start = 0x20000000;
-    let heap_end   = 0x20000000 + (1024 * 10); /* 1024 bytes (1k) x 10 = 10k */
-    let heap_size  = heap_end - heap_start;
+pub unsafe extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
-    unsafe {
-        ALLOCATOR.lock().init(heap_start, heap_size);
-    }
+    let alloc_handler = MUTEX_HANDLERS.lock().get_memory_alloc_handler();
+    let dealloc_handler = MUTEX_HANDLERS.lock().get_memory_dealloc_handler();
+
+    assert!(! alloc_handler.is_none());
+    assert!(! dealloc_handler.is_none());
+
+    ALLOCATOR.init(alloc_handler.unwrap(), dealloc_handler.unwrap());
 
     // build context then return
     UNiDContext {
@@ -56,8 +92,12 @@ pub extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
 }
 
 /// unid :: core :: create_did
+/// 
+/// # Safety
 #[no_mangle]
-pub extern "C" fn unid_core_create_did(_context: UNiDContext) -> *mut c_char {
+pub unsafe extern "C" fn unid_core_create_did(_context: UNiDContext) -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
@@ -65,8 +105,12 @@ pub extern "C" fn unid_core_create_did(_context: UNiDContext) -> *mut c_char {
 }
 
 /// unid :: core :: resolve_did
+/// 
+/// # Safety
 #[no_mangle]
-pub extern "C" fn unid_core_resolve_did(_context: UNiDContext) -> *mut c_char {
+pub unsafe extern "C" fn unid_core_resolve_did(_context: UNiDContext) -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
@@ -74,8 +118,12 @@ pub extern "C" fn unid_core_resolve_did(_context: UNiDContext) -> *mut c_char {
 }
 
 /// unid :: core :: update_did
+/// 
+/// # Safety
 #[no_mangle]
-pub extern "C" fn unid_core_update_did(_context: UNiDContext) -> *mut c_char {
+pub unsafe extern "C" fn unid_core_update_did(_context: UNiDContext) -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
@@ -83,8 +131,12 @@ pub extern "C" fn unid_core_update_did(_context: UNiDContext) -> *mut c_char {
 }
 
 /// unid :: core :: revoke_did
+/// 
+/// # Safety
 #[no_mangle]
-pub extern "C" fn unid_core_revoke_did(_context: UNiDContext) -> *mut c_char {
+pub unsafe extern "C" fn unid_core_revoke_did(_context: UNiDContext) -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
@@ -92,8 +144,12 @@ pub extern "C" fn unid_core_revoke_did(_context: UNiDContext) -> *mut c_char {
 }
 
 /// unid :: core :: verify_credentials
+/// 
+/// # Safety
 #[no_mangle]
-pub extern "C" fn unid_core_verify_credentials(_context: UNiDContext) -> *mut c_char {
+pub unsafe extern "C" fn unid_core_verify_credentials(_context: UNiDContext) -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
@@ -101,8 +157,12 @@ pub extern "C" fn unid_core_verify_credentials(_context: UNiDContext) -> *mut c_
 }
 
 /// unid :: core :: verify_presentations
+/// 
+/// # Safety
 #[no_mangle]
-pub extern "C" fn unid_core_verify_presentations(_context: UNiDContext) -> *mut c_char {
+pub unsafe extern "C" fn unid_core_verify_presentations(_context: UNiDContext) -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
@@ -110,8 +170,12 @@ pub extern "C" fn unid_core_verify_presentations(_context: UNiDContext) -> *mut 
 }
 
 /// unid :: did :: create_credentials
+/// 
+/// # Safety
 #[no_mangle]
-pub extern "C" fn unid_did_create_credentials(_context: UNiDContext) -> *mut c_char {
+pub unsafe extern "C" fn unid_did_create_credentials(_context: UNiDContext) -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
@@ -119,8 +183,12 @@ pub extern "C" fn unid_did_create_credentials(_context: UNiDContext) -> *mut c_c
 }
 
 /// unid :: did :: create_presentations
+/// 
+/// # Safety
 #[no_mangle]
-pub extern "C" fn unid_did_create_presentations(_context: UNiDContext) -> *mut c_char {
+pub unsafe extern "C" fn unid_did_create_presentations(_context: UNiDContext) -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
@@ -132,6 +200,8 @@ pub extern "C" fn unid_did_create_presentations(_context: UNiDContext) -> *mut c
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_runtime_bip39_generate_mnemonic() -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
@@ -143,6 +213,8 @@ pub unsafe extern "C" fn unid_runtime_bip39_generate_mnemonic() -> *mut c_char {
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_utils_random_get_random_bytes(_length: i32) -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
@@ -154,6 +226,8 @@ pub unsafe extern "C" fn unid_utils_random_get_random_bytes(_length: i32) -> *mu
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_utils_codec_base64_encode(content: *const c_char) -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let v1 = {
         assert!(! content.is_null());
 
@@ -161,7 +235,7 @@ pub unsafe extern "C" fn unid_utils_codec_base64_encode(content: *const c_char) 
     };
     let v1_str = v1.to_str().unwrap().to_string();
 
-    let r = utils::codec::Codec::base64_encode(v1_str);
+    let r = unid::utils::codec::Codec::base64_encode(v1_str);
     let r_c_str = CString::new(r).unwrap();
 
     r_c_str.into_raw()
@@ -172,6 +246,8 @@ pub unsafe extern "C" fn unid_utils_codec_base64_encode(content: *const c_char) 
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_utils_codec_base64_decode(content: *const c_char) -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let v1 = {
         assert!(! content.is_null());
 
@@ -179,7 +255,7 @@ pub unsafe extern "C" fn unid_utils_codec_base64_decode(content: *const c_char) 
     };
     let v1_str = v1.to_str().unwrap().to_string();
 
-    let r = utils::codec::Codec::base64_decode(v1_str);
+    let r = unid::utils::codec::Codec::base64_decode(v1_str);
     let r_c_str = CString::new(r).unwrap();
 
     r_c_str.into_raw()
@@ -190,6 +266,8 @@ pub unsafe extern "C" fn unid_utils_codec_base64_decode(content: *const c_char) 
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_utils_multihasher_hash(_content: *const c_char) -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
@@ -201,6 +279,8 @@ pub unsafe extern "C" fn unid_utils_multihasher_hash(_content: *const c_char) ->
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_ciphers_signer_sign() -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
@@ -212,6 +292,8 @@ pub unsafe extern "C" fn unid_ciphers_signer_sign() -> *mut c_char {
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_ciphers_signer_verify() -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
@@ -223,6 +305,8 @@ pub unsafe extern "C" fn unid_ciphers_signer_verify() -> *mut c_char {
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_ciphers_cipher_encrypt() -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
@@ -234,6 +318,8 @@ pub unsafe extern "C" fn unid_ciphers_cipher_encrypt() -> *mut c_char {
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_ciphers_cipher_decrypt() -> *mut c_char {
+    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
 
@@ -245,6 +331,10 @@ pub unsafe extern "C" fn unid_ciphers_cipher_decrypt() -> *mut c_char {
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_ciphers_hasher_digest(content: *const c_char, secret: *const c_char) -> *mut c_char {
+    let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
+    logger.debug("(BEGIN) unid_ciphers_hasher_digest");
+
     // v1
     let v1 = {
         assert!(! content.is_null());
@@ -262,10 +352,13 @@ pub unsafe extern "C" fn unid_ciphers_hasher_digest(content: *const c_char, secr
     let v2_str = v2.to_str().unwrap().to_string();
 
     // result
-    let r = ciphers::hasher::Hasher::digest(v1_str, v2_str);
+    let r = unid::ciphers::hasher::Hasher::digest(v1_str, v2_str);
     let r_c_str = CString::new(r).unwrap();
+    let r_ptr = r_c_str.into_raw();
 
-    r_c_str.into_raw()
+    logger.debug("( END ) unid_ciphers_hasher_digest");
+
+    r_ptr
 }
 
 /// unid :: ciphers :: hasher :: verify
@@ -273,6 +366,10 @@ pub unsafe extern "C" fn unid_ciphers_hasher_digest(content: *const c_char, secr
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_ciphers_hasher_verify(content: *const c_char, digest: *const c_char, secret: *const c_char) -> bool {
+    let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
+    logger.debug("(BEGIN) unid_ciphers_hasher_verify");
+
     // v1
     let v1 = {
         assert!(! content.is_null());
@@ -298,7 +395,11 @@ pub unsafe extern "C" fn unid_ciphers_hasher_verify(content: *const c_char, dige
     let v3_str = v3.to_str().unwrap().to_string();
 
     // result
-    ciphers::hasher::Hasher::verify(v1_str, v2_str, v3_str)
+    let r_value = unid::ciphers::hasher::Hasher::verify(v1_str, v2_str, v3_str);
+
+    logger.debug("( END ) unid_ciphers_hasher_verify");
+
+    r_value
 }
 
 #[cfg(not(test))]
@@ -308,4 +409,52 @@ use core::panic::PanicInfo;
 #[panic_handler]
 pub extern "C" fn panic(_panic: &PanicInfo<'_>) -> ! {
     loop {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    extern crate std;
+
+    #[cfg_attr(test, global_allocator)]
+    static mut A: std::alloc::System = std::alloc::System;
+
+    #[test]
+    fn test_unid_ciphers_hasher_digest() {
+        let content = CString::new("content");
+        let secret = CString::new("secret");
+
+        unsafe {
+            let c_ptr = unid_ciphers_hasher_digest(content.unwrap().as_ptr(), secret.unwrap().as_ptr());
+            let c_str = CStr::from_ptr(c_ptr);
+
+            assert_eq!(
+                c_str.to_str().unwrap(),
+                "pfMFlg7ax3Oka6O6FiWJxyAEVels4EOHUWVIgL8YXW21G+BkA5KTxCSJGnpd7hfAsodxp0Cu2Oa2uXdwqmOmXQ=="
+            );
+
+            // dispose!
+            unid_disposer(c_ptr);
+        }
+    }
+
+    #[test]
+    fn test_unid_ciphers_hasher_verify() {
+        let content = CString::new("content");
+        let secret = CString::new("secret");
+        let digest = CString::new("pfMFlg7ax3Oka6O6FiWJxyAEVels4EOHUWVIgL8YXW21G+BkA5KTxCSJGnpd7hfAsodxp0Cu2Oa2uXdwqmOmXQ==");
+
+        unsafe {
+            let is_verified = unid_ciphers_hasher_verify(content.unwrap().as_ptr(), digest.unwrap().as_ptr(), secret.unwrap().as_ptr());
+
+            assert!(is_verified);
+        }
+    }
+
+    #[allow(clippy::eq_op)]
+    #[test]
+    fn it_works() {
+        assert_eq!("hello", "hello");
+    }
 }
