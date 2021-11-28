@@ -5,8 +5,11 @@
 #![feature(const_option)]
 #![feature(default_alloc_error_handler)]
 #![feature(const_fn_fn_ptr_basics)]
+#![feature(vec_into_raw_parts)]
 
 extern crate alloc;
+extern crate scrypt;
+extern crate base64;
 
 mod unid;
 mod logger;
@@ -18,9 +21,13 @@ use alloc::string::{String, ToString};
 use cstr_core::{CStr, CString, c_char};
 use logger::Logger;
 use spin::Mutex;
+use unid::utils::bytes::DataT;
+use unid::utils::aes_crypt::AesCrypt;
 
 #[cfg_attr(not(test), global_allocator)]
 static mut ALLOCATOR: allocator::ExternalHeap = allocator::ExternalHeap::empty();
+
+static mut AES_CRYPT: AesCrypt = AesCrypt::empty();
 
 #[repr(C)]
 pub struct UNiDConfig {
@@ -89,6 +96,14 @@ pub unsafe extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
         client_id    : config.client_id,
         client_secret: config.client_secret,
     }
+}
+
+/// aes :: init
+/// 
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn aes_init(encryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT) -> *mut allocator::c_void, decryptor: extern "C" fn() -> *mut allocator::c_void) {
+    AES_CRYPT.init(encryptor, decryptor);
 }
 
 /// unid :: core :: create_did
@@ -304,13 +319,42 @@ pub unsafe extern "C" fn unid_ciphers_signer_verify() -> *mut c_char {
 /// 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn unid_ciphers_cipher_encrypt() -> *mut c_char {
-    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+pub unsafe extern "C" fn unid_ciphers_cipher_encrypt(plaintext: *const c_char, secret: *const c_char) -> *mut c_char {
+    let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
-    let r = String::from("WIP_FOR_ROT");
+    // let r = String::from("WIP_FOR_ROT");
+    // let r_c_str = CString::new(r).unwrap();
+
+    // r_c_str.into_raw()
+
+    logger.debug("(BEGIN) unid_ciphers_cipher_encrypt");
+
+    // v1
+    let v1 = {
+        assert!(! plaintext.is_null());
+
+        CStr::from_ptr(plaintext)
+    };
+    let v1_str = v1.to_str().unwrap().to_string();
+
+    // v2
+    let v2 = {
+        assert!(! secret.is_null());
+
+        CStr::from_ptr(secret)
+    };
+    let v2_str = v2.to_str().unwrap().to_string();
+
+    // result
+
+    let r = unid::ciphers::cipher::Cipher::encrypt(v1_str, v2_str);
+
     let r_c_str = CString::new(r).unwrap();
+    let r_ptr = r_c_str.into_raw();
 
-    r_c_str.into_raw()
+    logger.debug("( END ) unid_ciphers_cipher_encrypt");
+
+    r_ptr
 }
 
 /// unid :: ciphers :: cipher :: decrypt
