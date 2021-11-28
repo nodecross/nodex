@@ -102,7 +102,7 @@ pub unsafe extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
 /// 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn aes_init(encryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT) -> *mut allocator::c_void, decryptor: extern "C" fn() -> *mut allocator::c_void) {
+pub unsafe extern "C" fn aes_init(encryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32) -> *mut allocator::c_void, decryptor: extern "C" fn() -> *mut allocator::c_void) {
     AES_CRYPT.init(encryptor, decryptor);
 }
 

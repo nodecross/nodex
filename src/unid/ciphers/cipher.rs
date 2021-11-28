@@ -8,6 +8,7 @@ use scrypt::{
     Params, Scrypt,
 };
 use crate::MUTEX_HANDLERS;
+use crate::unid::utils::bytes::{ rust_to_c_bytes, DataT};
 
 
 pub struct Cipher {}
@@ -71,8 +72,10 @@ impl Cipher {
         // convert plaintext from String to byte slice
         let plaintext_vec: Vec<u8> = plaintext.into_bytes();
         
+        let encrypt_vec: Vec<u8> = alloc::vec![0; 32];
+        let encrypt_data_t: DataT = rust_to_c_bytes(encrypt_vec);
         // encrypt the plaintext using the given arguments
-        let mut ciphertext_vec: Vec<u8> = unsafe { crate::AES_CRYPT.encrypt(plaintext_vec, key_vec, iv_vec.clone()) };
+        let mut ciphertext_vec: Vec<u8> = unsafe { crate::AES_CRYPT.encrypt(plaintext_vec, key_vec, iv_vec.clone(), encrypt_data_t.bytes, encrypt_data_t.bytes_length) };
 
         unsafe {
             let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
