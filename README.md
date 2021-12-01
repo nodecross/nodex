@@ -24,11 +24,13 @@
 
 ## Features
 
-- Decentralized PKI(DPKI), DIDs, DKMS, and Credential Management
-- End-to-End Encrypted Communication (TLS1.3)
-- Programmable Hardware Root of Trust
-- Overlay Routing
-- Cloud Add-Ons for Real-time Data Flow and Processing
+- Abstract the dev complexity of edge security
+- Fully automated device provisioning
+- End-to-end authenticated and encrypted communications
+- Security lifecycle
+- Overlay routing
+- Cloud add-ons for real-time data flow and processing
+- Developer-first
 
 ## Introduction
 
