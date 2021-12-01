@@ -1,0 +1,8 @@
+Please include the following source files:
+
+aes.c
+aesni.c
+padlock.c
+platform_util.c
+platform.c
+threading.c

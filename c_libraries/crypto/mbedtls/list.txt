@@ -1,0 +1,11 @@
+Please include the following header files:
+
+aes.h
+aesni.h
+check_config.h
+config.h
+padlock.h
+platform_time.h
+platform_util.h
+platform.h
+threading.h
