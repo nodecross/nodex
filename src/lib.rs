@@ -21,7 +21,7 @@ use alloc::string::{String, ToString};
 use cstr_core::{CStr, CString, c_char};
 use logger::Logger;
 use spin::Mutex;
-use unid::utils::bytes::DataT;
+use unid::utils::data_t::DataT;
 use unid::utils::aes_crypt::AesCrypt;
 
 #[cfg_attr(not(test), global_allocator)]
@@ -102,7 +102,7 @@ pub unsafe extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
 /// 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn aes_init(encryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32) -> *mut allocator::c_void, decryptor: extern "C" fn() -> *mut allocator::c_void) {
+pub unsafe extern "C" fn aes_init(encryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32), decryptor: extern "C" fn()) {
     AES_CRYPT.init(encryptor, decryptor);
 }
 
@@ -336,6 +336,7 @@ pub unsafe extern "C" fn unid_ciphers_cipher_encrypt(plaintext: *const c_char, s
         CStr::from_ptr(plaintext)
     };
     let v1_str = v1.to_str().unwrap().to_string();
+    logger.debug(alloc::format!("v1_str = {:?}", v1_str));
 
     // v2
     let v2 = {
@@ -344,6 +345,7 @@ pub unsafe extern "C" fn unid_ciphers_cipher_encrypt(plaintext: *const c_char, s
         CStr::from_ptr(secret)
     };
     let v2_str = v2.to_str().unwrap().to_string();
+    logger.debug(alloc::format!("v2_str = {:?}", v2_str));
 
     // result
 
