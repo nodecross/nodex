@@ -8,3 +8,5 @@ coverage
 coverage/
 profraw/
 default.profraw
+html/
+latex/

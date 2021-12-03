@@ -3,6 +3,14 @@ name = "unid"
 version = "0.1.0"
 authors = [ "UNiD <>" ]
 edition = "2018"
+license-file = "LICENSE"
+description = "Automate device security provisioning with edge intelligence."
+homepage = "https://www.getunid.io"
+documentation = "https://docs.getunid.io"
+repository = "https://github.com/getunid/unid"
+readme = "README.md"
+keywords = ["iot", "security", "identity", "typescript", "iot-platform", "iot-security", "iot-device", "end-to-end-encryption", "edge-computing", "embedded-security", "root-of-trust", "decentralized-identifiers", "no_std", "no-std"]
+categories = ["hardware-support", "external-ffi-bindings", "embedded", "cryptography", "no-std"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -25,6 +33,7 @@ cstr_core = "0.2.4"
 libc = { version = "0.2.107", default-features = false }
 serde_json = { version = "1.0.71", default-features = false, features = ["alloc"] }
 spin = { version = "0.9.2", default-features = false, features = ["mutex", "spin_mutex"] }
+scrypt = { version = "0.8.0", default-features = false, features = ["simple"] }
 
 [profile.dev]
 panic = "abort"

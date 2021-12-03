@@ -2,7 +2,7 @@ name: Rust (Build & Unit Test)
 
 on:
   push:
-    branches: [ main ]
+    branches: '**'
   pull_request:
     branches: [ main ]
 
@@ -14,8 +14,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
+    - name: (checkout) source code
+      uses: actions/checkout@v2
+    - name: (install) rust toolchain
+      uses: actions-rs/toolchain@v1
       with:
         toolchain: nightly
     - name: (config) set nightly toolchain to default
@@ -42,3 +44,7 @@ jobs:
       with:
         github-token: ${{ secrets.github_token }}
         path-to-lcov: coverage-lcov.info
+    - name: (docs) rustdoc
+      run: cargo doc
+    - name: (docs) doxygen
+      uses: mattnotmitt/doxygen-action@v1
