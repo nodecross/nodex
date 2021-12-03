@@ -8,6 +8,9 @@
 
 <p align="center">
   <span>
+    <a href="https://crates.io/crates/unid">
+      <img src="https://img.shields.io/crates/v/unid.svg" alt="unid" />
+    </a>
     <a href="https://coveralls.io/github/getunid/unid">
       <img src="https://coveralls.io/repos/github/getunid/unid/badge.svg" alt="Coverage Status" />
     </a>
