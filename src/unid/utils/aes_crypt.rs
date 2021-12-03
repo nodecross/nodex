@@ -1,6 +1,5 @@
 use crate::unid::utils::data_t::DataT;
 use alloc::vec::Vec;
-use crate::MUTEX_HANDLERS;
 
 pub struct AesCrypt {
   encryptor  : extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32),
@@ -51,27 +50,25 @@ impl AesCrypt {
 
     (self.encryptor)(&mut key_data_t, &mut iv_data_t, &mut padded_plaintext_data_t, encrypt_ptr, encrypt_len);
 
-    let ciphertext_vec: Vec<u8> = encrypt_data_t.to_vec();
-
     unsafe {
-      let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+      let logger = crate::Logger::new(crate::MUTEX_HANDLERS.lock().get_debug_message_handler());
 
       logger.debug(alloc::format!("len, pos, pad = {:?} {:?} {:?}", len, pos, pad));
 
-      // logger.debug(alloc::format!("padded_plaintext_data_t ptr = {:?}", padded_plaintext_data_t.ptr));
+      logger.debug(alloc::format!("padded_plaintext_data_t ptr = {:?}", padded_plaintext_data_t.ptr));
 
-      // logger.debug(alloc::format!("key_data_t ptr = {:?}", key_data_t.ptr));
+      logger.debug(alloc::format!("key_data_t ptr = {:?}", key_data_t.ptr));
   
-      // logger.debug(alloc::format!("iv_data_t ptr  = {:?}", iv_data_t.ptr));
+      logger.debug(alloc::format!("iv_data_t ptr  = {:?}", iv_data_t.ptr));
 
-      // logger.debug(alloc::format!("padded plaintext bytes = {:?}", padded_plaintext_vec));
-      // logger.debug(alloc::format!("padded plaintext size = {:?}", padded_plaintext_vec.len()));
+      logger.debug(alloc::format!("padded plaintext bytes = {:?}", padded_plaintext_data_t.to_vec()));
+      logger.debug(alloc::format!("padded plaintext size = {:?}", padded_plaintext_data_t.len));
 
-      // logger.debug(alloc::format!("ciphertext bytes = {:?}", ciphertext_vec));
-      // logger.debug(alloc::format!("ciphertext size = {:?}", ciphertext_vec.len()));
+      logger.debug(alloc::format!("ciphertext bytes = {:?}", encrypt_data_t.to_vec()));
+      logger.debug(alloc::format!("ciphertext size = {:?}", encrypt_data_t.len));
     };
 
-    ciphertext_vec
+    encrypt_data_t.to_vec()
   }
 
   pub fn decrypt(&self, ciphertext_vec: Vec<u8>, key_vec: Vec<u8>, iv_vec: Vec<u8> ) -> Vec<u8> {
@@ -98,21 +95,21 @@ impl AesCrypt {
     let pos : usize = len - pad;
 
     unsafe {
-      let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+      let logger = crate::Logger::new(crate::MUTEX_HANDLERS.lock().get_debug_message_handler());
       
       logger.debug(alloc::format!("len, pos, pad = {:?} {:?} {:?}", len, pos, pad));
 
-      // logger.debug(alloc::format!("ciphertext_data_t ptr = {:?}", ciphertext_data_t.ptr));
+      logger.debug(alloc::format!("ciphertext_data_t ptr = {:?}", ciphertext_data_t.ptr));
 
-      // logger.debug(alloc::format!("key_data_t ptr = {:?}", key_data_t.ptr));
+      logger.debug(alloc::format!("key_data_t ptr = {:?}", key_data_t.ptr));
   
-      // logger.debug(alloc::format!("iv_data_t ptr = {:?}", iv_data_t.ptr));
+      logger.debug(alloc::format!("iv_data_t ptr = {:?}", iv_data_t.ptr));
 
-      // logger.debug(alloc::format!("ciphertext bytes = {:?}", ciphertext_vec));
-      // logger.debug(alloc::format!("ciphertext size = {:?}", ciphertext_vec.len()));
+      logger.debug(alloc::format!("ciphertext bytes = {:?}", ciphertext_data_t.to_vec()));
+      logger.debug(alloc::format!("ciphertext size = {:?}", ciphertext_data_t.len));
 
-      // logger.debug(alloc::format!("padded plaintext bytes = {:?}", padded_plaintext_vec));
-      // logger.debug(alloc::format!("padded plaintext size = {:?}", padded_plaintext_vec.len()));   
+      logger.debug(alloc::format!("padded plaintext bytes = {:?}", decrypt_data_t.to_vec()));
+      logger.debug(alloc::format!("padded plaintext size = {:?}", decrypt_data_t.len));   
     }
 
     (&padded_plaintext_vec[..pos]).to_vec()
@@ -122,7 +119,6 @@ impl AesCrypt {
 
 #[cfg(test)]
 pub mod tests {
-  // Note this useful idiom: importing names from outer (for mod tests) scope.
   use super::*;
   
   #[test]

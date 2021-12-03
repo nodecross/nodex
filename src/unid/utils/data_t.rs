@@ -1,6 +1,5 @@
 use core::slice;
 use alloc::vec::Vec;
-use crate::MUTEX_HANDLERS;
 
 #[repr(C)]
 #[derive(Clone, Debug)]
@@ -11,13 +10,13 @@ pub struct DataT {
 
 impl DataT {
   pub fn new(bytes_vec: Vec<u8>) -> Self {
-    let (ptr, len, cap) = bytes_vec.into_raw_parts();
+    let (ptr, len, _cap) = bytes_vec.into_raw_parts();
 
-    unsafe {
-      let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+    // unsafe {
+    //   let logger = crate::Logger::new(crate::MUTEX_HANDLERS.lock().get_debug_message_handler());
   
-      logger.debug(alloc::format!("ptr, len, cap = {:?}, {:?}, {:?}", ptr, len, cap));
-    }
+    //   logger.debug(alloc::format!("ptr, len, cap = {:?}, {:?}, {:?}", ptr, len, _cap));
+    // }
 
     DataT {
       ptr: ptr as *mut u8,

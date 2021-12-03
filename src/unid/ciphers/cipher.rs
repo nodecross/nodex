@@ -51,16 +51,17 @@ impl Cipher {
         unsafe {
             let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
-            // logger.debug(format!("salt bytes = {:?}", salt_u8.to_vec()));
+            logger.debug(format!("salt bytes = {:?}", salt_u8));
+            logger.debug(format!("salt base64 = {:?}", base64::encode(salt_u8.to_vec())));
 
-            // logger.debug(format!("iv bytes = {:?}", iv_u8.to_vec()));
-            // logger.debug(format!("iv base64 = {:?}", base64::encode(iv_u8.to_vec())));
+            logger.debug(format!("iv bytes = {:?}", iv_u8));
+            logger.debug(format!("iv base64 = {:?}", base64::encode(iv_u8.to_vec())));
 
-            // logger.debug(format!("key bytes = {:?}", key_u8.to_vec()));
-            // logger.debug(format!("key base64 = {:?}", base64::encode(key_u8.to_vec())));
+            logger.debug(format!("key bytes = {:?}", key_u8));
+            logger.debug(format!("key base64 = {:?}", base64::encode(key_u8.to_vec())));
 
-            // logger.debug(format!("ciphertext bytes = {:?}", ciphertext_u8.to_vec()));
-            // logger.debug(format!("ciphertext base64 = {:?}", base64::encode(ciphertext_u8.to_vec())));
+            logger.debug(format!("ciphertext bytes = {:?}", ciphertext_u8));
+            logger.debug(format!("ciphertext base64 = {:?}", base64::encode(ciphertext_u8.to_vec())));
 
             logger.debug(format!("buffered ciphertext bytes = {:?}", buffered_ciphertext_u8));
 
@@ -102,16 +103,17 @@ impl Cipher {
         unsafe {
             let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
-            // logger.debug(format!("salt bytes = {:?}", salt_u8.to_vec()));
+            logger.debug(format!("salt bytes = {:?}", salt_u8));
+            logger.debug(format!("salt base64 = {:?}", base64::encode(salt_u8.to_vec())));
 
-            // logger.debug(format!("iv bytes = {:?}", iv_u8.to_vec()));
-            // logger.debug(format!("iv base64 = {:?}", base64::encode(iv_u8.to_vec())));
+            logger.debug(format!("iv bytes = {:?}", iv_u8));
+            logger.debug(format!("iv base64 = {:?}", base64::encode(iv_u8.to_vec())));
 
-            // logger.debug(format!("ciphertext bytes = {:?}", ciphertext_u8.to_vec()));
-            // logger.debug(format!("ciphertext base64 = {:?}", base64::encode(ciphertext_u8.to_vec())));
+            logger.debug(format!("ciphertext bytes = {:?}", ciphertext_u8));
+            logger.debug(format!("ciphertext base64 = {:?}", base64::encode(ciphertext_u8.to_vec())));
 
-            // logger.debug(format!("key bytes = {:?}", key_u8.to_vec()));
-            // logger.debug(format!("key base64 = {:?}", base64::encode(key_u8.to_vec())));
+            logger.debug(format!("key bytes = {:?}", key_u8));
+            logger.debug(format!("key base64 = {:?}", base64::encode(key_u8.to_vec())));
 
             logger.debug(format!("plaintext bytes = {:?}", plaintext_u8));
 
