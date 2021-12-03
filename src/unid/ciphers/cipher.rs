@@ -62,7 +62,7 @@ impl Cipher {
             // logger.debug(format!("ciphertext bytes = {:?}", ciphertext_u8.to_vec()));
             // logger.debug(format!("ciphertext base64 = {:?}", base64::encode(ciphertext_u8.to_vec())));
 
-            logger.debug(format!("buffered ciphertext bytes = {:?}", buffered_ciphertext_u8.to_vec()));
+            logger.debug(format!("buffered ciphertext bytes = {:?}", buffered_ciphertext_u8));
 
             logger.debug(format!("buffered ciphertext base64 = {:?}", buffered_ciphertext_base64));
         }
@@ -113,7 +113,7 @@ impl Cipher {
             // logger.debug(format!("key bytes = {:?}", key_u8.to_vec()));
             // logger.debug(format!("key base64 = {:?}", base64::encode(key_u8.to_vec())));
 
-            logger.debug(format!("plaintext bytes = {:?}", plaintext_u8.to_vec()));
+            logger.debug(format!("plaintext bytes = {:?}", plaintext_u8));
 
             logger.debug(format!("plaintext = {:?}", plaintext));
         }

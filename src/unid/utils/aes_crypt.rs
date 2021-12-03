@@ -64,12 +64,10 @@ impl AesCrypt {
   
       // logger.debug(alloc::format!("iv_data_t ptr  = {:?}", iv_data_t.ptr));
 
-      
-
-      // logger.debug(alloc::format!("padded plaintext bytes = {:?}", padded_plaintext_vec.clone()));
+      // logger.debug(alloc::format!("padded plaintext bytes = {:?}", padded_plaintext_vec));
       // logger.debug(alloc::format!("padded plaintext size = {:?}", padded_plaintext_vec.len()));
 
-      // logger.debug(alloc::format!("ciphertext bytes = {:?}", ciphertext_vec.clone()));
+      // logger.debug(alloc::format!("ciphertext bytes = {:?}", ciphertext_vec));
       // logger.debug(alloc::format!("ciphertext size = {:?}", ciphertext_vec.len()));
     };
 
@@ -110,10 +108,10 @@ impl AesCrypt {
   
       // logger.debug(alloc::format!("iv_data_t ptr = {:?}", iv_data_t.ptr));
 
-      // logger.debug(alloc::format!("ciphertext bytes = {:?}", ciphertext_vec.clone()));
+      // logger.debug(alloc::format!("ciphertext bytes = {:?}", ciphertext_vec));
       // logger.debug(alloc::format!("ciphertext size = {:?}", ciphertext_vec.len()));
 
-      // logger.debug(alloc::format!("padded plaintext bytes = {:?}", padded_plaintext_vec.clone()));
+      // logger.debug(alloc::format!("padded plaintext bytes = {:?}", padded_plaintext_vec));
       // logger.debug(alloc::format!("padded plaintext size = {:?}", padded_plaintext_vec.len()));   
     }
 
@@ -153,7 +151,7 @@ pub mod tests {
     let key_vec: Vec<u8> = base64::decode(key_base64).unwrap();
     let iv_vec: Vec<u8> = base64::decode(iv_base64).unwrap();
 
-    let plaintext_vec: Vec<u8> = unsafe { crate::AES_CRYPT.encrypt(ciphertext_vec, key_vec, iv_vec) };
+    let plaintext_vec: Vec<u8> = unsafe { crate::AES_CRYPT.decrypt(ciphertext_vec, key_vec, iv_vec) };
     let plaintext_string: String = String::from_utf8(plaintext_vec).unwrap();
 
     assert_eq!(plaintext_string, "hello");
