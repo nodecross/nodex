@@ -15,7 +15,7 @@
       <img src="https://coveralls.io/repos/github/getunid/unid/badge.svg" alt="Coverage Status" />
     </a>
     <a href="https://github.com/semantic-release/semantic-release">
-      <img src="https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg" alt="Sematic-Release" />
+      <img src="https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release" alt="Sematic-Release" />
     </a>
   </span>
   <br />
