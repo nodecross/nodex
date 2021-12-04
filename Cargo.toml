@@ -1,6 +1,6 @@
 [package]
 name = "unid"
-version = "0.1.0"
+version = "0.1.2"
 authors = [ "UNiD <>" ]
 edition = "2018"
 license-file = "LICENSE"
@@ -9,8 +9,32 @@ homepage = "https://www.getunid.io"
 documentation = "https://docs.getunid.io"
 repository = "https://github.com/getunid/unid"
 readme = "README.md"
-keywords = ["iot", "security", "identity", "typescript", "iot-platform", "iot-security", "iot-device", "end-to-end-encryption", "edge-computing", "embedded-security", "root-of-trust", "decentralized-identifiers", "no_std", "no-std"]
-categories = ["hardware-support", "external-ffi-bindings", "embedded", "cryptography", "no-std"]
+keywords = [
+  "iot",
+  "embedded",
+  "root-of-trust",
+  "did",
+  "no_std",
+]
+categories = [
+  "hardware-support",
+  "external-ffi-bindings",
+  "embedded",
+  "cryptography",
+  "no-std",
+]
+include = [
+  "**/*.rs",
+  "/bindings/**/*.c",
+  "/bindings/**/*.h",
+  "/bindings/**/*.json",
+  "/Cargo.toml",
+  "/Cargo.lock",
+  "/CHANGELOG.md",
+  "/LICENSE",
+  "/README.md",
+  "/SECURITY.md",
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
