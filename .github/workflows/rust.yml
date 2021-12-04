@@ -16,26 +16,31 @@ jobs:
     steps:
     - name: (checkout) source code
       uses: actions/checkout@v2
-    - name: (install) rust toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: nightly
-    - name: (config) set nightly toolchain to default
-      run: rustup default nightly
-    - name: (install) llvm-tools-preview
-      run: rustup component add llvm-tools-preview
-    - name: (install) rust-src
-      run: rustup component add rust-src
-    - name: (install) grcov
-      run: cargo install grcov
+    - name: (setup)
+      uses: ./.github/actions/setup
+
     - name: (run) build
+      shell: bash
       run: make build
+
+  test:
+    runs-on: ubuntu-latest
+    needs: [ build ]
+
+    steps:
+    - name: (checkout) source code
+      uses: actions/checkout@v2
+    - name: (setup) environment
+      uses: ./.github/actions/setup
+
     - name: (run) tests
+      shell: bash
       run: make test
       env:
         RUSTFLAGS: -Zinstrument-coverage
         LLVM_PROFILE_FILE: profraw/llvm-%p-%m.profraw
     - name: (run) coverage
+      shell: bash
       run: grcov . --source-dir . --binary-path target/debug --output-type lcov --branch --ignore-not-existing --ignore "/*" --output-path coverage-lcov.info
       env:
         LLVM_PROFILE_FILE: profraw/llvm-%p-%m.profraw
@@ -44,7 +49,33 @@ jobs:
       with:
         github-token: ${{ secrets.github_token }}
         path-to-lcov: coverage-lcov.info
+
+  docs:
+    runs-on: ubuntu-latest
+    needs: [ test ]
+
+    steps:
+    - name: (checkout) source code
+      uses: actions/checkout@v2
+    - name: (setup) environment
+      uses: ./.github/actions/setup
+
     - name: (docs) rustdoc
+      shell: bash
       run: cargo doc
     - name: (docs) doxygen
       uses: mattnotmitt/doxygen-action@v1
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [ test ]
+
+    steps:
+    - name: (checkout) source code
+      uses: actions/checkout@v2
+    - name: (setup) environment
+      uses: ./.github/actions/setup
+
+    - name: (run) release
+      shell: bash
+      run: yarn run semantic-release
