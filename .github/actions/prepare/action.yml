@@ -1,0 +1,15 @@
+name: prepare
+inputs:
+  github-token:
+    required: true
+    type: string
+  cargo-registry-token:
+    required: true
+    type: string
+runs:
+  using: composite
+  steps:
+    - name: (checkout) source code
+      uses: actions/checkout@v2
+    # - name: (check) conventional commits
+    #   uses: webiny/action-conventional-commits@v1.0.3

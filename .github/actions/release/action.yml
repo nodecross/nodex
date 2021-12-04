@@ -1,0 +1,72 @@
+name: release
+inputs:
+  github-token:
+    required: true
+    type: string
+  cargo-registry-token:
+    required: true
+    type: string
+runs:
+  using: composite
+  steps:
+    - name: (checkout) source code
+      uses: actions/checkout@v2
+    - name: (setup) environment
+      uses: ./.github/actions/shared
+
+    - name: (install) yarn
+      shell: bash
+      run: yarn
+    - name: (install) rustc-dev
+      shell: bash
+      run: rustup component add rustc-dev
+    - name: (install) semantic-release-rust
+      shell: bash
+      run: cargo install semantic-release-rust --version 1.0.0-alpha.8
+
+    - name: (run) set to bump-up mode
+      shell: bash
+      run: cp -pfv ".releaserc_bump_up.json" ".releaserc.json"
+
+    - name: (run) bump-up
+      id: bump-up
+      shell: bash
+      run: |
+        yarn run semantic-release --dry-run
+
+        [[ -f ".VERSION" ]] && {
+          # bump up
+          semantic-release-rust prepare "$(cat .VERSION)"
+
+          # set outputs
+          echo "::set-output name=VERSION::$(cat .VERSION)"
+        } || :
+
+    - name: (run) lint
+      # re-generate `Cargo.lock` file
+      uses: ./.github/actions/lint
+      with:
+        checkout: false
+        github-token: ${{ inputs.github-token }}
+        cargo-registry-token: ${{ inputs.cargo-registry-token }}
+
+    - name: (run) create pull request
+      uses: peter-evans/create-pull-request@v3
+      with:
+        token: "${{ inputs.github-token }}"
+        commit-message: "chore(release): bump up to ${{ steps.bump-up.outputs.VERSION }}"
+        committer: "${{ github.actor }} [bot] <${{ github.actor }}@users.noreply.github.com>"
+        branch: release/release
+        branch-suffix: random
+        title: "[release] bump up to ${{ steps.bump-up.outputs.VERSION }}"
+        body: |
+          [release] bump up to ${{ steps.bump-up.outputs.VERSION }}
+
+          This PullRequest was automatically created by GitHub Workflow. Please review and then accept or reject.
+
+          - [ ] Version number is correct ?
+          - [ ] `Cargo.toml` and `Cargo.lock` files included in pull request ?
+        delete-branch: true
+        assignees: vaachii
+        reviewers: vaachii
+        labels: release

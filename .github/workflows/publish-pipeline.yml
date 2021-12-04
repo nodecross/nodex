@@ -1,0 +1,25 @@
+name: publish-pipeline
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ closed ]
+
+env:
+  CARGO_TERM_COLOR: always
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+jobs:
+  docs:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: (checkout) source code
+      uses: actions/checkout@v2
+    - name: (run) docs
+      uses: ./.github/actions/docs
+      with:
+        github-token: ${{ env.GITHUB_TOKEN }}
+        cargo-registry-token: ${{ env.CARGO_REGISTRY_TOKEN }}
