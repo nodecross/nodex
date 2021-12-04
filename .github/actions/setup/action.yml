@@ -6,6 +6,8 @@ runs:
       uses: actions-rs/toolchain@v1
       with:
         toolchain: nightly
+    - name: (install) nodejs toolchain
+      uses: actions/setup-node@v2
     - name: (config) set nightly toolchain to default
       shell: bash
       run: rustup default nightly
