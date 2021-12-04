@@ -16,7 +16,7 @@ jobs:
     steps:
     - name: (checkout) source code
       uses: actions/checkout@v2
-    - name: (setup)
+    - name: (setup) environment
       uses: ./.github/actions/setup
 
     - name: (run) build
@@ -25,13 +25,19 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    needs: [ build ]
 
     steps:
     - name: (checkout) source code
       uses: actions/checkout@v2
     - name: (setup) environment
       uses: ./.github/actions/setup
+
+    - name: (install) llvm-tools-preview
+      shell: bash
+      run: rustup component add llvm-tools-preview
+    - name: (install) grcov
+      shell: bash
+      run: cargo install grcov
 
     - name: (run) tests
       shell: bash
@@ -52,7 +58,7 @@ jobs:
 
   docs:
     runs-on: ubuntu-latest
-    needs: [ test ]
+    needs: [ build, test ]
 
     steps:
     - name: (checkout) source code
@@ -68,13 +74,25 @@ jobs:
 
   release:
     runs-on: ubuntu-latest
-    needs: [ test ]
+    needs: [ docs ]
 
     steps:
     - name: (checkout) source code
       uses: actions/checkout@v2
     - name: (setup) environment
       uses: ./.github/actions/setup
+
+    - name: (install) rustc-dev
+      shell: bash
+      run: rustup component add rustc-dev
+    - name: (install) semantic-release-rust
+      shell: bash
+      run: cargo install semantic-release-rust --version 1.0.0-alpha.8
+    - name: (install) nodejs toolchain
+      uses: actions/setup-node@v2
+    - name: (install) yarn
+      shell: bash
+      run: yarn
 
     - name: (run) release
       shell: bash

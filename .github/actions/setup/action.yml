@@ -6,27 +6,9 @@ runs:
       uses: actions-rs/toolchain@v1
       with:
         toolchain: nightly
-    - name: (install) nodejs toolchain
-      uses: actions/setup-node@v2
-
     - name: (config) set nightly toolchain to default
       shell: bash
       run: rustup default nightly
-    - name: (install) llvm-tools-preview
-      shell: bash
-      run: rustup component add llvm-tools-preview
     - name: (install) rust-src
       shell: bash
       run: rustup component add rust-src
-    - name: (install) rustc-dev
-      shell: bash
-      run: rustup component add rustc-dev
-    - name: (install) semantic-release-rust
-      shell: bash
-      run: cargo install semantic-release-rust --version 1.0.0-alpha.8
-    - name: (install) grcov
-      shell: bash
-      run: cargo install grcov
-    - name: (install) yarn
-      shell: bash
-      run: yarn
