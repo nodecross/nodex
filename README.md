@@ -17,7 +17,7 @@
     <img src="https://img.shields.io/crates/v/unid.svg" alt="UNiD" />
   </a>
   <a href="https://github.com/semantic-release/semantic-release" target="_blank">
-    <img src="https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release" alt="Sematic-Release" />
+    <img src="https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release" alt="Sematic Release" />
   </a>
   <br />
   Automate device security provisioning with edge intelligence
