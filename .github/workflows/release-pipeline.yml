@@ -16,6 +16,7 @@ jobs:
     steps:
     - name: (checkout) source code
       uses: actions/checkout@v2
+
     - name: (run) prepare
       uses: ./.github/actions/prepare
       with:
@@ -29,6 +30,7 @@ jobs:
     steps:
     - name: (checkout) source code
       uses: actions/checkout@v2
+
     - name: (run) build
       uses: ./.github/actions/build
       with:
@@ -42,6 +44,7 @@ jobs:
     steps:
     - name: (checkout) source code
       uses: actions/checkout@v2
+
     - name: (run) test
       uses: ./.github/actions/test
       with:
@@ -55,6 +58,7 @@ jobs:
     steps:
     - name: (checkout) source code
       uses: actions/checkout@v2
+
     - name: (run) release
       uses: ./.github/actions/release
       with:

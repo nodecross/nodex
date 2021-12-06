@@ -18,8 +18,15 @@ jobs:
     steps:
     - name: (checkout) source code
       uses: actions/checkout@v2
+
     - name: (run) docs
       uses: ./.github/actions/docs
+      with:
+        github-token: ${{ env.GITHUB_TOKEN }}
+        cargo-registry-token: ${{ env.CARGO_REGISTRY_TOKEN }}
+
+    - name: (run) publish
+      uses: ./.github/actions/publish
       with:
         github-token: ${{ env.GITHUB_TOKEN }}
         cargo-registry-token: ${{ env.CARGO_REGISTRY_TOKEN }}
