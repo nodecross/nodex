@@ -11,15 +11,18 @@ runs:
   steps:
     - name: (checkout) source code
       uses: actions/checkout@v2
+
     - name: (setup) environment
       uses: ./.github/actions/shared
 
     - name: (install) yarn
       shell: bash
       run: yarn
+
     - name: (install) llvm-tools-preview
       shell: bash
       run: rustup component add llvm-tools-preview
+
     - name: (install) grcov
       shell: bash
       run: cargo install grcov

@@ -11,11 +11,13 @@ runs:
   steps:
     - name: (checkout) source code
       uses: actions/checkout@v2
+
     - name: (setup) environment
       uses: ./.github/actions/shared
 
     - name: (docs) rustdoc
       shell: bash
       run: cargo doc
+
     - name: (docs) doxygen
       uses: mattnotmitt/doxygen-action@v1
