@@ -1,8 +1,8 @@
-name: release-pipeline
+name: default-pipeline
 
 on:
-  push:
-    branches: [ main ]
+  pull_request:
+    types: [ opened, synchronize, reopened ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -47,20 +47,6 @@ jobs:
 
     - name: (run) test
       uses: ./.github/actions/test
-      with:
-        github-token: ${{ env.GITHUB_TOKEN }}
-        cargo-registry-token: ${{ env.CARGO_REGISTRY_TOKEN }}
-
-  release:
-    runs-on: ubuntu-latest
-    needs: [ build, test ]
-
-    steps:
-    - name: (checkout) source code
-      uses: actions/checkout@v2
-
-    - name: (run) release
-      uses: ./.github/actions/release
       with:
         github-token: ${{ env.GITHUB_TOKEN }}
         cargo-registry-token: ${{ env.CARGO_REGISTRY_TOKEN }}

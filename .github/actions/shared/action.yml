@@ -1,4 +1,4 @@
-name: setup
+name: shared
 runs:
   using: composite
   steps:
@@ -6,9 +6,14 @@ runs:
       uses: actions-rs/toolchain@v1
       with:
         toolchain: nightly
+    - name: (install) nodejs toolchain
+      uses: actions/setup-node@v2
     - name: (config) set nightly toolchain to default
       shell: bash
       run: rustup default nightly
     - name: (install) rust-src
       shell: bash
       run: rustup component add rust-src
+    - name: (install) clippy
+      shell: bash
+      run: rustup component add clippy
