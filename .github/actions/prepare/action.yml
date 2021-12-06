@@ -11,5 +11,6 @@ runs:
   steps:
     - name: (checkout) source code
       uses: actions/checkout@v2
+
     # - name: (check) conventional commits
     #   uses: webiny/action-conventional-commits@v1.0.3
