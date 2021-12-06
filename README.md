@@ -8,13 +8,13 @@
 
 <p align="center">
   <a href="https://github.com/getunid/unid/actions/workflows/release-pipeline.yml" target="_blank">
-    <img src="https://github.com/getunid/unid/actions/workflows/release-pipeline.yml/badge.svg?branch=main" alt="Unit Test" />
+    <img src="https://github.com/getunid/unid/actions/workflows/release-pipeline.yml/badge.svg?branch=main" alt="Release Pipeline" />
   </a>
   <a href="https://coveralls.io/github/getunid/unid" target="_blank">
     <img src="https://coveralls.io/repos/github/getunid/unid/badge.svg" alt="Coverage Status" />
   </a>
   <a href="https://crates.io/crates/unid" target="_blank">
-    <img src="https://img.shields.io/crates/v/unid.svg" alt="unid" />
+    <img src="https://img.shields.io/crates/v/unid.svg" alt="UNiD" />
   </a>
   <a href="https://github.com/semantic-release/semantic-release" target="_blank">
     <img src="https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release" alt="Sematic-Release" />
@@ -61,6 +61,9 @@ By abstracting every device and cloud as globally unique endpoints and building 
 
 [CHANGELOG](CHANGELOG.md)
 
+## Security
+
+[SECURITY](SECURITY.md)
 
 ## License
 
