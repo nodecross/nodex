@@ -55,7 +55,11 @@ By abstracting every device and cloud as globally unique endpoints and building 
 
 ## Developer's Document
 
-[TBD]
+- UNiD Official Website<br />
+  https://www.getunid.io/
+  
+- UNiD Developers Portal<br />
+  https://docs.getunid.io/
 
 ## Changelog
 
