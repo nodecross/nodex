@@ -5,5 +5,7 @@
     [ "@semantic-release/exec", {
       "verifyReleaseCmd": "echo ${nextRelease.version} > .VERSION"
     } ]
-  ]
+  ],
+  "dryRun": true,
+  "ci": true
 }

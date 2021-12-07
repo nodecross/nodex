@@ -8,5 +8,7 @@
       "verifyConditionsCmd": "semantic-release-rust verify-conditions",
       "publishCmd": "semantic-release-rust publish"
     } ]
-  ]
+  ],
+  "dryRun": false,
+  "ci": false
 }
