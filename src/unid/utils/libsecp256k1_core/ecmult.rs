@@ -199,7 +199,7 @@ impl ECMultGenContext {
         unsafe {
             let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
         
-            logger.debug(format!("this size large ~ 65 KB" ));
+            logger.debug(format!("this size is large ~ 65 KB" ));
         }
 
         let mut this = unsafe {
@@ -218,6 +218,7 @@ impl ECMultGenContext {
             this
         };
 
+
         let mut gj = Jacobian::default();
         gj.set_ge(&AFFINE_G);
 
@@ -235,18 +236,16 @@ impl ECMultGenContext {
         nums_gej.set_ge(&nums_ge);
         nums_gej = nums_gej.add_ge_var(&AFFINE_G, None);
 
+        // Compute prec.
         unsafe {
             let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
         
-            logger.debug(format!("problem here: precj size too large ~ 151 KB" ));
+            logger.debug(format!("precj size is too large ~ 151 KB" ));
         }
-        
-        // Compute prec.
         let mut precj: Vec<Jacobian> = Vec::with_capacity(1024);
         for _ in 0..1024 {
             precj.push(Jacobian::default());
         }
-
         let mut gbase = gj;
         let mut numsbase = nums_gej;
         for j in 0..64 {
@@ -263,6 +262,7 @@ impl ECMultGenContext {
                 numsbase = numsbase.add_var(&nums_gej, None);
             }
         }
+        let prec = set_all_gej_var(&precj);
 
         for j in 0..64 {
             for i in 0..16 {
