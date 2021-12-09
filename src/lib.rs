@@ -10,6 +10,15 @@
 extern crate alloc;
 extern crate scrypt;
 extern crate base64;
+// extern crate libsecp256k1_core;
+extern crate hmac;
+extern crate hmac_drbg;
+extern crate arrayref;
+extern crate serde;
+extern crate typenum;
+extern crate crunchy;
+extern crate digest;
+extern crate subtle;
 
 mod unid;
 mod logger;
@@ -293,26 +302,80 @@ pub unsafe extern "C" fn unid_utils_multihasher_hash(_content: *const c_char) ->
 /// 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn unid_ciphers_signer_sign() -> *mut c_char {
-    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+pub unsafe extern "C" fn unid_ciphers_signer_sign(message: *const c_char, secret_key64: *const c_char) -> *mut c_char {
+    let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
-    let r = String::from("WIP_FOR_ROT");
+    logger.debug("(BEGIN) unid_ciphers_signer_sign");
+    logger.debug("here0");
+
+    // v1
+    let v1 = {
+        assert!(! message.is_null());
+
+        CStr::from_ptr(message)
+    };
+    let v1_str = v1.to_str().unwrap().to_string();
+    logger.debug("here0");
+
+    // v2
+    let v2 = {
+        assert!(! secret_key64.is_null());
+
+        CStr::from_ptr(secret_key64)
+    };
+    let v2_str = v2.to_str().unwrap().to_string();
+
+    logger.debug("here1");
+
+    // result
+    let r = unid::ciphers::signer::Signer::sign(v1_str, v2_str);
     let r_c_str = CString::new(r).unwrap();
+    let r_ptr = r_c_str.into_raw();
 
-    r_c_str.into_raw()
+    logger.debug("( END ) unid_ciphers_signer_sign");
+
+    r_ptr
 }
 
 /// unid :: ciphers :: signer :: verify
 /// 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn unid_ciphers_signer_verify() -> *mut c_char {
-    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+pub unsafe extern "C" fn unid_ciphers_signer_verify(message: *const c_char, signature64: *const c_char, pub_key64: *const c_char) -> bool {
+    let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
-    let r = String::from("WIP_FOR_ROT");
-    let r_c_str = CString::new(r).unwrap();
+    logger.debug("(BEGIN) unid_ciphers_signer_verify");
 
-    r_c_str.into_raw()
+    // v1
+    let v1 = {
+        assert!(! message.is_null());
+
+        CStr::from_ptr(message)
+    };
+    let v1_str = v1.to_str().unwrap().to_string();
+
+    // v2
+    let v2 = {
+        assert!(! signature64.is_null());
+
+        CStr::from_ptr(signature64)
+    };
+    let v2_str = v2.to_str().unwrap().to_string();
+
+    // v3
+    let v3 = {
+        assert!(! pub_key64.is_null());
+
+        CStr::from_ptr(pub_key64)
+    };
+    let v3_str = v3.to_str().unwrap().to_string();
+
+    // result
+    let r_value = unid::ciphers::signer::Signer::verify(v1_str, v2_str, v3_str);
+
+    logger.debug("( END ) unid_ciphers_signer_verify");
+
+    r_value
 }
 
 /// unid :: ciphers :: cipher :: encrypt
