@@ -1,17 +1,31 @@
-use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+use picorand::{WyRand, RNG, PicoRandGenerate};
 
-// Create small, cheap to initialize and fast RNG with a random seed.
-// The randomness is supplied by the operating system.
+pub struct Random {}
 
-// Source to random number
+impl Random {
+    pub fn bytes(length: &usize) -> Vec<u8> {
+        let mut rng = RNG::<WyRand, u8>::new(0xDEADBEEF);
+        let mut result: Vec<u8> = Vec::new();
 
-pub fn get_random_bytes(length: usize) -> String {
-    let mut len = length;
-    let base = String::from("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
+        (0..*length).collect::<Vec<usize>>().iter().for_each(|_|
+            result.push(rng.generate())
+        );
 
-    if base.len() < len {
-        len = base.len();
+        result
     }
+}
 
-    base.get(0..len).unwrap().to_string()
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::vec::Vec;
+
+    #[test]
+    fn test_hash() {
+        let result = Random::bytes(&32);
+
+        assert_eq!(result, Vec::from([0]));
+        assert_eq!(result.len(), 32);
+    }
 }

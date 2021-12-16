@@ -5,20 +5,12 @@
 #![feature(const_option)]
 #![feature(default_alloc_error_handler)]
 #![feature(const_fn_fn_ptr_basics)]
-#![feature(vec_into_raw_parts)]
 
 extern crate alloc;
 extern crate scrypt;
 extern crate base64;
-// extern crate libsecp256k1_core;
 extern crate hmac;
-extern crate hmac_drbg;
-extern crate arrayref;
 extern crate serde;
-extern crate typenum;
-extern crate crunchy;
-extern crate digest;
-extern crate subtle;
 
 mod unid;
 mod logger;
@@ -29,14 +21,13 @@ use core::lazy::Lazy;
 use alloc::string::{String, ToString};
 use cstr_core::{CStr, CString, c_char};
 use logger::Logger;
+use serde::{Deserialize, Serialize};
 use spin::Mutex;
-use unid::utils::data_t::DataT;
-use unid::utils::aes_crypt::AesCrypt;
 
 #[cfg_attr(not(test), global_allocator)]
 static mut ALLOCATOR: allocator::ExternalHeap = allocator::ExternalHeap::empty();
 
-static mut AES_CRYPT: AesCrypt = AesCrypt::empty();
+// static mut AES_CRYPT: AesCrypt = AesCrypt::empty();
 
 #[repr(C)]
 pub struct UNiDConfig {
@@ -110,10 +101,10 @@ pub unsafe extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
 /// aes :: init
 /// 
 /// # Safety
-#[no_mangle]
-pub unsafe extern "C" fn aes_init(encryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32), decryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32)) {
-    AES_CRYPT.init(encryptor, decryptor);
-}
+// #[no_mangle]
+// pub unsafe extern "C" fn aes_init(encryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32), decryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32)) {
+//     AES_CRYPT.init(encryptor, decryptor);
+// }
 
 /// unid :: core :: create_did
 /// 
@@ -259,7 +250,7 @@ pub unsafe extern "C" fn unid_utils_codec_base64_encode(content: *const c_char) 
     };
     let v1_str = v1.to_str().unwrap().to_string();
 
-    let r = unid::utils::codec::Codec::base64_encode(v1_str);
+    let r = unid::utils::codec::Base64Url::encode(&v1_str.as_bytes().to_vec());
     let r_c_str = CString::new(r).unwrap();
 
     r_c_str.into_raw()
@@ -279,8 +270,8 @@ pub unsafe extern "C" fn unid_utils_codec_base64_decode(content: *const c_char) 
     };
     let v1_str = v1.to_str().unwrap().to_string();
 
-    let r = unid::utils::codec::Codec::base64_decode(v1_str);
-    let r_c_str = CString::new(r).unwrap();
+    let r = unid::utils::codec::Base64Url::decode_as_string(&v1_str);
+    let r_c_str = CString::new(r.unwrap()).unwrap();
 
     r_c_str.into_raw()
 }
@@ -328,7 +319,7 @@ pub unsafe extern "C" fn unid_ciphers_signer_sign(message: *const c_char, secret
     logger.debug("here1");
 
     // result
-    let r = unid::ciphers::signer::Signer::sign(v1_str, v2_str);
+    let r = String::from(""); //unid::ciphers::signer::Signer::sign(v1_str, v2_str);
     let r_c_str = CString::new(r).unwrap();
     let r_ptr = r_c_str.into_raw();
 
@@ -371,7 +362,7 @@ pub unsafe extern "C" fn unid_ciphers_signer_verify(message: *const c_char, sign
     let v3_str = v3.to_str().unwrap().to_string();
 
     // result
-    let r_value = unid::ciphers::signer::Signer::verify(v1_str, v2_str, v3_str);
+    let r_value = false; // unid::ciphers::signer::Signer::verify(v1_str, v2_str, v3_str);
 
     logger.debug("( END ) unid_ciphers_signer_verify");
 
@@ -407,7 +398,7 @@ pub unsafe extern "C" fn unid_ciphers_cipher_encrypt(plaintext: *const c_char, s
 
     // result
 
-    let r = unid::ciphers::cipher::Cipher::encrypt(v1_str, v2_str);
+    let r = String::from(""); // unid::ciphers::cipher::Cipher::encrypt(v1_str, v2_str);
 
     let r_c_str = CString::new(r).unwrap();
     let r_ptr = r_c_str.into_raw();
@@ -446,7 +437,7 @@ pub unsafe extern "C" fn unid_ciphers_cipher_decrypt(buffered_ciphertext_base64:
 
     // result
 
-    let r = unid::ciphers::cipher::Cipher::decrypt(v1_str, v2_str);
+    let r = String::from(""); // unid::ciphers::cipher::Cipher::decrypt(v1_str, v2_str);
 
     let r_c_str = CString::new(r).unwrap();
     let r_ptr = r_c_str.into_raw();
@@ -489,6 +480,31 @@ pub unsafe extern "C" fn unid_ciphers_hasher_digest(content: *const c_char, secr
     logger.debug("( END ) unid_ciphers_hasher_digest");
 
     r_ptr
+}
+
+#[derive(Serialize, Deserialize)]
+struct Address {
+    street: String,
+    city: String,
+}
+
+use alloc::format;
+use unid::runtime::secp256k1::Secp256k1;
+
+#[no_mangle]
+pub unsafe extern "C" fn unid_test() {
+    let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
+    let m = String::from("hello").as_bytes().to_vec();
+    let k = Random::bytes(&32);
+
+    let result = Secp256k1::ecdsa_sign(&m, &k);
+
+    if result.is_ok() {
+        logger.info(format!("{:?}", result.unwrap()));
+    } else {
+        logger.err("ERROR");
+    }
 }
 
 /// unid :: ciphers :: hasher :: verify
@@ -534,6 +550,8 @@ pub unsafe extern "C" fn unid_ciphers_hasher_verify(content: *const c_char, dige
 
 #[cfg(not(test))]
 use core::panic::PanicInfo;
+
+use crate::unid::utils::random::Random;
 
 #[cfg(not(test))]
 #[panic_handler]
