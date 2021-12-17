@@ -13,15 +13,15 @@ impl Base64Url {
         BASE64URL.encode(content)
     }
 
-    pub fn decode_as_bytes(content: &String) -> Result<Vec<u8>, UNiDError> {
-        match BASE64URL.decode(content.as_bytes()) {
+    pub fn decode_as_bytes(message: &String) -> Result<Vec<u8>, UNiDError> {
+        match BASE64URL.decode(message.as_bytes()) {
             Ok(v) => Ok(v),
             Err(_) => Err(UNiDError{})
         }
     }
 
-    pub fn decode_as_string(content: &String) -> Result<String, UNiDError> {
-        let bytes = match BASE64URL.decode(content.as_bytes()) {
+    pub fn decode_as_string(message: &String) -> Result<String, UNiDError> {
+        let bytes = match BASE64URL.decode(message.as_bytes()) {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})
         };
@@ -42,20 +42,20 @@ mod tests {
     use alloc::vec::Vec;
 
     #[fixture]
-    fn fixture() -> String {
+    fn message() -> String {
         String::from(r#"{"k":"UNiD"}"#)
     }
 
     #[test]
     fn test_base64url_encode() {
-        let result = Base64Url::encode(&fixture().as_bytes().to_vec());
+        let result = Base64Url::encode(&message().as_bytes().to_vec());
 
         assert_eq!(result, String::from("eyJrIjoiVU5pRCJ9"));
     }
 
     #[test]
     fn test_base64url_decode_byte() {
-        let encoded = Base64Url::encode(&fixture().as_bytes().to_vec());
+        let encoded = Base64Url::encode(&message().as_bytes().to_vec());
         let result = Base64Url::decode_as_bytes(&encoded);
 
         assert!(result.is_ok());
@@ -68,7 +68,7 @@ mod tests {
 
     #[test]
     fn test_base64url_decode_string() {
-        let encoded = Base64Url::encode(&fixture().as_bytes().to_vec());
+        let encoded = Base64Url::encode(&message().as_bytes().to_vec());
         let result = Base64Url::decode_as_string(&encoded);
 
         assert!(result.is_ok());

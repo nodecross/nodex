@@ -447,47 +447,6 @@ pub unsafe extern "C" fn unid_ciphers_cipher_decrypt(buffered_ciphertext_base64:
     r_ptr
 }
 
-/// unid :: ciphers :: hasher :: digest
-/// 
-/// # Safety
-#[no_mangle]
-pub unsafe extern "C" fn unid_ciphers_hasher_digest(content: *const c_char, secret: *const c_char) -> *mut c_char {
-    let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
-
-    logger.debug("(BEGIN) unid_ciphers_hasher_digest");
-
-    // v1
-    let v1 = {
-        assert!(! content.is_null());
-
-        CStr::from_ptr(content)
-    };
-    let v1_str = v1.to_str().unwrap().to_string();
-
-    // v2
-    let v2 = {
-        assert!(! secret.is_null());
-
-        CStr::from_ptr(secret)
-    };
-    let v2_str = v2.to_str().unwrap().to_string();
-
-    // result
-    let r = unid::ciphers::hasher::Hasher::digest(v1_str, v2_str);
-    let r_c_str = CString::new(r).unwrap();
-    let r_ptr = r_c_str.into_raw();
-
-    logger.debug("( END ) unid_ciphers_hasher_digest");
-
-    r_ptr
-}
-
-#[derive(Serialize, Deserialize)]
-struct Address {
-    street: String,
-    city: String,
-}
-
 use alloc::format;
 use unid::runtime::secp256k1::Secp256k1;
 
@@ -507,47 +466,6 @@ pub unsafe extern "C" fn unid_test() {
     }
 }
 
-/// unid :: ciphers :: hasher :: verify
-/// 
-/// # Safety
-#[no_mangle]
-pub unsafe extern "C" fn unid_ciphers_hasher_verify(content: *const c_char, digest: *const c_char, secret: *const c_char) -> bool {
-    let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
-
-    logger.debug("(BEGIN) unid_ciphers_hasher_verify");
-
-    // v1
-    let v1 = {
-        assert!(! content.is_null());
-
-        CStr::from_ptr(content)
-    };
-    let v1_str = v1.to_str().unwrap().to_string();
-
-    // v2
-    let v2 = {
-        assert!(! digest.is_null());
-
-        CStr::from_ptr(digest)
-    };
-    let v2_str = v2.to_str().unwrap().to_string();
-
-    // v3
-    let v3 = {
-        assert!(! secret.is_null());
-
-        CStr::from_ptr(secret)
-    };
-    let v3_str = v3.to_str().unwrap().to_string();
-
-    // result
-    let r_value = unid::ciphers::hasher::Hasher::verify(v1_str, v2_str, v3_str);
-
-    logger.debug("( END ) unid_ciphers_hasher_verify");
-
-    r_value
-}
-
 #[cfg(not(test))]
 use core::panic::PanicInfo;
 
@@ -561,48 +479,8 @@ pub extern "C" fn panic(_panic: &PanicInfo<'_>) -> ! {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     extern crate std;
 
     #[cfg_attr(test, global_allocator)]
     static mut A: std::alloc::System = std::alloc::System;
-
-    #[test]
-    fn test_unid_ciphers_hasher_digest() {
-        let content = CString::new("content");
-        let secret = CString::new("secret");
-
-        unsafe {
-            let c_ptr = unid_ciphers_hasher_digest(content.unwrap().as_ptr(), secret.unwrap().as_ptr());
-            let c_str = CStr::from_ptr(c_ptr);
-
-            assert_eq!(
-                c_str.to_str().unwrap(),
-                "pfMFlg7ax3Oka6O6FiWJxyAEVels4EOHUWVIgL8YXW21G+BkA5KTxCSJGnpd7hfAsodxp0Cu2Oa2uXdwqmOmXQ=="
-            );
-
-            // dispose!
-            unid_disposer(c_ptr);
-        }
-    }
-
-    #[test]
-    fn test_unid_ciphers_hasher_verify() {
-        let content = CString::new("content");
-        let secret = CString::new("secret");
-        let digest = CString::new("pfMFlg7ax3Oka6O6FiWJxyAEVels4EOHUWVIgL8YXW21G+BkA5KTxCSJGnpd7hfAsodxp0Cu2Oa2uXdwqmOmXQ==");
-
-        unsafe {
-            let is_verified = unid_ciphers_hasher_verify(content.unwrap().as_ptr(), digest.unwrap().as_ptr(), secret.unwrap().as_ptr());
-
-            assert!(is_verified);
-        }
-    }
-
-    #[allow(clippy::eq_op)]
-    #[test]
-    fn it_works() {
-        assert_eq!("hello", "hello");
-    }
 }

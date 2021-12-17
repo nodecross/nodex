@@ -18,21 +18,21 @@ pub struct DecodedContainer {
 }
 
 impl Multihash {
-    pub fn hash_as_non_multihash_buffer(content: &Vec<u8>) -> Vec<u8> {
+    pub fn hash_as_non_multihash_buffer(message: &Vec<u8>) -> Vec<u8> {
         let mut hasher = Sha256::new();
 
-        hasher.update(content);
+        hasher.update(message);
 
         hasher.finalize().to_vec()
     }
 
     // [NOTE]: SHA2-256 ONLY
-    pub fn hash(content: &Vec<u8>) -> Vec<u8> {
+    pub fn hash(message: &Vec<u8>) -> Vec<u8> {
         let mut prefix: Vec<u8> = Vec::from([
             MULTIHASH_SHA256_CODE,
             MULTIHASH_SHA256_SIZE,
         ]);
-        let mut hashed: Vec<u8> = Multihash::hash_as_non_multihash_buffer(content);
+        let mut hashed: Vec<u8> = Multihash::hash_as_non_multihash_buffer(message);
         let mut joined: Vec<u8> = Vec::from([]);
 
         joined.append(&mut prefix);
@@ -41,15 +41,15 @@ impl Multihash {
         joined
     }
 
-    pub fn hash_then_encode(content: &Vec<u8>) -> String {
-        let hashed = Multihash::hash(content);
+    pub fn hash_then_encode(message: &Vec<u8>) -> String {
+        let hashed = Multihash::hash(message);
 
         codec::Base64Url::encode(&hashed)
     }
 
-    pub fn canonicalize_then_double_hash_then_encode(content: &Vec<u8>) -> String {
+    pub fn canonicalize_then_double_hash_then_encode(message: &Vec<u8>) -> String {
         // [FIXME]: SHOLD CANONICALIZE
-        let canonicalized = content.clone();
+        let canonicalized = message.clone();
 
         let hashed = Multihash::hash_as_non_multihash_buffer(&canonicalized);
 
@@ -86,13 +86,13 @@ mod tests {
     use alloc::vec::Vec;
 
     #[fixture]
-    fn fixture() -> String {
+    fn message() -> String {
         String::from(r#"{"k":"UNiD"}"#)
     }
 
     #[test]
     fn test_hash() {
-        let result = Multihash::hash(&fixture().as_bytes().to_vec());
+        let result = Multihash::hash(&message().as_bytes().to_vec());
 
         assert_eq!(result, Vec::from([
              18,  32, 149, 251,  20, 117,  69, 224,
@@ -105,7 +105,7 @@ mod tests {
 
     #[test]
     fn test_hash_as_non_multihash_buffer() {
-        let result = Multihash::hash_as_non_multihash_buffer(&fixture().as_bytes().to_vec());
+        let result = Multihash::hash_as_non_multihash_buffer(&message().as_bytes().to_vec());
 
         assert_eq!(result, Vec::from([
            149, 251,  20, 117,  69, 224, 249, 150,
@@ -117,21 +117,21 @@ mod tests {
 
     #[test]
     fn test_canonicalize_then_double_hash_then_encode() {
-        let result = Multihash::canonicalize_then_double_hash_then_encode(&fixture().as_bytes().to_vec());
+        let result = Multihash::canonicalize_then_double_hash_then_encode(&message().as_bytes().to_vec());
 
         assert_eq!(result, String::from("EiAkB6db3wB049pqz8eml0uwHzIJOEadoAOFPgyNhXFdmw=="));
     }
 
     #[test]
     fn test_hash_then_encode() {
-        let result = Multihash::hash_then_encode(&fixture().as_bytes().to_vec());
+        let result = Multihash::hash_then_encode(&message().as_bytes().to_vec());
 
         assert_eq!(result, String::from("EiCV-xR1ReD5lj1xKLOGjRhlJIqIP17Pjum_CLVjRv9KDA=="));
     }
 
     #[test]
     fn test_decode() {
-        let encoded = Multihash::hash(&fixture().as_bytes().to_vec());
+        let encoded = Multihash::hash(&message().as_bytes().to_vec());
         let result = Multihash::decode(&encoded);
 
         assert!(result.is_ok());

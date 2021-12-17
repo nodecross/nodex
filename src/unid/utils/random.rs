@@ -19,13 +19,11 @@ impl Random {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::vec::Vec;
 
     #[test]
     fn test_hash() {
         let result = Random::bytes(&32);
 
-        assert_eq!(result, Vec::from([0]));
         assert_eq!(result.len(), 32);
     }
 }
