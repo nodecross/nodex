@@ -88,7 +88,7 @@ IS_PASSED="$(
 )"
 
 [[ "X${IS_PASSED}" != "XOK" ]] && {
-    EXIT_FAILURE "(ERROR): Test result has not reached threshold (threshold rate = ${THRESHOLD} %, coverage rate = ${COVERAGE} %)."
+    EXIT_FAILURE "(ERROR): TEST RESULT HAS NOT REACHED THRESHOLD ! (threshold rate = ${THRESHOLD} %, coverage rate = ${COVERAGE} %)"
 }
 
-EXIT_SUCCESS "[^_^] SUCCESS !"
+EXIT_SUCCESS "(INFO): [^_^] SUCCESS ! (threshold rate = ${THRESHOLD} %, coverage rate = ${COVERAGE} %)"

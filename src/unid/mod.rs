@@ -3,3 +3,4 @@ pub mod ciphers;
 // pub mod did_unid;
 pub mod runtime;
 pub mod utils;
+pub mod errors;
