@@ -1,6 +1,5 @@
 pub mod codec;
-pub mod data_t;
-pub mod aes_crypt;
 pub mod random;
+pub mod multihasher;
+pub mod hmac;
 // pub mod http_client;
-// pub mod multihasher;
