@@ -32,11 +32,14 @@ use logger::Logger;
 use spin::Mutex;
 use unid::utils::data_t::DataT;
 use unid::utils::aes_crypt::AesCrypt;
+use unid::utils::ecdsa::Ecdsa;
 
 #[cfg_attr(not(test), global_allocator)]
 static mut ALLOCATOR: allocator::ExternalHeap = allocator::ExternalHeap::empty();
 
 static mut AES_CRYPT: AesCrypt = AesCrypt::empty();
+
+static mut ECDSA: Ecdsa = Ecdsa::empty();
 
 #[repr(C)]
 pub struct UNiDConfig {
@@ -114,6 +117,15 @@ pub unsafe extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
 pub unsafe extern "C" fn aes_init(encryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32), decryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32)) {
     AES_CRYPT.init(encryptor, decryptor);
 }
+
+/// ecdsa :: init
+/// 
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn ecdsa_init(signer: extern "C" fn(*mut c_char, *mut u8, *mut c_char, *mut c_char), verifier: extern "C" fn(*mut c_char, *mut c_char, *mut c_char, *mut c_char, *mut DataT, *mut i32)) {
+    ECDSA.init(signer, verifier);
+}
+
 
 /// unid :: core :: create_did
 /// 
@@ -298,6 +310,28 @@ pub unsafe extern "C" fn unid_utils_multihasher_hash(_content: *const c_char) ->
     r_c_str.into_raw()
 }
 
+
+/// unid :: ciphers :: signer :: kp_gen
+/// 
+/// # Safety
+#[no_mangle]
+#[no_mangle]
+pub unsafe extern "C" fn unid_ciphers_signer_kp_gen() -> *mut c_char {
+    let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
+    logger.debug("(BEGIN) unid_ciphers_signer_kp_gen");
+
+    // result
+    // let r = unid::ciphers::signer::Signer::kp_gen();
+    let r = "".to_string();
+    let r_c_str = CString::new(r).unwrap();
+    let r_ptr = r_c_str.into_raw();
+
+    logger.debug("( END ) unid_ciphers_signer_kp_gen");
+
+    r_ptr
+}
+
 /// unid :: ciphers :: signer :: sign
 /// 
 /// # Safety
@@ -306,7 +340,6 @@ pub unsafe extern "C" fn unid_ciphers_signer_sign(message: *const c_char, secret
     let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
     logger.debug("(BEGIN) unid_ciphers_signer_sign");
-    logger.debug("here0");
 
     // v1
     let v1 = {
@@ -315,7 +348,6 @@ pub unsafe extern "C" fn unid_ciphers_signer_sign(message: *const c_char, secret
         CStr::from_ptr(message)
     };
     let v1_str = v1.to_str().unwrap().to_string();
-    logger.debug("here0");
 
     // v2
     let v2 = {
@@ -325,10 +357,8 @@ pub unsafe extern "C" fn unid_ciphers_signer_sign(message: *const c_char, secret
     };
     let v2_str = v2.to_str().unwrap().to_string();
 
-    logger.debug("here1");
-
     // result
-    let r = unid::ciphers::signer::Signer::sign(v1_str, v2_str);
+    let r = unid::ciphers::signer::Signer::signew(v1_str, v2_str);
     let r_c_str = CString::new(r).unwrap();
     let r_ptr = r_c_str.into_raw();
 
@@ -371,7 +401,7 @@ pub unsafe extern "C" fn unid_ciphers_signer_verify(message: *const c_char, sign
     let v3_str = v3.to_str().unwrap().to_string();
 
     // result
-    let r_value = unid::ciphers::signer::Signer::verify(v1_str, v2_str, v3_str);
+    let r_value = unid::ciphers::signer::Signer::verifynew(v1_str, v2_str, v3_str);
 
     logger.debug("( END ) unid_ciphers_signer_verify");
 

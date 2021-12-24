@@ -66,6 +66,7 @@ serde = { version = "1.0.104", features = ["derive"], default-features = false }
 
 crunchy = "0.2"
 digest = "0.9"
+hex = { version = "0.4.3", features = ["alloc"], default-features = false }
 
 [profile.dev]
 panic = "abort"

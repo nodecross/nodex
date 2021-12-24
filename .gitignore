@@ -12,3 +12,4 @@ html/
 latex/
 .VERSION
 .releaserc.json
+includes/libunid.c

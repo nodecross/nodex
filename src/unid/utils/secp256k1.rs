@@ -45,7 +45,7 @@ use crate::unid::utils::libsecp256k1_core::{
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 /// Public key on a secp256k1 curve.
-pub struct PublicKey(Affine);
+pub struct PublicKey(pub Affine);
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 /// Secret key (256-bit) on a secp256k1 curve.
@@ -537,20 +537,11 @@ pub fn sign_with_context(
 
 
 pub fn sign(message: &Message, seckey: &SecretKey) -> (Signature, RecoveryId) {  
-  unsafe {
-    let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
-    logger.debug(format!("here before ecmult" ));
-  }
 
   let ECMULT_GEN_CONTEXT: Box<ECMultGenContext> = ECMultGenContext::new_boxed();
   // let ECMULT_GEN_CONTEXT: ECMultGenContext =
   // unsafe { ECMultGenContext::new_from_raw(include_str!("out/const_gen.rs")) };
-  unsafe {
-    let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
-
-    logger.debug(format!("here after ecmult" ));
-  }
   
   sign_with_context(message, seckey, &ECMULT_GEN_CONTEXT)
 }
