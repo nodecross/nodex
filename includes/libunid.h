@@ -16,7 +16,7 @@ typedef struct
 
 UNiDContext unid_init(UNiDConfig config);
 void aes_init(void *encryptor, void *decryptor);
-void ecdsa_init(void *kp_generator, void *signer, void *verifier);
+void ecdsa_init(void *signer, void *verifier);
 
 char *unid_core_create_did(UNiDContext context);
 char *unid_core_resolve_did(UNiDContext context);
@@ -32,7 +32,6 @@ char *unid_utils_random_get_random_bytes(int length);
 char *unid_utils_codec_base64_encode(char *content);
 char *unid_utils_codec_base64_decode(char *content);
 char *unid_utils_multihasher_hash(char *content);
-char *unid_ciphers_signer_kp_gen();
 char *unid_ciphers_signer_sign(char *message, char *secret_key);
 char *unid_ciphers_signer_verify(char *message, char *signature64, char *pub_key64);
 char *unid_ciphers_cipher_encrypt(char *plaintext, char *secret);

@@ -341,6 +341,7 @@ pub unsafe extern "C" fn unid_ciphers_signer_sign(message: *const c_char, secret
 
     logger.debug("(BEGIN) unid_ciphers_signer_sign");
 
+
     // v1
     let v1 = {
         assert!(! message.is_null());
@@ -348,6 +349,7 @@ pub unsafe extern "C" fn unid_ciphers_signer_sign(message: *const c_char, secret
         CStr::from_ptr(message)
     };
     let v1_str = v1.to_str().unwrap().to_string();
+    logger.debug(alloc::format!("message to sign = {}", v1_str));
 
     // v2
     let v2 = {
@@ -383,6 +385,7 @@ pub unsafe extern "C" fn unid_ciphers_signer_verify(message: *const c_char, sign
         CStr::from_ptr(message)
     };
     let v1_str = v1.to_str().unwrap().to_string();
+    logger.debug(alloc::format!("message to verify = {}", v1_str));
 
     // v2
     let v2 = {

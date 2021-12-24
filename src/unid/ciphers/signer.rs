@@ -45,14 +45,9 @@ impl Signer {
         
         let output: String = unsafe { crate::ECDSA.sign(secret_key_vec.clone(), message_vec.clone()) };
 
-        unsafe {
-            let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
-
-            logger.debug(format!("output signature = {:?}", output));
-        }
-
         output
     }
+    
     pub fn sign(message: String, secret_key64: String) -> String {
         let message_u8 = message.as_bytes();
         let secret_u8 = secret_key64.as_bytes();
