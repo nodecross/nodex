@@ -20,22 +20,27 @@
     <img src="https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release" alt="Sematic Release" />
   </a>
   <br />
-  Automate device security provisioning with edge intelligence
+  E2E data security with edge intelligence
 </p>
 
 ## Features
 
-- Abstract the dev complexity of edge security
-- Fully automated device provisioning
-- End-to-end authenticated and encrypted communications
+- Abstract security stack complexity with edge intelligence
+- Fully automated provisioning
+- E2E secure channel
 - Security lifecycle
 - Overlay routing
+- Root of Trust add-ons
 - Cloud add-ons for real-time data flow and processing
 - Developer-first
 
 ## Introduction
 
-Hardware Root of Trust is the security foundation for an SoC, other semiconductor device or electronic system. The RoT contains the keys for cryptographic functions and is usually a part of the secure boot process providing the foundation for the software chain of trust. _UNiD_ is a set of libraries written by Rust that can leverage the RoT and decentralized identity technology to autonomously generate key pairs, register the credentials on a decentralized PKI, and build end-to-end secure channel by the TLS handshake protocol. This capabilities reduce the development cost of device security, increase flexibilities, and facilitates real-time data flow and processing.
+UNiD is a simplified security stack to restore trust in all digital interaction, and make it universally verifiable and useful. The system software provides end-to-end data security between every device and the cloud. The system software uses decentralized identity (DID) as device identifier based on the W3C DID Core 1.0 specification. In RoT secure storage, the system software autonomously generates multiple key pairs from TRNG (PUF), and generates the payload by hashing the object containing these public keys information. This payload can be registered with DPKI (Decentralized Public Key Infrastructure) to generate a DID document, which can be treated as a globally unique identifier independent of any third party. This DID is a URI that associates the device with a DID document that allows trustable interactions.
+
+The system software perform handshakes with a message broker to establish end-to-end secure connections with ECDH. In the handshake process, the system sends the public key (for encryption) and encrypted and signed message to the server as a client hello. The server generates a common key with the received public key, and decrypts message to verify the device's signature, and responses with encrypted and signed message to the device. The device then verifies the server’s signature and compares the server’s DID with the pre-configured DID to authenticate the server, and completes handshake process. All data exchanged with remote devices and servers is encrypted and signed. Data is encrypted with AES-GCM with a common key generated during the handshake. Integrity of the data is validated by verifying the signature in the RoT secure storage of the device.
+
+The system software will be available for devices with RoT functions. It allows developers to focus on application development without scratch building the complex security stack.
 
 <p align="center">
   <img src="images/e2e_secure_channel.svg" alt="e2e secure channel" width="80%" />
