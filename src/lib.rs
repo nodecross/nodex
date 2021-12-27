@@ -16,13 +16,16 @@ mod unid;
 mod logger;
 mod allocator;
 mod handler;
+mod ffi;
+pub mod bindings;
 
 use core::lazy::Lazy;
 use alloc::string::{String, ToString};
+use alloc::format;
 use cstr_core::{CStr, CString, c_char};
 use logger::Logger;
-use serde::{Deserialize, Serialize};
 use spin::Mutex;
+use unid::{utils::{random, codec}, did::payload::{KeyPairSecp256K1, PublicKeyPayload, Payload}};
 
 #[cfg_attr(not(test), global_allocator)]
 static mut ALLOCATOR: allocator::ExternalHeap = allocator::ExternalHeap::empty();
@@ -76,13 +79,21 @@ pub unsafe extern "C" fn unid_regist_handler_on_debug_message(handler: extern "C
     MUTEX_HANDLERS.lock().set_debug_message_handler(handler)
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn unid_regist_handler_on_crypto_trng(handler: extern "C" fn(u32) -> *mut c_char) {
+    MUTEX_HANDLERS.lock().set_crypto_trng(handler)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn unid_regist_handler_on_https_post_request(handler: extern "C" fn(*mut c_char, *mut c_char, *mut c_char) -> *mut c_char) {
+    MUTEX_HANDLERS.lock().set_https_post_request(handler)
+}
+
 /// unid :: init
 /// 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
-    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
-
+pub unsafe extern "C" fn unid_init() {
     let alloc_handler = MUTEX_HANDLERS.lock().get_memory_alloc_handler();
     let dealloc_handler = MUTEX_HANDLERS.lock().get_memory_dealloc_handler();
 
@@ -92,10 +103,10 @@ pub unsafe extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
     ALLOCATOR.init(alloc_handler.unwrap(), dealloc_handler.unwrap());
 
     // build context then return
-    UNiDContext {
-        client_id    : config.client_id,
-        client_secret: config.client_secret,
-    }
+    // UNiDContext {
+    //     client_id    : config.client_id,
+    //     client_secret: config.client_secret,
+    // }
 }
 
 /// aes :: init
@@ -106,17 +117,102 @@ pub unsafe extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
 //     AES_CRYPT.init(encryptor, decryptor);
 // }
 
+use core::convert::From;
+
+#[repr(C)]
+pub struct KeyRing {
+    sign_key: *mut c_char,
+    update_key: *mut c_char,
+    recovery_key: *mut c_char,
+}
+
+impl From<(*mut c_char, *mut c_char, *mut c_char)> for KeyRing {
+    fn from(tup: (*mut c_char, *mut c_char, *mut c_char)) -> KeyRing {
+        KeyRing {
+            sign_key: tup.0,
+            update_key: tup.1,
+            recovery_key: tup.2,
+        }
+    }
+}
+
+impl From<KeyRing> for (*mut c_char, *mut c_char, *mut c_char) {
+    fn from(tup: KeyRing) -> (*mut c_char, *mut c_char, *mut c_char) {
+        (tup.sign_key, tup.update_key, tup.recovery_key)
+    }
+}
+
 /// unid :: core :: create_did
 /// 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn unid_core_create_did(_context: UNiDContext) -> *mut c_char {
-    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+pub unsafe extern "C" fn unid_core_create_did() -> KeyRing {
+    let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
-    let r = String::from("WIP_FOR_ROT");
-    let r_c_str = CString::new(r).unwrap();
+    let private_key = random::Random::trng_bytes(&32).unwrap();
 
-    r_c_str.into_raw()
+    let x = &private_key[0..16];
+    let y = &private_key[16..];
+
+    let k = KeyPairSecp256K1 {
+        kty: "EC".to_string(),
+        crv: "secp256k1".to_string(),
+        kid: None,
+        d: None,
+        x: codec::Base64Url::encode(&x.to_vec()),
+        y: codec::Base64Url::encode(&y.to_vec()),
+    };
+
+    let public_key = PublicKeyPayload {
+        r#id: "signing".to_string(),
+        r#type: "EcdsaSecp256k1VerificationKey2019".to_string(),
+        r#jwk: k.clone(),
+        purpose: ["".to_string()].to_vec()
+    };
+
+    let payload = match Payload::new(
+        [public_key].to_vec(),
+        k.clone(),
+        k.clone(),
+    ) {
+        Ok(v) => v,
+        Err(_) => panic!()
+    };
+
+    logger.debug(format!("payload = {:?}", serde_json::to_string(&payload).unwrap()));
+
+    let handler = MUTEX_HANDLERS.lock().get_https_post_request();
+
+    if let Some(..) = handler {
+        let host = match ffi::FFI::string_to_ptr(&"did.getunid.io".to_string()) {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
+        let path = match ffi::FFI::string_to_ptr(&"/api/v1/operations".to_string()) {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
+        let body = match ffi::FFI::string_to_ptr(&serde_json::to_string(&payload).unwrap()) {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
+
+        let response = handler.unwrap()(host, path, body);
+
+        logger.info(format!("-----"));
+        logger.info(format!("create did = {:?}", ffi::FFI::string_from_ptr(response).unwrap()));
+        logger.info(format!("-----"));
+
+        ffi::FFI::disposer(host);
+        ffi::FFI::disposer(path);
+        ffi::FFI::disposer(body);
+    }
+
+    (
+        ffi::FFI::binary_to_ptr(&private_key).unwrap(),
+        ffi::FFI::binary_to_ptr(&private_key).unwrap(),
+        ffi::FFI::binary_to_ptr(&private_key).unwrap(),
+    ).into()
 }
 
 /// unid :: core :: resolve_did
@@ -281,7 +377,9 @@ pub unsafe extern "C" fn unid_utils_codec_base64_decode(content: *const c_char) 
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_utils_multihasher_hash(_content: *const c_char) -> *mut c_char {
-    let _logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+    let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+
+    logger.info("Hello from Rust !");
 
     let r = String::from("WIP_FOR_ROT");
     let r_c_str = CString::new(r).unwrap();
@@ -447,29 +545,8 @@ pub unsafe extern "C" fn unid_ciphers_cipher_decrypt(buffered_ciphertext_base64:
     r_ptr
 }
 
-use alloc::format;
-use unid::runtime::secp256k1::Secp256k1;
-
-#[no_mangle]
-pub unsafe extern "C" fn unid_test() {
-    let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
-
-    let m = String::from("hello").as_bytes().to_vec();
-    let k = Random::bytes(&32);
-
-    let result = Secp256k1::ecdsa_sign(&m, &k);
-
-    if result.is_ok() {
-        logger.info(format!("{:?}", result.unwrap()));
-    } else {
-        logger.err("ERROR");
-    }
-}
-
 #[cfg(not(test))]
 use core::panic::PanicInfo;
-
-use crate::unid::utils::random::Random;
 
 #[cfg(not(test))]
 #[panic_handler]

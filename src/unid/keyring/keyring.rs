@@ -1,6 +1,6 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum KeyRingEnum {
-  Mnemonic,
+    Mnemonic,
 }
 
 pub type KeyRingType = KeyRingEnum;

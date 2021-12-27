@@ -1,5 +1,8 @@
 use alloc::vec::Vec;
 use picorand::{WyRand, RNG, PicoRandGenerate};
+use crate::MUTEX_HANDLERS;
+use crate::ffi::FFI;
+use crate::unid::errors::UNiDError;
 
 pub struct Random {}
 
@@ -13,6 +16,23 @@ impl Random {
         );
 
         result
+    }
+
+    pub unsafe fn trng_bytes(length: &usize) -> Result<Vec<u8>, UNiDError> {
+        let handler = MUTEX_HANDLERS.lock().get_crypto_trng();
+
+        if let Some(..) = handler {
+            let random = handler.unwrap()(32);
+
+            let output = match FFI::binary_from_ptr(random) {
+                Ok(v) => v,
+                Err(_) => Vec::from([0])
+            };
+
+            Ok(output)
+        } else {
+            Err(UNiDError{})
+        }
     }
 }
 
