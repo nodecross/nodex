@@ -7,48 +7,9 @@ use crate::MUTEX_HANDLERS;
 use libsecp256k1_core::curve::Scalar;
 use crate::unid::utils::secp256k1::{PublicKey, PublicKeyFormat, Signature};
 
-// pub struct Ecdsa {
-//   // kp_generator: extern "C" fn(*mut DataT),
-//   signer  : extern "C" fn(*mut c_char, *mut u8, *mut c_char, *mut c_char),
-//   verifier : extern "C" fn(*mut c_char, *mut c_char, *mut c_char, *mut c_char, *mut DataT, *mut i32),
-// }
-
 pub struct Ecdsa {}
 
 impl Ecdsa {
-  // pub const fn empty() -> Ecdsa {
-  //   Ecdsa {
-  //     // kp_generator: Ecdsa::noop_kp_generator,
-  //     signer : Ecdsa::noop_signer,
-  //     verifier : Ecdsa::noop_verifier
-  //   }
-  // }
-  
-  // // extern "C" fn noop_kp_generator(_kp_data_t: *mut DataT) {}
-
-  // extern "C" fn noop_signer(_secret_hex_string: *mut c_char, _msg_hashed_ptr: *mut u8, _r_hex_string: *mut c_char,_s_hex_string: *mut c_char) {}
-
-  // extern "C" fn noop_verifier(_x_hex_string: *mut c_char, _y_hex_string: *mut c_char, _r_hex_string: *mut c_char, _s_hex_string: *mut c_char, _msg_hashed_data_t: *mut DataT, _result: *mut i32) {}
-
-  // pub fn init(
-  //   &mut self,
-  //   // kp_generator: extern "C" fn(*mut DataT),
-  //   signer: extern "C" fn(*mut c_char, *mut u8, *mut c_char, *mut c_char),
-  //   verifier: extern "C" fn(*mut c_char, *mut c_char, *mut c_char, *mut c_char, *mut DataT, *mut i32)
-  // ) {
-  //   // self.kp_generator = kp_generator;
-  //   self.signer = signer;
-  //   self.verifier = verifier;
-  // }
-
-  // pub fn kp_gen(&self) -> Vec<u8> {
-  //   let len = 500;
-  //   let kp_vec: Vec<u8> = alloc::vec![0u8; len];
-  //   let mut kp_data_t: DataT = DataT::new(kp_vec);
-  //   (self.kp_generator)(&mut kp_data_t);
-  //   kp_data_t.to_vec()
-  // }
-  
 
   pub fn sign(secret_key_vec: &[u8], msg_vec: &[u8] ) -> String {
 

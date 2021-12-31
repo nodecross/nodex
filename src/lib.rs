@@ -33,10 +33,6 @@ use unid::{utils::{random, codec}, did::payload::{KeyPairSecp256K1, PublicKeyPay
 #[cfg_attr(not(test), global_allocator)]
 static mut ALLOCATOR: allocator::ExternalHeap = allocator::ExternalHeap::empty();
 
-// static mut AES_CRYPT: AesCrypt2 = AesCrypt2::empty();
-
-// static mut ECDSA: Ecdsa2 = Ecdsa2::empty();
-
 #[repr(C)]
 pub struct UNiDConfig {
     client_id: *const c_char,

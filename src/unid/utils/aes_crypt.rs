@@ -2,33 +2,9 @@ use crate::unid::utils::data_t::DataT;
 use alloc::vec::Vec;
 use crate::MUTEX_HANDLERS;
 
-// pub struct AesCrypt {
-//   encryptor  : extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32),
-//   decryptor : extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32),
-// }
-
 pub struct AesCrypt {}
 
 impl AesCrypt {
-  // pub const fn empty() -> AesCrypt {
-  //   AesCrypt {
-  //     encryptor : AesCrypt::noop_encryptor,
-  //     decryptor : AesCrypt::noop_decryptor
-  //   }
-  // }
-
-  // extern "C" fn noop_encryptor(_plaintext_data_t: *mut DataT, _key_data_t: *mut DataT, _iv_data_t: *mut DataT, _encrypt_ptr: *mut u8, _len: u32) {}
-
-  // extern "C" fn noop_decryptor(_ciphertext_data_t: *mut DataT, _key_data_t: *mut DataT, _iv_data_t: *mut DataT, _encrypt_ptr: *mut u8, _len: u32) {}
-
-  // pub fn init(
-  //   &mut self,
-  //   encryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32),
-  //   decryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32)
-  // ) {
-  //   self.encryptor = encryptor;
-  //   self.decryptor = decryptor;
-  // }
 
   pub fn encrypt(plaintext_vec: Vec<u8>, key_vec: Vec<u8>, iv_vec: Vec<u8> ) -> Vec<u8> {
     
