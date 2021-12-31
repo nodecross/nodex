@@ -120,14 +120,16 @@ mod tests {
     fn test_canonicalize_then_double_hash_then_encode() {
         let result = Multihash::canonicalize_then_double_hash_then_encode(&message().as_bytes().to_vec());
 
-        assert_eq!(result, String::from("EiAkB6db3wB049pqz8eml0uwHzIJOEadoAOFPgyNhXFdmw=="));
+        assert_eq!(result, String::from("EiAkB6db3wB049pqz8eml0uwHzIJOEadoAOFPgyNhXFdmw"));
+        //assert_eq!(result, String::from("EiAkB6db3wB049pqz8eml0uwHzIJOEadoAOFPgyNhXFdmw=="));
     }
 
     #[test]
     fn test_hash_then_encode() {
         let result = Multihash::hash_then_encode(&message().as_bytes().to_vec());
+        assert_eq!(result, String::from("EiCV-xR1ReD5lj1xKLOGjRhlJIqIP17Pjum_CLVjRv9KDA"));
 
-        assert_eq!(result, String::from("EiCV-xR1ReD5lj1xKLOGjRhlJIqIP17Pjum_CLVjRv9KDA=="));
+        //assert_eq!(result, String::from("EiCV-xR1ReD5lj1xKLOGjRhlJIqIP17Pjum_CLVjRv9KDA=="));
     }
 
     #[test]

@@ -3,13 +3,15 @@ use alloc::string::{String};
 use alloc::vec::Vec;
 use sha2::{ Digest, Sha256 };
 use crate::unid::utils::ecdsa::Ecdsa;
-// use crate::MUTEX_HANDLERS;
 
+#[cfg(test)]
+use crate::MUTEX_HANDLERS;
+#[cfg(test)]
+use alloc::format;
 #[cfg(test)]
 use crate::unid::utils::secp256k1::{sign as signer_sign, verify as signer_verify, Message, PublicKey, PublicKeyFormat, SecretKey, Signature};
 
-// use crate::MUTEX_HANDLERS;
-// use alloc::format;
+
 // use serde_json::json;
 
 // use crate::unid::utils::ecdsa::Ecdsa;

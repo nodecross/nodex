@@ -114,7 +114,7 @@ pub mod tests {
     let key_vec: Vec<u8> = base64::decode(key_base64).unwrap();
     let iv_vec: Vec<u8> = base64::decode(iv_base64).unwrap();
 
-    let ciphertext_vec: Vec<u8> = unsafe { AesCrypt::encrypt(plaintext_vec, key_vec, iv_vec) };
+    let ciphertext_vec: Vec<u8> = AesCrypt::encrypt(plaintext_vec, key_vec, iv_vec);
     let ciphertext_base64 = base64::encode(ciphertext_vec);
 
     assert_eq!(ciphertext_base64, "5FBuToCO9PiApjHbK+25Vg==".to_string());
@@ -130,7 +130,7 @@ pub mod tests {
     let key_vec: Vec<u8> = base64::decode(key_base64).unwrap();
     let iv_vec: Vec<u8> = base64::decode(iv_base64).unwrap();
 
-    let plaintext_vec: Vec<u8> = unsafe { AesCrypt::decrypt(ciphertext_vec, key_vec, iv_vec) };
+    let plaintext_vec: Vec<u8> = AesCrypt::decrypt(ciphertext_vec, key_vec, iv_vec);
     let plaintext_string: String = String::from_utf8(plaintext_vec).unwrap();
 
     assert_eq!(plaintext_string, "hello");
