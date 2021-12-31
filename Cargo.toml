@@ -58,6 +58,7 @@ serde_json = { version = "1.0.71", default-features = false, features = ["alloc"
 spin = { version = "0.9.2", default-features = false, features = ["mutex", "spin_mutex"] }
 scrypt = { version = "0.8.0", default-features = false, features = ["simple"] }
 subtle = { version = "2.4.1", default-features = false }
+libsecp256k1-core = { version = "0.3.0", default-features = false }
 
 arrayref = "0.3"
 hmac-drbg = { version = "0.3", default-features = false }

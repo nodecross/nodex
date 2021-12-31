@@ -10,7 +10,7 @@
 extern crate alloc;
 extern crate scrypt;
 extern crate base64;
-// extern crate libsecp256k1_core;
+extern crate libsecp256k1_core;
 extern crate hmac;
 extern crate hmac_drbg;
 extern crate arrayref;
@@ -98,8 +98,8 @@ pub unsafe extern "C" fn unid_init(config: UNiDConfig) -> UNiDContext {
     let alloc_handler = MUTEX_HANDLERS.lock().get_memory_alloc_handler();
     let dealloc_handler = MUTEX_HANDLERS.lock().get_memory_dealloc_handler();
 
-    assert!(! alloc_handler.is_none());
-    assert!(! dealloc_handler.is_none());
+    assert!(alloc_handler.is_some());
+    assert!(dealloc_handler.is_some());
 
     ALLOCATOR.init(alloc_handler.unwrap(), dealloc_handler.unwrap());
 
@@ -314,7 +314,6 @@ pub unsafe extern "C" fn unid_utils_multihasher_hash(_content: *const c_char) ->
 /// unid :: ciphers :: signer :: kp_gen
 /// 
 /// # Safety
-#[no_mangle]
 #[no_mangle]
 pub unsafe extern "C" fn unid_ciphers_signer_kp_gen() -> *mut c_char {
     let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());

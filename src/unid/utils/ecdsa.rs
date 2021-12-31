@@ -2,10 +2,10 @@ use crate::unid::utils::data_t::DataT;
 use alloc::vec::Vec;
 use alloc::string::{String, ToString};
 use cstr_core::{CStr, CString, c_char};
-use crate::MUTEX_HANDLERS;
+// use crate::MUTEX_HANDLERS;
 
-use crate::unid::utils::libsecp256k1_core::scalar::Scalar;
-use crate::unid::utils::secp256k1::{Message, PublicKey, PublicKeyFormat, SecretKey, Signature};
+use libsecp256k1_core::curve::Scalar;
+use crate::unid::utils::secp256k1::{PublicKey, PublicKeyFormat, Signature};
 
 pub struct Ecdsa {
   // kp_generator: extern "C" fn(*mut DataT),
@@ -50,12 +50,12 @@ impl Ecdsa {
   pub fn sign(&self, secret_key_vec: Vec<u8>, msg_vec: Vec<u8> ) -> String {
 
     let secret_hex_string: String = hex::encode_upper(secret_key_vec);
-    let mut secret_c_string = CString::new(secret_hex_string).unwrap();
-    let mut secret_ptr = secret_c_string.into_raw();
-    let mut r_c_string = unsafe { CString::from_vec_unchecked(alloc::vec![0u8;100]) };
-    let mut s_c_string = unsafe { CString::from_vec_unchecked(alloc::vec![0u8;100]) };
-    let mut r_ptr: *mut c_char = r_c_string.into_raw();
-    let mut s_ptr: *mut c_char = s_c_string.into_raw();
+    let secret_c_string = CString::new(secret_hex_string).unwrap();
+    let secret_ptr = secret_c_string.into_raw();
+    let r_c_string = unsafe { CString::from_vec_unchecked(alloc::vec![0u8;100]) };
+    let s_c_string = unsafe { CString::from_vec_unchecked(alloc::vec![0u8;100]) };
+    let r_ptr: *mut c_char = r_c_string.into_raw();
+    let s_ptr: *mut c_char = s_c_string.into_raw();
 
     let msg_data_t: DataT = DataT::new(msg_vec);
     let msg_ptr: *mut u8 = msg_data_t.ptr;
@@ -86,8 +86,8 @@ impl Ecdsa {
 
     let mut r_scalar = Scalar::default();
     let mut s_scalar = Scalar::default();
-    r_scalar.set_b32(r_u8_32);
-    s_scalar.set_b32(s_u8_32);
+    let _ = r_scalar.set_b32(r_u8_32);
+    let _ = s_scalar.set_b32(s_u8_32);
 
     let sig: Signature = Signature {
         r: r_scalar,
@@ -131,17 +131,17 @@ impl Ecdsa {
 
     let mut msg_hashed_data_t: DataT = DataT::new(msg_hashed_vec);
 
-    let mut x_c_string = CString::new(x_hex_string).unwrap();
-    let mut x_ptr = x_c_string.into_raw();
+    let x_c_string = CString::new(x_hex_string).unwrap();
+    let x_ptr = x_c_string.into_raw();
 
-    let mut y_c_string = CString::new(y_hex_string).unwrap();
-    let mut y_ptr = y_c_string.into_raw();
+    let y_c_string = CString::new(y_hex_string).unwrap();
+    let y_ptr = y_c_string.into_raw();
 
-    let mut r_c_string = CString::new(r_hex_string).unwrap();
-    let mut r_ptr = r_c_string.into_raw();
+    let r_c_string = CString::new(r_hex_string).unwrap();
+    let r_ptr = r_c_string.into_raw();
 
-    let mut s_c_string = CString::new(s_hex_string).unwrap();
-    let mut s_ptr = s_c_string.into_raw();
+    let s_c_string = CString::new(s_hex_string).unwrap();
+    let s_ptr = s_c_string.into_raw();
 
     let mut result: i32 = -1;
 

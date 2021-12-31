@@ -2,6 +2,7 @@
 //! signatures. The secp256k1 curve is used extensively in Bitcoin and
 //! Ethereum-alike cryptocurrencies.
 
+
 #![deny(
     unused_import_braces,
     unused_imports,
@@ -10,12 +11,17 @@
     unused_variables,
     non_shorthand_field_patterns,
     unreachable_code,
-    unused_parens
+    unused_parens,
 )]
 
+#![allow(dead_code)]
 
-// pub use libsecp256k1_core::*;
-
+pub use libsecp256k1_core::*;
+pub use libsecp256k1_core::{
+    curve::{Affine, ECMultContext, ECMultGenContext, Field, Jacobian, Scalar},
+    util::{Decoder, SignatureArray},
+};
+use crate::alloc::string::ToString;
 use alloc::boxed::Box;
 use arrayref::{array_mut_ref, array_ref};
 use core::convert::TryFrom;
@@ -24,23 +30,6 @@ use sha2::Sha256;
 use typenum::U32;
 use crate::MUTEX_HANDLERS;
 use alloc::format;
-
-
-use crate::unid::utils::libsecp256k1_core::{
-  util,
-  error::Error,
-  field::Field,
-  group::Affine,
-  scalar::Scalar,
-  ecmult::{ECMultContext, ECMultGenContext},
-};
-// pub static mut ECMULT_CONTEXT: Lazy<Mutex<Box<ECMultContext>>> = Lazy::new(|| {
-//   Mutex::new(ECMultContext::new_boxed())
-// });
-
-// pub static mut ECMULT_GEN_CONTEXT: Lazy<Mutex<Box<ECMultGenContext>>> = Lazy::new(|| {
-//   Mutex::new(ECMultGenContext::new_boxed())
-// });
 
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -209,11 +198,11 @@ impl PublicKey {
 
 }
 
-impl Into<Affine> for PublicKey {
-    fn into(self) -> Affine {
-        self.0
-    }
-}
+// impl Into<Affine> for PublicKey {
+//     fn into(self) -> Affine {
+//         self.0
+//     }
+// }
 
 impl TryFrom<Affine> for PublicKey {
     type Error = Error;
@@ -273,11 +262,11 @@ impl Default for SecretKey {
     }
 }
 
-impl Into<Scalar> for SecretKey {
-    fn into(self) -> Scalar {
-        self.0
-    }
-}
+// impl Into<Scalar> for SecretKey {
+//     fn into(self) -> Scalar {
+//         self.0
+//     }
+// }
 
 impl TryFrom<Scalar> for SecretKey {
     type Error = Error;
@@ -361,7 +350,7 @@ impl Signature {
 
         let mut a = [0; util::SIGNATURE_SIZE];
         a.copy_from_slice(p);
-        Ok(Self::parse_standard(&a)?)
+        Self::parse_standard(&a)
     }
 
 
@@ -436,7 +425,7 @@ impl RecoveryId {
 
     /// Parse recovery ID as Ethereum RPC format, starting with 27.
     pub fn parse_rpc(p: u8) -> Result<RecoveryId, Error> {
-        if p >= 27 && p < 27 + 4 {
+        if (27..27 + 4).contains(&p) {
             RecoveryId::parse(p - 27)
         } else {
             Err(Error::InvalidRecoveryId)
@@ -448,17 +437,17 @@ impl RecoveryId {
     }
 }
 
-impl Into<u8> for RecoveryId {
-    fn into(self) -> u8 {
-        self.0
-    }
-}
+// impl Into<u8> for RecoveryId {
+//     fn into(self) -> u8 {
+//         self.0
+//     }
+// }
 
-impl Into<i32> for RecoveryId {
-    fn into(self) -> i32 {
-        self.0 as i32
-    }
-}
+// impl Into<i32> for RecoveryId {
+//     fn into(self) -> i32 {
+//         self.0 as i32
+//     }
+// }
 
 
 pub fn verify_with_context(
@@ -472,10 +461,8 @@ pub fn verify_with_context(
 
 
 pub fn verify(message: &Message, signature: &Signature, pubkey: &PublicKey) -> bool {
-  let ECMULT_CONTEXT: Box<ECMultContext> = ECMultContext::new_boxed();
-  // let ECMULT_CONTEXT: ECMultContext =
-  // unsafe { ECMultContext::new_from_raw(include!("out/const.rs")) };
-  verify_with_context(message, signature, pubkey, &ECMULT_CONTEXT)
+  let ecmult_context: Box<ECMultContext> = ECMultContext::new_boxed();
+  verify_with_context(message, signature, pubkey, &ecmult_context)
 }
 
 
@@ -497,7 +484,7 @@ pub fn sign_with_context(
     unsafe {
       let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
   
-      logger.debug(format!("hmac drbg"));
+      logger.debug("hmac drbg".to_string());
     }
     let mut nonce = Scalar::default();
     let mut overflow;
@@ -512,7 +499,7 @@ pub fn sign_with_context(
           unsafe {
             let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
         
-            logger.debug(format!("not overflow"));
+            logger.debug("not overflow".to_string());
           }
             if let Ok(val) = context.sign_raw(&seckey.0, &message.0, &nonce) {
                 result = val;
@@ -535,13 +522,9 @@ pub fn sign_with_context(
     (Signature { r: sigr, s: sigs }, RecoveryId(recid))
 }
 
-
 pub fn sign(message: &Message, seckey: &SecretKey) -> (Signature, RecoveryId) {  
 
 
-  let ECMULT_GEN_CONTEXT: Box<ECMultGenContext> = ECMultGenContext::new_boxed();
-  // let ECMULT_GEN_CONTEXT: ECMultGenContext =
-  // unsafe { ECMultGenContext::new_from_raw(include_str!("out/const_gen.rs")) };
-  
-  sign_with_context(message, seckey, &ECMULT_GEN_CONTEXT)
+  let ecmult_gen_context: Box<ECMultGenContext> = ECMultGenContext::new_boxed();
+  sign_with_context(message, seckey, &ecmult_gen_context)
 }

@@ -1,30 +1,36 @@
-use alloc::string::{String, ToString};
-use crate::unid::utils::secp256k1::{sign as signer_sign, verify as signer_verify, Message, PublicKey, PublicKeyFormat, SecretKey, Signature};
+use alloc::string::{String};
+
 use alloc::vec::Vec;
-use serde_json::json;
 use sha2::{ Digest, Sha256 };
-use crate::MUTEX_HANDLERS;
-use alloc::format;
-
-use crate::unid::utils::ecdsa::Ecdsa;
-use cstr_core::{CStr, CString, c_char};
 
 
-const PROOF_KEY: &str = "proof";
-const VM_KEY: &str = "verificationMethod";
-const JWS_KEY: &str = "jws";
 
-struct SuiteSign {
-    did: String,
-    key_id: String,
-    secret_key64: String,
-}
+#[cfg(test)]
+use crate::unid::utils::secp256k1::{sign as signer_sign, verify as signer_verify, Message, PublicKey, PublicKeyFormat, SecretKey, Signature};
 
-struct SuiteVerify {
-    _did: Option<String>,
-    key_id: String,
-    pub_key64: String,
-}
+// use crate::MUTEX_HANDLERS;
+// use alloc::format;
+// use serde_json::json;
+
+// use crate::unid::utils::ecdsa::Ecdsa;
+// use cstr_core::{CStr, CString, c_char};
+
+
+// const PROOF_KEY: &str = "proof";
+// const VM_KEY: &str = "verificationMethod";
+// const JWS_KEY: &str = "jws";
+
+// struct SuiteSign {
+//     did: String,
+//     key_id: String,
+//     secret_key64: String,
+// }
+
+// struct SuiteVerify {
+//     _did: Option<String>,
+//     key_id: String,
+//     pub_key64: String,
+// }
 
 pub struct Signer {}
 
@@ -43,11 +49,12 @@ impl Signer {
         let secret_u8 = secret_key64.as_bytes();
         let secret_key_vec: Vec<u8> = base64::decode(secret_u8).unwrap();
         
-        let output: String = unsafe { crate::ECDSA.sign(secret_key_vec.clone(), message_vec.clone()) };
+        let output: String = unsafe { crate::ECDSA.sign(secret_key_vec, message_vec) };
 
         output
     }
-    
+
+    #[cfg(test)]
     pub fn sign(message: String, secret_key64: String) -> String {
         let message_u8 = message.as_bytes();
         let secret_u8 = secret_key64.as_bytes();
@@ -80,6 +87,7 @@ impl Signer {
         base64::encode(sig_u8.to_vec())
     }
 
+    #[cfg(test)]
     pub fn verify(message: String, signature64: String, pub_key64: String) -> bool {
         let message_str: &str = &message;
         let message_u8: &[u8] = message_str.as_bytes();
@@ -110,7 +118,7 @@ impl Signer {
         let digested_vec: Vec<u8> = digested.to_vec();
         
         
-        let output: bool = unsafe { crate::ECDSA.verify(pub_key_vec.clone(), signature_vec.clone(), digested_vec.clone()) };
+        let output: bool = unsafe { crate::ECDSA.verify(pub_key_vec, signature_vec, digested_vec) };
 
         output
     }
