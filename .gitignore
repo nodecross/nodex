@@ -12,8 +12,5 @@ html/
 latex/
 .VERSION
 .releaserc.json
-<<<<<<< HEAD
 includes/libunid.c
-=======
 _*/
->>>>>>> 189c9fa0cfe70d3a93a9b13226eabc2ff0eb427d
