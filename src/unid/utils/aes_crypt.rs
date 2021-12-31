@@ -1,33 +1,36 @@
 use crate::unid::utils::data_t::DataT;
 use alloc::vec::Vec;
+use crate::MUTEX_HANDLERS;
 
-pub struct AesCrypt {
-  encryptor  : extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32),
-  decryptor : extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32),
-}
+// pub struct AesCrypt {
+//   encryptor  : extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32),
+//   decryptor : extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32),
+// }
+
+pub struct AesCrypt {}
 
 impl AesCrypt {
-  pub const fn empty() -> AesCrypt {
-    AesCrypt {
-      encryptor : AesCrypt::noop_encryptor,
-      decryptor : AesCrypt::noop_decryptor
-    }
-  }
+  // pub const fn empty() -> AesCrypt {
+  //   AesCrypt {
+  //     encryptor : AesCrypt::noop_encryptor,
+  //     decryptor : AesCrypt::noop_decryptor
+  //   }
+  // }
 
-  extern "C" fn noop_encryptor(_plaintext_data_t: *mut DataT, _key_data_t: *mut DataT, _iv_data_t: *mut DataT, _encrypt_ptr: *mut u8, _len: u32) {}
+  // extern "C" fn noop_encryptor(_plaintext_data_t: *mut DataT, _key_data_t: *mut DataT, _iv_data_t: *mut DataT, _encrypt_ptr: *mut u8, _len: u32) {}
 
-  extern "C" fn noop_decryptor(_ciphertext_data_t: *mut DataT, _key_data_t: *mut DataT, _iv_data_t: *mut DataT, _encrypt_ptr: *mut u8, _len: u32) {}
+  // extern "C" fn noop_decryptor(_ciphertext_data_t: *mut DataT, _key_data_t: *mut DataT, _iv_data_t: *mut DataT, _encrypt_ptr: *mut u8, _len: u32) {}
 
-  pub fn init(
-    &mut self,
-    encryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32),
-    decryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32)
-  ) {
-    self.encryptor = encryptor;
-    self.decryptor = decryptor;
-  }
+  // pub fn init(
+  //   &mut self,
+  //   encryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32),
+  //   decryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32)
+  // ) {
+  //   self.encryptor = encryptor;
+  //   self.decryptor = decryptor;
+  // }
 
-  pub fn encrypt(&self, plaintext_vec: Vec<u8>, key_vec: Vec<u8>, iv_vec: Vec<u8> ) -> Vec<u8> {
+  pub fn encrypt(plaintext_vec: Vec<u8>, key_vec: Vec<u8>, iv_vec: Vec<u8> ) -> Vec<u8> {
     
     let pos = plaintext_vec.len();
     let len = (pos + 16) & !15;
@@ -48,7 +51,9 @@ impl AesCrypt {
     let encrypt_ptr: *mut u8 = encrypt_data_t.ptr;
     let encrypt_len: u32 = encrypt_data_t.len;
 
-    (self.encryptor)(&mut key_data_t, &mut iv_data_t, &mut padded_plaintext_data_t, encrypt_ptr, encrypt_len);
+    let handler = unsafe { MUTEX_HANDLERS.lock().get_aes_encryptor_handler() };
+
+    handler.unwrap()(&mut key_data_t, &mut iv_data_t, &mut padded_plaintext_data_t, encrypt_ptr, encrypt_len);
 
     unsafe {
       let logger = crate::Logger::new(crate::MUTEX_HANDLERS.lock().get_debug_message_handler());
@@ -71,7 +76,7 @@ impl AesCrypt {
     encrypt_data_t.to_vec()
   }
 
-  pub fn decrypt(&self, ciphertext_vec: Vec<u8>, key_vec: Vec<u8>, iv_vec: Vec<u8> ) -> Vec<u8> {
+  pub fn decrypt(ciphertext_vec: Vec<u8>, key_vec: Vec<u8>, iv_vec: Vec<u8> ) -> Vec<u8> {
     
     let len: usize = ciphertext_vec.len();
     assert!(len >= 16 && len % 16 == 0);
@@ -87,7 +92,9 @@ impl AesCrypt {
     let decrypt_ptr: *mut u8 = decrypt_data_t.ptr;
     let decrypt_len: u32 = decrypt_data_t.len;
 
-    (self.decryptor)(&mut key_data_t, &mut iv_data_t, &mut ciphertext_data_t, decrypt_ptr, decrypt_len);
+    let handler = unsafe { MUTEX_HANDLERS.lock().get_aes_decryptor_handler() };
+
+    handler.unwrap()(&mut key_data_t, &mut iv_data_t, &mut ciphertext_data_t, decrypt_ptr, decrypt_len);
 
     let padded_plaintext_vec: Vec<u8> = decrypt_data_t.to_vec();
 
@@ -131,7 +138,7 @@ pub mod tests {
     let key_vec: Vec<u8> = base64::decode(key_base64).unwrap();
     let iv_vec: Vec<u8> = base64::decode(iv_base64).unwrap();
 
-    let ciphertext_vec: Vec<u8> = unsafe { crate::AES_CRYPT.encrypt(plaintext_vec, key_vec, iv_vec) };
+    let ciphertext_vec: Vec<u8> = unsafe { AesCrypt::encrypt(plaintext_vec, key_vec, iv_vec) };
     let ciphertext_base64 = base64::encode(ciphertext_vec);
 
     assert_eq!(ciphertext_base64, "5FBuToCO9PiApjHbK+25Vg==".to_string());
@@ -147,7 +154,7 @@ pub mod tests {
     let key_vec: Vec<u8> = base64::decode(key_base64).unwrap();
     let iv_vec: Vec<u8> = base64::decode(iv_base64).unwrap();
 
-    let plaintext_vec: Vec<u8> = unsafe { crate::AES_CRYPT.decrypt(ciphertext_vec, key_vec, iv_vec) };
+    let plaintext_vec: Vec<u8> = unsafe { AesCrypt::decrypt(ciphertext_vec, key_vec, iv_vec) };
     let plaintext_string: String = String::from_utf8(plaintext_vec).unwrap();
 
     assert_eq!(plaintext_string, "hello");

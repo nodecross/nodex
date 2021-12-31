@@ -2,8 +2,8 @@ use alloc::string::{String};
 
 use alloc::vec::Vec;
 use sha2::{ Digest, Sha256 };
-
-
+use crate::unid::utils::ecdsa::Ecdsa;
+// use crate::MUTEX_HANDLERS;
 
 #[cfg(test)]
 use crate::unid::utils::secp256k1::{sign as signer_sign, verify as signer_verify, Message, PublicKey, PublicKeyFormat, SecretKey, Signature};
@@ -49,8 +49,8 @@ impl Signer {
         let secret_u8 = secret_key64.as_bytes();
         let secret_key_vec: Vec<u8> = base64::decode(secret_u8).unwrap();
         
-        let output: String = unsafe { crate::ECDSA.sign(secret_key_vec, message_vec) };
-
+        let output: String = Ecdsa::sign(&secret_key_vec, &message_vec);
+        //let output: String = unsafe { crate::ECDSA.sign(secret_key_vec.clone(), message_vec.clone()) };
         output
     }
 
@@ -118,8 +118,8 @@ impl Signer {
         let digested_vec: Vec<u8> = digested.to_vec();
         
         
-        let output: bool = unsafe { crate::ECDSA.verify(pub_key_vec, signature_vec, digested_vec) };
-
+        let output: bool = Ecdsa::verify(&pub_key_vec, &signature_vec, &digested_vec);
+        //let output: bool = unsafe { crate::ECDSA.verify(pub_key_vec.clone(), signature_vec.clone(), digested_vec.clone()) };
         output
     }
 }

@@ -1,17 +1,50 @@
-use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+use picorand::{WyRand, RNG, PicoRandGenerate};
+use crate::MUTEX_HANDLERS;
+use crate::ffi::Ffi;
+use crate::unid::errors::UNiDError;
 
-// Create small, cheap to initialize and fast RNG with a random seed.
-// The randomness is supplied by the operating system.
+pub struct Random {}
 
-// Source to random number
+impl Random {
+    #[allow(dead_code)]
+    pub fn bytes(length: &usize) -> Vec<u8> {
+        let mut rng = RNG::<WyRand, u8>::new(0xDEADBEEF);
+        let mut result: Vec<u8> = Vec::new();
 
-pub fn get_random_bytes(length: usize) -> String {
-    let mut len = length;
-    let base = String::from("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
+        (0..*length).collect::<Vec<usize>>().iter().for_each(|_|
+            result.push(rng.generate())
+        );
 
-    if base.len() < len {
-        len = base.len();
+        result
     }
 
-    base.get(0..len).unwrap().to_string()
+    pub unsafe fn trng_bytes(length: &usize) -> Result<Vec<u8>, UNiDError> {
+        let handler = MUTEX_HANDLERS.lock().get_crypto_trng();
+
+        if let Some(..) = handler {
+            let random = handler.unwrap()(*length as u32);
+
+            let output = match Ffi::binary_from_ptr(random) {
+                Ok(v) => v,
+                Err(_) => Vec::from([0])
+            };
+
+            Ok(output)
+        } else {
+            Err(UNiDError{})
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hash() {
+        let result = Random::bytes(&32);
+
+        assert_eq!(result.len(), 32);
+    }
 }
