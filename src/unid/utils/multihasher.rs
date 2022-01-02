@@ -18,7 +18,7 @@ pub struct DecodedContainer {
 }
 
 impl Multihash {
-    pub fn hash_as_non_multihash_buffer(message: &Vec<u8>) -> Vec<u8> {
+    pub fn hash_as_non_multihash_buffer(message: &[u8]) -> Vec<u8> {
         let mut hasher = Sha256::new();
 
         hasher.update(message);
@@ -27,7 +27,7 @@ impl Multihash {
     }
 
     // [NOTE]: SHA2-256 ONLY
-    pub fn hash(message: &Vec<u8>) -> Vec<u8> {
+    pub fn hash(message: &[u8]) -> Vec<u8> {
         let mut prefix: Vec<u8> = Vec::from([
             MULTIHASH_SHA256_CODE,
             MULTIHASH_SHA256_SIZE,
@@ -41,30 +41,31 @@ impl Multihash {
         joined
     }
 
-    pub fn hash_then_encode(message: &Vec<u8>) -> String {
+    pub fn hash_then_encode(message: &[u8]) -> String {
         let hashed = Multihash::hash(message);
 
         codec::Base64Url::encode(&hashed)
     }
 
-    pub fn canonicalize_then_double_hash_then_encode(message: &Vec<u8>) -> String {
+    pub fn canonicalize_then_double_hash_then_encode(message: &[u8]) -> String {
         // [FIXME]: SHOLD CANONICALIZE
-        let canonicalized = message.clone();
+        let canonicalized = message;
 
-        let hashed = Multihash::hash_as_non_multihash_buffer(&canonicalized);
+        let hashed = Multihash::hash_as_non_multihash_buffer(canonicalized);
 
         Multihash::hash_then_encode(&hashed)
     }
 
-    pub fn decode(encoded: &Vec<u8>) -> Result<DecodedContainer, UNiDError> {
+    #[allow(dead_code)]
+    pub fn decode(encoded: &[u8]) -> Result<DecodedContainer, UNiDError> {
         // check for: [ code, size, digest... ]
         if encoded.len() < 2 {
             return Err(UNiDError{});
         }
 
-        let code = encoded.clone()[0];
-        let length = encoded.clone()[1];
-        let digest = encoded.clone()[2..].to_vec();
+        let code = encoded[0];
+        let length = encoded[1];
+        let digest = encoded[2..].to_vec();
 
         if digest.len() != usize::from(length) {
             return Err(UNiDError{})
@@ -119,14 +120,16 @@ mod tests {
     fn test_canonicalize_then_double_hash_then_encode() {
         let result = Multihash::canonicalize_then_double_hash_then_encode(&message().as_bytes().to_vec());
 
-        assert_eq!(result, String::from("EiAkB6db3wB049pqz8eml0uwHzIJOEadoAOFPgyNhXFdmw=="));
+        assert_eq!(result, String::from("EiAkB6db3wB049pqz8eml0uwHzIJOEadoAOFPgyNhXFdmw"));
+        //assert_eq!(result, String::from("EiAkB6db3wB049pqz8eml0uwHzIJOEadoAOFPgyNhXFdmw=="));
     }
 
     #[test]
     fn test_hash_then_encode() {
         let result = Multihash::hash_then_encode(&message().as_bytes().to_vec());
+        assert_eq!(result, String::from("EiCV-xR1ReD5lj1xKLOGjRhlJIqIP17Pjum_CLVjRv9KDA"));
 
-        assert_eq!(result, String::from("EiCV-xR1ReD5lj1xKLOGjRhlJIqIP17Pjum_CLVjRv9KDA=="));
+        //assert_eq!(result, String::from("EiCV-xR1ReD5lj1xKLOGjRhlJIqIP17Pjum_CLVjRv9KDA=="));
     }
 
     #[test]

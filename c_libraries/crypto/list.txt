@@ -1,0 +1,24 @@
+Please include the following source files:
+
+aes.c
+aesni.c
+asn1write.c
+bignum.c
+ecdsa.c
+ecp.c
+ecp_curves.c
+hmac_drbg.c
+md.c
+md_wrap.c
+md2.c
+md4.c
+md5.c
+padlock.c
+platform.c
+platform_util.c
+ripemd160.c
+sha1.c
+sha256.c
+sha512.c
+threading.c
+

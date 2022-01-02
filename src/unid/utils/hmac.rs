@@ -7,21 +7,24 @@ use crate::unid::errors::UNiDError;
 type _HmacSha256 = Hmac<Sha256>;
 type _HmacSha512 = Hmac<Sha512>;
 
+#[allow(dead_code)]
 struct HmacSha256 {}
 
 impl HmacSha256 {
-    pub fn digest(secret: &Vec<u8>, message: &Vec<u8>) -> Result<Vec<u8>, UNiDError> {
-        let mut mac = match _HmacSha256::new_from_slice(&secret) {
+    #[allow(dead_code)]
+    pub fn digest(secret: &[u8], message: &[u8]) -> Result<Vec<u8>, UNiDError> {
+        let mut mac = match _HmacSha256::new_from_slice(secret) {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})
         };
 
-        mac.update(&message);
+        mac.update(message);
 
         Ok(mac.finalize().into_bytes().to_vec())
     }
 
-    pub fn verify(secret: &Vec<u8>, message: &Vec<u8>, digest: &Vec<u8>) -> Result<bool, UNiDError> {
+    #[allow(dead_code)]
+    pub fn verify(secret: &[u8], message: &[u8], digest: &[u8]) -> Result<bool, UNiDError> {
         let computed = match HmacSha256::digest(secret, message) {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})
@@ -31,21 +34,24 @@ impl HmacSha256 {
     }
 }
 
+#[allow(dead_code)]
 struct HmacSha512 {}
 
 impl HmacSha512 {
-    pub fn digest(secret: &Vec<u8>, message: &Vec<u8>) -> Result<Vec<u8>, UNiDError> {
-        let mut mac = match _HmacSha512::new_from_slice(&secret) {
+    #[allow(dead_code)]
+    pub fn digest(secret: &[u8], message: &[u8]) -> Result<Vec<u8>, UNiDError> {
+        let mut mac = match _HmacSha512::new_from_slice(secret) {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})
         };
 
-        mac.update(&message);
+        mac.update(message);
 
         Ok(mac.finalize().into_bytes().to_vec())
     }
 
-    pub fn verify(secret: &Vec<u8>, message: &Vec<u8>, digest: &Vec<u8>) -> Result<bool, UNiDError> {
+    #[allow(dead_code)]
+    pub fn verify(secret: &[u8], message: &[u8], digest: &[u8]) -> Result<bool, UNiDError> {
         let computed = match HmacSha512::digest(secret, message) {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})

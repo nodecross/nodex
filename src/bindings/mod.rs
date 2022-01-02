@@ -1,11 +1,13 @@
-use alloc::{format, string::ToString};
+use alloc::format;
+// use alloc::string::ToString;
 use crate::unid::runtime::secp256k1::Secp256k1;
 use crate::logger::Logger;
 use crate::MUTEX_HANDLERS;
-// use crate::ffi::FFI;
+// use crate::ffi::Ffi;
 use crate::unid::utils::random::Random;
 // use alloc::vec::Vec;
 
+/// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_test() {
     let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
@@ -27,7 +29,7 @@ pub unsafe extern "C" fn unid_test() {
     // if let Some(..) = handler {
     //     let random = handler.unwrap()(32);
 
-    //     let output = match FFI::binary_from_ptr(random) {
+    //     let output = match Ffi::binary_from_ptr(random) {
     //         Ok(v) => v,
     //         Err(_) => Vec::from([0])
     //     };

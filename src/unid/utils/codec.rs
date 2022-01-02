@@ -9,18 +9,19 @@ use crate::unid::errors::UNiDError;
 pub struct Base64Url {}
 
 impl Base64Url {
-    pub fn encode(content: &Vec<u8>) -> String {
-        BASE64URL_NOPAD.encode(content)
+    pub fn encode(content: &[u8]) -> String {
+        BASE64URL_NOPAD.encode(&content.to_vec())
     }
 
-    pub fn decode_as_bytes(message: &String) -> Result<Vec<u8>, UNiDError> {
+    #[allow(dead_code)]
+    pub fn decode_as_bytes(message: &str) -> Result<Vec<u8>, UNiDError> {
         match BASE64URL_NOPAD.decode(message.as_bytes()) {
             Ok(v) => Ok(v),
             Err(_) => Err(UNiDError{})
         }
     }
 
-    pub fn decode_as_string(message: &String) -> Result<String, UNiDError> {
+    pub fn decode_as_string(message: &str) -> Result<String, UNiDError> {
         let bytes = match BASE64URL_NOPAD.decode(message.as_bytes()) {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})

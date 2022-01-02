@@ -5,10 +5,11 @@ use crate::unid::errors::UNiDError;
 use crate::MUTEX_HANDLERS;
 use crate::logger::Logger;
 
-pub struct FFI {
+#[allow(dead_code)]
+pub struct Ffi {
 }
 
-impl FFI {
+impl Ffi {
     pub fn binary_from_ptr(ptr: *const c_char) -> Result<Vec<u8>, UNiDError> {
         let logger = unsafe { Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler()) };
 
@@ -52,10 +53,10 @@ impl FFI {
     }
 
     // Rust-style string value to C-style string value (char*)
-    pub fn string_to_ptr(str: &String) -> Result<*mut c_char, UNiDError> {
+    pub fn string_to_ptr(str: String) -> Result<*mut c_char, UNiDError> {
         let logger = unsafe { Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler()) };
 
-        let c_str = match CString::new(str.clone()) {
+        let c_str = match CString::new(str) {
             Ok(v) => v,
             Err(_) => unsafe {
                 logger.err("CString::new()");
@@ -67,10 +68,10 @@ impl FFI {
         Ok(c_str.into_raw())
     }
 
-    pub fn binary_to_ptr(binary: &Vec<u8>) -> Result<*mut c_char, UNiDError> {
+    pub fn binary_to_ptr(binary: &[u8]) -> Result<*mut c_char, UNiDError> {
         let logger = unsafe { Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler()) };
 
-        let c_str = match CString::new(binary.clone()) {
+        let c_str = match CString::new(binary) {
             Ok(v) => v,
             Err(_) => unsafe {
                 logger.err("CString::new()");

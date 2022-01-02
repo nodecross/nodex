@@ -1,12 +1,13 @@
 use alloc::vec::Vec;
 use picorand::{WyRand, RNG, PicoRandGenerate};
 use crate::MUTEX_HANDLERS;
-use crate::ffi::FFI;
+use crate::ffi::Ffi;
 use crate::unid::errors::UNiDError;
 
 pub struct Random {}
 
 impl Random {
+    #[allow(dead_code)]
     pub fn bytes(length: &usize) -> Vec<u8> {
         let mut rng = RNG::<WyRand, u8>::new(0xDEADBEEF);
         let mut result: Vec<u8> = Vec::new();
@@ -22,9 +23,9 @@ impl Random {
         let handler = MUTEX_HANDLERS.lock().get_crypto_trng();
 
         if let Some(..) = handler {
-            let random = handler.unwrap()(32);
+            let random = handler.unwrap()(*length as u32);
 
-            let output = match FFI::binary_from_ptr(random) {
+            let output = match Ffi::binary_from_ptr(random) {
                 Ok(v) => v,
                 Err(_) => Vec::from([0])
             };

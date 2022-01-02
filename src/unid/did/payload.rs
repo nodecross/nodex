@@ -58,12 +58,12 @@ pub struct Payload {
 impl Payload {
     pub fn new(public_keys: Vec<PublicKeyPayload>, recovery_key: KeyPairSecp256K1, update_key: KeyPairSecp256K1) -> Result<Payload, UNiDError> {
         let document = ReplacePayload {
-            public_keys: public_keys,
+            public_keys,
             service_endpoints: Vec::from([])
         };
         let patch = ReplaceAction {
             action: "replace".to_string(),
-            document: document,
+            document,
         };
 
         let delta = ReplaceDeltaObject {
@@ -79,7 +79,7 @@ impl Payload {
         );
 
         let suffix_data = ReplaceSuffixObject {
-            delta_hash: delta_hash,
+            delta_hash,
             recovery_commitment: multihasher::Multihash::canonicalize_then_double_hash_then_encode(&serde_json::to_string(&recovery_key).unwrap().as_bytes().to_vec())
         };
         let delta_encoded_string = codec::Base64Url::encode(&delta_buffer.as_bytes().to_vec());
@@ -92,6 +92,7 @@ impl Payload {
         })
     }
 
+    #[allow(dead_code)]
     pub fn to_json(&self) -> String {
         serde_json::to_string(&self).unwrap()
     }
