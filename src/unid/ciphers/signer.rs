@@ -143,10 +143,10 @@ pub mod tests {
         let data = "did:self:0x0123456789012345678901234567890123456789";
         let data: &str = &data.to_string();
         let signature: String = Signer::sign(data.to_string(), D.to_string());
-        println!("{:?}",data.clone());
-        println!("{}",signature.clone());
+        println!("{:?}",data);
+        println!("{}",signature);
         let verified: bool = Signer::verify(data.to_string(), signature.clone(), XY.to_string());
-        println!("{}   {}",signature.clone(),verified.clone());
+        println!("{}   {}",signature,verified.clone());
         assert!(verified);
 
     }

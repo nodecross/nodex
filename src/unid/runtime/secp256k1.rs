@@ -138,7 +138,7 @@ mod tests {
 
         let result = Secp256k1::ecdsa_sign(&message, &private_key);
 
-        assert_eq!(result.is_ok(), true);
+        assert!(result.is_ok());
         assert_eq!(result.unwrap(), Vec::from([
             38 , 44 , 74 , 233, 147, 222, 97 , 147, 130, 254,
             238, 192, 164, 25 , 148, 168, 187, 153, 212, 238,
@@ -168,7 +168,7 @@ mod tests {
         let result_1 = Secp256k1::ecdsa_verify(&signature, &message, &public_key_compressed);
 
         assert!(result_1.is_ok());
-        assert_eq!(result_1.unwrap(), true);
+        assert!(result_1.unwrap());
 
         let public_key_un_compressed = match Secp256k1::convert_public_key(&public_key_compressed, false) {
             Ok(v) => v,
@@ -178,6 +178,6 @@ mod tests {
         let result_2 = Secp256k1::ecdsa_verify(&signature, &message, &public_key_un_compressed);
 
         assert!(result_2.is_ok());
-        assert_eq!(result_2.unwrap(), true);
+        assert!(result_2.unwrap());
     }
 }

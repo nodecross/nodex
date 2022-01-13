@@ -56,9 +56,9 @@ pub struct Payload {
 }
 
 impl Payload {
-    pub fn new(public_keys: Vec<PublicKeyPayload>, recovery_key: KeyPairSecp256K1, update_key: KeyPairSecp256K1) -> Result<Payload, UNiDError> {
+    pub fn new(public_keys: &[PublicKeyPayload], recovery_key: &KeyPairSecp256K1, update_key: &KeyPairSecp256K1) -> Result<Payload, UNiDError> {
         let document = ReplacePayload {
-            public_keys,
+            public_keys: public_keys.to_vec(),
             service_endpoints: Vec::from([])
         };
         let patch = ReplaceAction {
@@ -136,9 +136,9 @@ mod tests {
         };
 
         let result = match Payload::new(
-            [public_key].to_vec(),
-            k.clone(),
-            k.clone(),
+            &[public_key].to_vec(),
+            &k,
+            &k,
         ) {
             Ok(v) => v,
             Err(_) => panic!()

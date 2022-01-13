@@ -207,9 +207,9 @@ pub unsafe extern "C" fn unid_core_create_did() -> KeyRing {
     };
 
     let payload = match Payload::new(
-        [public_key].to_vec(),
-        k.clone(),
-        k.clone(),
+        &[public_key].to_vec(),
+        &k,
+        &k,
     ) {
         Ok(v) => v,
         Err(_) => panic!()

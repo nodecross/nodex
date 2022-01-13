@@ -7,18 +7,16 @@ use scrypt::{
     password_hash::{Output, PasswordHash, SaltString, PasswordHasher },
     Params, Scrypt,
 };
+
 use crate::unid::utils::aes_crypt::AesCrypt;
 use crate::MUTEX_HANDLERS;
 
 #[allow(dead_code)]
-
 pub struct Cipher {}
 
 impl Cipher {
     #[allow(dead_code)]
     pub fn encrypt(plaintext: String, secret: String) -> String {
-
-        
         let salt_vec: Vec<u8> = unsafe { Random::trng_bytes(&(32_usize)).unwrap() };
         let salt_u8: &[u8] = &salt_vec[..];
         let salt_ss: SaltString = SaltString::b64_encode(salt_u8).unwrap();
@@ -75,6 +73,7 @@ impl Cipher {
 
         buffered_ciphertext_base64
     }
+
     #[allow(dead_code)]
     pub fn decrypt(buffered_ciphertext_base64: String, secret: String) -> String {
 

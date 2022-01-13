@@ -102,7 +102,7 @@ mod tests {
         let result = HmacSha256::verify(&secret().as_bytes().to_vec(), &message().as_bytes().to_vec(), &digest);
 
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), true);
+        assert!(result.unwrap());
     }
 
     #[test]
@@ -136,6 +136,6 @@ mod tests {
         let result = HmacSha512::verify(&secret().as_bytes().to_vec(), &message().as_bytes().to_vec(), &digest);
 
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), true);
+        assert!(result.unwrap());
     }
 }
