@@ -7,17 +7,18 @@ use scrypt::{
     password_hash::{Output, PasswordHash, SaltString, PasswordHasher },
     Params, Scrypt,
 };
+
+use crate::unid::utils::aes_crypt::AesCrypt;
 use crate::MUTEX_HANDLERS;
 
-
+#[allow(dead_code)]
 pub struct Cipher {}
 
 impl Cipher {
-    
+    #[allow(dead_code)]
     pub fn encrypt(plaintext: String, secret: String) -> String {
-
-        let salt_string: String = get_random_bytes(32);
-        let salt_u8: &[u8] = salt_string.as_bytes();
+        let salt_vec: Vec<u8> = unsafe { Random::trng_bytes(&(32_usize)).unwrap() };
+        let salt_u8: &[u8] = &salt_vec[..];
         let salt_ss: SaltString = SaltString::b64_encode(salt_u8).unwrap();
 
         let secret_u8: &[u8] = (&secret).as_bytes();
@@ -31,12 +32,14 @@ impl Cipher {
         let key_output: Output = key_phc.hash.unwrap();
         let key_u8: &[u8] = key_output.as_bytes();
 
-        let iv_string: String = get_random_bytes(16);
-        let iv_u8: &[u8] = iv_string.as_bytes();
+        let iv_vec: Vec<u8> = unsafe { Random::trng_bytes(&(16_usize)).unwrap() };
+        let iv_u8: &[u8] = &iv_vec[..];
+
+
 
         let plaintext_u8: &[u8] = plaintext.as_bytes();
         
-        let ciphertext_vec: Vec<u8> = unsafe { crate::AES_CRYPT.encrypt(plaintext_u8.to_vec(), key_u8.to_vec(), iv_u8.to_vec()) };
+        let ciphertext_vec: Vec<u8> = AesCrypt::encrypt(plaintext_u8.to_vec(), key_u8.to_vec(), iv_u8.to_vec());
         let ciphertext_u8: &[u8] = &ciphertext_vec[..];
 
         let mut buffered_ciphertext_vec = Vec::new();
@@ -71,6 +74,7 @@ impl Cipher {
         buffered_ciphertext_base64
     }
 
+    #[allow(dead_code)]
     pub fn decrypt(buffered_ciphertext_base64: String, secret: String) -> String {
 
         let buffered_ciphertext_vec: Vec<u8> = base64::decode(buffered_ciphertext_base64.as_bytes()).unwrap();
@@ -95,7 +99,7 @@ impl Cipher {
         let key_output: Output = key_phc.hash.unwrap();
         let key_u8: &[u8] = key_output.as_bytes();
         
-        let plaintext_vec: Vec<u8> = unsafe { crate::AES_CRYPT.decrypt(ciphertext_u8.to_vec(), key_u8.to_vec(), iv_u8.to_vec()) };
+        let plaintext_vec: Vec<u8> = AesCrypt::decrypt(ciphertext_u8.to_vec(), key_u8.to_vec(), iv_u8.to_vec());
         let plaintext_u8: &[u8] = &plaintext_vec[..];
 
         let plaintext = String::from_utf8(plaintext_u8.to_vec()).unwrap();

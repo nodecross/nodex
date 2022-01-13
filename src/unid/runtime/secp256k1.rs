@@ -10,8 +10,8 @@ use crate::unid::errors::UNiDError;
 pub struct Secp256k1 {}
 
 impl Secp256k1 {
-    pub fn generate_public_key(private_key: &Vec<u8>) -> Result<Vec<u8>, UNiDError> {
-        let signing_key = match SigningKey::from_bytes(&private_key.as_slice()) {
+    pub fn generate_public_key(private_key: &[u8]) -> Result<Vec<u8>, UNiDError> {
+        let signing_key = match SigningKey::from_bytes(private_key.to_vec().as_slice()) {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})
         };
@@ -19,8 +19,9 @@ impl Secp256k1 {
         Ok(signing_key.verifying_key().to_bytes().to_vec())
     }
 
-    pub fn convert_public_key(public_key: &Vec<u8>, compress: bool) -> Result<Vec<u8>, UNiDError> {
-        let public_key = match PublicKey::from_sec1_bytes(&public_key) {
+    #[allow(dead_code)]
+    pub fn convert_public_key(public_key: &[u8], compress: bool) -> Result<Vec<u8>, UNiDError> {
+        let public_key = match PublicKey::from_sec1_bytes(&public_key.to_vec()) {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})
         };
@@ -28,13 +29,14 @@ impl Secp256k1 {
         Ok(public_key.to_encoded_point(compress).as_bytes().to_vec())
     }
 
-    pub fn ecdsa_sign(message: &Vec<u8>, private_key: &Vec<u8>) -> Result<Vec<u8>, UNiDError> {
-        let signing_key = match SigningKey::from_bytes(&private_key.as_slice()) {
+    #[allow(dead_code)]
+    pub fn ecdsa_sign(message: &[u8], private_key: &[u8]) -> Result<Vec<u8>, UNiDError> {
+        let signing_key = match SigningKey::from_bytes(private_key.to_vec().as_slice()) {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})
         };
 
-        let signature: Signature = match signing_key.try_sign(&message.as_slice()) {
+        let signature: Signature = match signing_key.try_sign(message.to_vec().as_slice()) {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})
         };
@@ -42,8 +44,9 @@ impl Secp256k1 {
         Ok(signature.as_ref().to_vec())
     }
 
-    pub fn ecdsa_verify(signature: &Vec<u8>, message: &Vec<u8>, public_key: &Vec<u8>) -> Result<bool, UNiDError> {
-        let verify_key = match VerifyingKey::from_sec1_bytes(&public_key) {
+    #[allow(dead_code)]
+    pub fn ecdsa_verify(signature: &[u8], message: &[u8], public_key: &[u8]) -> Result<bool, UNiDError> {
+        let verify_key = match VerifyingKey::from_sec1_bytes(&public_key.to_vec()) {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})
         };
@@ -60,9 +63,9 @@ impl Secp256k1 {
             Err(_) => return Err(UNiDError{})
         };
 
-        match verify_key.verify(&message, &wrapped_signature) {
-            Ok(()) => return Ok(true),
-            Err(_) => return Ok(false)
+        match verify_key.verify(&message.to_vec(), &wrapped_signature) {
+            Ok(()) => Ok(true),
+            Err(_) => Ok(false)
         }
     }
 }
@@ -135,7 +138,7 @@ mod tests {
 
         let result = Secp256k1::ecdsa_sign(&message, &private_key);
 
-        assert_eq!(result.is_ok(), true);
+        assert!(result.is_ok());
         assert_eq!(result.unwrap(), Vec::from([
             38 , 44 , 74 , 233, 147, 222, 97 , 147, 130, 254,
             238, 192, 164, 25 , 148, 168, 187, 153, 212, 238,
@@ -165,7 +168,7 @@ mod tests {
         let result_1 = Secp256k1::ecdsa_verify(&signature, &message, &public_key_compressed);
 
         assert!(result_1.is_ok());
-        assert_eq!(result_1.unwrap(), true);
+        assert!(result_1.unwrap());
 
         let public_key_un_compressed = match Secp256k1::convert_public_key(&public_key_compressed, false) {
             Ok(v) => v,
@@ -175,6 +178,6 @@ mod tests {
         let result_2 = Secp256k1::ecdsa_verify(&signature, &message, &public_key_un_compressed);
 
         assert!(result_2.is_ok());
-        assert_eq!(result_2.unwrap(), true);
+        assert!(result_2.unwrap());
     }
 }

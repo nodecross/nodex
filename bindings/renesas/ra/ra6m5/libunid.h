@@ -1,7 +1,3 @@
-void libunid_init();
-char *ciphers_hasher_digest(char *content, char *secret);
-bool ciphers_hasher_verify(char *content, char *digest, char *secret);
-
 typedef struct
 {
     char *client_id;
@@ -14,8 +10,23 @@ typedef struct
     char *client_secret;
 } UNiDContext;
 
+typedef struct
+{
+    uint8_t *ptr;
+    uint32_t len;
+} data_t;
+
 UNiDContext unid_init(UNiDConfig config);
-void aes_init(void *encryptor, void *decryptor);
+
+void unid_regist_handler_on_memory_alloc(void *handler);
+void unid_regist_handler_on_memory_dealloc(void *handler);
+void unid_regist_handler_on_debug_message(void *handler);
+void unid_regist_handler_on_aes_encryptor(void *handler);
+void unid_regist_handler_on_aes_decryptor(void *handler);
+void unid_regist_handler_on_ecdsa_signer(void *handler);
+void unid_regist_handler_on_ecdsa_verifier(void *handler);
+
+void unid_disposer(void *ptr);
 
 char *unid_core_create_did(UNiDContext context);
 char *unid_core_resolve_did(UNiDContext context);
@@ -31,9 +42,12 @@ char *unid_utils_random_get_random_bytes(int length);
 char *unid_utils_codec_base64_encode(char *content);
 char *unid_utils_codec_base64_decode(char *content);
 char *unid_utils_multihasher_hash(char *content);
-char *unid_ciphers_signer_sign(char *message, char *secret_key);
-char *unid_ciphers_signer_verify(char *message, char *signature64, char *pub_key64);
+char *unid_ciphers_signer_kp_gen();
+char *unid_ciphers_signer_sign(char *message, char *secretkey);
+int unid_ciphers_signer_verify(char *message, char *signature, char *pubkey);
 char *unid_ciphers_cipher_encrypt(char *plaintext, char *secret);
-char *unid_ciphers_cipher_decrypt(char *buffered_ciphertext_base64, char *secret);
+char *unid_ciphers_cipher_decrypt(char *ciphertext, char *secret);
 char *unid_ciphers_hasher_digest(char *content, char *secret);
 int unid_ciphers_hasher_verify(char *content, char *digest, char *secret);
+
+void unid_test();
