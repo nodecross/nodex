@@ -29,7 +29,7 @@ UNiD is an endpoint security infrastructure that consists of;
 
 - **UNiD EDGE** is an embedded middleware in connected devices
 - **UNiD HUB** is a message broker between connected devices and the cloud
-- **UNiD Network** is a public, permissionless, decentralized identity network based on blockchain-agnostic sidtree protocol on top of bitcoin to support DIDs and DPKI (decentralized public key infrastructure)
+- **UNiD Network** is a public, permissionless, decentralized identity network based on blockchain-agnostic [sidtree protocol](https://identity.foundation/sidetree/spec/) on top of bitcoin to support DIDs and DPKI (decentralized public key infrastructure)
 
 By simply integrating UNiD EDGE into your devices, you can protect the endpoint devices, establish an end-to-end secure channel with UNiD HUB, and communicate bidirectionally with various cloud services while ensuring device authenticity, data integrity, and privacy.
 
