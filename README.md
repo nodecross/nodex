@@ -20,12 +20,12 @@
     <img src="https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release" alt="Sematic Release" />
   </a>
   <br />
-  Endpoint Security Platform
+  Endpoint Security Infrastructure
 </p>
 
 ## Introduction
 
-UNiD platform consists of;
+UNiD is an endpoint security infrastructure that consists of;
 
 - **UNiD EDGE** is an embedded middleware in connected devices
 - **UNiD HUB** is a message broker between connected devices and the cloud
