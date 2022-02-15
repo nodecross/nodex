@@ -35,13 +35,13 @@ UNiD platform consists of;
 By simply integrating UNiD EDGE into your device, you can protect your device, establish an end-to-end secure channel with UNiD HUB, and communicate bidirectionally with various cloud services while ensuring device authenticity, data integrity, and privacy.
 
 <p align="center">
-  <img src="images/figure1.svg" alt="overview of unid platform" width="80%" />
+  <img src="images/figure1.svg" alt="overview of unid platform" />
 </p>
 
 Our main concept is to build end-to-end security infrastructure that abstracts every device and the cloud as a global unique endpoint, allowing a device to interact with other endpoints securely and privately regardless of the network topology or routing hops.
 
 <p align="center">
-  <img src="images/figure2.svg" alt="e2e security infrastructure" width="80%" />
+  <img src="images/figure2.svg" alt="e2e security infrastructure" />
 </p>
 
 To achieve this concept, we utilizes decentralized identifiers (DIDs) and Root of Trust (RoT) technologies. Specifically, UNiD EDGE generates multiple key pairs from a hardware-derived true random number generator (TRNG) within the RoT secure processing environment, and generates a payload for registering to a blockchain-based decentralized PKI (DPKI) network to create a DID document including the public key information. Anyone can obtain the corresponding device’s public key from the network to authenticate the device and verify the digitally signed data.
@@ -58,7 +58,7 @@ UNiD EDGE consists of;
 - **E2E Secure Socket**: This component supports to establish end-to-end authenticated channels with UNiD HUB for secure bi-directional communications.
 
 <p align="center">
-  <img src="images/figure3.svg" alt="unid edge architecture" width="80%" />
+  <img src="images/figure3.svg" alt="unid edge architecture" />
 </p>
 
 UNiD EDGE is developed in Rust language and can be compiled into a static libraries that can be referenced in C language. For more information, see [official documentation](https://docs.getunid.io/unid_edge/index.html). 
