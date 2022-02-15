@@ -3,7 +3,7 @@
 </p>
 
 <h1 align="center">
-  UNiD
+  UNiD EDGE
 </h1>
 
 <p align="center">
@@ -20,35 +20,53 @@
     <img src="https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release" alt="Sematic Release" />
   </a>
   <br />
-  E2E data security with edge intelligence
+  Endpoint Security Middleware
 </p>
 
-## Features
 
-- Abstract security stack complexity with edge intelligence
-- Fully automated provisioning
-- E2E secure channel
-- Security lifecycle
-- Overlay routing
-- Root of Trust add-ons
-- Cloud add-ons for real-time data flow and processing
-- Developer-first
+## UNiD
 
-## Introduction
+UNiD platform consists of;
 
-UNiD is a simplified security stack to restore trust in all digital interaction, and make it universally verifiable and useful. The system software provides end-to-end data security between every device and the cloud. The system software uses decentralized identity (DID) as device identifier based on the W3C DID Core 1.0 specification. In RoT secure storage, the system software autonomously generates multiple key pairs from TRNG (PUF), and generates the payload by hashing the object containing these public keys information. This payload can be registered with DPKI (Decentralized Public Key Infrastructure) to generate a DID document, which can be treated as a globally unique identifier independent of any third party. This DID is a URI that associates the device with a DID document that allows trustable interactions.
+- **UNiD EDGE** is an embedded middleware in connected devices
+- **UNiD HUB** is a message broker between connected devices and the cloud
+- **UNiD Studio** is a device management dashboard
 
-The system software perform handshakes with a message broker to establish end-to-end secure connections with ECDH. In the handshake process, the system sends the public key (for encryption) and encrypted and signed message to the server as a client hello. The server generates a common key with the received public key, and decrypts message to verify the device's signature, and responses with encrypted and signed message to the device. The device then verifies the server’s signature and compares the server’s DID with the pre-configured DID to authenticate the server, and completes handshake process. All data exchanged with remote devices and servers is encrypted and signed. Data is encrypted with AES-GCM with a common key generated during the handshake. Integrity of the data is validated by verifying the signature in the RoT secure storage of the device. By abstracting every device and the cloud as globally unique endpoints, each endpoint can send encrypted messages regardless of the network topology or routing hops.
+By simply integrating UNiD EDGE into your device, you can protect your device, establish an end-to-end secure channel with UNiD HUB, and communicate bidirectionally with various cloud services while ensuring device authenticity, data integrity, and privacy.
 
 <p align="center">
-  <img src="images/e2e_secure_channel_diagram.svg" alt="e2e secure channel" width="60%" />
+  <img src="images/figure1.svg" alt="overview of unid platform" width="80%" />
 </p>
 
-The system software will be available for devices with RoT functions. It allows developers to focus on application development without scratch building the complex security stack.
+Our main concept is to build end-to-end security infrastructure that abstracts every device and the cloud as a global unique endpoint, allowing a device to interact with other endpoints securely and privately regardless of the network topology or routing hops.
+
+<p align="center">
+  <img src="images/figure2.svg" alt="e2e security infrastructure" width="80%" />
+</p>
+
+To achieve this concept, we utilizes decentralized identifiers (DIDs) and Root of Trust (RoT) technologies. Specifically, UNiD EDGE generates multiple key pairs from a hardware-derived true random number generator (TRNG) within the RoT secure processing environment, and generates a payload for registering to a blockchain-based decentralized PKI (DPKI) network to create a DID document including the public key information. Anyone can obtain the corresponding device’s public key from the network to authenticate the device and verify the digitally signed data.
+
+This identity-first, end-to-end approach can abstract the complexity of security infrastructure and introduces advanced, scalable endpoint security to connected systems. UNiD platform is designed to make the endpoint security easily available and free all developers from the heavy burden of building the complex security infrastructure for each product.
+
+## UNiD EDGE
+
+UNiD EDGE consists of;
+
+- **RoT Wrapper**: This component supports TrustZone (Arm Cortex-M) and hardware security modules (supported MCUs), making it easier to use the RoT secure processing environment (SPE).
+- **Key Management**: This component supports the device’s cryptographic key operations (create, read, update, delete) in the SPE.
+- **Device IAM**: This component supports management of device identities, credentials, and security policies for device’s authentication and authorization.
+- **E2E Secure Socket**: This component supports to establish end-to-end authenticated channels with UNiD HUB for secure bi-directional communications.
+
+<p align="center">
+  <img src="images/figure3.svg" alt="unid edge architecture" width="80%" />
+</p>
+
+UNiD EDGE is developed in Rust language and can be compiled into a static libraries that can be referenced in C language. For more information, see [official documentation](https://docs.getunid.io/unid_edge/index.html). 
 
 ## Quick Start
 
-[TBD]
+- [Integration Guide](https://docs.getunid.io/integration/index.html)
+- [Tutorial](https://docs.getunid.io/tutorial/ubuntu-nodejs/index.html)
 
 ## Developer's Document
 
