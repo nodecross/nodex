@@ -29,17 +29,15 @@ UNiD platform consists of;
 
 - **UNiD EDGE** is an embedded middleware in connected devices
 - **UNiD HUB** is a message broker between connected devices and the cloud
-- **UNiD Studio** is a device management dashboard
+- **UNiD Network** is a public, permissionless, decentralized identity network based on blockchain-agnostic sidtree protocol on top of bitcoin to support DIDs and DPKI (decentralized public key infrastructure)
 
-By simply integrating UNiD EDGE into your device, you can protect your device, establish an end-to-end secure channel with UNiD HUB, and communicate bidirectionally with various cloud services while ensuring device authenticity, data integrity, and privacy.
+By simply integrating UNiD EDGE into your devices, you can protect the endpoint devices, establish an end-to-end secure channel with UNiD HUB, and communicate bidirectionally with various cloud services while ensuring device authenticity, data integrity, and privacy.
 
 <p align="center">
   <img src="images/figure2.svg" alt="e2e security infrastructure" width="80%" />
 </p>
 
-UNiD EDGE generates multiple key pairs from a hardware-derived true random number generator (TRNG) within the RoT secure processing environment, and generates a payload for registering to a blockchain-based decentralized PKI (DPKI) network to create a DID document including the public key information. Anyone can obtain the corresponding device’s public key from the network to authenticate the device and verify the digitally signed data.
-
-This identity-first, end-to-end approach can abstract the complexity of security infrastructure and introduces advanced, scalable endpoint security to connected systems. UNiD platform is designed to make the endpoint security easily available and free all developers from the heavy burden of building the complex security infrastructure for each product.
+UNiD EDGE generates multiple key pairs from a hardware-derived true random number generator (TRNG) within the RoT secure processing environment, and generates a payload for registering to a blockchain-based decentralized PKI (DPKI) network to create a [decentralized identifier (DID)](https://www.w3.org/TR/did-core/) and the relevant DID document including the public key information. Anyone can obtain the corresponding device’s public key from the network to authenticate the device and verify the digitally signed data.
 
 UNiD EDGE consists of;
 
@@ -52,7 +50,7 @@ UNiD EDGE consists of;
   <img src="images/figure3.svg" alt="unid edge architecture" />
 </p>
 
-UNiD EDGE is developed in Rust language and can be compiled into a static libraries that can be referenced in C language. For more information, see [official documentation](https://docs.getunid.io/unid_edge/index.html). 
+This identity-first, end-to-end approach can abstract the complexity of security infrastructure and introduces advanced, scalable endpoint security to connected systems. UNiD platform is designed to make the endpoint security easily available and free all developers from the heavy burden of building the complex security infrastructure for each product. For more information, see [official documentation](https://docs.getunid.io/unid_edge/index.html). 
 
 ## Quick Start
 
