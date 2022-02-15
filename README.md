@@ -3,7 +3,7 @@
 </p>
 
 <h1 align="center">
-  UNiD EDGE
+  UNiD
 </h1>
 
 <p align="center">
@@ -20,7 +20,7 @@
     <img src="https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release" alt="Sematic Release" />
   </a>
   <br />
-  Endpoint Security Middleware
+  Endpoint Security Platform
 </p>
 
 ## Introduction
