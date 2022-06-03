@@ -2,6 +2,15 @@ CARGO = cargo
 ACT = act
 GRCOV = grcov
 
+build-windows:
+	$(CARGO) build --release -Zbuild-std --verbose --target x86_64-pc-windows-msvc
+
+build-linux:
+	$(CARGO) build --release -Zbuild-std --verbose --target x86_64-unknown-linux-gnu
+
+build-macos:
+	$(CARGO) build --release -Zbuild-std --verbose --target x86_64-apple-darwin
+
 build-renesas-ra6m5:
 	$(CARGO) build --release -Zbuild-std --verbose --target thumbv8m.main-none-eabihf
 
