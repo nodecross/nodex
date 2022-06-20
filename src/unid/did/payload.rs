@@ -1,6 +1,4 @@
 use serde::{Deserialize, Serialize};
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
 
 use crate::unid::utils::algorithms::base64_url;
 use crate::unid::utils::algorithms::multihash;
@@ -104,7 +102,6 @@ mod tests {
     use rstest::*;
     use serde_json::json;
 
-    // use alloc::vec::Vec;
     use crate::unid::utils::random;
 
     #[fixture]

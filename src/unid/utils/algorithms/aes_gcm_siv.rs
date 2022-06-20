@@ -1,4 +1,3 @@
-use alloc::vec::Vec;
 use crate::unid::errors::UNiDError;
 use aes_gcm_siv::{Aes256GcmSiv, Key, Nonce};
 use aes_gcm_siv::aead::{Aead, NewAead};

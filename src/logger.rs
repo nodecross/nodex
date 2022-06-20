@@ -1,5 +1,4 @@
 use cstr_core::{CString, c_char};
-use alloc::{format, string::String};
 
 #[repr(u32)]
 enum LogLevel {

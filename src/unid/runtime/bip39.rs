@@ -1,4 +1,3 @@
-use alloc::string::{String, ToString};
 use bip39::Mnemonic;
 
 pub struct BIP39 {}

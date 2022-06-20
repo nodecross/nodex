@@ -1,7 +1,3 @@
-use alloc::vec::Vec;
-use alloc::string::{String, ToString};
-use cstr_core::{CStr, CString, c_char};
-
 use libsecp256k1_core::curve::Scalar;
 use crate::unid::utils::algorithms::secp256k1::{PublicKey, PublicKeyFormat, Signature};
 
@@ -13,8 +9,6 @@ impl Ecdsa {
         // let secret_hex_string: String = hex::encode_upper(secret_key_vec.to_vec());
         // let secret_c_string = CString::new(secret_hex_string).unwrap();
         // let secret_ptr = secret_c_string.into_raw();
-        // let r_c_string = unsafe { CString::from_vec_unchecked(alloc::vec![0u8;100]) };
-        // let s_c_string = unsafe { CString::from_vec_unchecked(alloc::vec![0u8;100]) };
         // let r_ptr: *mut c_char = r_c_string.into_raw();
         // let s_ptr: *mut c_char = s_c_string.into_raw();
 

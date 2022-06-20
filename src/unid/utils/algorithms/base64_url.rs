@@ -1,7 +1,3 @@
-extern crate alloc;
-
-use alloc::vec::Vec;
-use alloc::string::String;
 use data_encoding::BASE64URL_NOPAD;
 
 use crate::unid::errors::UNiDError;
@@ -35,28 +31,19 @@ impl Base64Url {
 
 #[cfg(test)]
 mod tests {
-    use core::panic;
-
-    use crate::unid::utils::logger::Logger;
-
     use super::*;
     use rstest::*;
 
-    use alloc::string::String;
-    use alloc::vec::Vec;
-
     #[fixture]
     fn message() -> String {
-        String::from(r#"{"k":"UNiD"}"#)
+        String::from("Hello, UNiD!")
     }
 
     #[test]
     fn test_base64url_encode() {
         let result = Base64Url::encode(&message().as_bytes().to_vec());
 
-        let logger = Logger::new();
-
-        assert_eq!(result, String::from("eyJrIjoiVU5pRCJ9"));
+        assert_eq!(result, String::from("SGVsbG8sIFVOaUQh"));
     }
 
     #[test]
@@ -67,11 +54,11 @@ mod tests {
             Err(_) => panic!()
         };
 
-        assert_eq!(result, Vec::from([
-            123,  34, 107,  34, 58,
-             34,  85,  78, 105, 68,
-             34, 125
-        ]));
+        assert_eq!(result, vec![
+            72, 101, 108, 108, 111,
+            44,  32,  85,  78, 105,
+            68,  33,
+        ]);
     }
 
     #[test]
@@ -82,6 +69,6 @@ mod tests {
             Err(_) => panic!()
         };
 
-        assert_eq!(result, String::from(r#"{"k":"UNiD"}"#));
+        assert_eq!(result, message());
     }
 }

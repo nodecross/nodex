@@ -1,11 +1,6 @@
-use alloc::string::{String};
-
-use alloc::vec::Vec;
 use sha2::{ Digest, Sha256 };
 use crate::unid::utils::algorithms::ecdsa::Ecdsa;
 
-#[cfg(test)]
-use alloc::format;
 #[cfg(test)]
 use crate::unid::utils::algorithms::secp256k1::{sign as signer_sign, verify as signer_verify, Message, PublicKey, PublicKeyFormat, SecretKey, Signature};
 
@@ -13,7 +8,6 @@ use crate::unid::utils::algorithms::secp256k1::{sign as signer_sign, verify as s
 // use serde_json::json;
 
 // use crate::unid::utils::ecdsa::Ecdsa;
-// use cstr_core::{CStr, CString, c_char};
 
 
 // const PROOF_KEY: &str = "proof";

@@ -1,5 +1,3 @@
-use alloc::vec::Vec;
-use alloc::string::String;
 use sha2::{Digest, Sha256};
 
 use crate::unid::utils::algorithms::base64_url;
@@ -82,9 +80,6 @@ impl Multihash {
 mod tests {
     use super::*;
     use rstest::*;
-
-    use alloc::string::String;
-    use alloc::vec::Vec;
 
     #[fixture]
     fn message() -> String {

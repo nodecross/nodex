@@ -1,4 +1,3 @@
-use alloc::vec::Vec;
 use hmac::digest::generic_array::GenericArray;
 use k256::{
     ecdsa::{SigningKey, VerifyingKey, Signature, signature::{Signer, Verifier}},
@@ -75,7 +74,6 @@ mod tests {
     use super::*;
     use rstest::*;
 
-    use alloc::vec::Vec;
     use crate::unid::utils::random;
 
     #[fixture]

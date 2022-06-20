@@ -1,5 +1,3 @@
-use alloc::vec::Vec;
-
 use crate::unid::errors::UNiDError;
 
 pub struct Random {}

@@ -1,6 +1,5 @@
 use sha2::{Sha256, Sha512};
 use hmac::{Hmac, Mac, NewMac};
-use alloc::vec::Vec;
 
 use crate::unid::errors::UNiDError;
 

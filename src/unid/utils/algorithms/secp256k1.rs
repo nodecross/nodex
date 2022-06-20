@@ -21,7 +21,6 @@ pub use libsecp256k1_core::{
     curve::{Affine, ECMultContext, ECMultGenContext, Field, Jacobian, Scalar},
     util::{Decoder, SignatureArray},
 };
-use alloc::boxed::Box;
 use arrayref::{array_mut_ref, array_ref};
 use core::convert::TryFrom;
 use hmac_drbg::HmacDRBG;

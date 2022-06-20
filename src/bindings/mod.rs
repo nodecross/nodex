@@ -1,10 +1,5 @@
-use alloc::format;
-// use alloc::string::ToString;
 use crate::unid::runtime::secp256k1::Secp256k1;
-use crate::logger::Logger;
-// use crate::ffi::Ffi;
 use crate::unid::utils::random::Random;
-// use alloc::vec::Vec;
 
 /// # Safety
 #[no_mangle]

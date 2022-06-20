@@ -15,17 +15,7 @@ extern crate serde;
 
 mod unid;
 mod logger;
-mod allocator;
-mod ffi;
 pub mod bindings;
-
-use core::lazy::Lazy;
-use alloc::string::{String, ToString};
-use alloc::format;
-use cstr_core::{CStr, CString, c_char};
-use logger::Logger;
-use spin::Mutex;
-use unid::{utils::random, utils::algorithms::base64_url, did::payload::{KeyPairSecp256K1, PublicKeyPayload, Payload}};
 
 // #[cfg_attr(not(test), global_allocator)]
 // static mut ALLOCATOR: allocator::ExternalHeap = allocator::ExternalHeap::empty();
@@ -140,8 +130,6 @@ use unid::{utils::random, utils::algorithms::base64_url, did::payload::{KeyPairS
 // // pub unsafe extern "C" fn aes_init(encryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32), decryptor: extern "C" fn(*mut DataT, *mut DataT, *mut DataT, *mut u8, u32)) {
 // //     AES_CRYPT.init(encryptor, decryptor);
 // // }
-// 
-// use core::convert::From;
 // 
 // #[repr(C)]
 // pub struct KeyRing {
@@ -458,7 +446,6 @@ use unid::{utils::random, utils::algorithms::base64_url, did::payload::{KeyPairS
 //         CStr::from_ptr(message)
 //     };
 //     let v1_str = v1.to_str().unwrap().to_string();
-//     logger.debug(alloc::format!("message to sign = {}", v1_str));
 // 
 //     // v2
 //     let v2 = {
@@ -494,7 +481,6 @@ use unid::{utils::random, utils::algorithms::base64_url, did::payload::{KeyPairS
 //         CStr::from_ptr(message)
 //     };
 //     let v1_str = v1.to_str().unwrap().to_string();
-//     logger.debug(alloc::format!("message to verify = {}", v1_str));
 // 
 //     // v2
 //     let v2 = {
@@ -536,7 +522,6 @@ use unid::{utils::random, utils::algorithms::base64_url, did::payload::{KeyPairS
 //         CStr::from_ptr(plaintext)
 //     };
 //     let v1_str = v1.to_str().unwrap().to_string();
-//     logger.debug(alloc::format!("v1_str = {:?}", v1_str));
 // 
 //     // v2
 //     let v2 = {
@@ -545,7 +530,6 @@ use unid::{utils::random, utils::algorithms::base64_url, did::payload::{KeyPairS
 //         CStr::from_ptr(secret)
 //     };
 //     let v2_str = v2.to_str().unwrap().to_string();
-//     logger.debug(alloc::format!("v2_str = {:?}", v2_str));
 // 
 //     // result
 // 
@@ -575,7 +559,6 @@ use unid::{utils::random, utils::algorithms::base64_url, did::payload::{KeyPairS
 //         CStr::from_ptr(buffered_ciphertext_base64)
 //     };
 //     let v1_str = v1.to_str().unwrap().to_string();
-//     logger.debug(alloc::format!("v1_str = {:?}", v1_str));
 // 
 //     // v2
 //     let v2 = {
@@ -584,7 +567,6 @@ use unid::{utils::random, utils::algorithms::base64_url, did::payload::{KeyPairS
 //         CStr::from_ptr(secret)
 //     };
 //     let v2_str = v2.to_str().unwrap().to_string();
-//     logger.debug(alloc::format!("v2_str = {:?}", v2_str));
 // 
 //     // result
 // 
@@ -596,12 +578,4 @@ use unid::{utils::random, utils::algorithms::base64_url, did::payload::{KeyPairS
 //     logger.debug("( END ) unid_ciphers_cipher_decrypt");
 // 
 //     r_ptr
-// }
-// 
-// #[cfg(test)]
-// mod tests {
-//     extern crate std;
-// 
-//     #[cfg_attr(test, global_allocator)]
-//     static mut A: std::alloc::System = std::alloc::System;
 // }
