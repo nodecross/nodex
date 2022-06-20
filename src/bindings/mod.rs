@@ -2,7 +2,6 @@ use alloc::format;
 // use alloc::string::ToString;
 use crate::unid::runtime::secp256k1::Secp256k1;
 use crate::logger::Logger;
-use crate::MUTEX_HANDLERS;
 // use crate::ffi::Ffi;
 use crate::unid::utils::random::Random;
 // use alloc::vec::Vec;
@@ -10,9 +9,9 @@ use crate::unid::utils::random::Random;
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn unid_test() {
-    let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+    // let logger = Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
-    let random = match Random::trng_bytes(&32) {
+    let random = match Random::bytes(&32) {
         Ok(v) => v,
         Err(_) => panic!()
     };
@@ -22,7 +21,7 @@ pub unsafe extern "C" fn unid_test() {
         Err(_) => panic!()
     };
 
-    logger.debug(format!("public key = {:?}", public));
+    // logger.debug(format!("public key = {:?}", public));
 
     // let handler = MUTEX_HANDLERS.lock().get_crypto_trng();
 

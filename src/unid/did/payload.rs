@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use crate::unid::utils::codec;
-use crate::unid::utils::multihasher;
+use crate::unid::utils::algorithms::base64_url;
+use crate::unid::utils::algorithms::multihash;
 use crate::unid::errors::UNiDError;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -68,22 +68,22 @@ impl Payload {
 
         let delta = ReplaceDeltaObject {
             patches: [patch].to_vec(),
-            update_commitment: multihasher::Multihash::canonicalize_then_double_hash_then_encode(&serde_json::to_string(&update_key).unwrap().as_bytes().to_vec())
+            update_commitment: multihash::Multihash::canonicalize_then_double_hash_then_encode(&serde_json::to_string(&update_key).unwrap().as_bytes().to_vec())
         };
         let delta_buffer = match serde_json::to_string(&delta) {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})
         };
-        let delta_hash = codec::Base64Url::encode(
-            &multihasher::Multihash::hash(&delta_buffer.as_bytes().to_vec())
+        let delta_hash = base64_url::Base64Url::encode(
+            &multihash::Multihash::hash(&delta_buffer.as_bytes().to_vec())
         );
 
         let suffix_data = ReplaceSuffixObject {
             delta_hash,
-            recovery_commitment: multihasher::Multihash::canonicalize_then_double_hash_then_encode(&serde_json::to_string(&recovery_key).unwrap().as_bytes().to_vec())
+            recovery_commitment: multihash::Multihash::canonicalize_then_double_hash_then_encode(&serde_json::to_string(&recovery_key).unwrap().as_bytes().to_vec())
         };
-        let delta_encoded_string = codec::Base64Url::encode(&delta_buffer.as_bytes().to_vec());
-        let suffix_data_encoded_string = codec::Base64Url::encode(&serde_json::to_string(&suffix_data).unwrap().into_bytes());
+        let delta_encoded_string = base64_url::Base64Url::encode(&delta_buffer.as_bytes().to_vec());
+        let suffix_data_encoded_string = base64_url::Base64Url::encode(&serde_json::to_string(&suffix_data).unwrap().into_bytes());
 
         Ok(Payload {
             r#type: "create".to_string(),
@@ -114,7 +114,7 @@ mod tests {
 
     #[test]
     fn test_new() {
-        let private_key = random::Random::bytes(&32);
+        let private_key = random::Random::bytes(&32).unwrap();
 
         let x = &private_key[0..16];
         let y = &private_key[16..];
@@ -124,8 +124,8 @@ mod tests {
             crv: "secp256k1".to_string(),
             kid: None,
             d: None,
-            x: codec::Base64Url::encode(&x.to_vec()),
-            y: codec::Base64Url::encode(&y.to_vec()),
+            x: base64_url::Base64Url::encode(&x.to_vec()),
+            y: base64_url::Base64Url::encode(&y.to_vec()),
         };
 
         let public_key = PublicKeyPayload {

@@ -85,7 +85,7 @@ mod tests {
 
     #[test]
     fn test_generate_public_key() {
-        let private_key = random::Random::bytes(&32);
+        let private_key = random::Random::bytes(&32).unwrap();
 
         let result = Secp256k1::generate_public_key(&private_key);
 
@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn test_convert_public_key() {
-        let private_key = random::Random::bytes(&32);
+        let private_key = random::Random::bytes(&32).unwrap();
 
         let public_key = match Secp256k1::generate_public_key(&private_key) {
             Ok(v) => v,
@@ -134,7 +134,7 @@ mod tests {
     #[test]
     fn test_ecdsa_sign() {
         let message = String::from(&message()).as_bytes().to_vec();
-        let private_key = random::Random::bytes(&32);
+        let private_key = random::Random::bytes(&32).unwrap();
 
         let result = Secp256k1::ecdsa_sign(&message, &private_key);
 
@@ -153,7 +153,7 @@ mod tests {
     #[test]
     fn test_ecdsa_verify() {
         let message = String::from(&message()).as_bytes().to_vec();
-        let private_key = random::Random::bytes(&32);
+        let private_key = random::Random::bytes(&32).unwrap();
 
         let signature = match Secp256k1::ecdsa_sign(&message, &private_key) {
             Ok(v) => v,

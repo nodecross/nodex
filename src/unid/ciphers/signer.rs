@@ -2,14 +2,12 @@ use alloc::string::{String};
 
 use alloc::vec::Vec;
 use sha2::{ Digest, Sha256 };
-use crate::unid::utils::ecdsa::Ecdsa;
+use crate::unid::utils::algorithms::ecdsa::Ecdsa;
 
-#[cfg(test)]
-use crate::MUTEX_HANDLERS;
 #[cfg(test)]
 use alloc::format;
 #[cfg(test)]
-use crate::unid::utils::secp256k1::{sign as signer_sign, verify as signer_verify, Message, PublicKey, PublicKeyFormat, SecretKey, Signature};
+use crate::unid::utils::algorithms::secp256k1::{sign as signer_sign, verify as signer_verify, Message, PublicKey, PublicKeyFormat, SecretKey, Signature};
 
 
 // use serde_json::json;
@@ -72,16 +70,16 @@ impl Signer {
         let secret_key_sk = SecretKey::parse_slice(secret_key_u8).unwrap();
 
         unsafe {
-            let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+            // let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
-            logger.debug(format!("secret_key_sk = {:?}", secret_key_sk));
+            // logger.debug(format!("secret_key_sk = {:?}", secret_key_sk));
         }
         let sig_tuple = signer_sign(&digested_message, &secret_key_sk);
 
         unsafe {
-            let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+            // let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
 
-            logger.debug(format!("sig tuple = {:?}", sig_tuple));
+            // logger.debug(format!("sig tuple = {:?}", sig_tuple));
         }
         let sig = sig_tuple.0;
         let sig_u8 = sig.serialize();

@@ -21,16 +21,12 @@ pub use libsecp256k1_core::{
     curve::{Affine, ECMultContext, ECMultGenContext, Field, Jacobian, Scalar},
     util::{Decoder, SignatureArray},
 };
-use crate::alloc::string::ToString;
 use alloc::boxed::Box;
 use arrayref::{array_mut_ref, array_ref};
 use core::convert::TryFrom;
 use hmac_drbg::HmacDRBG;
 use sha2::Sha256;
 use typenum::U32;
-use crate::MUTEX_HANDLERS;
-use alloc::format;
-
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 /// Public key on a secp256k1 curve.
@@ -475,16 +471,16 @@ pub fn sign_with_context(
     let seckey_b32 = seckey.0.b32();
     let message_b32 = message.0.b32();
     unsafe {
-      let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+      // let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
   
-      logger.debug(format!("message_b32 = {:?}", message_b32 ));
+      // logger.debug(format!("message_b32 = {:?}", message_b32 ));
     }
 
     let mut drbg = HmacDRBG::<Sha256>::new(&seckey_b32, &message_b32, &[]);
     unsafe {
-      let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+      // let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
   
-      logger.debug("hmac drbg".to_string());
+      // logger.debug("hmac drbg".to_string());
     }
     let mut nonce = Scalar::default();
     let mut overflow;
@@ -497,16 +493,16 @@ pub fn sign_with_context(
 
         if !overflow && !nonce.is_zero() {
           unsafe {
-            let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+            // let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
         
-            logger.debug("not overflow".to_string());
+            // logger.debug("not overflow".to_string());
           }
             if let Ok(val) = context.sign_raw(&seckey.0, &message.0, &nonce) {
                 result = val;
                 unsafe {
-                  let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
+                  // let logger = crate::Logger::new(MUTEX_HANDLERS.lock().get_debug_message_handler());
               
-                  logger.debug(format!("result now = {:?}",result));
+                  // logger.debug(format!("result now = {:?}",result));
                 }
                 break;
             }

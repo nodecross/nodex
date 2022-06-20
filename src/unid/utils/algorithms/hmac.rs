@@ -7,8 +7,13 @@ use crate::unid::errors::UNiDError;
 type _HmacSha256 = Hmac<Sha256>;
 type _HmacSha512 = Hmac<Sha512>;
 
+// pub trait HmacExecutable {
+//     fn digest(secret: &[u8], message: &[u8]) -> Result<Vec<u8>, UNiDError>;
+//     fn verify(secret: &[u8], message: &[u8], digest: &[u8]) -> Result<bool, UNiDError>;
+// }
+
 #[allow(dead_code)]
-struct HmacSha256 {}
+pub struct HmacSha256 {}
 
 impl HmacSha256 {
     #[allow(dead_code)]
@@ -35,7 +40,7 @@ impl HmacSha256 {
 }
 
 #[allow(dead_code)]
-struct HmacSha512 {}
+pub struct HmacSha512 {}
 
 impl HmacSha512 {
     #[allow(dead_code)]
@@ -65,8 +70,6 @@ impl HmacSha512 {
 mod tests {
     use super::*;
     use rstest::*;
-
-    use alloc::vec::Vec;
 
     #[fixture]
     fn message() -> String {

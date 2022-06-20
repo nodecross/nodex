@@ -2,9 +2,8 @@ use alloc::vec::Vec;
 use alloc::string::String;
 use sha2::{Digest, Sha256};
 
+use crate::unid::utils::algorithms::base64_url;
 use crate::unid::errors::UNiDError;
-
-use super::codec;
 
 const MULTIHASH_SHA256_CODE: u8 = 0x12; // 0x12 = 18
 const MULTIHASH_SHA256_SIZE: u8 = 0x20; // 0x20 = 32
@@ -45,7 +44,7 @@ impl Multihash {
     pub fn hash_then_encode(message: &[u8]) -> String {
         let hashed = Multihash::hash(message);
 
-        codec::Base64Url::encode(&hashed)
+        base64_url::Base64Url::encode(&hashed)
     }
 
     pub fn canonicalize_then_double_hash_then_encode(message: &[u8]) -> String {
@@ -122,15 +121,13 @@ mod tests {
         let result = Multihash::canonicalize_then_double_hash_then_encode(&message().as_bytes().to_vec());
 
         assert_eq!(result, String::from("EiAkB6db3wB049pqz8eml0uwHzIJOEadoAOFPgyNhXFdmw"));
-        //assert_eq!(result, String::from("EiAkB6db3wB049pqz8eml0uwHzIJOEadoAOFPgyNhXFdmw=="));
     }
 
     #[test]
     fn test_hash_then_encode() {
         let result = Multihash::hash_then_encode(&message().as_bytes().to_vec());
-        assert_eq!(result, String::from("EiCV-xR1ReD5lj1xKLOGjRhlJIqIP17Pjum_CLVjRv9KDA"));
 
-        //assert_eq!(result, String::from("EiCV-xR1ReD5lj1xKLOGjRhlJIqIP17Pjum_CLVjRv9KDA=="));
+        assert_eq!(result, String::from("EiCV-xR1ReD5lj1xKLOGjRhlJIqIP17Pjum_CLVjRv9KDA"));
     }
 
     #[test]
