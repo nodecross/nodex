@@ -1,6 +1,3 @@
-use alloc::vec::Vec;
-use alloc::string::String;
-
 use crate::unid::utils::random::*;
 use scrypt::{
     password_hash::{Output, PasswordHash, SaltString, PasswordHasher },

@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-
 use colored::*;
 
 pub struct Logger {
@@ -34,19 +32,19 @@ impl Logger {
                 println!("{} {}", format!("{:?}", priority).on_bright_red().bold(), message)
             },
             LogPriority::ERROR => {
-                println!("{} {}", format!("{:?}", priority).red().bold(), message)
+                println!("{} {}", format!("{:?}", priority).bright_red().bold(), message)
             },
             LogPriority::WARNING => {
-                println!("{} {}", format!("{:?}", priority).yellow().bold(), message)
+                println!("{} {}", format!("{:?}", priority).bright_yellow().bold(), message)
             },
             LogPriority::NOTICE => {
-                println!("{} {}", format!("{:?}", priority).cyan().bold(), message)
+                println!("{} {}", format!("{:?}", priority).bright_cyan().bold(), message)
             },
             LogPriority::INFO => {
-                println!("{} {}", format!("{:?}", priority).green().bold(), message)
+                println!("{} {}", format!("{:?}", priority).bright_green().bold(), message)
             },
             LogPriority::DEBUG => {
-                println!("{} {}", format!("{:?}", priority).white().bold(), message)
+                println!("{} {}", format!("{:?}", priority).bright_white().bold(), message)
             },
         }
     }
