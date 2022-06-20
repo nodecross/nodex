@@ -118,6 +118,7 @@ pub mod tests {
             did: "did:unid:test:EiAJ1Ybh8D43hV_VOvwG8S4Mrscm_qp6GAvdW7jkSG5Yfw".to_string(),
         };
         let res: String = did_operator.resolve_str(params);
+
         assert!(!res.is_empty());
     }
 

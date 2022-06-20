@@ -13,7 +13,6 @@ impl Base64Url {
         BASE64URL_NOPAD.encode(&content.to_vec())
     }
 
-    #[allow(dead_code)]
     pub fn decode_as_bytes(message: &str) -> Result<Vec<u8>, UNiDError> {
         match BASE64URL_NOPAD.decode(message.as_bytes()) {
             Ok(v) => Ok(v),
@@ -36,6 +35,8 @@ impl Base64Url {
 
 #[cfg(test)]
 mod tests {
+    use core::panic;
+
     use super::*;
     use rstest::*;
 
@@ -57,10 +58,12 @@ mod tests {
     #[test]
     fn test_base64url_decode_byte() {
         let encoded = Base64Url::encode(&message().as_bytes().to_vec());
-        let result = Base64Url::decode_as_bytes(&encoded);
+        let result = match Base64Url::decode_as_bytes(&encoded) {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
 
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), Vec::from([
+        assert_eq!(result, Vec::from([
             123,  34, 107,  34, 58,
              34,  85,  78, 105, 68,
              34, 125
@@ -70,9 +73,11 @@ mod tests {
     #[test]
     fn test_base64url_decode_string() {
         let encoded = Base64Url::encode(&message().as_bytes().to_vec());
-        let result = Base64Url::decode_as_string(&encoded);
+        let result = match Base64Url::decode_as_string(&encoded) {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
 
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), String::from(r#"{"k":"UNiD"}"#));
+        assert_eq!(result, String::from(r#"{"k":"UNiD"}"#));
     }
 }

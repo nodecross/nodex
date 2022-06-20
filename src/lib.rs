@@ -1,4 +1,3 @@
-#![cfg_attr(not(test), no_std)]
 #![cfg_attr(not(test), no_main)]
 #![feature(libc)]
 #![feature(once_cell)]
@@ -599,15 +598,6 @@ pub unsafe extern "C" fn unid_ciphers_cipher_decrypt(buffered_ciphertext_base64:
     logger.debug("( END ) unid_ciphers_cipher_decrypt");
 
     r_ptr
-}
-
-#[cfg(not(test))]
-use core::panic::PanicInfo;
-
-#[cfg(not(test))]
-#[panic_handler]
-pub extern "C" fn panic(_panic: &PanicInfo<'_>) -> ! {
-    loop {}
 }
 
 #[cfg(test)]

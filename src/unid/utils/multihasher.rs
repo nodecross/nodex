@@ -32,6 +32,7 @@ impl Multihash {
             MULTIHASH_SHA256_CODE,
             MULTIHASH_SHA256_SIZE,
         ]);
+
         let mut hashed: Vec<u8> = Multihash::hash_as_non_multihash_buffer(message);
         let mut joined: Vec<u8> = Vec::from([]);
 
