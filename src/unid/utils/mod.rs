@@ -1,3 +1,4 @@
+pub mod logger;
 pub mod random;
 pub mod http_client;
 

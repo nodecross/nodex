@@ -37,6 +37,8 @@ impl Base64Url {
 mod tests {
     use core::panic;
 
+    use crate::unid::utils::logger::Logger;
+
     use super::*;
     use rstest::*;
 
@@ -51,6 +53,8 @@ mod tests {
     #[test]
     fn test_base64url_encode() {
         let result = Base64Url::encode(&message().as_bytes().to_vec());
+
+        let logger = Logger::new();
 
         assert_eq!(result, String::from("eyJrIjoiVU5pRCJ9"));
     }
