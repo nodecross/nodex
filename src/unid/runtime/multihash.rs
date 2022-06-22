@@ -1,6 +1,6 @@
 use sha2::{Digest, Sha256};
 
-use crate::unid::utils::algorithms::base64_url;
+use crate::unid::runtime::base64_url;
 use crate::unid::errors::UNiDError;
 
 const MULTIHASH_SHA256_CODE: u8 = 0x12; // 0x12 = 18

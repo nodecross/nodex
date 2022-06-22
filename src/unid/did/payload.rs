@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::unid::utils::algorithms::base64_url;
-use crate::unid::utils::algorithms::multihash;
+use crate::unid::runtime::base64_url;
+use crate::unid::runtime::multihash;
 use crate::unid::errors::UNiDError;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -102,7 +102,7 @@ mod tests {
     use rstest::*;
     use serde_json::json;
 
-    use crate::unid::utils::random;
+    use crate::unid::runtime::random;
 
     #[fixture]
     fn message() -> String {

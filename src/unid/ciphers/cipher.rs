@@ -1,10 +1,9 @@
-use crate::unid::utils::random::*;
 use scrypt::{
     password_hash::{Output, PasswordHash, SaltString, PasswordHasher },
     Params, Scrypt,
 };
 
-use crate::unid::utils::algorithms::aes_gcm_siv;
+use crate::unid::runtime::{aes_gcm_siv, random};
 
 #[allow(dead_code)]
 pub struct Cipher {}
@@ -12,7 +11,7 @@ pub struct Cipher {}
 impl Cipher {
     #[allow(dead_code)]
     pub fn encrypt(plaintext: String, secret: String) -> String {
-        let salt_vec: Vec<u8> = unsafe { Random::bytes(&(32_usize)).unwrap() };
+        let salt_vec: Vec<u8> = random::Random::bytes(&(32_usize)).unwrap();
         let salt_u8: &[u8] = &salt_vec[..];
         let salt_ss: SaltString = SaltString::b64_encode(salt_u8).unwrap();
 
@@ -27,7 +26,7 @@ impl Cipher {
         let key_output: Output = key_phc.hash.unwrap();
         let key_u8: &[u8] = key_output.as_bytes();
 
-        let iv_vec: Vec<u8> = unsafe { Random::bytes(&(16_usize)).unwrap() };
+        let iv_vec: Vec<u8> = random::Random::bytes(&(16_usize)).unwrap();
         let iv_u8: &[u8] = &iv_vec[..];
 
 

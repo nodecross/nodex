@@ -71,10 +71,10 @@ impl Secp256k1 {
 
 #[cfg(test)]
 mod tests {
+    use crate::unid::runtime::random;
+
     use super::*;
     use rstest::*;
-
-    use crate::unid::utils::random;
 
     #[fixture]
     fn message() -> String {
