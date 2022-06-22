@@ -71,111 +71,125 @@ impl Secp256k1 {
 
 #[cfg(test)]
 mod tests {
-    use crate::unid::runtime::random;
-
     use super::*;
     use rstest::*;
 
     #[fixture]
     fn message() -> String {
-        String::from(r#"{"k":"UNiD"}"#)
+        String::from("Hello, UNiD!")
+    }
+
+    #[fixture]
+    fn private_key() -> Vec<u8> {
+        vec![
+            3  , 180, 173, 205, 89 , 54, 63 , 78 , 185, 208,
+            159, 42 , 52 , 205, 61 , 38, 168, 18 , 51 , 12 ,
+            47 , 136, 124, 229, 248, 83, 137, 72 , 255, 172,
+            116, 192,
+        ]
     }
 
     #[test]
     fn test_generate_public_key() {
-        let private_key = random::Random::bytes(&32).unwrap();
-
-        let result = Secp256k1::generate_public_key(&private_key);
-
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), Vec::from([
-            3  , 180, 173, 205, 89 , 54, 63 , 78 , 185, 208,
-            159, 42 , 52 , 205, 61 , 38, 168, 18 , 51 , 12 ,
-            47 , 136, 124, 229, 248, 83, 137, 72 , 255, 172,
-            116, 192, 115,
-        ]));
-    }
-
-    #[test]
-    fn test_convert_public_key() {
-        let private_key = random::Random::bytes(&32).unwrap();
-
-        let public_key = match Secp256k1::generate_public_key(&private_key) {
+        let result = match Secp256k1::generate_public_key(&private_key()) {
             Ok(v) => v,
             Err(_) => panic!()
         };
 
-        let result_1 = Secp256k1::convert_public_key(&public_key, true);
+        assert_eq!(vec![
+            2  , 81 , 132, 34 , 63, 232, 93 , 83 , 32 , 60 ,
+            249, 211, 127, 104, 34, 230, 51 , 232, 215, 159,
+            72 , 177, 50 , 223, 11, 140, 138, 100, 17 , 65 ,
+            243, 25 , 182,
+        ], result);
+    }
 
-        assert!(result_1.is_ok());
-        assert_eq!(result_1.unwrap(), Vec::from([
-            3  , 180, 173, 205, 89 , 54, 63 , 78 , 185, 208,
-            159, 42 , 52 , 205, 61 , 38, 168, 18 , 51 , 12 ,
-            47 , 136, 124, 229, 248, 83, 137, 72 , 255, 172,
-            116, 192, 115,
-        ]));
+    #[test]
+    fn test_convert_public_key() {
+        let public_key = match Secp256k1::generate_public_key(&private_key()) {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
 
-        let result_2 = Secp256k1::convert_public_key(&public_key, false);
+        let result_1 = match Secp256k1::convert_public_key(&public_key, true) {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
 
-        assert!(result_2.is_ok());
-        assert_eq!(result_2.unwrap(), Vec::from([
-            4  , 180, 173, 205, 89 , 54 , 63 , 78 , 185, 208,
-            159, 42 , 52 , 205, 61 , 38 , 168, 18 , 51 , 12 ,
-            47 , 136, 124, 229, 248, 83 , 137, 72 , 255, 172,
-            116, 192, 115, 214, 157, 80 , 18 , 144, 108, 254,
-            87 , 41 , 168, 219, 148, 205, 146, 42 , 227, 197,
-            31 , 159, 254, 46 , 109, 174, 44 , 141, 134, 85 ,
-            162, 177, 119, 86 , 217,
-        ]));
+        assert_eq!(vec![
+            2  , 81 , 132, 34 , 63, 232, 93 , 83 , 32 , 60 ,
+            249, 211, 127, 104, 34, 230, 51 , 232, 215, 159,
+            72 , 177, 50 , 223, 11, 140, 138, 100, 17 , 65 ,
+            243, 25 , 182,
+        ], result_1);
+
+        let result_2 = match Secp256k1::convert_public_key(&public_key, false) {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
+
+        assert_eq!(vec![
+            4  , 81 , 132, 34 , 63 , 232, 93 , 83 , 32 , 60 ,
+            249, 211, 127, 104, 34 , 230, 51 , 232, 215, 159,
+            72 , 177, 50 , 223, 11 , 140, 138, 100, 17 , 65 ,
+            243, 25 , 182, 163, 112, 124, 165, 24 , 97 , 225,
+            226, 222, 164, 60 , 35 , 132, 241, 121, 237, 68 ,
+            233, 140, 74 , 208, 56 , 137, 33 , 217, 106, 30 ,
+            5  , 147, 21 , 231, 84,
+        ], result_2);
     }
 
     #[test]
     fn test_ecdsa_sign() {
         let message = String::from(&message()).as_bytes().to_vec();
-        let private_key = random::Random::bytes(&32).unwrap();
 
-        let result = Secp256k1::ecdsa_sign(&message, &private_key);
+        let result = match Secp256k1::ecdsa_sign(&message, &private_key()) {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
 
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), Vec::from([
-            38 , 44 , 74 , 233, 147, 222, 97 , 147, 130, 254,
-            238, 192, 164, 25 , 148, 168, 187, 153, 212, 238,
-            228, 247, 252, 242, 164, 130, 102, 26 , 48 , 153,
-            133, 55 , 21 , 79 , 128, 113, 175, 160, 236, 157,
-            66 , 230, 183, 12 , 111, 38 , 38 , 130, 118, 34 ,
-            226, 168, 10 , 139, 11 , 220, 151, 253, 132, 127,
-            188, 15 , 33 , 29 ,
-        ]));
+        assert_eq!(vec![
+            218, 105, 83 , 234, 206, 86 , 49 , 34 , 145, 197,
+            43 , 116, 120, 59 , 160, 129, 233, 31 , 140, 114,
+            119, 10 , 28 , 120, 235, 141, 119, 206, 181, 31 ,
+            39 , 118, 110, 45 , 215, 157, 35 , 202, 2  , 242,
+            2  , 125, 246, 231, 234, 222, 168, 15 , 168, 8  ,
+            36 , 36 , 218, 170, 71 , 155, 16 , 112, 123, 32 ,
+            217, 218, 159, 62 ,
+        ], result);
     }
 
     #[test]
     fn test_ecdsa_verify() {
         let message = String::from(&message()).as_bytes().to_vec();
-        let private_key = random::Random::bytes(&32).unwrap();
 
-        let signature = match Secp256k1::ecdsa_sign(&message, &private_key) {
+        let signature = match Secp256k1::ecdsa_sign(&message, &private_key()) {
             Ok(v) => v,
             Err(_) => panic!()
         };
 
-        let public_key_compressed = match Secp256k1::generate_public_key(&private_key) {
+        let public_key_compressed = match Secp256k1::generate_public_key(&private_key()) {
             Ok(v) => v,
             Err(_) => panic!()
         };
 
-        let result_1 = Secp256k1::ecdsa_verify(&signature, &message, &public_key_compressed);
+        let result_1 = match Secp256k1::ecdsa_verify(&signature, &message, &public_key_compressed) {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
 
-        assert!(result_1.is_ok());
-        assert!(result_1.unwrap());
+        assert!(result_1);
 
         let public_key_un_compressed = match Secp256k1::convert_public_key(&public_key_compressed, false) {
             Ok(v) => v,
             Err(_) => panic!()
         };
 
-        let result_2 = Secp256k1::ecdsa_verify(&signature, &message, &public_key_un_compressed);
+        let result_2 = match Secp256k1::ecdsa_verify(&signature, &message, &public_key_un_compressed) {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
 
-        assert!(result_2.is_ok());
-        assert!(result_2.unwrap());
+        assert!(result_2);
     }
 }
