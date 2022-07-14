@@ -6,15 +6,15 @@
 
 UNiD is an open-source libraries for building end-to-end secure messaging between all devices including IoT, micro services, and on-premise servers, using features of [decentralized identifiers (DIDs)](https://www.w3.org/TR/did-core/) as a basis of security and privacy. Build atop [DIDComm messaging protocol](https://github.com/decentralized-identity/didcomm-messaging) which works over any transports, it makes end-to-end messaging reliable, secure, and easy.
 
-This repo where we develop libraries and middleware that can be installed on any devices. It enables device's identity and keys management with root of trust, automated provisioning, mutual authentication, and end-to-end encrypted message while ensuring confidentiality, integrity, and authenticity. 
+This repo where we develop libraries and middleware that can be installed on any devices. It enables device's identity and keys management with root of trust (RoT), automated provisioning, mutual authentication, and end-to-end secure message while ensuring confidentiality, integrity, and authenticity beyond network boundary. 
 
 [Explore UNiD Docs](https://docs.getunid.io/unid_edge/index.html)
 
 ## Features
 
-- Device's identity, keys, and profiles protection with root of trust (RoT)
-- Automated provisioning without centralized servers and certificate authorities and manual key injection process
-- Mutual authentication based on digital signature and end-to-end encrypted messaging
+- Device's identity, keys, and profiles management with RoT
+- Automated provisioning without centralized servers and certificate authorities and intermediaries
+- Mutual authentication and end-to-end encrypted messaging
 - ABAC & Dynamic policy management 
 - Libraries for multiple language - _Rust, C, NodeJS, Python_ 
 - Middleware for multiple OS - _Linux kernel x86(32bit) & x86-64(64bit), FreeRTOS ARM Cortex-M33(32bit)_ 
