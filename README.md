@@ -1,58 +1,26 @@
 <p align="center">
-  <img src="images/unid_logo_github.svg" alt="UNiD Logo" width="160" />
+  <img src="images/unid_u_logo.svg" alt="UNiD Logo" width="160" />
 </p>
 
-<h1 align="center">
-  UNiD
-</h1>
+# UNiD [![Release Pipeline](https://github.com/getunid/unid/actions/workflows/release-pipeline.yml/badge.svg?branch=main)](https://github.com/getunid/unid/actions/workflows/release-pipeline.yml) [![Coverage Status](https://coveralls.io/repos/github/getunid/unid/badge.svg)](https://coveralls.io/github/getunid/unid) [![Crates](https://img.shields.io/crates/v/unid.svg)](https://crates.io/crates/unid) [![Semantic Release](https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
 
-<p align="center">
-  <a href="https://github.com/getunid/unid/actions/workflows/release-pipeline.yml" target="_blank">
-    <img src="https://github.com/getunid/unid/actions/workflows/release-pipeline.yml/badge.svg?branch=main" alt="Release Pipeline" />
-  </a>
-  <a href="https://coveralls.io/github/getunid/unid" target="_blank">
-    <img src="https://coveralls.io/repos/github/getunid/unid/badge.svg" alt="Coverage Status" />
-  </a>
-  <a href="https://crates.io/crates/unid" target="_blank">
-    <img src="https://img.shields.io/crates/v/unid.svg" alt="UNiD" />
-  </a>
-  <a href="https://github.com/semantic-release/semantic-release" target="_blank">
-    <img src="https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release" alt="Sematic Release" />
-  </a>
-  <br />
-  Endpoint Security Infrastructure
-</p>
+UNiD is an open-source libraries for building end-to-end secure messaging between all devices including IoT, micro services, and on-premise servers, using features of [decentralized identifiers (DIDs)](https://www.w3.org/TR/did-core/) as a basis of security and privacy. Build atop [DIDComm messaging protocol](https://github.com/decentralized-identity/didcomm-messaging) which works over any transports, it makes end-to-end messaging reliable, secure, and easy.
 
-## Introduction
+This repo where we develop libraries and middleware that can be installed on any devices. It enables device's identity and keys management with root of trust, automated provisioning, mutual authentication, and end-to-end encrypted message while ensuring confidentiality, integrity, and authenticity. 
 
-UNiD is an endpoint security infrastructure that consists of;
+[Explore UNiD Docs](https://docs.getunid.io/unid_edge/index.html)
 
-- **UNiD EDGE** is an embedded middleware in connected devices
-- **UNiD HUB** is a message broker between connected devices and the cloud
-- **UNiD Network** is a public, permissionless, decentralized identity network based on blockchain-agnostic [sidtree protocol](https://identity.foundation/sidetree/spec/) on top of bitcoin to support DIDs and DPKI (decentralized public key infrastructure)
+## Features
 
-By simply integrating UNiD EDGE into your devices, you can protect the endpoint devices, establish an end-to-end secure channel with UNiD HUB, and communicate bidirectionally with various cloud services while ensuring device authenticity, data integrity, and privacy.
+- Device's identity, keys, and profiles protection with root of trust (RoT)
+- Automated provisioning without centralized servers and certificate authorities and manual key injection process
+- Mutual authentication based on digital signature and end-to-end encrypted messaging
+- ABAC & Dynamic policy management 
+- Libraries for multiple language - _Rust, C, NodeJS, Python_ 
+- Middleware for multiple OS - _Linux kernel x86(32bit) & x86-64(64bit), FreeRTOS ARM Cortex-M33(32bit)_ 
+- RoT support - _TPM, ARM TrustZone, Renesas SCE, Azure KeyVault_
 
-<p align="center">
-  <img src="images/figure2.svg" alt="e2e security infrastructure" width="80%" />
-</p>
-
-UNiD EDGE generates multiple key pairs from a hardware-derived true random number generator (TRNG) within the RoT secure processing environment, and generates a payload for registering to a blockchain-based decentralized PKI (DPKI) network to create a [decentralized identifier (DID)](https://www.w3.org/TR/did-core/) and the relevant DID document including the public key information. Anyone can obtain the corresponding device’s public key from the network to authenticate the device and verify the digitally signed data.
-
-UNiD EDGE consists of;
-
-- **RoT Wrapper**: This component supports TrustZone (Arm Cortex-M) and hardware security modules (supported MCUs), making it easier to use the RoT secure processing environment (SPE).
-- **Key Management**: This component supports the device’s cryptographic key operations (create, read, update, delete) in the SPE.
-- **Device IAM**: This component supports management of device identities, credentials, and security policies for device’s authentication and authorization.
-- **E2E Secure Socket**: This component supports to establish end-to-end authenticated channels with UNiD HUB for secure bi-directional communications.
-
-<p align="center">
-  <img src="images/figure3.svg" alt="unid edge architecture" />
-</p>
-
-This identity-first, end-to-end approach can abstract the complexity of security infrastructure and introduces advanced, scalable endpoint security to connected systems. UNiD platform is designed to make the endpoint security easily available and free all developers from the heavy burden of building the complex security infrastructure for each product. For more information, see [official documentation](https://docs.getunid.io/unid_edge/index.html). 
-
-## Quick Start
+## Install
 
 - [Integration Guide](https://docs.getunid.io/integration/index.html)
 - [Tutorial](https://docs.getunid.io/tutorial/ubuntu-nodejs/index.html)
@@ -61,9 +29,16 @@ This identity-first, end-to-end approach can abstract the complexity of security
 
 - UNiD Official Website<br />
   https://www.getunid.io/
-  
+
 - UNiD Developers Portal<br />
   https://docs.getunid.io/
+
+## Contribution
+
+First off, thank you for considering making contributions. It's people like you that make UNiD better. There are many ways in which you can participate in the project, for example:
+
+- File a bug report. Be sure to include information like what version of UNiD you are using, what your operating system and CPU is, and steps to recreate the bug.
+- Suggest a new feature.
 
 ## Changelog
 
