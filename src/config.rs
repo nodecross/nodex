@@ -106,7 +106,7 @@ impl AppConfig {
         if ! Path::exists(config.path()) {
             match config_dir {
                 Some(v) => {
-                    match fs::create_dir(&v) {
+                    match fs::create_dir_all(&v) {
                         Ok(_) => {},
                         Err(_) => panic!()
                     };
@@ -122,10 +122,7 @@ impl AppConfig {
 
         let root = match config.json::<ConfigRoot>() {
             Ok(v) => v,
-            Err(err) => {
-                println!("{:?}", err);
-                panic!()
-            }
+            Err(_) => panic!(),
         };
 
         AppConfig { root, config }
@@ -134,10 +131,7 @@ impl AppConfig {
     pub fn write(&self) -> Result<(), UNiDError> {
         match self.config.save_json(&self.root) {
             Ok(v) => Ok(v),
-            Err(err) => {
-                println!("{:?}", err);
-                panic!()
-            }
+            Err(_) => panic!(),
         }
     }
 

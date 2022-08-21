@@ -3,10 +3,7 @@ use actix_web::{ HttpRequest, HttpResponse };
 
 // NOTE: POST /internal/verifiable-presentations/verify
 #[derive(Deserialize, Serialize)]
-struct InternalVerifyVpRequest {}
-
-#[derive(Deserialize, Serialize)]
-struct InternalVerifyVpResponse {}
+struct MessageContainer {}
 
 pub async fn handler(req: HttpRequest) -> actix_web::Result<HttpResponse> {
     let service = crate::services::internal::Internal::new();

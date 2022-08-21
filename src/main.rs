@@ -8,17 +8,27 @@
 extern crate env_logger;
 
 use actix_web::{ middleware, HttpServer, App, web };
+use clap::Parser;
+use daemonize::Daemonize;
+use std::{fs::{File, self}, io};
 
 mod unid;
 mod services;
 mod config;
 mod controllers;
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    std::env::set_var("RUST_LOG", "actix_web=info");
-    env_logger::init();
+#[derive(Parser, Debug)]
+#[clap(name = "unid-agent")]
+#[clap(name = "unid-agent")]
+#[clap(version, about, long_about = None)]
+struct Args {
+    /// Run as daemon mode
+    #[clap(short, long)]
+    daemonize: bool,
+}
 
+#[actix_web::main]
+async fn run() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
             .wrap(middleware::DefaultHeaders::new().add(("x-version", "0.1.0")))
@@ -43,8 +53,37 @@ async fn main() -> std::io::Result<()> {
             .route("/internal/didcomm/encrypted-messages", web::post().to(controllers::internal::didcomm_generate_encrypted::handler))
             .route("/internal/didcomm/encrypted-messages/verify", web::post().to(controllers::internal::didcomm_verify_encrypted::handler))
     })
-    .bind_uds("/tmp/unid.sock")?
+    .bind_uds("unid-agent.sock")?
     .workers(1)
     .run()
     .await
+}
+
+fn main() -> std::io::Result<()> {
+    std::env::set_var("RUST_LOG", "actix_web=info");
+    env_logger::init();
+
+    let stdout = File::create("unid-agent.log").unwrap();
+    let stderr = File::create("unid-agent.err").unwrap();
+
+    let daemonize = Daemonize::new()
+        .pid_file("unid-agent.pid")
+        .working_directory(".")
+        .stdout(stdout)
+        .stderr(stderr);
+
+    let args = Args::parse();
+
+    if args.daemonize {
+        match daemonize.start() {
+            Ok(_) => {
+                run()
+            },
+            Err(_) => {
+                Err(io::Error::new(io::ErrorKind::Other, ""))
+            }
+        }
+    } else {
+        run()
+    }
 }

@@ -4,18 +4,17 @@ use serde_json::Value;
 
 // NOTE: POST /internal/verifiable-credentials
 #[derive(Deserialize, Serialize)]
-struct InternalGenerateVcRequest {}
-
-#[derive(Deserialize, Serialize)]
-struct InternalGenerateVcResponse {}
+pub struct MessageContainer {
+    message: Value,
+}
 
 pub async fn handler(
     req: HttpRequest,
-    web::Json(payload): web::Json<Value>,
+    web::Json(json): web::Json<MessageContainer>,
 ) -> actix_web::Result<HttpResponse> {
     let service = crate::services::internal::Internal::new();
 
-    match service.did_generate_vc(&payload) {
+    match service.did_generate_vc(&json.message) {
         Ok(v) => {
             Ok(HttpResponse::Ok().json(&v))
         },

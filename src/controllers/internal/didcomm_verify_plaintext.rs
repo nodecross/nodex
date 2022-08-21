@@ -1,19 +1,22 @@
 use serde::{Deserialize, Serialize};
-use actix_web::{ HttpRequest, HttpResponse };
+use actix_web::{ HttpRequest, HttpResponse, web };
+use serde_json::Value;
 
 // NOTE: POST /internal/didcomm/plaintext-messages/verify
 #[derive(Deserialize, Serialize)]
-struct InternalDidcommVerifyPlaintextMessageRequest {}
+pub struct MessageContainer {
+    message: Value,
+}
 
-#[derive(Deserialize, Serialize)]
-struct InternalDidcommVerifyPlaintextMessageResponse {}
-
-pub async fn handler(req: HttpRequest) -> actix_web::Result<HttpResponse> {
+pub async fn handler(
+    req: HttpRequest,
+    web::Json(json): web::Json<MessageContainer>,
+) -> actix_web::Result<HttpResponse> {
     let service = crate::services::internal::Internal::new();
 
-    match service.didcomm_verify_plaintext_message() {
+    match service.didcomm_verify_plaintext_message(&json.message) {
         Ok(v) => {
-            Ok(HttpResponse::Ok().body(v))
+            Ok(HttpResponse::Ok().json(&v))
         },
         Err(_) => {
             Ok(HttpResponse::InternalServerError().finish())

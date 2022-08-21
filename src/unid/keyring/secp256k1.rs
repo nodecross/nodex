@@ -229,10 +229,7 @@ impl Secp256k1 {
 
         let nx = match IBig::from_str_radix(&hex::encode(&x), 16) {
             Ok(v) => v,
-            Err(err) => {
-                println!("{}", err);
-                return Err(UNiDError{})
-            }
+            Err(_) => return Err(UNiDError{}),
         };
         let ny = match IBig::from_str_radix(&hex::encode(&y), 16) {
             Ok(v) => v,

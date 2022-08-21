@@ -16,11 +16,8 @@ keywords = [
   "did",
 ]
 categories = [
-  "hardware-support",
-  "external-ffi-bindings",
   "embedded",
   "cryptography",
-  "no-std",
 ]
 include = [
   "**/*.rs",
@@ -35,11 +32,10 @@ include = [
   "/SECURITY.md",
 ]
 [[bin]]
-name = "unid"
+name = "unid-agent"
 path = "src/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [features]
 default = ["std"]
 std = []
@@ -52,6 +48,7 @@ serde_json = { version = "1.0.71" }
 serde_jcs = { version = "0.1.0" }
 hex = { version = "0.4.3" }
 ibig = { version = "0.3.5" }
+arrayref = { version = "0.3.6" }
 
 tokio = { version = "1", features = ["full"] }
 chrono = { version = "0.4" }
@@ -68,6 +65,9 @@ scrypt = { version = "0.10.0", features = ["simple"] }
 aes-gcm-siv = { git = "https://github.com/RustCrypto/AEADs.git", tag = "aes-gcm-siv-v0.11.0-pre" }
 getrandom = { version = "0.2" }
 
+didcomm-rs = { version = "0.7.2" }
+x25519-dalek = { version = "1.2.0" }
+
 reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
 actix-web = { version = "4" }
 actix-rt = { version = "2.7.0" }
@@ -78,8 +78,8 @@ log = { version = "0.4.0" }
 env_logger = { version = "0.9.0" }
 
 home-config = { version = "0.4.0", features = ["json", "yaml", "toml"] }
-
-didcomm-rs = { version = "0.7.2" }
+clap = { version = "3.2.17", features = ["derive"] }
+daemonize = { version = "0.4.1" }
 
 [dev-dependencies]
 rstest = { version = "0.15.0" }

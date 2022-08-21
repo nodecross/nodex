@@ -2,13 +2,31 @@ use hmac::digest::generic_array::GenericArray;
 use k256::{
     ecdsa::{SigningKey, VerifyingKey, Signature, signature::{Signer, Verifier}},
     PublicKey, elliptic_curve::sec1::ToEncodedPoint,
+    SecretKey
 };
+use k256::elliptic_curve::ecdh::diffie_hellman;
 
 use crate::unid::errors::UNiDError;
 
 pub struct Secp256k1 {}
 
 impl Secp256k1 {
+    pub fn ecdh(private_key: &[u8], public_key: &[u8]) -> Result<Vec<u8>, UNiDError> {
+        let sk = match SecretKey::from_be_bytes(&private_key) {
+            Ok(v) => v,
+            Err(_) => return Err(UNiDError{}),
+        };
+        let pk = match PublicKey::from_sec1_bytes(&public_key) {
+            Ok(v) => v,
+            Err(_) => return Err(UNiDError{}),
+        };
+
+        Ok(diffie_hellman(
+            sk.to_nonzero_scalar(),
+            pk.as_affine()
+        ).as_bytes().to_vec())
+    }
+
     pub fn generate_public_key(private_key: &[u8]) -> Result<Vec<u8>, UNiDError> {
         let signing_key = match SigningKey::from_bytes(private_key.to_vec().as_slice()) {
             Ok(v) => v,
@@ -87,6 +105,36 @@ mod tests {
             0x2f, 0x88, 0x7c, 0xe5, 0xf8, 0x53, 0x89, 0x48, 0xff, 0xac,
             0x74, 0xc0,
         ]
+    }
+
+    #[test]
+    fn test() {
+        let shared_1 = match Secp256k1::ecdh(&private_key(), &vec![
+            0x02, 0x51, 0x84, 0x22, 0x3f, 0xe8, 0x5d, 0x53, 0x20, 0x3c,
+            0xf9, 0xd3, 0x7f, 0x68, 0x22, 0xe6, 0x33, 0xe8, 0xd7, 0x9f,
+            0x48, 0xb1, 0x32, 0xdf, 0x0b, 0x8c, 0x8a, 0x64, 0x11, 0x41,
+            0xf3, 0x19, 0xb6,
+        ]) {
+            Ok(v) => v,
+            Err(_) => panic!(),
+        };
+
+        let shared_2 = match Secp256k1::ecdh(&private_key(), &vec![
+            0x04, 0x51, 0x84, 0x22, 0x3f, 0xe8, 0x5d, 0x53, 0x20, 0x3c,
+            0xf9, 0xd3, 0x7f, 0x68, 0x22, 0xe6, 0x33, 0xe8, 0xd7, 0x9f,
+            0x48, 0xb1, 0x32, 0xdf, 0x0b, 0x8c, 0x8a, 0x64, 0x11, 0x41,
+            0xf3, 0x19, 0xb6, 0xa3, 0x70, 0x7c, 0xa5, 0x18, 0x61, 0xe1,
+            0xe2, 0xde, 0xa4, 0x3c, 0x23, 0x84, 0xf1, 0x79, 0xed, 0x44,
+            0xe9, 0x8c, 0x4a, 0xd0, 0x38, 0x89, 0x21, 0xd9, 0x6a, 0x1e,
+            0x05, 0x93, 0x15, 0xe7, 0x54,
+        ]) {
+            Ok(v) => v,
+            Err(_) => panic!(),
+        };
+
+        assert_eq!(shared_1.len(), 32);
+        assert_eq!(shared_2.len(), 32);
+        assert_eq!(shared_1, shared_2);
     }
 
     #[test]

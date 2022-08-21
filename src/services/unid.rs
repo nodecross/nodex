@@ -53,18 +53,12 @@ impl UNiD {
 
         let res = match self.http_client.post(&("/api/v1/operations"), &payload).await {
             Ok(v) => v,
-            Err(err) => {
-                println!("ERR: @1");
-                return Err(UNiDError{})
-            },
+            Err(_) => return Err(UNiDError{}),
         };
 
         let json = match res.json::<DIDCreateResponse>().await {
             Ok(v) => v,
-            Err(err) => {
-                println!("ERR: @2: {}", err);
-                return Err(UNiDError{})
-            }
+            Err(_) => return Err(UNiDError{}),
         };
 
         // NOTE: save context
@@ -75,8 +69,6 @@ impl UNiD {
 
     // NOTE: DONE
     pub async fn find_identifier(&self, did: &str) -> Result<DIDResolutionResponse, UNiDError> {
-        println!("did: {}", did);
-
         let res = match self.http_client.get(&(format!("/api/v1/identifiers/{}", &did))).await {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})
