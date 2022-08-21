@@ -1,3 +1,4 @@
+use chrono::{Utc, Local, DateTime, Date, format::format};
 use colored::*;
 
 pub struct Logger {
@@ -17,34 +18,36 @@ enum LogPriority {
 
 impl Logger {
     pub fn new() -> Logger {
-        Logger {  }
+        Logger { }
     }
 
     pub fn logging(&self, priority: &LogPriority, message: &str) {
+        let now = Utc::now().to_rfc3339();
+
         match priority {
             LogPriority::EMERG => {
-                println!("{} {}", format!("{:?}", priority).on_bright_red().bold(), message)
+                println!("{} {}: {}", now, format!("{:?}", priority).on_bright_red().bold(), message)
             },
             LogPriority::ALERT => {
-                println!("{} {}", format!("{:?}", priority).on_bright_red().bold(), message)
+                println!("{} {}: {}", now, format!("{:?}", priority).on_bright_red().bold(), message)
             },
             LogPriority::CRITICAL => {
-                println!("{} {}", format!("{:?}", priority).on_bright_red().bold(), message)
+                println!("{} {}: {}", now, format!("{:?}", priority).on_bright_red().bold(), message)
             },
             LogPriority::ERROR => {
-                println!("{} {}", format!("{:?}", priority).bright_red().bold(), message)
+                println!("{} {}: {}", now, format!("{:?}", priority).bright_red().bold(), message)
             },
             LogPriority::WARNING => {
-                println!("{} {}", format!("{:?}", priority).bright_yellow().bold(), message)
+                println!("{} {}: {}", now, format!("{:?}", priority).bright_yellow().bold(), message)
             },
             LogPriority::NOTICE => {
-                println!("{} {}", format!("{:?}", priority).bright_cyan().bold(), message)
+                println!("{} {}: {}", now, format!("{:?}", priority).bright_cyan().bold(), message)
             },
             LogPriority::INFO => {
-                println!("{} {}", format!("{:?}", priority).bright_green().bold(), message)
+                println!("{} {}: {}", now, format!("{:?}", priority).bright_green().bold(), message)
             },
             LogPriority::DEBUG => {
-                println!("{} {}", format!("{:?}", priority).bright_white().bold(), message)
+                println!("{} {}: {}", now, format!("{:?}", priority).bright_white().bold(), message)
             },
         }
     }

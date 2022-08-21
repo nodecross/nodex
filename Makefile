@@ -6,20 +6,12 @@ build-windows:
 	$(CARGO) build --release --target x86_64-pc-windows-msvc
 
 build-linux:
-	$(CARGO) build --release --target x86_64-unknown-linux-gnu
+	$(CARGO) build --release --target x86_64-unknown-linux-musl
 
 build-macos:
 	$(CARGO) build --release --target x86_64-apple-darwin
 
-# build-renesas-ra6m5:
-# 	$(CARGO) build --release -Zbuild-std --verbose --target thumbv8m.main-none-eabihf
-# 
-# build-renesas-ra6m3:
-# 	$(CARGO) build --release -Zbuild-std --verbose --target ./bindings/renesas/renesas_ra6m3.json
-# 
-# build-renesas: build-renesas-ra6m3 build-renesas-ra6m5
-
-build: build-macos
+build: build-linux build-macos
 
 lint:
 	$(CARGO) clippy --all-targets --all-features -- -D warnings

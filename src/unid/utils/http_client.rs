@@ -8,7 +8,7 @@ pub struct HttpClientConfig {
 #[derive(Clone, Debug)]
 pub struct HttpClient {
     pub base_url: Url,
-    pub instance: reqwest::blocking::Client,
+    pub instance: reqwest::Client,
 }
 
 impl HttpClient {
@@ -17,7 +17,7 @@ impl HttpClient {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})
         };
-        let client: reqwest::blocking::Client = reqwest::blocking::Client::new();
+        let client: reqwest::Client = reqwest::Client::new();
 
         Ok(
             HttpClient {
@@ -33,49 +33,50 @@ impl HttpClient {
         headers
     }
 
-    pub fn get(&self, _path: &String) -> Result<reqwest::blocking::Response, UNiDError> {
+    pub async fn get(&self, _path: &str) -> Result<reqwest::Response, UNiDError> {
         let url = self.base_url.join(&_path);
 
         match self.instance
             .get(&url.unwrap().to_string())
             .headers(self.default_headers())
-            .send() {
+            .send().await {
                 Ok(v) => Ok(v),
                 Err(_) => Err(UNiDError{})
             }
     }
 
-    pub fn post(&self, _path: &String) -> Result<reqwest::blocking::Response, UNiDError> {
+    pub async fn post(&self, _path: &str, body: &str) -> Result<reqwest::Response, UNiDError> {
         let url = self.base_url.join(&_path);
 
         match self.instance
             .post(&url.unwrap().to_string())
             .headers(self.default_headers())
-            .send() {
+            .body(body.to_string())
+            .send().await {
                 Ok(v) => Ok(v),
                 Err(_) => Err(UNiDError{})
             }
     }
 
-    pub fn put(&self, _path: &String) -> Result<reqwest::blocking::Response, UNiDError> {
+    pub async fn put(&self, _path: &str) -> Result<reqwest::Response, UNiDError> {
         let url = self.base_url.join(&_path);
 
         match self.instance
             .put(&url.unwrap().to_string())
             .headers(self.default_headers())
-            .send() {
+            .send().await {
                 Ok(v) => Ok(v),
                 Err(_) => Err(UNiDError{})
             }
     }
 
-    pub fn delete(&self, _path: &String) -> Result<reqwest::blocking::Response, UNiDError> {
+    pub async fn delete(&self, _path: &str) -> Result<reqwest::Response, UNiDError> {
         let url = self.base_url.join(&_path);
 
         match self.instance
             .delete(&url.unwrap().to_string())
             .headers(self.default_headers())
-            .send() {
+            .send().await {
                 Ok(v) => Ok(v),
                 Err(_) => Err(UNiDError{})
             }
@@ -92,8 +93,8 @@ pub mod tests {
         origin: String,
     }
 
-    #[test]
-    fn it_should_success_get() {
+    #[actix_rt::test]
+    async fn it_should_success_get() {
         let client_config: HttpClientConfig = HttpClientConfig {
             base_url: "https://httpbin.org".to_string(),
         };
@@ -103,12 +104,12 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        let res = match client.get(&("/get".to_string())) {
+        let res = match client.get(&("/get".to_string())).await {
             Ok(v) => v,
             Err(_) => panic!()
         };
 
-        let json: Res = match res.json() {
+        let json: Res = match res.json().await {
             Ok(v) => v,
             Err(_) => panic!()
         };
@@ -116,8 +117,8 @@ pub mod tests {
         assert_eq!(true, 0 < json.origin.len());
     }
 
-    #[test]
-    fn it_should_success_post() {
+    #[actix_rt::test]
+    async fn it_should_success_post() {
         let client_config: HttpClientConfig = HttpClientConfig {
             base_url: "https://httpbin.org".to_string(),
         };
@@ -127,12 +128,12 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        let res = match client.post(&("/post".to_string())) {
+        let res = match client.post(&("/post"), &(r#"{"key":"value"}"#)).await {
             Ok(v) => v,
             Err(_) => panic!()
         };
 
-        let json: Res = match res.json() {
+        let json: Res = match res.json().await {
             Ok(v) => v,
             Err(_) => panic!()
         };
@@ -140,8 +141,8 @@ pub mod tests {
         assert_eq!(true, 0 < json.origin.len());
     }
 
-    #[test]
-    fn it_should_success_put() {
+    #[actix_rt::test]
+    async fn it_should_success_put() {
         let client_config: HttpClientConfig = HttpClientConfig {
             base_url: "https://httpbin.org".to_string(),
         };
@@ -151,12 +152,12 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        let res = match client.put(&("/put".to_string())) {
+        let res = match client.put(&("/put".to_string())).await {
             Ok(v) => v,
             Err(_) => panic!()
         };
 
-        let json: Res = match res.json() {
+        let json: Res = match res.json().await {
             Ok(v) => v,
             Err(_) => panic!()
         };
@@ -164,8 +165,8 @@ pub mod tests {
         assert_eq!(true, 0 < json.origin.len());
     }
 
-    #[test]
-    fn it_should_success_delete() {
+    #[actix_rt::test]
+    async fn it_should_success_delete() {
         let client_config: HttpClientConfig = HttpClientConfig {
             base_url: "https://httpbin.org".to_string(),
         };
@@ -175,12 +176,12 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        let res = match client.delete(&("/delete".to_string())) {
+        let res = match client.delete(&("/delete".to_string())).await {
             Ok(v) => v,
             Err(_) => panic!()
         };
 
-        let json: Res = match res.json() {
+        let json: Res = match res.json().await {
             Ok(v) => v,
             Err(_) => panic!()
         };
