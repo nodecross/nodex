@@ -1,6 +1,7 @@
+use chrono::Utc;
 use serde_json::{Value, json};
 
-use crate::unid::{errors::UNiDError, keyring::{self, secp256k1::Secp256k1Context}, schema::general::{GeneralVcDataModel, Issuer, CredentialSubject}, cipher::credential_signer::{CredentialSigner, CredentialSignerSuite}};
+use crate::{unid::{errors::UNiDError, keyring::{self}, schema::general::{GeneralVcDataModel, Issuer, CredentialSubject}, cipher::credential_signer::{CredentialSigner, CredentialSignerSuite}, runtime}};
 
 pub struct Internal {}
 
@@ -19,14 +20,18 @@ impl Internal {
             Err(_) => return Err(UNiDError{})
         };
 
+        let r#type = "VerifiableCredential".to_string();
+        let context = "https://www.w3.org/2018/credentials/v1".to_string();
+        let issuance_date = Utc::now().to_rfc3339();
+
         let model = GeneralVcDataModel {
-            id: "id".to_string(),
-            r#type: vec![ "type".to_string() ],
-            issuer: Issuer { id: "issuer".to_string() },
-            context: vec![ "context".to_string() ],
-            issuance_date: "issuance_date".to_string(),
+            id: None,
+            issuer: Issuer { id: did.clone() },
+            r#type: vec![ r#type ],
+            context: vec![ context ],
+            issuance_date,
             credential_subject: CredentialSubject {
-                id: "credential_subject.id".to_string(),
+                id: None,
                 container: payload.clone(),
             },
             expiration_date: None,
@@ -45,17 +50,58 @@ impl Internal {
         Ok(json!(signed))
     }
 
-    pub fn did_verify_vc(&self, verifiable_credential: &Value) -> Result<String, UNiDError> {
-        // let verified = match CredentialSigner::verify(verifiable_credential.clone(), &CredentialSignerSuite {
-        //     did: None,
-        //     key_id: None,
-        //     context: ()
-        // }) {
-        //     Ok(v) => v,
-        //     Err(_) => return Err(UNiDError{})
-        // };
+    pub async fn did_verify_vc(&self, verifiable_credential: &Value) -> Result<Value, UNiDError> {
+        let service = crate::services::unid::UNiD::new();
 
-        Ok("NotImplemented".to_string())
+        println!("verifiable_credential: {:?}", verifiable_credential);
+
+        let model = match serde_json::from_value::<GeneralVcDataModel>(verifiable_credential.clone()) {
+            Ok(v) => v,
+            Err(err) => {
+                println!("err: {}", err);
+                return Err(UNiDError{})
+            }
+        };
+
+        let did_document = match service.find_identifier(&model.issuer.id).await {
+            Ok(v) => v,
+            Err(err) => {
+                println!("err: {:?}", err);
+                return Err(UNiDError{})
+            }
+        };
+
+        println!("did_document: {:?}", did_document);
+
+        let public_keys = match did_document.did_document.public_key {
+            Some(v) => v,
+            None => return Err(UNiDError{}),
+        };
+
+        println!("public_keys: {:?}", public_keys);
+
+        // FIXME: workaround
+        if public_keys.len() != 1 {
+            return Err(UNiDError{})
+        }
+
+        let public_key = public_keys[0].clone();
+
+        let context = match keyring::secp256k1::Secp256k1::from_jwk(&public_key.public_key_jwk) {
+            Ok(v) => v,
+            Err(_) => return Err(UNiDError{})
+        };
+
+        let (verified_model, verified) = match CredentialSigner::verify(&model, &CredentialSignerSuite {
+            did: None,
+            key_id: None,
+            context,
+        }) {
+            Ok(v) => v,
+            Err(_) => return Err(UNiDError{})
+        };
+
+        Ok(verified_model)
     }
 
     pub fn did_generate_vp(&self) -> Result<String, UNiDError> {

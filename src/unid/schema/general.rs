@@ -11,8 +11,9 @@ pub struct Issuer {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct CredentialSubject {
-    #[serde(rename = "id")]
-    pub id: String,
+    // NOTE: 'id' property is optional.
+    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
 
     #[serde(rename = "container")]
     pub container: Value,
@@ -20,8 +21,9 @@ pub struct CredentialSubject {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct GeneralVcDataModel {
-    #[serde(rename = "id")]
-    pub id: String,
+    // NOTE: 'id' property is optional.
+    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
 
     #[serde(rename = "issuer")]
     pub issuer: Issuer,
@@ -29,7 +31,7 @@ pub struct GeneralVcDataModel {
     #[serde(rename = "issuanceDate")]
     pub issuance_date: String,
 
-    #[serde(rename = "expirationDate")]
+    #[serde(rename = "expirationDate", skip_serializing_if = "Option::is_none")]
     pub expiration_date: Option<String>,
 
     #[serde(rename = "@context")]

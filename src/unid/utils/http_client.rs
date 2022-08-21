@@ -48,13 +48,20 @@ impl HttpClient {
     pub async fn post(&self, _path: &str, body: &str) -> Result<reqwest::Response, UNiDError> {
         let url = self.base_url.join(&_path);
 
+        println!(">>>>");
+        println!("body: {}", body);
+        println!(">>>>");
+
         match self.instance
             .post(&url.unwrap().to_string())
             .headers(self.default_headers())
             .body(body.to_string())
             .send().await {
                 Ok(v) => Ok(v),
-                Err(_) => Err(UNiDError{})
+                Err(err) => {
+                    println!("err: {}", err);
+                    Err(UNiDError{})
+                }
             }
     }
 

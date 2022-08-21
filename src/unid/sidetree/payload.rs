@@ -23,7 +23,7 @@ pub struct ServiceEndpoint {
     pub description: Option<String>,
 }
   
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DidPublicKey {
     #[serde(rename = "id")]
     pub id: String,
@@ -64,14 +64,21 @@ pub struct DIDDocument {
 
     // TODO: impl parser for mixed type
     #[serde(rename = "authentication")]
-    pub authentication: Option<Vec<DidPublicKey>>,
+    pub authentication: Option<Vec<String>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PublicKeyPayload {
-    pub id     : String,
-    pub r#type : String,
-    pub jwk    : KeyPairSecp256K1,
+    #[serde(rename = "id")]
+    pub id: String,
+
+    #[serde(rename = "type")]
+    pub r#type: String,
+
+    #[serde(rename = "jwk")]
+    pub jwk: KeyPairSecp256K1,
+
+    #[serde(rename = "purpose")]
     pub purpose: Vec<String>,
 }
 
@@ -112,7 +119,10 @@ struct DIDRemoveServicesAction {
 // ACTION: replace
 #[derive(Debug, Serialize, Deserialize)]
 struct DIDReplacePayload {
+    #[serde(rename = "public_keys")] 
     public_keys: Vec<PublicKeyPayload>,
+
+    #[serde(rename = "service_endpoints")] 
     service_endpoints: Vec<String>,
 }
 
@@ -168,16 +178,24 @@ pub struct DIDResolutionResponse {
     pub method_metadata: MethodMetadata,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct CommitmentKeys {
+    #[serde(rename = "recovery")]
     pub recovery: KeyPairSecp256K1,
-    pub update  : KeyPairSecp256K1,
+
+    #[serde(rename = "update")]
+    pub update: KeyPairSecp256K1,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct DIDCreateRequest {
+    #[serde(rename = "publicKeys")] 
     pub public_keys: Vec<PublicKeyPayload>,
+
+    #[serde(rename = "commitmentKeys")] 
     pub commitment_keys: CommitmentKeys,
+
+    #[serde(rename = "serviceEndpoints")] 
     pub service_endpoints: Vec<String>,
 }
 
@@ -309,7 +327,7 @@ pub mod tests {
                 recovery: recovery,
                 update: update,
             },
-            service_endpoints: vec!["https://did.getunid.io".to_string()],
+            service_endpoints: vec![],
         }) {
             Ok(v) => v,
             Err(_) => panic!()

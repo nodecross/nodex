@@ -21,10 +21,10 @@ pub struct KeyPairSecp256K1 {
     #[serde(rename = "y")]
     pub y: String,
 
-    #[serde(rename = "d")]
+    #[serde(rename = "d", skip_serializing_if = "Option::is_none")]
     pub d: Option<String>,
 
-    #[serde(rename = "kid")]
+    #[serde(rename = "kid", skip_serializing_if = "Option::is_none")]
     pub kid: Option<String>,
 }
 

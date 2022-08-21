@@ -45,7 +45,7 @@ impl UNiD {
                 recovery,
                 update,
             },
-            service_endpoints: vec!["https://did.getunid.io".to_string()],
+            service_endpoints: vec![],
         }) {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{}),
@@ -53,12 +53,18 @@ impl UNiD {
 
         let res = match self.http_client.post(&("/api/v1/operations"), &payload).await {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{}),
+            Err(err) => {
+                println!("ERR: @1");
+                return Err(UNiDError{})
+            },
         };
 
         let json = match res.json::<DIDCreateResponse>().await {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{})
+            Err(err) => {
+                println!("ERR: @2: {}", err);
+                return Err(UNiDError{})
+            }
         };
 
         // NOTE: save context
@@ -69,6 +75,8 @@ impl UNiD {
 
     // NOTE: DONE
     pub async fn find_identifier(&self, did: &str) -> Result<DIDResolutionResponse, UNiDError> {
+        println!("did: {}", did);
+
         let res = match self.http_client.get(&(format!("/api/v1/identifiers/{}", &did))).await {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})

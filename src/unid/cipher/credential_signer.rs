@@ -178,13 +178,13 @@ pub mod tests {
         };
 
         let model = GeneralVcDataModel {
-            id: "id".to_string(),
+            id: None,
             r#type: vec![ "type".to_string() ],
             issuer: Issuer { id: "issuer".to_string() },
             context: vec![ "context".to_string() ],
             issuance_date: "issuance_date".to_string(),
             credential_subject: CredentialSubject {
-                id: "credential_subject.id".to_string(),
+                id: None,
                 container: json!(r#"{"key":"value"}"#)
             },
             expiration_date: None,
@@ -202,7 +202,7 @@ pub mod tests {
 
         match result.proof {
             Some(proof) => {
-                assert_eq!(proof.jws, "eyJhbGciOiJFUzI1NksiLCJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdfQ..NJD9_IxkyTNhC927KL0Q6lC3D2TgqAZDmtc8cwkMu7JVsQqFVQefBW8ThFaP0yYbHQ1kWm6WHF4is40M-3au1g");
+                assert_eq!(proof.jws, "eyJhbGciOiJFUzI1NksiLCJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdfQ..sJDXJkbpBph11FAVZIxSE7lW3-6HjzM8edL0npwkgfRM1aIPpG7yqtN4AP_Q30Agkam-sk9Q1Lty2i-ZW1-4Iw");
                 assert_eq!(proof.proof_purpose, "authentication");
                 assert_eq!(proof.r#type, "EcdsaSecp256k1Signature2019");
                 assert_eq!(proof.verification_method, "did:unid:test:000000000000000000000000000000#signingKey");
@@ -222,13 +222,13 @@ pub mod tests {
         };
 
         let model = GeneralVcDataModel {
-            id: "id".to_string(),
+            id: None,
             r#type: vec![ "type".to_string() ],
             issuer: Issuer { id: "issuer".to_string() },
             context: vec![ "context".to_string() ],
             issuance_date: "issuance_date".to_string(),
             credential_subject: CredentialSubject {
-                id: "credential_subject.id".to_string(),
+                id: None,
                 container: json!(r#"{"key":"value"}"#)
             },
             expiration_date: None,

@@ -95,6 +95,8 @@ impl MnemonicKeyring {
         let config = AppConfig::new();
 
         // NOTE: already created keyring
+
+        #[cfg(not(test))]
         if config.get_is_initialized() {
             return Err(UNiDError{})
         }

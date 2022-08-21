@@ -10,7 +10,9 @@ struct CreateIdentifierResponse {
     id: String
 }
 
-pub async fn handler(req: HttpRequest) -> actix_web::Result<HttpResponse> {
+pub async fn handler(
+    req: HttpRequest,
+) -> actix_web::Result<HttpResponse> {
     let service = crate::services::unid::UNiD::new();
 
     match service.create_identifier().await {
