@@ -110,7 +110,7 @@ impl UNiD {
 
         let (mut client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
 
-        match client.publish(demo_topic, QoS::ExactlyOnce, false, container.to_string().as_bytes()).await {
+        match client.publish(demo_topic, QoS::AtLeastOnce, false, container.to_string().as_bytes()).await {
             Ok(_) => {},
             Err(_) => return Err(UNiDError{}),
         };
