@@ -3,12 +3,7 @@ use actix_web::{ HttpRequest, HttpResponse };
 
 // NOTE: POST /identifiers
 #[derive(Deserialize, Serialize)]
-struct CreateIdentifierRequest {}
-
-#[derive(Deserialize, Serialize)]
-struct CreateIdentifierResponse {
-    id: String
-}
+struct MessageContainer {}
 
 pub async fn handler(
     req: HttpRequest,

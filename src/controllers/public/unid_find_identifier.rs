@@ -3,10 +3,7 @@ use actix_web::{ HttpRequest, HttpResponse, web };
 
 // NOTE: GET /identifiers/${ did }
 #[derive(Deserialize, Serialize)]
-struct FindIdentifierByIdRequest {}
-
-#[derive(Deserialize, Serialize)]
-struct FindIdentifierByIdResponse {}
+struct MessageContainer {}
 
 pub async fn handler(
     req: HttpRequest,

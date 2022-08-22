@@ -1,4 +1,9 @@
+use std::time::Duration;
+
 use crate::{unid::{errors::UNiDError, keyring, sidetree::payload::{OperationPayload, DIDCreateRequest, CommitmentKeys, DIDCreateResponse, DIDResolutionResponse}, utils::http_client::{HttpClient, HttpClientConfig}}, config::{AppConfig, SignKeyPair, UpdateKeyPair, RecoverKeyPair, EncryptKeyPair}};
+use rumqttc::{MqttOptions, AsyncClient, QoS};
+use serde_json::Value;
+use cuid;
 
 pub struct UNiD {
     http_client: HttpClient
@@ -80,7 +85,53 @@ impl UNiD {
         }
     }
 
-    pub  fn transfer(&self) -> Result<String, UNiDError> {
-        Ok("NotImplemented".to_string())
+    pub async fn transfer(&self, other_did: &str, message: &Value) -> Result<Value, UNiDError> {
+        let internal = crate::services::internal::Internal::new();
+
+        let demo_host = "demo.getunid.io".to_string();
+        let demo_port = 1883;
+        let demo_topic = "unid/demo".to_string();
+
+        // NOTE: didcomm (enc)
+        let container = match internal.didcomm_generate_encrypted_message(&other_did, &message).await {
+            Ok(v) => v,
+            Err(_) => return Err(UNiDError{}),
+        };
+
+        // NOTE: send message over mqtt
+        let id = match cuid::cuid() {
+            Ok(v) => v,
+            Err(_) => return Err(UNiDError{}),
+        };
+
+        let mut mqttoptions = MqttOptions::new(&id, demo_host, demo_port);
+        mqttoptions.set_clean_session(true);
+        mqttoptions.set_keep_alive(Duration::from_secs(5));
+
+        let (mut client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
+
+        match client.publish(demo_topic, QoS::ExactlyOnce, false, container.to_string().as_bytes()).await {
+            Ok(_) => {},
+            Err(_) => return Err(UNiDError{}),
+        };
+
+        let mut count = 0;
+
+        while let Ok(notification) = eventloop.poll().await {
+            println!("{:?}", notification);
+
+            count = count + 1;
+
+            if count > 1 {
+                break
+            }
+        }
+
+        match client.disconnect().await {
+            Ok(_) => {},
+            Err(_) => panic!(),
+        };
+
+        Ok(container)
     }
 }
