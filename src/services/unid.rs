@@ -88,7 +88,7 @@ impl UNiD {
     pub async fn transfer(&self, other_did: &str, message: &Value) -> Result<Value, UNiDError> {
         let internal = crate::services::internal::Internal::new();
 
-        let demo_host = "demo.getunid.io".to_string();
+        let demo_host = "demo-mqtt.getunid.io".to_string();
         let demo_port = 1883;
         let demo_topic = "unid/demo".to_string();
 
