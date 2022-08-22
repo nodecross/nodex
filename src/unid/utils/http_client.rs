@@ -1,171 +1,191 @@
-pub struct HttpClientContext {
-    pub debug: bool,
-}
+use reqwest::{Url, header::{HeaderMap, HeaderValue}};
+use crate::unid::errors::UNiDError;
 
-pub struct AxiosRequestConfig {
+pub struct HttpClientConfig {
     pub base_url: String,
 }
 
 #[derive(Clone, Debug)]
 pub struct HttpClient {
-    pub base_url: String,
-    pub instance: reqwest::blocking::Client,
+    pub base_url: Url,
+    pub instance: reqwest::Client,
 }
 
 impl HttpClient {
-    pub fn new(_config: Option<AxiosRequestConfig>, _context: Option<HttpClientContext>) -> Self {
-        let base_url: String;
+    pub fn new(_config: &HttpClientConfig) -> Result<Self, UNiDError> {
+        let url = match Url::parse(&_config.base_url.to_string()) {
+            Ok(v) => v,
+            Err(_) => return Err(UNiDError{})
+        };
+        let client: reqwest::Client = reqwest::Client::new();
 
-        if _config.is_some() {
-            base_url = _config.as_ref().unwrap().base_url.to_string();
-        } else {
-            base_url = "https://did.getunid.io".to_string();
-        }
-
-        let client: reqwest::blocking::Client = reqwest::blocking::Client::new();
-
-        HttpClient {
-            instance: client,
-            base_url,
-        }
+        Ok(
+            HttpClient {
+                instance: client,
+                base_url: url,
+            }
+        )
     }
 
-    pub fn get(&self, _request_path: Option<String>) -> reqwest::blocking::Response {
-        let request_url: String;
-
-        if _request_path.is_some() {
-            request_url = format!("{}{}", self.base_url, _request_path.unwrap());
-        } else {
-            request_url = self.base_url.to_string();
-        }
-
-        let res = self.instance.get(request_url).send();
-
-        assert!(res.is_ok());
-
-        res.unwrap()
+    fn default_headers(&self) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert(reqwest::header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        headers
     }
 
-    pub fn get_kv(&self, _request_path: Option<String>) -> KV {
-        let res_ok = HttpClient::get(self, _request_path);
-        let res_ok_json = res_ok.json::<KV>();
+    pub async fn get(&self, _path: &str) -> Result<reqwest::Response, UNiDError> {
+        let url = self.base_url.join(&_path);
 
-        assert!(res_ok_json.is_ok());
-
-        res_ok_json.unwrap()
+        match self.instance
+            .get(&url.unwrap().to_string())
+            .headers(self.default_headers())
+            .send().await {
+                Ok(v) => Ok(v),
+                Err(_) => Err(UNiDError{})
+            }
     }
 
-    pub fn get_text(&self, _request_path: Option<String>) -> String {
-        let res_ok = HttpClient::get(self, _request_path);
+    pub async fn post(&self, _path: &str, body: &str) -> Result<reqwest::Response, UNiDError> {
+        let url = self.base_url.join(&_path);
 
-        res_ok.text().unwrap()
+        match self.instance
+            .post(&url.unwrap().to_string())
+            .headers(self.default_headers())
+            .body(body.to_string())
+            .send().await {
+                Ok(v) => Ok(v),
+                Err(_) => Err(UNiDError{}),
+            }
     }
 
-    pub fn get_serde(&self, _request_path: Option<String>) -> serde_json::Value {
-        let res_ok_text = HttpClient::get_text(self, _request_path);
+    pub async fn put(&self, _path: &str) -> Result<reqwest::Response, UNiDError> {
+        let url = self.base_url.join(&_path);
 
-        let res_json: serde_json::Value = serde_json::from_str(&res_ok_text).unwrap();
-
-        res_json
+        match self.instance
+            .put(&url.unwrap().to_string())
+            .headers(self.default_headers())
+            .send().await {
+                Ok(v) => Ok(v),
+                Err(_) => Err(UNiDError{})
+            }
     }
 
-    pub fn post(&self, payload: KV, _request_path: Option<String>) -> reqwest::blocking::Response {
-        let request_url: String;
+    pub async fn delete(&self, _path: &str) -> Result<reqwest::Response, UNiDError> {
+        let url = self.base_url.join(&_path);
 
-        if _request_path.is_some() {
-            request_url = format!("{}{}", self.base_url, _request_path.unwrap());
-        } else {
-            request_url = self.base_url.to_string();
-        }
-
-        let res = self.instance.post(request_url).json(&payload).send();
-
-        assert!(res.is_ok());
-
-        res.unwrap()
-    }
-
-    pub fn post_text(&self, payload: KV, _request_path: Option<String>) -> String {
-        let res_ok = HttpClient::post(self, payload, _request_path);
-
-        res_ok.text().unwrap()
-    }
-
-    pub fn post_serde(&self, payload: KV, _request_path: Option<String>) -> serde_json::Value {
-        let res_ok_text = HttpClient::post_text(self, payload, _request_path);
-
-        let res_json: serde_json::Value = serde_json::from_str(&res_ok_text).unwrap();
-
-        res_json
+        match self.instance
+            .delete(&url.unwrap().to_string())
+            .headers(self.default_headers())
+            .send().await {
+                Ok(v) => Ok(v),
+                Err(_) => Err(UNiDError{})
+            }
     }
 }
 
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    use serde::Deserialize;
 
-    #[test]
-    fn it_should_post_hashmap_correct() {
-        let client_config: AxiosRequestConfig = AxiosRequestConfig {
-            base_url: "http://httpbin.org/post".to_string(),
-        };
-
-        let client_context: HttpClientContext = HttpClientContext { debug: false };
-        let client = HttpClient::new(Some(client_config), Some(client_context));
-        let mut payload_map = std::collections::HashMap::new();
-        payload_map.insert("key".to_string(), "value".to_string());
-        let res: serde_json::Value = client.post_serde(payload_map, None);
-
-        assert!(!res.is_null());
-        assert!(!res["json"].is_null());
-        assert!(res["json"]["key"].is_string());
-        assert_eq!(res["json"]["key"], "value");
+    #[derive(Deserialize)]
+    struct Res {
+        origin: String,
     }
 
-    #[test]
-    fn it_should_get_endpoint_correct() {
-        let client_config: AxiosRequestConfig = AxiosRequestConfig {
-            base_url: "https://httpbin.org/ip".to_string(),
+    #[actix_rt::test]
+    async fn it_should_success_get() {
+        let client_config: HttpClientConfig = HttpClientConfig {
+            base_url: "https://httpbin.org".to_string(),
         };
 
-        let client_context: HttpClientContext = HttpClientContext { debug: false };
-        let client = HttpClient::new(Some(client_config), Some(client_context));
+        let client = match HttpClient::new(&client_config) {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
 
-        assert_eq!(client.base_url, "https://httpbin.org/ip".to_string());
+        let res = match client.get(&("/get".to_string())).await {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
+
+        let json: Res = match res.json().await {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
+
+        assert_eq!(true, 0 < json.origin.len());
     }
 
-    #[test]
-    fn it_should_get_key_origin_and_value() {
-        let client_config: AxiosRequestConfig = AxiosRequestConfig {
-            base_url: "https://httpbin.org/ip".to_string(),
+    #[actix_rt::test]
+    async fn it_should_success_post() {
+        let client_config: HttpClientConfig = HttpClientConfig {
+            base_url: "https://httpbin.org".to_string(),
         };
 
-        let client_context: HttpClientContext = HttpClientContext { debug: false };
-        let client = HttpClient::new(Some(client_config), Some(client_context));
-        let res_kv: KV = client.get_kv(None);
+        let client = match HttpClient::new(&client_config) {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
 
-        assert!(!res_kv.is_empty());
-        assert!(res_kv.contains_key("origin"));
-        assert!(res_kv.get("origin").is_some());
-        assert!(!res_kv.get("origin").unwrap().is_empty());
+        let res = match client.post(&("/post"), &(r#"{"key":"value"}"#)).await {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
+
+        let json: Res = match res.json().await {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
+
+        assert_eq!(true, 0 < json.origin.len());
     }
 
-    #[test]
-    fn it_should_did_document_serde_nonempty() {
-        let client_config: AxiosRequestConfig = AxiosRequestConfig {
-            base_url: "https://did.getunid.io".to_string(),
+    #[actix_rt::test]
+    async fn it_should_success_put() {
+        let client_config: HttpClientConfig = HttpClientConfig {
+            base_url: "https://httpbin.org".to_string(),
         };
 
-        let client_context: HttpClientContext = HttpClientContext { debug: false };
-        let client = HttpClient::new(Some(client_config), Some(client_context));
-        let res: serde_json::Value = client.get_serde(Some(
-            "/api/v1/identifiers/did:unid:test:EiAJ1Ybh8D43hV_VOvwG8S4Mrscm_qp6GAvdW7jkSG5Yfw"
-                .to_string(),
-        ));
+        let client = match HttpClient::new(&client_config) {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
 
-        assert!(!res.is_null());
-        assert!(res["@context"].is_string());
-        assert!(res["didDocument"]["id"].is_string());
-        assert_eq!(res["didDocument"]["id"],"did:unid:test:EiAJ1Ybh8D43hV_VOvwG8S4Mrscm_qp6GAvdW7jkSG5Yfw:eyJkZWx0YV9oYXNoIjoiRWlCSVgwcVRiYi1jWFF5OEhFcFJXMm83dUJ3dF90Ym53bHZTSDVpU0hUcjJBQSIsInJlY292ZXJ5X2NvbW1pdG1lbnQiOiJFaUE1a0JYaWhobjNIWXEtRUQ0czFEVTE2cHpWOFZfZ2ZfSVBDaDQ2VW9Uc3BRIn0.eyJwYXRjaGVzIjpbeyJhY3Rpb24iOiJyZXBsYWNlIiwiZG9jdW1lbnQiOnsicHVibGljX2tleXMiOlt7ImlkIjoic2lnbmluZ0tleSIsInR5cGUiOiJFY2RzYVNlY3AyNTZrMVZlcmlmaWNhdGlvbktleTIwMTkiLCJqd2siOnsia3R5IjoiRUMiLCJjcnYiOiJzZWNwMjU2azEiLCJ4IjoiUFNLQWszMTNpSEVNbDE3WGdaYl91LTBJS3FiX0pRb2c4akk0WXgzelBBRSIsInkiOiIwckFtbXg5YU5tVTg0c2QzakxxM2VKTzc4YUM1OFJrSnJRbUx4U2xwems4In0sInB1cnBvc2UiOlsiYXV0aCIsImdlbmVyYWwiXX1dLCJzZXJ2aWNlX2VuZHBvaW50cyI6W119fV0sInVwZGF0ZV9jb21taXRtZW50IjoiRWlDckhSZXRLcks3V0NMdmtjVFc5ZDFRVlJiRzB2cEZIRi1rdktDb2NSdjdCQSJ9");
+        let res = match client.put(&("/put".to_string())).await {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
+
+        let json: Res = match res.json().await {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
+
+        assert_eq!(true, 0 < json.origin.len());
+    }
+
+    #[actix_rt::test]
+    async fn it_should_success_delete() {
+        let client_config: HttpClientConfig = HttpClientConfig {
+            base_url: "https://httpbin.org".to_string(),
+        };
+
+        let client = match HttpClient::new(&client_config) {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
+
+        let res = match client.delete(&("/delete".to_string())).await {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
+
+        let json: Res = match res.json().await {
+            Ok(v) => v,
+            Err(_) => panic!()
+        };
+
+        assert_eq!(true, 0 < json.origin.len());
     }
 }
