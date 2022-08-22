@@ -1,62 +1,44 @@
 <p align="center">
-  <img src="images/unid_logo_github.svg" alt="UNiD Logo" width="160" />
+  <img src="images/unid_u_logo.svg" alt="UNiD Logo" width="160" />
 </p>
 
-<h1 align="center">
-  UNiD
-</h1>
+# UNiD [![Release Pipeline](https://github.com/getunid/unid/actions/workflows/release-pipeline.yml/badge.svg?branch=main)](https://github.com/getunid/unid/actions/workflows/release-pipeline.yml) [![Coverage Status](https://coveralls.io/repos/github/getunid/unid/badge.svg)](https://coveralls.io/github/getunid/unid) [![Crates](https://img.shields.io/crates/v/unid.svg)](https://crates.io/crates/unid) [![Semantic Release](https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
 
-<p align="center">
-  <a href="https://github.com/getunid/unid/actions/workflows/release-pipeline.yml" target="_blank">
-    <img src="https://github.com/getunid/unid/actions/workflows/release-pipeline.yml/badge.svg?branch=main" alt="Release Pipeline" />
-  </a>
-  <a href="https://coveralls.io/github/getunid/unid" target="_blank">
-    <img src="https://coveralls.io/repos/github/getunid/unid/badge.svg" alt="Coverage Status" />
-  </a>
-  <a href="https://crates.io/crates/unid" target="_blank">
-    <img src="https://img.shields.io/crates/v/unid.svg" alt="UNiD" />
-  </a>
-  <a href="https://github.com/semantic-release/semantic-release" target="_blank">
-    <img src="https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release" alt="Sematic Release" />
-  </a>
-  <br />
-  E2E data security with edge intelligence
-</p>
+UNiD is an open-source toolkit for building end-to-end secure messaging between all devices including IoT, micro services, and on-premise servers, using features of [decentralized identifiers (DIDs)](https://www.w3.org/TR/did-core/) as a basis of security and privacy. Build atop [DIDComm messaging protocol](https://github.com/decentralized-identity/didcomm-messaging) which works over any transports, it makes end-to-end messaging reliable, secure, and easy.
+
+This repo where we develop libraries to be installed into your devices. It enables device's IDs and keys management with root of trust (RoT), automated provisioning, mutual authentication, and end-to-end secure messaging across network boundary.
+
+[Explore UNiD Docs](https://docs.getunid.io/unid_edge/index.html)
 
 ## Features
 
-- Abstract security stack complexity with edge intelligence
-- Fully automated provisioning
-- E2E secure channel
-- Security lifecycle
-- Overlay routing
-- Root of Trust add-ons
-- Cloud add-ons for real-time data flow and processing
-- Developer-first
+- Device's IDs and keys management with RoT
+- Automated provisioning without centralized servers and certificate authorities and intermediaries
+- Mutual authentication and end-to-end secure messaging while ensuring confidentiality, integrity, and authenticity
+- Attribute based access control and dynamic policy management
+- Rust library with multiple language extensions for python and nodejs
+- Mutiple OS support for Linux kernel x86(32bit) & x86-64(64bit), FreeRTOS ARM Cortex-M33(32bit)
+- RoT extensions for TPM, ARM TrustZone, and Renesas SCE
 
-## Introduction
+## Install
 
-UNiD is a simplified security stack to restore trust in all digital interaction, and make it universally verifiable and useful. The system software provides end-to-end data security between every device and the cloud. The system software uses decentralized identity (DID) as device identifier based on the W3C DID Core 1.0 specification. In RoT secure storage, the system software autonomously generates multiple key pairs from TRNG (PUF), and generates the payload by hashing the object containing these public keys information. This payload can be registered with DPKI (Decentralized Public Key Infrastructure) to generate a DID document, which can be treated as a globally unique identifier independent of any third party. This DID is a URI that associates the device with a DID document that allows trustable interactions.
-
-The system software perform handshakes with a message broker to establish end-to-end secure connections with ECDH. In the handshake process, the system sends the public key (for encryption) and encrypted and signed message to the server as a client hello. The server generates a common key with the received public key, and decrypts message to verify the device's signature, and responses with encrypted and signed message to the device. The device then verifies the server’s signature and compares the server’s DID with the pre-configured DID to authenticate the server, and completes handshake process. All data exchanged with remote devices and servers is encrypted and signed. Data is encrypted with AES-GCM with a common key generated during the handshake. Integrity of the data is validated by verifying the signature in the RoT secure storage of the device. By abstracting every device and the cloud as globally unique endpoints, each endpoint can send encrypted messages regardless of the network topology or routing hops.
-
-<p align="center">
-  <img src="images/e2e_secure_channel_diagram.svg" alt="e2e secure channel" width="60%" />
-</p>
-
-The system software will be available for devices with RoT functions. It allows developers to focus on application development without scratch building the complex security stack.
-
-## Quick Start
-
-[TBD]
+- [Integration Guide](https://docs.getunid.io/integration/index.html)
+- [Tutorial](https://docs.getunid.io/tutorial/ubuntu-nodejs/index.html)
 
 ## Developer's Document
 
 - UNiD Official Website<br />
   https://www.getunid.io/
-  
+
 - UNiD Developers Portal<br />
   https://docs.getunid.io/
+
+## Contribution
+
+First off, thank you for considering making contributions. It's people like you that make UNiD better. There are many ways in which you can participate in the project, for example:
+
+- File a bug report. Be sure to include information like what version of UNiD you are using, what your operating system and CPU is, and steps to recreate the bug.
+- Suggest a new feature.
 
 ## Changelog
 
