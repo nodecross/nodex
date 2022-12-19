@@ -1,65 +1,44 @@
 <p align="center">
-  <img src="images/unid_logo_github.svg" alt="UNiD Logo" width="160" />
+  <img src="images/unid_u_logo.svg" alt="UNiD Logo" width="160" />
 </p>
 
-<h1 align="center">
-  UNiD
-</h1>
+# UNiD [![Release Pipeline](https://github.com/getunid/unid/actions/workflows/release-pipeline.yml/badge.svg?branch=main)](https://github.com/getunid/unid/actions/workflows/release-pipeline.yml) [![Coverage Status](https://coveralls.io/repos/github/getunid/unid/badge.svg)](https://coveralls.io/github/getunid/unid) [![Crates](https://img.shields.io/crates/v/unid.svg)](https://crates.io/crates/unid) [![Semantic Release](https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
 
-<p align="center">
-  <a href="https://github.com/getunid/unid/actions/workflows/release-pipeline.yml" target="_blank">
-    <img src="https://github.com/getunid/unid/actions/workflows/release-pipeline.yml/badge.svg?branch=main" alt="Release Pipeline" />
-  </a>
-  <a href="https://coveralls.io/github/getunid/unid" target="_blank">
-    <img src="https://coveralls.io/repos/github/getunid/unid/badge.svg" alt="Coverage Status" />
-  </a>
-  <a href="https://crates.io/crates/unid" target="_blank">
-    <img src="https://img.shields.io/crates/v/unid.svg" alt="UNiD" />
-  </a>
-  <a href="https://github.com/semantic-release/semantic-release" target="_blank">
-    <img src="https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release" alt="Sematic Release" />
-  </a>
-  <br />
-  Automate device security provisioning with edge intelligence
-</p>
+UNiD is an open-source toolkit for building end-to-end secure messaging between all devices including IoT, micro services, and on-premise servers, using features of [decentralized identifiers (DIDs)](https://www.w3.org/TR/did-core/) as a basis of security and privacy. Build atop [DIDComm messaging protocol](https://github.com/decentralized-identity/didcomm-messaging) which works over any transports, it makes end-to-end messaging reliable, secure, and easy.
+
+This repo where we develop libraries to be installed into your devices. It enables device's IDs and keys management with root of trust (RoT), automated provisioning, mutual authentication, and end-to-end secure messaging across network boundary.
+
+[Explore UNiD Docs](https://docs.getunid.io/unid_edge/index.html)
 
 ## Features
 
-- Abstract the dev complexity of edge security
-- Fully automated device provisioning
-- End-to-end authenticated and encrypted communications
-- Security lifecycle
-- Overlay routing
-- Cloud add-ons for real-time data flow and processing
-- Developer-first
+- Device's IDs and keys management with RoT
+- Automated provisioning without centralized servers and certificate authorities and intermediaries
+- Mutual authentication and end-to-end secure messaging while ensuring confidentiality, integrity, and authenticity
+- Attribute based access control and dynamic policy management
+- Rust library with multiple language extensions for python and nodejs
+- Mutiple OS support for Linux kernel x86(32bit) & x86-64(64bit), FreeRTOS ARM Cortex-M33(32bit)
+- RoT extensions for TPM, ARM TrustZone, and Renesas SCE
 
-## Introduction
+## Install
 
-Hardware Root of Trust is the security foundation for an SoC, other semiconductor device or electronic system. The RoT contains the keys for cryptographic functions and is usually a part of the secure boot process providing the foundation for the software chain of trust. _UNiD_ is a set of libraries written by Rust that can leverage the RoT and decentralized identity technology to autonomously generate key pairs, register the credentials on a decentralized PKI, and build end-to-end secure channel by the TLS handshake protocol. This capabilities reduce the development cost of device security, increase flexibilities, and facilitates real-time data flow and processing.
-
-<p align="center">
-  <img src="images/e2e_secure_channel.svg" alt="e2e secure channel" width="80%" />
-</p>
-
-## Overview
-
-By abstracting every device and cloud as globally unique endpoints and building an E2E secure channel, each endpoint can send encrypted messages regardless of the network topology or routing hops.
-
-<p align="center">
-  <img src="images/UNiD_BB.svg" alt="UNiD Building Blocks" />
-</p>
-
-## Quick Start
-
-[TBD]
+- [Integration Guide](https://docs.getunid.io/integration/index.html)
+- [Tutorial](https://docs.getunid.io/tutorial/ubuntu-nodejs/index.html)
 
 ## Developer's Document
 
 - UNiD Official Website<br />
   https://www.getunid.io/
-  
+
 - UNiD Developers Portal<br />
   https://docs.getunid.io/
+
+## Contribution
+
+First off, thank you for considering making contributions. It's people like you that make UNiD better. There are many ways in which you can participate in the project, for example:
+
+- File a bug report. Be sure to include information like what version of UNiD you are using, what your operating system and CPU is, and steps to recreate the bug.
+- Suggest a new feature.
 
 ## Changelog
 
