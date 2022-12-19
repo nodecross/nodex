@@ -3457,6 +3457,7 @@ dependencies = [
  "data-encoding",
  "didcomm-rs",
  "digest 0.10.3",
+ "dirs",
  "env_logger",
  "getrandom 0.2.7",
  "hdwallet",

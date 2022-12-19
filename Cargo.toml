@@ -81,6 +81,7 @@ home-config = { version = "0.4.0", features = ["json", "yaml", "toml"] }
 clap = { version = "3.2.17", features = ["derive"] }
 daemonize = { version = "0.4.1" }
 
+dirs = { version = "4.0.0" }
 rumqttc = { version = "0.14.0" }
 cuid = { version = "1.2.0" }
 
