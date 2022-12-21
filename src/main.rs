@@ -9,13 +9,40 @@ extern crate env_logger;
 
 use actix_web::{ middleware, HttpServer, App, web };
 use clap::Parser;
+use config::KeyPair;
 use daemonize::Daemonize;
-use std::{fs::{File, self}, io};
+use unid::{keyring::mnemonic::MnemonicKeyring, extension::secure_keystore::{SecureKeyStore, SecureKeyStoreType}};
+use std::{fs::{File, self}, path::PathBuf, sync::{Arc, Mutex, Once}};
+use dirs;
+
+use crate::config::AppConfig;
 
 mod unid;
 mod services;
 mod config;
 mod controllers;
+
+#[derive(Clone)]
+pub struct SingletonAppConfig {
+    inner: Arc<Mutex<AppConfig>>,
+}
+
+pub fn app_config() -> Box<SingletonAppConfig> {
+    static mut SINGLETON: Option<Box<SingletonAppConfig>> = None;
+    static ONCE: Once = Once::new();
+
+    unsafe {
+        ONCE.call_once(|| {
+            let singleton = SingletonAppConfig {
+                inner: Arc::new(Mutex::new(AppConfig::new()))
+            };
+
+            SINGLETON = Some(Box::new(singleton))
+        });
+
+        SINGLETON.clone().unwrap()
+    }
+}
 
 #[derive(Parser, Debug)]
 #[clap(name = "unid-agent")]
@@ -28,7 +55,7 @@ struct Args {
 }
 
 #[actix_web::main]
-async fn run() -> std::io::Result<()> {
+async fn run(sock_path: &PathBuf) -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
             .wrap(middleware::DefaultHeaders::new().add(("x-version", "0.1.0")))
@@ -53,21 +80,46 @@ async fn run() -> std::io::Result<()> {
             .route("/internal/didcomm/encrypted-messages", web::post().to(controllers::internal::didcomm_generate_encrypted::handler))
             .route("/internal/didcomm/encrypted-messages/verify", web::post().to(controllers::internal::didcomm_verify_encrypted::handler))
     })
-    .bind_uds("unid-agent.sock")?
+    .bind_uds(&sock_path)?
     .workers(1)
     .run()
     .await
 }
 
+
 fn main() -> std::io::Result<()> {
-    std::env::set_var("RUST_LOG", "actix_web=info");
+    std::env::set_var("RUST_LOG", "info");
     env_logger::init();
 
-    let stdout = File::create("unid-agent.log").unwrap();
-    let stderr = File::create("unid-agent.err").unwrap();
+    let config = AppConfig::new();
+    match config.write() {
+        Ok(()) => (),
+        Err(_) => panic!(),
+    };
+
+    let home_dir = match dirs::home_dir() {
+        Some(v) => v,
+        None => panic!(),
+    };
+    let config_dir = home_dir.join(".unid");
+    let runtime_dir = config_dir.clone().join("run");
+    let logs_dir = config_dir.clone().join("logs");
+
+    match fs::create_dir_all(&runtime_dir) {
+        Ok(()) => (),
+        Err(_) => panic!(),
+    };
+    match fs::create_dir_all(&logs_dir) {
+        Ok(()) => (),
+        Err(_) => panic!(),
+    };
+
+    let stdout = File::create(logs_dir.clone().join("unid.log")).unwrap();
+    let stderr = File::create(logs_dir.clone().join("unid.err")).unwrap();
+    let sock_path = runtime_dir.clone().join("unid.sock");
 
     let daemonize = Daemonize::new()
-        .pid_file("unid-agent.pid")
+        .pid_file(runtime_dir.clone().join("unid.pid"))
         .working_directory(".")
         .stdout(stdout)
         .stderr(stderr);
@@ -76,14 +128,10 @@ fn main() -> std::io::Result<()> {
 
     if args.daemonize {
         match daemonize.start() {
-            Ok(_) => {
-                run()
-            },
-            Err(_) => {
-                Err(io::Error::new(io::ErrorKind::Other, ""))
-            }
+            Ok(_) => run(&sock_path),
+            Err(_) => panic!(),
         }
     } else {
-        run()
+        run(&sock_path)
     }
 }
