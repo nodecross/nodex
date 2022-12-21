@@ -111,7 +111,7 @@ impl AppConfig {
     }
 
     pub fn new() -> Self {
-        let config = HomeConfig::with_config_dir("unid", "config");
+        let config = HomeConfig::with_config_dir("unid", "config.json");
         let config_dir = config.path().parent();
 
         if ! Path::exists(config.path()) {
