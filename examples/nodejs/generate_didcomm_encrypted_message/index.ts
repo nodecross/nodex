@@ -1,23 +1,22 @@
 import * as os from 'os'
 import * as path from 'path'
-import axios from 'axios'
+import got from 'got'
 
 (async () => {
-    const response = await axios.post('http:/localhost/internal/didcomm/encrypted-messages', {
-        destinations: [ 'did:unid:test:EiD_ZSrS4E4FZruAIJnMt1KjvH1HvwCRYdnIzYpQr4vsuQ' ],
-        message: {
-            string: 'value',
-            number: 1,
-            boolean: true,
-            array: [],
-            map: {}
-        }
-    }, {
-        socketPath: path.join(os.homedir(), '.unid/run/unid.sock'),
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
+    const base = `unix:${ path.join(os.homedir(), '.unid/run/unid.sock') }`
+    const json = await got.post([ base, '/internal/didcomm/encrypted-messages' ].join(':'), {
+        enableUnixSockets: true,
+        json: {
+            destinations: [ 'did:unid:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA' ],
+            message: {
+                string: 'value',
+                number: 1,
+                boolean: true,
+                array: [],
+                map: {}
+            },
+        },
+    }).json()
 
-    console.log(JSON.stringify(response.data, null, 4))
+    console.log(JSON.stringify(json, null, 4))
 })()

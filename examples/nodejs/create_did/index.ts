@@ -1,14 +1,13 @@
 import * as os from 'os'
 import * as path from 'path'
-import axios from 'axios'
+import got from 'got'
 
 (async () => {
-    const response = await axios.post('http:/localhost/identifiers', {}, {
-        socketPath: path.join(os.homedir(), '.unid/run/unid.sock'),
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
+    const base = `unix:${ path.join(os.homedir(), '.unid/run/unid.sock') }`
+    const json = await got.post([ base, '/identifiers' ].join(':'), {
+        enableUnixSockets: true,
+        json: {},
+    }).json()
 
-    console.log(JSON.stringify(response.data, null, 4))
+    console.log(JSON.stringify(json, null, 4))
 })()
