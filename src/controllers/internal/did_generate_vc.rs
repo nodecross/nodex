@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use actix_web::{ HttpRequest, HttpResponse, HttpMessage, web };
+use actix_web::{ HttpRequest, HttpResponse, web };
 use serde_json::Value;
 
 // NOTE: POST /internal/verifiable-credentials
