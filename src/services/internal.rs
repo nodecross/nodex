@@ -106,7 +106,7 @@ impl Internal {
         Ok("NotImplemented".to_string())
     }
 
-    pub fn didcomm_generate_plaintext_message(&self, to: &str, message: &Value) -> Result<Value, UNiDError> {
+    pub fn didcomm_generate_plaintext_message(&self, to_did: &str, message: &Value) -> Result<Value, UNiDError> {
         let keyring = match keyring::mnemonic::MnemonicKeyring::load_keyring() {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})
@@ -123,7 +123,7 @@ impl Internal {
 
         let message = Message::new()
             .from(&did)
-            .to(&[ &to ])
+            .to(&[ &to_did ])
             .body(&body.to_string());
 
         match message.clone().as_raw_json() {
@@ -154,7 +154,7 @@ impl Internal {
         }
     }
 
-    pub fn didcomm_generate_signed_message(&self, to: &str, message: &Value) -> Result<Value, UNiDError> {
+    pub fn didcomm_generate_signed_message(&self, to_did: &str, message: &Value) -> Result<Value, UNiDError> {
         let keyring = match keyring::mnemonic::MnemonicKeyring::load_keyring() {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})
@@ -171,7 +171,7 @@ impl Internal {
 
         let message = Message::new()
             .from(&did)
-            .to(&[ &to ])
+            .to(&[ &to_did ])
             .body(&body.to_string());
 
         match message.clone()
@@ -257,7 +257,7 @@ impl Internal {
         }
     }
 
-    pub async fn didcomm_generate_encrypted_message(&self, other_did: &str, message: &Value) -> Result<Value, UNiDError> {
+    pub async fn didcomm_generate_encrypted_message(&self, to_did: &str, message: &Value) -> Result<Value, UNiDError> {
         let service = crate::services::unid::UNiD::new();
 
         // NOTE: recipient from
@@ -271,7 +271,7 @@ impl Internal {
         };
 
         // NOTE: recipient to
-        let did_document = match service.find_identifier(&other_did).await {
+        let did_document = match service.find_identifier(&to_did).await {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{}),
         };
@@ -312,7 +312,7 @@ impl Internal {
 
         let message = Message::new()
             .from(&my_did)
-            .to(&[ &other_did ])
+            .to(&[ &to_did ])
             .body(&body.to_string());
 
         match message.clone()
