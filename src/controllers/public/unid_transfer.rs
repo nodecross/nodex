@@ -5,8 +5,9 @@ use serde_json::Value;
 // NOTE: POST /transfer
 #[derive(Deserialize, Serialize)]
 pub struct MessageContainer {
-    to_did: String,
-    message: Value,
+    destinations: Vec<String>,
+    messages: Vec<Value>,
+    metadata: Value,
 }
 
 pub async fn handler(
@@ -15,7 +16,17 @@ pub async fn handler(
 ) -> actix_web::Result<HttpResponse> {
     let service = crate::services::unid::UNiD::new();
 
-    match service.transfer(&json.to_did, &json.message).await {
+    // NOTE: We will provide an update soon to allow multiple destinations.
+    if json.destinations.len() != 1 {
+        return Ok(HttpResponse::InternalServerError().finish())
+    }
+
+    let to_did = match json.destinations.first() {
+        Some(v) => v,
+        _ => return Ok(HttpResponse::InternalServerError().finish())
+    };
+
+    match service.transfer(&to_did, &json.messages, &json.metadata).await {
         Ok(v) => {
             Ok(HttpResponse::Ok().json(&v))
         },

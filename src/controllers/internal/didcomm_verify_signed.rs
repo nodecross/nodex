@@ -16,7 +16,7 @@ pub async fn handler(
 
     match service.didcomm_verify_signed_message(&json.message).await {
         Ok(v) => {
-            Ok(HttpResponse::Ok().json(&v))
+            Ok(HttpResponse::Ok().json(&v.message))
         },
         Err(_) => {
             Ok(HttpResponse::InternalServerError().finish())

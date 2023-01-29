@@ -1,10 +1,20 @@
+use std::str::FromStr;
+
 use arrayref::array_ref;
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use didcomm_rs::{Message, crypto::{SignatureAlgorithm, Signer, CryptoAlgorithm}};
+use didcomm_rs::{Message, crypto::{SignatureAlgorithm, Signer, CryptoAlgorithm}, AttachmentBuilder, AttachmentDataBuilder, Attachment};
 use x25519_dalek::{PublicKey, StaticSecret};
+use cuid;
 
 use crate::{unid::{errors::UNiDError, keyring::{self}, schema::general::{GeneralVcDataModel, Issuer, CredentialSubject}, cipher::credential_signer::{CredentialSigner, CredentialSignerSuite}, runtime::{self, base64_url::{self, PaddingType}}}};
+
+#[derive(Serialize, Deserialize)]
+pub struct VerifiedContainer {
+    pub message: Value,
+    pub metadata: Option<Value>,
+}
 
 pub struct Internal {}
 
@@ -106,7 +116,7 @@ impl Internal {
         Ok("NotImplemented".to_string())
     }
 
-    pub fn didcomm_generate_plaintext_message(&self, to_did: &str, message: &Value) -> Result<Value, UNiDError> {
+    pub fn didcomm_generate_plaintext_message(&self, to_did: &str, message: &Value, metadata: Option<&Value>) -> Result<Value, UNiDError> {
         let keyring = match keyring::mnemonic::MnemonicKeyring::load_keyring() {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})
@@ -121,10 +131,30 @@ impl Internal {
             Err(_) => return Err(UNiDError{}),
         };
 
-        let message = Message::new()
+        let mut message = Message::new()
             .from(&did)
             .to(&[ &to_did ])
             .body(&body.to_string());
+
+
+        // NOTE: Has attachment
+        if let Some(value) = metadata {
+            let id = match cuid::cuid() {
+                Ok(v) => v,
+                _ => return Err(UNiDError{}),
+            };
+
+            let data = AttachmentDataBuilder::new()
+                .with_link("https://did.getunid.io")
+                .with_json(&value.to_string());
+
+            message.apeend_attachment(
+                AttachmentBuilder::new(true)
+                .with_id(&id)
+                .with_format("metadata")
+                .with_data(data)
+            )
+        }
 
         match message.clone().as_raw_json() {
             Ok(v) => {
@@ -137,24 +167,58 @@ impl Internal {
         }
     }
 
-    pub fn didcomm_verify_plaintext_message(&self, message: &Value) -> Result<Value, UNiDError> {
+    pub fn didcomm_verify_plaintext_message(&self, message: &Value) -> Result<VerifiedContainer, UNiDError> {
         let message = match Message::receive(&message.to_string(), None, None, None) {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{}),
         };
 
-        match message.clone().get_body() {
+        let metadata = message
+            .get_attachments()
+            .find(|item| {
+                match item.format.clone() {
+                    Some(value) => value == "metadata",
+                    None => false
+                }
+            });
+
+        let body = match message.clone().get_body() {
             Ok(v) => {
                 match serde_json::from_str::<Value>(&v) {
-                    Ok(v) => Ok(v),
-                    Err(_) => Err(UNiDError{}),
+                    Ok(v) => v,
+                    Err(_) => return Err(UNiDError{}),
                 }
             },
             Err(_) => return Err(UNiDError{}),
+        };
+
+        match metadata {
+            Some(metadata) => {
+                match metadata.data.json.clone() {
+                    Some(json) => {
+                        match serde_json::from_str::<Value>(&json) {
+                            Ok(metadata) => {
+                                Ok(VerifiedContainer {
+                                    message: body,
+                                    metadata: Some(metadata),
+                                })
+                            },
+                            _ => Err(UNiDError {})
+                        }
+                    },
+                    _ => Err(UNiDError {})
+                }
+            },
+            None => {
+                Ok(VerifiedContainer {
+                    message: body,
+                    metadata: None,
+                })
+            }
         }
     }
 
-    pub fn didcomm_generate_signed_message(&self, to_did: &str, message: &Value) -> Result<Value, UNiDError> {
+    pub fn didcomm_generate_signed_message(&self, to_did: &str, message: &Value, metadata: Option<&Value>) -> Result<Value, UNiDError> {
         let keyring = match keyring::mnemonic::MnemonicKeyring::load_keyring() {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{})
@@ -169,10 +233,29 @@ impl Internal {
             Err(_) => return Err(UNiDError{}),
         };
 
-        let message = Message::new()
+        let mut message = Message::new()
             .from(&did)
             .to(&[ &to_did ])
             .body(&body.to_string());
+
+        // NOTE: Has attachment
+        if let Some(value) = metadata {
+            let id = match cuid::cuid() {
+                Ok(v) => v,
+                _ => return Err(UNiDError{}),
+            };
+
+            let data = AttachmentDataBuilder::new()
+                .with_link("https://did.getunid.io")
+                .with_json(&value.to_string());
+
+            message.apeend_attachment(
+                AttachmentBuilder::new(true)
+                .with_id(&id)
+                .with_format("metadata")
+                .with_data(data)
+            )
+        }
 
         match message.clone()
             .as_jws(&SignatureAlgorithm::Es256k)
@@ -187,7 +270,7 @@ impl Internal {
             }
     }
 
-    pub async fn didcomm_verify_signed_message(&self, message: &Value) -> Result<Value, UNiDError> {
+    pub async fn didcomm_verify_signed_message(&self, message: &Value) -> Result<VerifiedContainer, UNiDError> {
         let service = crate::services::unid::UNiD::new();
 
         let payload = match message.get("payload") {
@@ -246,18 +329,52 @@ impl Internal {
             Err(_) => return Err(UNiDError{}),
         };
 
-        match message.clone().get_body() {
+        let metadata = message
+            .get_attachments()
+            .find(|item| {
+                match item.format.clone() {
+                    Some(value) => value == "metadata",
+                    None => false
+                }
+            });
+
+        let body = match message.clone().get_body() {
             Ok(v) => {
                 match serde_json::from_str::<Value>(&v) {
-                    Ok(v) => Ok(v),
-                    Err(_) => Err(UNiDError{}),
+                    Ok(v) => v,
+                    Err(_) => return Err(UNiDError{}),
                 }
             },
             Err(_) => return Err(UNiDError{}),
+        };
+
+        match metadata {
+            Some(metadata) => {
+                match metadata.data.json.clone() {
+                    Some(json) => {
+                        match serde_json::from_str::<Value>(&json) {
+                            Ok(metadata) => {
+                                Ok(VerifiedContainer {
+                                    message: body,
+                                    metadata: Some(metadata),
+                                })
+                            },
+                            _ => Err(UNiDError {})
+                        }
+                    },
+                    _ => Err(UNiDError {})
+                }
+            },
+            None => {
+                Ok(VerifiedContainer {
+                    message: body,
+                    metadata: None,
+                })
+            }
         }
     }
 
-    pub async fn didcomm_generate_encrypted_message(&self, to_did: &str, message: &Value) -> Result<Value, UNiDError> {
+    pub async fn didcomm_generate_encrypted_message(&self, to_did: &str, message: &Value, metadata: Option<&Value>) -> Result<Value, UNiDError> {
         let service = crate::services::unid::UNiD::new();
 
         // NOTE: recipient from
@@ -310,10 +427,30 @@ impl Internal {
             Err(_) => return Err(UNiDError{}),
         };
 
-        let message = Message::new()
+        let mut message = Message::new()
             .from(&my_did)
             .to(&[ &to_did ])
             .body(&body.to_string());
+
+        // NOTE: Has attachment
+        if let Some(value) = metadata {
+            let id = match cuid::cuid() {
+                Ok(v) => v,
+                _ => return Err(UNiDError{}),
+            };
+
+            // let media_type = "application/json";
+            let data = AttachmentDataBuilder::new()
+                .with_link("https://did.getunid.io")
+                .with_json(&value.to_string());
+
+            message.apeend_attachment(
+                AttachmentBuilder::new(true)
+                .with_id(&id)
+                .with_format("metadata")
+                .with_data(data)
+            )
+        }
 
         match message.clone()
             .as_jwe(&CryptoAlgorithm::XC20P, Some(pk.as_bytes().to_vec()))
@@ -333,7 +470,7 @@ impl Internal {
             }
     }
 
-    pub async fn didcomm_verify_encrypted_message(&self, message: &Value) -> Result<Value, UNiDError> {
+    pub async fn didcomm_verify_encrypted_message(&self, message: &Value) -> Result<VerifiedContainer, UNiDError> {
         let service = crate::services::unid::UNiD::new();
 
         // NOTE: recipient to
@@ -417,14 +554,48 @@ impl Internal {
             Err(_) => return Err(UNiDError{}),
         };
 
-        match message.clone().get_body() {
+        let metadata = message
+            .get_attachments()
+            .find(|item| {
+                match item.format.clone() {
+                    Some(value) => value == "metadata",
+                    None => false
+                }
+            });
+
+        let body = match message.clone().get_body() {
             Ok(v) => {
                 match serde_json::from_str::<Value>(&v) {
-                    Ok(v) => Ok(v),
-                    Err(_) => Err(UNiDError{}),
+                    Ok(v) => v,
+                    Err(_) => return Err(UNiDError{}),
                 }
             },
             Err(_) => return Err(UNiDError{}),
+        };
+
+        match metadata {
+            Some(metadata) => {
+                match metadata.data.json.clone() {
+                    Some(json) => {
+                        match serde_json::from_str::<Value>(&json) {
+                            Ok(metadata) => {
+                                Ok(VerifiedContainer {
+                                    message: body,
+                                    metadata: Some(metadata),
+                                })
+                            },
+                            _ => Err(UNiDError {})
+                        }
+                    },
+                    _ => Err(UNiDError {})
+                }
+            },
+            None => {
+                Ok(VerifiedContainer {
+                    message: body,
+                    metadata: None,
+                })
+            }
         }
     }
 }
