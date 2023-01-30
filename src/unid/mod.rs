@@ -6,3 +6,4 @@ pub mod sidetree;
 pub mod cipher;
 pub mod schema;
 pub mod extension;
+pub mod agent;

@@ -1,10 +1,8 @@
-use std::str::FromStr;
-
 use arrayref::array_ref;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use didcomm_rs::{Message, crypto::{SignatureAlgorithm, Signer, CryptoAlgorithm}, AttachmentBuilder, AttachmentDataBuilder, Attachment};
+use didcomm_rs::{Message, crypto::{SignatureAlgorithm, Signer, CryptoAlgorithm}, AttachmentBuilder, AttachmentDataBuilder};
 use x25519_dalek::{PublicKey, StaticSecret};
 use cuid;
 

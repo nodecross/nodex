@@ -118,8 +118,6 @@ impl UNiD {
         let mut count = 0;
 
         while let Ok(notification) = eventloop.poll().await {
-            println!("{:?}", notification);
-
             count = count + 1;
 
             if count > 1 {
