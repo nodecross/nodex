@@ -5,6 +5,8 @@ use rumqttc::{MqttOptions, AsyncClient, QoS};
 use serde_json::{Value, json};
 use cuid;
 
+use super::internal::didcomm_encrypted::DIDCommEncryptedService;
+
 pub struct UNiD {
     http_client: HttpClient
 }
@@ -86,14 +88,12 @@ impl UNiD {
     }
 
     pub async fn transfer(&self, to_did: &str, messages: &Vec<Value>, metadata: &Value) -> Result<Value, UNiDError> {
-        let internal = crate::services::internal::Internal::new();
-
         let demo_host = "demo-mqtt.getunid.io".to_string();
         let demo_port = 1883;
         let demo_topic = "unid/demo".to_string();
 
         // NOTE: didcomm (enc)
-        let container = match internal.didcomm_generate_encrypted_message(&to_did, &json!(messages), Some(&metadata)).await {
+        let container = match DIDCommEncryptedService::generate(&to_did, &json!(messages), Some(&metadata)).await {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{}),
         };
