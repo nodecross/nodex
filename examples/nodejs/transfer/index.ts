@@ -7,8 +7,14 @@ import got from 'got'
     const json = await got.post([ base, '/transfer' ].join(':'), {
         enableUnixSockets: true,
         json: {
-            destinations: [ 'did:unid:test:EiD_ZSrS4E4FZruAIJnMt1KjvH1HvwCRYdnIzYpQr4vsuQ' ],
+            destinations: [ 'did:unid:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA' ],
             messages: [ {
+                string: 'value',
+                number: 1,
+                boolean: true,
+                array: [],
+                map: {}
+            }, {
                 string: 'value',
                 number: 1,
                 boolean: true,
