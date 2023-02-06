@@ -213,6 +213,8 @@ async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "info");
     env_logger::init();
 
+    let hub_did_topic = "nodex/did:unid:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA";
+
     let config = AppConfig::new();
     match config.write() {
         Ok(()) => (),
@@ -266,8 +268,8 @@ async fn main() -> std::io::Result<()> {
 
     let (client, eventloop) = AsyncClient::new(mqtt_options, 10);
 
-    client.subscribe(mqtt_topic.clone(), QoS::ExactlyOnce).await.unwrap();
-    log::info!("subscribed: {}", mqtt_topic);
+    client.subscribe(hub_did_topic, QoS::ExactlyOnce).await.unwrap();
+    log::info!("subscribed: {}", hub_did_topic);
 
     // NOTE: booting...
     let (tx, rx) = mpsc::channel::<Command>(32);
