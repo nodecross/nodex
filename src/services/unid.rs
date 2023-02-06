@@ -26,7 +26,17 @@ impl UNiD {
     }
 
     // NOTE: DONE
-    pub async fn create_identifier(&self) -> Result<DIDCreateResponse, UNiDError> {
+    pub async fn create_identifier(&self) -> Result<DIDResolutionResponse, UNiDError> {
+        // NOTE: find did
+        if let Ok(v) = keyring::mnemonic::MnemonicKeyring::load_keyring() {
+            if let Ok(did) = v.get_identifier() {
+                if let Ok(json) = self.find_identifier(&did).await {
+                    return Ok(json)
+                }
+            }
+        }
+
+        // NOTE: does not exists did key ring
         let mut keyring = match keyring::mnemonic::MnemonicKeyring::create_keyring() {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{}),
@@ -63,7 +73,7 @@ impl UNiD {
             Err(_) => return Err(UNiDError{}),
         };
 
-        let json = match res.json::<DIDCreateResponse>().await {
+        let json = match res.json::<DIDResolutionResponse>().await {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{}),
         };
@@ -88,46 +98,10 @@ impl UNiD {
     }
 
     pub async fn transfer(&self, to_did: &str, messages: &Vec<Value>, metadata: &Value) -> Result<Value, UNiDError> {
-        let demo_host = "demo-mqtt.getunid.io".to_string();
-        let demo_port = 1883;
-        let demo_topic = "unid/demo".to_string();
-
         // NOTE: didcomm (enc)
         let container = match DIDCommEncryptedService::generate(&to_did, &json!(messages), Some(&metadata)).await {
             Ok(v) => v,
             Err(_) => return Err(UNiDError{}),
-        };
-
-        // NOTE: send message over mqtt
-        let id = match cuid::cuid() {
-            Ok(v) => v,
-            Err(_) => return Err(UNiDError{}),
-        };
-
-        let mut mqttoptions = MqttOptions::new(&id, demo_host, demo_port);
-        mqttoptions.set_clean_session(true);
-        mqttoptions.set_keep_alive(Duration::from_secs(5));
-
-        let (mut client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
-
-        match client.publish(demo_topic, QoS::AtLeastOnce, false, container.to_string().as_bytes()).await {
-            Ok(_) => {},
-            Err(_) => return Err(UNiDError{}),
-        };
-
-        let mut count = 0;
-
-        while let Ok(notification) = eventloop.poll().await {
-            count = count + 1;
-
-            if count > 1 {
-                break
-            }
-        }
-
-        match client.disconnect().await {
-            Ok(_) => {},
-            Err(_) => panic!(),
         };
 
         Ok(container)
