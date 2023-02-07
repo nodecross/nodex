@@ -155,7 +155,6 @@ async fn receiver_handler(shutdown_marker: Arc<AtomicBool>, mut eventloop: Event
                                 let item = keys.iter().find(|v| v.to_string() == payload.received_id);
 
                                 if let Some(v) = item {
-                                    println!("matched: {}", v);
                                     let _ = db.write().await.insert(v.to_string(), true);
                                 }
                             },
