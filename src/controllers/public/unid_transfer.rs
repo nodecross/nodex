@@ -6,15 +6,27 @@ use crate::{Context, Command};
 
 // NOTE: POST /transfer
 #[derive(Deserialize, Serialize)]
-pub struct MessageContainer {
+pub struct RequestContainer {
     destinations: Vec<String>,
     messages: Vec<Value>,
     metadata: Value,
 }
 
+#[derive(Deserialize, Serialize)]
+pub struct Result {
+    destination: String,
+    success: bool,
+    errors: Vec<String>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct ResponseContainer {
+    results: Vec<Result>,
+}
+
 pub async fn handler(
     req: HttpRequest,
-    web::Json(json): web::Json<MessageContainer>,
+    web::Json(json): web::Json<RequestContainer>,
     context: web::Data<Context>,
 ) -> actix_web::Result<HttpResponse> {
     let service = crate::services::unid::UNiD::new();
@@ -45,9 +57,25 @@ pub async fn handler(
             match rx.await {
                 Ok(is_success) => {
                     if is_success {
-                        Ok(HttpResponse::Ok().json(&v))
+                        Ok(HttpResponse::Ok().json(&ResponseContainer {
+                            results: vec![
+                                Result {
+                                    destination: to_did.clone(),
+                                    errors: vec![],
+                                    success: true,
+                                }
+                            ]
+                        }))
                     } else {
-                        Ok(HttpResponse::InternalServerError().finish())
+                        Ok(HttpResponse::Ok().json(&ResponseContainer {
+                            results: vec![
+                                Result {
+                                    destination: to_did.clone(),
+                                    errors: vec!["Request Timeout".to_string()],
+                                    success: false,
+                                }
+                            ]
+                        }))
                     }
                 },
                 _ => {
