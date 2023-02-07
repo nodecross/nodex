@@ -16,7 +16,7 @@ pub async fn handler(
 ) -> actix_web::Result<HttpResponse> {
     match DIDCommSignedService::verify(&json.message).await {
         Ok(v) => {
-            Ok(HttpResponse::Ok().json(&v.message))
+            Ok(HttpResponse::Ok().json(&v))
         },
         Err(_) => {
             Ok(HttpResponse::InternalServerError().finish())
