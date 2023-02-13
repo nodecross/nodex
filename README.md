@@ -1,8 +1,19 @@
 <p align="center">
-  <img src="images/nodex-logo.svg" alt="NodeX Logo" width="160" />
+  <img src="images/nodex-logo.svg" alt="NodeX Logo" width="130" />
 </p>
 
-# NodeX [![Release Pipeline](https://github.com/nodecross/nodex/actions/workflows/release-pipeline.yml/badge.svg?branch=main)](https://github.com/nodecross/nodex/actions/workflows/release-pipeline.yml) [![Coverage Status](https://coveralls.io/repos/github/nodecross/nodex/badge.svg)](https://coveralls.io/github/nodecross/nodex) [![Semantic Release](https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
+<h2 align="center">
+  NodeX<br />
+  <a href="https://github.com/nodecross/nodex/actions/workflows/release-pipeline.yml">
+    <img src="https://github.com/nodecross/nodex/actions/workflows/release-pipeline.yml/badge.svg?branch=main" alt="Release Pipeline" />
+  </a>
+  <a href="https://coveralls.io/github/nodecross/nodex">
+    <img src="https://coveralls.io/repos/github/nodecross/nodex/badge.svg" alt="Coverage Status" />
+  </a>
+  <a href="https://github.com/semantic-release/semantic-release">
+    <img src="https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release" alt="Semantic Release" />
+  </a>
+</h2>
 
 NodeX is an open-source toolkit for building end-to-end secure messaging between all devices including IoT, micro services, and on-premise servers, using features of [decentralized identifiers (DIDs)](https://www.w3.org/TR/did-core/) as a basis of security and privacy. Build atop [DIDComm messaging protocol](https://github.com/decentralized-identity/didcomm-messaging) which works over any transports, it makes end-to-end messaging reliable, secure, and easy.
 
