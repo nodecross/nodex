@@ -12,11 +12,11 @@ use clap::Parser;
 use daemonize::Daemonize;
 use rumqttc::{AsyncClient, QoS, EventLoop, Event, Packet, MqttOptions};
 use serde::{Deserialize, Serialize};
-use services::unid::UNiD;
+use services::nodex::NodeX;
 use tokio::sync::{mpsc, Mutex as TokioMutex};
 use tokio::sync::{mpsc::{Sender, Receiver}, RwLock, oneshot};
 use tokio::time::{Instant, Duration, sleep};
-use unid::{extension::secure_keystore::{SecureKeyStore, SecureKeyStoreType}};
+use nodex::{extension::secure_keystore::{SecureKeyStore, SecureKeyStoreType}};
 use serde_json::{json, Value};
 use std::sync::atomic::AtomicBool;
 use std::{fs::{File, self}, path::PathBuf, sync::{Arc, Once, Mutex}, collections::HashMap};
@@ -25,7 +25,7 @@ use cuid;
 
 use crate::config::AppConfig;
 
-mod unid;
+mod nodex;
 mod services;
 mod config;
 mod controllers;
@@ -53,8 +53,8 @@ pub fn app_config() -> Box<SingletonAppConfig> {
 }
 
 #[derive(Parser, Debug)]
-#[clap(name = "unid-agent")]
-#[clap(name = "unid-agent")]
+#[clap(name = "nodex-agent")]
+#[clap(name = "nodex-agent")]
 #[clap(version, about, long_about = None)]
 struct Args {
     /// Run as daemon mode
@@ -184,9 +184,9 @@ fn new_server(sock_path: &PathBuf, sender: Sender<Command>) -> Server {
             .app_data(context.clone())
 
             // NOTE: Public Routes
-            .route("/identifiers", web::post().to(controllers::public::unid_create_identifier::handler))
-            .route("/identifiers/{did}", web::get().to(controllers::public::unid_find_identifier::handler))
-            .route("/transfer", web::post().to(controllers::public::unid_transfer::handler))
+            .route("/identifiers", web::post().to(controllers::public::nodex_create_identifier::handler))
+            .route("/identifiers/{did}", web::get().to(controllers::public::nodex_find_identifier::handler))
+            .route("/transfer", web::post().to(controllers::public::nodex_transfer::handler))
 
             // NOTE: Internal (Private) Routes
             .route("/internal/verifiable-credentials", web::post().to(controllers::internal::did_generate_vc::handler))
@@ -212,7 +212,7 @@ async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "info");
     env_logger::init();
 
-    let hub_did_topic = "nodex/did:unid:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
+    let hub_did_topic = "nodex/did:nodex:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
 
     let config = AppConfig::new();
     match config.write() {
@@ -224,7 +224,7 @@ async fn main() -> std::io::Result<()> {
         Some(v) => v,
         None => panic!(),
     };
-    let config_dir = home_dir.join(".unid");
+    let config_dir = home_dir.join(".nodex");
     let runtime_dir = config_dir.clone().join("run");
     let logs_dir = config_dir.clone().join("logs");
 
@@ -237,12 +237,12 @@ async fn main() -> std::io::Result<()> {
         Err(_) => panic!(),
     };
 
-    let stdout = File::create(logs_dir.clone().join("unid.log")).unwrap();
-    let stderr = File::create(logs_dir.clone().join("unid.err")).unwrap();
-    let sock_path = runtime_dir.clone().join("unid.sock");
+    let stdout = File::create(logs_dir.clone().join("nodex.log")).unwrap();
+    let stderr = File::create(logs_dir.clone().join("nodex.err")).unwrap();
+    let sock_path = runtime_dir.clone().join("nodex.sock");
 
     let daemonize = Daemonize::new()
-        .pid_file(runtime_dir.clone().join("unid.pid"))
+        .pid_file(runtime_dir.clone().join("nodex.pid"))
         .working_directory(".")
         .stdout(stdout)
         .stderr(stderr);
@@ -250,11 +250,11 @@ async fn main() -> std::io::Result<()> {
     let args = Args::parse();
 
     // NOTE: generate Key Chain
-    let node_x = UNiD::new();
+    let node_x = NodeX::new();
     let did = node_x.create_identifier().await.unwrap();
 
     // NOTE: connect mqtt server
-    let mqtt_host = "demo-mqtt.getunid.io";
+    let mqtt_host = "demo-mqtt.getnodex.io";
     let mqtt_port = 1883;
     let mqtt_client_id = cuid::cuid2();
 

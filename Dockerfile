@@ -11,8 +11,7 @@
 # RUN cargo build --release
 
 FROM alpine:3.16.2
-# COPY --from=builder /home/rust/src/target/x86_64-unknown-linux-musl/release/unid-agent /usr/local/bin/unid-agent
 RUN apk add bash
 RUN apk add curl
-COPY target/x86_64-unknown-linux-musl/release/unid-agent /usr/local/bin/unid-agent
+COPY target/x86_64-unknown-linux-musl/release/nodex /usr/local/bin/nodex
 CMD ["bash"]

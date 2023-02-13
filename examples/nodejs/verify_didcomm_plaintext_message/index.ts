@@ -3,7 +3,7 @@ import * as path from 'path'
 import got from 'got'
 
 (async () => {
-    const base = `unix:${ path.join(os.homedir(), '.unid/run/unid.sock') }`
+    const base = `unix:${ path.join(os.homedir(), '.nodex/run/nodex.sock') }`
     const json = await got.post([ base, '/internal/didcomm/plaintext-messages/verify' ].join(':'), {
         enableUnixSockets: true,
         json: {
@@ -23,7 +23,7 @@ import got from 'got'
                     },
                     "issuanceDate": "2023-01-12T14:01:25.691539+00:00",
                     "issuer": {
-                        "id": "did:unid:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA"
+                        "id": "did:nodex:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA"
                     },
                     "proof": {
                         "challenge": null,
@@ -33,16 +33,16 @@ import got from 'got'
                         "jws": "eyJhbGciOiJFUzI1NksiLCJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdfQ..UMOAMun3e3RDmBnmI_UD3jRrxxW6asVLhhqXaSsfpy5sgvoC7Eu1rdcYWA5BkmYiJTc0MRzjdUW1YkUxz41myg",
                         "proofPurpose": "authentication",
                         "type": "EcdsaSecp256k1Signature2019",
-                        "verificationMethod": "did:unid:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA#signingKey"
+                        "verificationMethod": "did:nodex:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA#signingKey"
                     },
                     "type": [
                         "VerifiableCredential"
                     ]
                 },
-                "from": "did:unid:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA",
+                "from": "did:nodex:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA",
                 "id": "e3b29fd1-b3c6-4ed0-a69a-b632826e224e",
                 "to": [
-                    "did:unid:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA"
+                    "did:nodex:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA"
                 ],
                 "typ": "application/didcomm-plain+json",
                 "type": "JWM"

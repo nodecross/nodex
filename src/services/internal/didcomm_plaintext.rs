@@ -1,25 +1,25 @@
 use serde_json::Value;
 use didcomm_rs::{Message, AttachmentBuilder, AttachmentDataBuilder};
 use cuid;
-use crate::{unid::{errors::UNiDError, keyring::{self}}};
+use crate::{nodex::{errors::NodeXError, keyring::{self}}};
 use super::{did_vc::DIDVCService, types::VerifiedContainer};
 
 pub struct DIDCommPlaintextService {}
 
 impl DIDCommPlaintextService {
-    pub fn generate(to_did: &str, message: &Value, metadata: Option<&Value>) -> Result<Value, UNiDError> {
+    pub fn generate(to_did: &str, message: &Value, metadata: Option<&Value>) -> Result<Value, NodeXError> {
         let keyring = match keyring::mnemonic::MnemonicKeyring::load_keyring() {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{})
+            Err(_) => return Err(NodeXError{})
         };
         let did = match keyring.get_identifier() {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{})
+            Err(_) => return Err(NodeXError{})
         };
 
         let body = match DIDVCService::generate(&message) {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{}),
+            Err(_) => return Err(NodeXError{}),
         };
 
         let mut message = Message::new()
@@ -31,11 +31,11 @@ impl DIDCommPlaintextService {
         if let Some(value) = metadata {
             let id = match cuid::cuid() {
                 Ok(v) => v,
-                _ => return Err(UNiDError{}),
+                _ => return Err(NodeXError{}),
             };
 
             let data = AttachmentDataBuilder::new()
-                .with_link("https://did.getunid.io")
+                .with_link("https://did.getnodex.io")
                 .with_json(&value.to_string());
 
             message.apeend_attachment(
@@ -50,17 +50,17 @@ impl DIDCommPlaintextService {
             Ok(v) => {
                 match serde_json::from_str::<Value>(&v) {
                     Ok(v) => Ok(v),
-                    Err(_) => Err(UNiDError{}),
+                    Err(_) => Err(NodeXError{}),
                 }
             },
-            Err(_) => return Err(UNiDError{}),
+            Err(_) => return Err(NodeXError{}),
         }
     }
 
-    pub fn verify(message: &Value) -> Result<VerifiedContainer, UNiDError> {
+    pub fn verify(message: &Value) -> Result<VerifiedContainer, NodeXError> {
         let message = match Message::receive(&message.to_string(), None, None, None) {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{}),
+            Err(_) => return Err(NodeXError{}),
         };
 
         let metadata = message
@@ -76,10 +76,10 @@ impl DIDCommPlaintextService {
             Ok(v) => {
                 match serde_json::from_str::<Value>(&v) {
                     Ok(v) => v,
-                    Err(_) => return Err(UNiDError{}),
+                    Err(_) => return Err(NodeXError{}),
                 }
             },
-            Err(_) => return Err(UNiDError{}),
+            Err(_) => return Err(NodeXError{}),
         };
 
         match metadata {
@@ -93,10 +93,10 @@ impl DIDCommPlaintextService {
                                     metadata: Some(metadata),
                                 })
                             },
-                            _ => Err(UNiDError {})
+                            _ => Err(NodeXError {})
                         }
                     },
-                    _ => Err(UNiDError {})
+                    _ => Err(NodeXError {})
                 }
             },
             None => {
