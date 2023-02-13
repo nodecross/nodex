@@ -1,9 +1,5 @@
-use std::time::Duration;
-
 use crate::{nodex::{errors::NodeXError, keyring, sidetree::payload::{OperationPayload, DIDCreateRequest, CommitmentKeys, DIDCreateResponse, DIDResolutionResponse}, utils::http_client::{HttpClient, HttpClientConfig}}, config::KeyPair};
-use rumqttc::{MqttOptions, AsyncClient, QoS};
 use serde_json::{Value, json};
-use cuid;
 
 use super::internal::didcomm_encrypted::DIDCommEncryptedService;
 
@@ -14,7 +10,7 @@ pub struct NodeX {
 impl NodeX {
     pub fn new() -> Self {
         let client_config: HttpClientConfig = HttpClientConfig {
-            base_url: "https://did.getnodex.io".to_string(),
+            base_url: "https://did.nodecross.io".to_string(),
         };
 
         let client = match HttpClient::new(&client_config) {
