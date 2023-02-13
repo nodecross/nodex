@@ -3,7 +3,7 @@
 </p>
 
 <h2 align="center">
-  NodeX<br />
+  NodeX - E2E Secure Messaging Platform<br />
   <a href="https://github.com/nodecross/nodex/actions/workflows/release-pipeline.yml">
     <img src="https://github.com/nodecross/nodex/actions/workflows/release-pipeline.yml/badge.svg?branch=main" alt="Release Pipeline" />
   </a>
