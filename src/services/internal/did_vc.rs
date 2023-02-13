@@ -1,19 +1,19 @@
 use chrono::Utc;
 use serde_json::{Value, json};
-use crate::{unid::{errors::UNiDError, keyring::{self}, schema::general::{GeneralVcDataModel, Issuer, CredentialSubject}, cipher::credential_signer::{CredentialSigner, CredentialSignerSuite}}};
+use crate::{nodex::{errors::NodeXError, keyring::{self}, schema::general::{GeneralVcDataModel, Issuer, CredentialSubject}, cipher::credential_signer::{CredentialSigner, CredentialSignerSuite}}};
 
 pub struct DIDVCService {
 }
 
 impl DIDVCService {
-    pub fn generate(message: &Value) -> Result<Value, UNiDError> {
+    pub fn generate(message: &Value) -> Result<Value, NodeXError> {
         let keyring = match keyring::mnemonic::MnemonicKeyring::load_keyring() {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{})
+            Err(_) => return Err(NodeXError{})
         };
         let did = match keyring.get_identifier() {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{})
+            Err(_) => return Err(NodeXError{})
         };
 
         let r#type = "VerifiableCredential".to_string();
@@ -46,33 +46,33 @@ impl DIDVCService {
         Ok(json!(signed))
     }
 
-    pub async fn verify(message: &Value) -> Result<Value, UNiDError> {
-        let service = crate::services::unid::UNiD::new();
+    pub async fn verify(message: &Value) -> Result<Value, NodeXError> {
+        let service = crate::services::nodex::NodeX::new();
 
         let model = match serde_json::from_value::<GeneralVcDataModel>(message.clone()) {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{}),
+            Err(_) => return Err(NodeXError{}),
         };
 
         let did_document = match service.find_identifier(&model.issuer.id).await {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{}),
+            Err(_) => return Err(NodeXError{}),
         };
         let public_keys = match did_document.did_document.public_key {
             Some(v) => v,
-            None => return Err(UNiDError{}),
+            None => return Err(NodeXError{}),
         };
 
         // FIXME: workaround
         if public_keys.len() != 1 {
-            return Err(UNiDError{})
+            return Err(NodeXError{})
         }
 
         let public_key = public_keys[0].clone();
 
         let context = match keyring::secp256k1::Secp256k1::from_jwk(&public_key.public_key_jwk) {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{})
+            Err(_) => return Err(NodeXError{})
         };
 
         let (verified_model, verified) = match CredentialSigner::verify(&model, &CredentialSignerSuite {
@@ -81,11 +81,11 @@ impl DIDVCService {
             context,
         }) {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{})
+            Err(_) => return Err(NodeXError{})
         };
 
         if !verified {
-            return Err(UNiDError{})
+            return Err(NodeXError{})
         }
 
         Ok(verified_model)

@@ -3,7 +3,7 @@ import * as path from 'path'
 import got from 'got'
 
 (async () => {
-    const base = `unix:${ path.join(os.homedir(), '.unid/run/unid.sock') }`
+    const base = `unix:${ path.join(os.homedir(), '.nodex/run/nodex.sock') }`
     const json = await got.post([ base, '/internal/didcomm/signed-messages/verify' ].join(':'), {
         enableUnixSockets: true,
         json: {

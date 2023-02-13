@@ -1,26 +1,26 @@
 use serde_json::Value;
 use didcomm_rs::{Message, crypto::{SignatureAlgorithm, Signer}, AttachmentBuilder, AttachmentDataBuilder};
 use cuid;
-use crate::{unid::{errors::UNiDError, keyring::{self}, runtime::base64_url::{self, PaddingType}}};
+use crate::{nodex::{errors::NodeXError, keyring::{self}, runtime::base64_url::{self, PaddingType}}};
 
 use super::{did_vc::DIDVCService, types::VerifiedContainer};
 
 pub struct DIDCommSignedService {}
 
 impl DIDCommSignedService {
-    pub fn generate(to_did: &str, message: &Value, metadata: Option<&Value>) -> Result<Value, UNiDError> {
+    pub fn generate(to_did: &str, message: &Value, metadata: Option<&Value>) -> Result<Value, NodeXError> {
         let keyring = match keyring::mnemonic::MnemonicKeyring::load_keyring() {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{})
+            Err(_) => return Err(NodeXError{})
         };
         let did = match keyring.get_identifier() {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{})
+            Err(_) => return Err(NodeXError{})
         };
 
         let body = match DIDVCService::generate(&message) {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{}),
+            Err(_) => return Err(NodeXError{}),
         };
 
         let mut message = Message::new()
@@ -32,11 +32,11 @@ impl DIDCommSignedService {
         if let Some(value) = metadata {
             let id = match cuid::cuid() {
                 Ok(v) => v,
-                _ => return Err(UNiDError{}),
+                _ => return Err(NodeXError{}),
             };
 
             let data = AttachmentDataBuilder::new()
-                .with_link("https://did.getunid.io")
+                .with_link("https://did.getnodex.io")
                 .with_json(&value.to_string());
 
             message.apeend_attachment(
@@ -53,70 +53,70 @@ impl DIDCommSignedService {
                 Ok(v) => {
                     match serde_json::from_str::<Value>(&v) {
                         Ok(v) => Ok(v),
-                        Err(_) => Err(UNiDError{}),
+                        Err(_) => Err(NodeXError{}),
                     }
                 },
-                Err(_) => Err(UNiDError{})
+                Err(_) => Err(NodeXError{})
             }
     }
 
-    pub async fn verify(message: &Value) -> Result<VerifiedContainer, UNiDError> {
-        let service = crate::services::unid::UNiD::new();
+    pub async fn verify(message: &Value) -> Result<VerifiedContainer, NodeXError> {
+        let service = crate::services::nodex::NodeX::new();
 
         let payload = match message.get("payload") {
             Some(v) => {
                 match v.as_str() {
                     Some(v) => v.to_string(),
-                    None => return Err(UNiDError{}),
+                    None => return Err(NodeXError{}),
                 }
             },
-            None => return Err(UNiDError{}),
+            None => return Err(NodeXError{}),
         };
 
         let decoded = match base64_url::Base64Url::decode_as_string(&payload, &PaddingType::NoPadding) {
             Ok(v) => {
                 match serde_json::from_str::<Value>(&v) {
                     Ok(v) => v,
-                    Err(_) => return Err(UNiDError{}),
+                    Err(_) => return Err(NodeXError{}),
                 }
             },
-            Err(_) => return Err(UNiDError{}),
+            Err(_) => return Err(NodeXError{}),
         };
 
         let from_did = match decoded.get("from") {
             Some(v) => {
                 match v.as_str() {
                     Some(v) => v.to_string(),
-                    None => return Err(UNiDError{}),
+                    None => return Err(NodeXError{}),
                 }
             },
-            None => return Err(UNiDError{}),
+            None => return Err(NodeXError{}),
         };
 
         let did_document = match service.find_identifier(&from_did).await {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{}),
+            Err(_) => return Err(NodeXError{}),
         };
         let public_keys = match did_document.did_document.public_key {
             Some(v) => v,
-            None => return Err(UNiDError{}),
+            None => return Err(NodeXError{}),
         };
 
         // FIXME: workaround
         if public_keys.len() != 1 {
-            return Err(UNiDError{})
+            return Err(NodeXError{})
         }
 
         let public_key = public_keys[0].clone();
 
         let context = match keyring::secp256k1::Secp256k1::from_jwk(&public_key.public_key_jwk) {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{}),
+            Err(_) => return Err(NodeXError{}),
         };
 
         let message = match Message::verify(&message.to_string().as_bytes(), &context.get_public_key()) {
             Ok(v) => v,
-            Err(_) => return Err(UNiDError{}),
+            Err(_) => return Err(NodeXError{}),
         };
 
         let metadata = message
@@ -132,10 +132,10 @@ impl DIDCommSignedService {
             Ok(v) => {
                 match serde_json::from_str::<Value>(&v) {
                     Ok(v) => v,
-                    Err(_) => return Err(UNiDError{}),
+                    Err(_) => return Err(NodeXError{}),
                 }
             },
-            Err(_) => return Err(UNiDError{}),
+            Err(_) => return Err(NodeXError{}),
         };
 
         match metadata {
@@ -149,10 +149,10 @@ impl DIDCommSignedService {
                                     metadata: Some(metadata),
                                 })
                             },
-                            _ => Err(UNiDError {})
+                            _ => Err(NodeXError {})
                         }
                     },
-                    _ => Err(UNiDError {})
+                    _ => Err(NodeXError {})
                 }
             },
             None => {

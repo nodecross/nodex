@@ -7,7 +7,7 @@ use std::path::Path;
 use std::io;
 use std::fs;
 
-use crate::unid::errors::UNiDError;
+use crate::nodex::errors::NodeXError;
 
 pub struct KeyPair {
     pub public_key: Vec<u8>,
@@ -111,7 +111,7 @@ impl AppConfig {
     }
 
     pub fn new() -> Self {
-        let config = HomeConfig::with_config_dir("unid", "config.json");
+        let config = HomeConfig::with_config_dir("nodex", "config.json");
         let config_dir = config.path().parent();
 
         if ! Path::exists(config.path()) {
@@ -139,7 +139,7 @@ impl AppConfig {
         AppConfig { root, config }
     }
 
-    pub fn write(&self) -> Result<(), UNiDError> {
+    pub fn write(&self) -> Result<(), NodeXError> {
         match self.config.save_json(&self.root) {
             Ok(v) => Ok(v),
             Err(_) => panic!()
@@ -236,14 +236,14 @@ impl AppConfig {
         }
     }
 
-    pub fn save_sign_key_pair(&mut self, value: &KeyPair) -> Result<(), UNiDError> {
+    pub fn save_sign_key_pair(&mut self, value: &KeyPair) -> Result<(), NodeXError> {
         let pk = match self.encode(&Some(value.public_key.clone())) {
             Some(v) => v,
-            None => return Err(UNiDError {}),
+            None => return Err(NodeXError {}),
         };
         let sk = match self.encode(&Some(value.secret_key.clone())) {
             Some(v) => v,
-            None => return Err(UNiDError {}),
+            None => return Err(NodeXError {}),
         };
 
         self.root.key_pairs.sign = Some(KeyPairConfig {
@@ -276,14 +276,14 @@ impl AppConfig {
         }
     }
 
-    pub fn save_update_key_pair(&mut self, value: &KeyPair) -> Result<(), UNiDError> {
+    pub fn save_update_key_pair(&mut self, value: &KeyPair) -> Result<(), NodeXError> {
         let pk = match self.encode(&Some(value.public_key.clone())) {
             Some(v) => v,
-            None => return Err(UNiDError {}),
+            None => return Err(NodeXError {}),
         };
         let sk = match self.encode(&Some(value.secret_key.clone())) {
             Some(v) => v,
-            None => return Err(UNiDError {}),
+            None => return Err(NodeXError {}),
         };
 
         self.root.key_pairs.update = Some(KeyPairConfig {
@@ -316,14 +316,14 @@ impl AppConfig {
         }
     }
 
-    pub fn save_recover_key_pair(&mut self, value: &KeyPair) -> Result<(), UNiDError> {
+    pub fn save_recover_key_pair(&mut self, value: &KeyPair) -> Result<(), NodeXError> {
         let pk = match self.encode(&Some(value.public_key.clone())) {
             Some(v) => v,
-            None => return Err(UNiDError {}),
+            None => return Err(NodeXError {}),
         };
         let sk = match self.encode(&Some(value.secret_key.clone())) {
             Some(v) => v,
-            None => return Err(UNiDError {}),
+            None => return Err(NodeXError {}),
         };
 
         self.root.key_pairs.recover = Some(KeyPairConfig {
@@ -356,14 +356,14 @@ impl AppConfig {
         }
     }
 
-    pub fn save_encrypt_key_pair(&mut self, value: &KeyPair) -> Result<(), UNiDError> {
+    pub fn save_encrypt_key_pair(&mut self, value: &KeyPair) -> Result<(), NodeXError> {
         let pk = match self.encode(&Some(value.public_key.clone())) {
             Some(v) => v,
-            None => return Err(UNiDError {}),
+            None => return Err(NodeXError {}),
         };
         let sk = match self.encode(&Some(value.secret_key.clone())) {
             Some(v) => v,
-            None => return Err(UNiDError {}),
+            None => return Err(NodeXError {}),
         };
 
         self.root.key_pairs.encrypt = Some(KeyPairConfig {

@@ -2285,6 +2285,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "nodex"
+version = "1.0.0"
+dependencies = [
+ "actix-rt",
+ "actix-web",
+ "aes-gcm-siv",
+ "arrayref",
+ "base64 0.21.0",
+ "bip39",
+ "chrono",
+ "clap",
+ "colored",
+ "cuid",
+ "daemonize",
+ "data-encoding",
+ "didcomm-rs",
+ "digest 0.10.6",
+ "dirs",
+ "env_logger 0.10.0",
+ "getrandom 0.2.7",
+ "hdwallet",
+ "hex",
+ "hmac 0.12.1",
+ "home-config",
+ "ibig",
+ "k256 0.10.4",
+ "libloading",
+ "log",
+ "qstring",
+ "reqwest",
+ "rstest",
+ "rumqttc",
+ "scrypt",
+ "serde",
+ "serde_jcs",
+ "serde_json",
+ "sha2 0.10.2",
+ "tokio",
+ "x25519-dalek",
+]
+
+[[package]]
 name = "nodrop"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3774,48 +3816,6 @@ name = "unicode-xid"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "957e51f3646910546462e67d5f7599b9e4fb8acdd304b087a6494730f9eebf04"
-
-[[package]]
-name = "unid"
-version = "1.0.0"
-dependencies = [
- "actix-rt",
- "actix-web",
- "aes-gcm-siv",
- "arrayref",
- "base64 0.21.0",
- "bip39",
- "chrono",
- "clap",
- "colored",
- "cuid",
- "daemonize",
- "data-encoding",
- "didcomm-rs",
- "digest 0.10.6",
- "dirs",
- "env_logger 0.10.0",
- "getrandom 0.2.7",
- "hdwallet",
- "hex",
- "hmac 0.12.1",
- "home-config",
- "ibig",
- "k256 0.10.4",
- "libloading",
- "log",
- "qstring",
- "reqwest",
- "rstest",
- "rumqttc",
- "scrypt",
- "serde",
- "serde_jcs",
- "serde_json",
- "sha2 0.10.2",
- "tokio",
- "x25519-dalek",
-]
 
 [[package]]
 name = "universal-hash"

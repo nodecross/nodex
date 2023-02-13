@@ -3,7 +3,7 @@ import * as path from 'path'
 import got from 'got'
 
 (async () => {
-    const base = `unix:${ path.join(os.homedir(), '.unid/run/unid.sock') }`
+    const base = `unix:${ path.join(os.homedir(), '.nodex/run/nodex.sock') }`
     const json = await got.post([ base, '/internal/didcomm/encrypted-messages/verify' ].join(':'), {
         enableUnixSockets: true,
         json: {
@@ -23,7 +23,7 @@ import got from 'got'
                             },
                             "iv": "qWBwU5xflciNmEZ3SYCJ5ulwKJo9M4hW",
                             "key_ops": [],
-                            "kid": "did:unid:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA",
+                            "kid": "did:nodex:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA",
                             "tag": "zdt-fMYmk_9IDhRuwWqWXw"
                         }
                     }
