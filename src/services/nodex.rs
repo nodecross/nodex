@@ -1,4 +1,4 @@
-use crate::{nodex::{errors::NodeXError, keyring, sidetree::payload::{OperationPayload, DIDCreateRequest, CommitmentKeys, DIDCreateResponse, DIDResolutionResponse}, utils::http_client::{HttpClient, HttpClientConfig}}, config::KeyPair};
+use crate::{nodex::{errors::NodeXError, keyring, sidetree::payload::{OperationPayload, DIDCreateRequest, CommitmentKeys, DIDResolutionResponse}, utils::http_client::{HttpClient, HttpClientConfig}}};
 use serde_json::{Value, json};
 
 use super::internal::didcomm_encrypted::DIDCommEncryptedService;
@@ -39,7 +39,7 @@ impl NodeX {
         };
 
         // NOTE: create payload
-        let public = match keyring.get_sign_key_pair().to_public_key("signingKey", &vec!["auth", "general"]) {
+        let public = match keyring.get_sign_key_pair().to_public_key("signingKey", &["auth", "general"]) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{}),
         };
@@ -64,7 +64,7 @@ impl NodeX {
             Err(_) => return Err(NodeXError{}),
         };
 
-        let res = match self.http_client.post(&("/api/v1/operations"), &payload).await {
+        let res = match self.http_client.post("/api/v1/operations", &payload).await {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{}),
         };
@@ -95,7 +95,7 @@ impl NodeX {
 
     pub async fn transfer(&self, to_did: &str, messages: &Vec<Value>, metadata: &Value) -> Result<Value, NodeXError> {
         // NOTE: didcomm (enc)
-        let container = match DIDCommEncryptedService::generate(&to_did, &json!(messages), Some(&metadata)).await {
+        let container = match DIDCommEncryptedService::generate(to_did, &json!(messages), Some(metadata)).await {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{}),
         };

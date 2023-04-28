@@ -12,11 +12,11 @@ pub struct Secp256k1 {}
 
 impl Secp256k1 {
     pub fn ecdh(private_key: &[u8], public_key: &[u8]) -> Result<Vec<u8>, NodeXError> {
-        let sk = match SecretKey::from_be_bytes(&private_key) {
+        let sk = match SecretKey::from_be_bytes(private_key) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{}),
         };
-        let pk = match PublicKey::from_sec1_bytes(&public_key) {
+        let pk = match PublicKey::from_sec1_bytes(public_key) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{}),
         };
@@ -27,6 +27,7 @@ impl Secp256k1 {
         ).as_bytes().to_vec())
     }
 
+    #[allow(dead_code)]
     pub fn generate_public_key(private_key: &[u8]) -> Result<Vec<u8>, NodeXError> {
         let signing_key = match SigningKey::from_bytes(private_key.to_vec().as_slice()) {
             Ok(v) => v,
@@ -38,7 +39,7 @@ impl Secp256k1 {
 
     #[allow(dead_code)]
     pub fn convert_public_key(public_key: &[u8], compress: bool) -> Result<Vec<u8>, NodeXError> {
-        let public_key = match PublicKey::from_sec1_bytes(&public_key.to_vec()) {
+        let public_key = match PublicKey::from_sec1_bytes(public_key) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
@@ -63,7 +64,7 @@ impl Secp256k1 {
 
     #[allow(dead_code)]
     pub fn ecdsa_verify(signature: &[u8], message: &[u8], public_key: &[u8]) -> Result<bool, NodeXError> {
-        let verify_key = match VerifyingKey::from_sec1_bytes(&public_key.to_vec()) {
+        let verify_key = match VerifyingKey::from_sec1_bytes(public_key) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
@@ -80,7 +81,7 @@ impl Secp256k1 {
             Err(_) => return Err(NodeXError{})
         };
 
-        match verify_key.verify(&message.to_vec(), &wrapped_signature) {
+        match verify_key.verify(message, &wrapped_signature) {
             Ok(()) => Ok(true),
             Err(_) => Ok(false)
         }
@@ -109,7 +110,7 @@ mod tests {
 
     #[test]
     fn test() {
-        let shared_1 = match Secp256k1::ecdh(&private_key(), &vec![
+        let shared_1 = match Secp256k1::ecdh(&private_key(), &[
             0x02, 0x51, 0x84, 0x22, 0x3f, 0xe8, 0x5d, 0x53, 0x20, 0x3c,
             0xf9, 0xd3, 0x7f, 0x68, 0x22, 0xe6, 0x33, 0xe8, 0xd7, 0x9f,
             0x48, 0xb1, 0x32, 0xdf, 0x0b, 0x8c, 0x8a, 0x64, 0x11, 0x41,
@@ -119,7 +120,7 @@ mod tests {
             Err(_) => panic!(),
         };
 
-        let shared_2 = match Secp256k1::ecdh(&private_key(), &vec![
+        let shared_2 = match Secp256k1::ecdh(&private_key(), &[
             0x04, 0x51, 0x84, 0x22, 0x3f, 0xe8, 0x5d, 0x53, 0x20, 0x3c,
             0xf9, 0xd3, 0x7f, 0x68, 0x22, 0xe6, 0x33, 0xe8, 0xd7, 0x9f,
             0x48, 0xb1, 0x32, 0xdf, 0x0b, 0x8c, 0x8a, 0x64, 0x11, 0x41,

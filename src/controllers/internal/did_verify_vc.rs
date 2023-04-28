@@ -11,7 +11,7 @@ pub struct MessageContainer {
 }
 
 pub async fn handler(
-    req: HttpRequest,
+    _req: HttpRequest,
     web::Json(json): web::Json<MessageContainer>,
 ) -> actix_web::Result<HttpResponse> {
     match DIDVCService::verify(&json.message).await {

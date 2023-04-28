@@ -1,4 +1,3 @@
-use serde_json::Value;
 
 use crate::nodex::{runtime, keyring::secp256k1::Secp256k1, errors::NodeXError};
 
@@ -6,14 +5,14 @@ pub struct Signer {}
 
 impl Signer {
     pub fn sign(message: &str, context: &Secp256k1) -> Result<Vec<u8>, NodeXError> {
-        match runtime::secp256k1::Secp256k1::ecdsa_sign(&message.as_bytes(), &context.get_secret_key()) {
+        match runtime::secp256k1::Secp256k1::ecdsa_sign(message.as_bytes(), &context.get_secret_key()) {
             Ok(v) => Ok(v),
             Err(_) => Err(NodeXError{})
         }
     }
 
     pub fn verify(message: &str, signature: &[u8], context: &Secp256k1) -> Result<bool, NodeXError> {
-        match runtime::secp256k1::Secp256k1::ecdsa_verify(&signature, &message.as_bytes(), &context.get_public_key()) {
+        match runtime::secp256k1::Secp256k1::ecdsa_verify(signature, message.as_bytes(), &context.get_public_key()) {
             Ok(v) => Ok(v),
             Err(_) => Err(NodeXError{})
         }
@@ -98,6 +97,6 @@ pub mod tests {
             Err(_) => panic!(),
         };
 
-        assert_eq!(result, true)
+        assert!(result)
     }
 }

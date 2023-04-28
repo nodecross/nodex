@@ -1,10 +1,3 @@
-#![feature(libc)]
-#![feature(once_cell)]
-#![feature(const_option)]
-#![feature(default_alloc_error_handler)]
-#![feature(vec_into_raw_parts)]
-#![feature(trivial_bounds)]
-
 extern crate env_logger;
 
 use actix_web::{ middleware, HttpServer, App, web, dev::Server };
@@ -16,12 +9,9 @@ use services::nodex::NodeX;
 use tokio::sync::{mpsc, Mutex as TokioMutex};
 use tokio::sync::{mpsc::{Sender, Receiver}, RwLock, oneshot};
 use tokio::time::{Instant, Duration, sleep};
-use nodex::{extension::secure_keystore::{SecureKeyStore, SecureKeyStoreType}};
 use serde_json::{json, Value};
 use std::sync::atomic::AtomicBool;
 use std::{fs::{File, self}, path::PathBuf, sync::{Arc, Once, Mutex}, collections::HashMap};
-use dirs;
-use cuid;
 
 use crate::config::AppConfig;
 
@@ -90,35 +80,32 @@ async fn sender_handler(mut rx: Receiver<Command>, client: AsyncClient, db: Arc<
                     "value": value,
                 });
 
-                match client.publish(topic.to_string(), QoS::AtLeastOnce, false, payload.to_string().as_bytes()).await {
-                    Ok(_) => {
-                        db.write().await.insert(id.clone(), false);
-
-                        let start = Instant::now();
-                        let threshold = Duration::from_secs(15);
-
-                        loop {
-                            if threshold < start.elapsed() {
-                                resp.send(false);
-                                break
-                            }
-
-                            match db.read().await.get(&id) {
-                                Some(v) => {
-                                    if *v {
-                                        resp.send(true);
-                                        break
-                                    }
-                                },
-                                None => {
-                                    continue;
-                                }
-                            }
-
-                            sleep(Duration::from_secs(1)).await;
+                if (client.publish(topic.to_string(), QoS::AtLeastOnce, false, payload.to_string().as_bytes()).await).is_ok() {
+                    db.write().await.insert(id.clone(), false);
+                
+                    let start = Instant::now();
+                    let threshold = Duration::from_secs(15);
+                
+                    loop {
+                        if threshold < start.elapsed() {
+                            _ = resp.send(false);
+                            break
                         }
-                    },
-                    _ => { }
+                
+                        match db.read().await.get(&id) {
+                            Some(v) => {
+                                if *v {
+                                    _ = resp.send(true);
+                                    break
+                                }
+                            },
+                            None => {
+                                continue;
+                            }
+                        }
+                
+                        sleep(Duration::from_secs(1)).await;
+                    }
                 }
             }
         }
@@ -142,26 +129,20 @@ async fn receiver_handler(shutdown_marker: Arc<AtomicBool>, mut eventloop: Event
 
         match notification {
             Event::Incoming(v) => {
-                match v {
-                    Packet::Publish(v) => {
-                        match serde_json::from_slice::<Response>(&v.payload) {
-                            Ok(payload) => {
-                                let mut keys = Vec::<String>::new();
-
-                                db.read().await.keys().enumerate().for_each(|v| {
-                                    keys.push(v.1.to_string());
-                                });
-
-                                let item = keys.iter().find(|v| v.to_string() == payload.received_id);
-
-                                if let Some(v) = item {
-                                    let _ = db.write().await.insert(v.to_string(), true);
-                                }
-                            },
-                            _ => {},
-                        };
-                    },
-                    _ => {},
+                if let Packet::Publish(v) = v {
+                    if let Ok(payload) = serde_json::from_slice::<Response>(&v.payload) {
+                        let mut keys = Vec::<String>::new();
+                    
+                        db.read().await.keys().enumerate().for_each(|v| {
+                            keys.push(v.1.to_string());
+                        });
+                    
+                        let item = keys.iter().find(|v| v.to_string() == payload.received_id);
+                    
+                        if let Some(v) = item {
+                            let _ = db.write().await.insert(v.to_string(), true);
+                        }
+                    };
                 }
             },
             Event::Outgoing(_) => {}

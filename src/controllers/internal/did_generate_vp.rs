@@ -7,7 +7,7 @@ use crate::services::internal::did_vp::DIDVPService;
 #[derive(Deserialize, Serialize)]
 struct MessageContainer {}
 
-pub async fn handler(req: HttpRequest) -> actix_web::Result<HttpResponse> {
+pub async fn handler(_req: HttpRequest) -> actix_web::Result<HttpResponse> {
     match DIDVPService::generate() {
         Ok(v) => {
             Ok(HttpResponse::Ok().body(v))

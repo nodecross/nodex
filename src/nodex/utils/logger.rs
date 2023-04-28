@@ -1,110 +1,131 @@
-use chrono::{Utc, Local, DateTime, Date, format::format};
+use chrono::Utc;
 use colored::*;
 
+#[allow(dead_code)]
 pub struct Logger {
 }
 
 #[derive(Debug)]
 enum LogPriority {
-    EMERG,
-    ALERT,
-    CRITICAL,
-    ERROR,
-    WARNING,
-    NOTICE,
-    INFO,
-    DEBUG,
+    #[allow(dead_code)]
+    Emerg,
+    #[allow(dead_code)]
+    Alert,
+    #[allow(dead_code)]
+    Critical,
+    #[allow(dead_code)]
+    Error,
+    #[allow(dead_code)]
+    Warning,
+    #[allow(dead_code)]
+    Notice,
+    #[allow(dead_code)]
+    Info,
+    #[allow(dead_code)]
+    Debug,
 }
 
 impl Logger {
+    #[allow(dead_code)]
     pub fn new() -> Logger {
         Logger { }
     }
 
-    pub fn logging(&self, priority: &LogPriority, message: &str) {
+    fn logging(&self, priority: &LogPriority, message: &str) {
         let now = Utc::now().to_rfc3339();
 
         match priority {
-            LogPriority::EMERG => {
+            LogPriority::Emerg => {
                 println!("{} {}: {}", now, format!("{:?}", priority).on_bright_red().bold(), message)
             },
-            LogPriority::ALERT => {
+            LogPriority::Alert => {
                 println!("{} {}: {}", now, format!("{:?}", priority).on_bright_red().bold(), message)
             },
-            LogPriority::CRITICAL => {
+            LogPriority::Critical => {
                 println!("{} {}: {}", now, format!("{:?}", priority).on_bright_red().bold(), message)
             },
-            LogPriority::ERROR => {
+            LogPriority::Error => {
                 println!("{} {}: {}", now, format!("{:?}", priority).bright_red().bold(), message)
             },
-            LogPriority::WARNING => {
+            LogPriority::Warning => {
                 println!("{} {}: {}", now, format!("{:?}", priority).bright_yellow().bold(), message)
             },
-            LogPriority::NOTICE => {
+            LogPriority::Notice => {
                 println!("{} {}: {}", now, format!("{:?}", priority).bright_cyan().bold(), message)
             },
-            LogPriority::INFO => {
+            LogPriority::Info => {
                 println!("{} {}: {}", now, format!("{:?}", priority).bright_green().bold(), message)
             },
-            LogPriority::DEBUG => {
+            LogPriority::Debug => {
                 println!("{} {}: {}", now, format!("{:?}", priority).bright_white().bold(), message)
             },
         }
     }
 
     // POSIX: 0 - Emergency
+    #[allow(dead_code)]
     pub fn emerg(&self, message: &str) {
-        self.logging(&LogPriority::EMERG, &message)
+        self.logging(&LogPriority::Emerg, message)
     }
     
     /** @deprecated use `emerg(message:)` instead. */
+    #[allow(dead_code)]
     pub fn panic(&self, message: &str) {
-        self.logging(&LogPriority::EMERG, &message)
+        self.logging(&LogPriority::Emerg, message)
     }
     
     // POSIX: 1 - Alert
+    #[allow(dead_code)]
     pub fn alert(&self, message: &str) {
-        self.logging(&LogPriority::ALERT, &message)
+        self.logging(&LogPriority::Alert, message)
     }
     
     // POSIX: 2 - Critical
+    #[allow(dead_code)]
     pub fn crit(&self, message: &str) {
-        self.logging(&LogPriority::CRITICAL, &message)
+        self.logging(&LogPriority::Critical, message)
     }
     
     // POSIX: 3 - Error
+    #[allow(dead_code)]
     pub fn err(&self, message: &str) {
-        self.logging(&LogPriority::ERROR, &message)
+        self.logging(&LogPriority::Error, message)
     }
     
     /** @deprecated use `err(message:)` instead. */
+    #[allow(dead_code)]
     pub fn error(&self, message: &str) {
-        self.logging(&LogPriority::ERROR, &message)
+        self.logging(&LogPriority::Error, message)
     }
     
     // POSIX: 4 - Warning
+    #[allow(dead_code)]
     pub fn warning(&self, message: &str) {
-        self.logging(&LogPriority::WARNING, &message)
+        self.logging(&LogPriority::Warning, message)
     }
     
     /** @deprecated use `warning(message:)` instead. */
+    #[allow(dead_code)]
     pub fn warn(&self, message: &str) {
-        self.logging(&LogPriority::WARNING, &message)
+        self.logging(&LogPriority::Warning, message)
     }
     
     // POSIX: 5 - Notice
+    #[allow(dead_code)]
     pub fn notice(&self, message: &str) {
-        self.logging(&LogPriority::NOTICE, &message)
+        self.logging(&LogPriority::Notice, message)
     }
     
     // POSIX: 6 - Informational
+    #[allow(dead_code)]
     pub fn info(&self, message: &str) {
-        self.logging(&LogPriority::INFO, &message)
+        self.logging(&LogPriority::Info, message)
     }
     
     // POSIX: 7 - Debug
+    #[allow(dead_code)]
     pub fn debug(&self, message: &str) {
-        self.logging(&LogPriority::DEBUG, &message)
+        self.logging(&LogPriority::Debug, message)
     }
 }
 

@@ -33,6 +33,7 @@ pub struct Secp256k1Context {
     pub secret: Vec<u8>,
 }
 
+#[allow(dead_code)]
 pub struct Secp256k1HexKeyPair {
     public : String,
     private: String,
@@ -84,6 +85,7 @@ impl Secp256k1 {
         self.private.clone()
     }
 
+    #[allow(dead_code)]
     pub fn to_hex_key_pair(&self) -> Secp256k1HexKeyPair {
         Secp256k1HexKeyPair {
             public : hex::encode(&self.get_public_key()),
@@ -95,7 +97,7 @@ impl Secp256k1 {
         let d = match jwk.d.clone() {
             Some(v) => v,
             None => {
-                let noop: Vec<u8> = (0..Self::PRIVATE_KEY_SIZE).map(|_| u8::from(0x00)).collect();
+                let noop: Vec<u8> = (0..Self::PRIVATE_KEY_SIZE).map(|_| 0x00).collect();
                 runtime::base64_url::Base64Url::encode(&noop, &PaddingType::NoPadding)
             },
         };
@@ -109,7 +111,7 @@ impl Secp256k1 {
             Err(_) => return Err(NodeXError{})
         };
 
-        let public = [ &vec![ 0x04 ], &x[..], &y[..] ].concat();
+        let public = [ &[ 0x04 ], &x[..], &y[..] ].concat();
         let private = match runtime::base64_url::Base64Url::decode_as_bytes(&d, &PaddingType::NoPadding) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
@@ -161,7 +163,7 @@ impl Secp256k1 {
         }
     }
 
-    pub fn to_public_key(&self, key_id: &str, purpose: &Vec<&str>) -> Result<PublicKeyPayload, NodeXError> {
+    pub fn to_public_key(&self, key_id: &str, purpose: &[&str]) -> Result<PublicKeyPayload, NodeXError> {
         let validated = match self.validate_point() {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
@@ -179,7 +181,7 @@ impl Secp256k1 {
         Ok(PublicKeyPayload {
             id: key_id.to_string(),
             r#type: "EcdsaSecp256k1VerificationKey2019".to_string(),
-            jwk: jwk,
+            jwk,
             purpose: purpose.to_vec().iter().map(|value| value.to_string()).collect(),
         })
     }
@@ -352,7 +354,7 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        assert_eq!(result, true)
+        assert!(result)
     }
 
     #[test]

@@ -81,7 +81,7 @@ mod tests {
 
     #[test]
     fn test_hmac_sha256_digest() {
-        let result = HmacSha256::digest(&secret().as_bytes().to_vec(), &message().as_bytes().to_vec());
+        let result = HmacSha256::digest(secret().as_bytes(), message().as_bytes());
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), Vec::from([
@@ -101,7 +101,7 @@ mod tests {
             0x3e, 0x60, 
         ]);
 
-        let result = HmacSha256::verify(&secret().as_bytes().to_vec(), &message().as_bytes().to_vec(), &digest);
+        let result = HmacSha256::verify(secret().as_bytes(), message().as_bytes(), &digest);
 
         assert!(result.is_ok());
         assert!(result.unwrap());
@@ -109,7 +109,7 @@ mod tests {
 
     #[test]
     fn test_hmac_sha512_digest() {
-        let result = HmacSha512::digest(&secret().as_bytes().to_vec(), &message().as_bytes().to_vec());
+        let result = HmacSha512::digest(secret().as_bytes(), message().as_bytes());
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), Vec::from([
@@ -135,7 +135,7 @@ mod tests {
             0x0d, 0x75, 0x34, 0xe7,
         ]);
 
-        let result = HmacSha512::verify(&secret().as_bytes().to_vec(), &message().as_bytes().to_vec(), &digest);
+        let result = HmacSha512::verify(secret().as_bytes(), message().as_bytes(), &digest);
 
         assert!(result.is_ok());
         assert!(result.unwrap());

@@ -11,9 +11,9 @@ struct JWSHeader {
     crit: Vec<String>,
 }
 
-pub struct JWS {}
+pub struct Jws {}
 
-impl JWS {
+impl Jws {
     pub fn encode(object: &Value, context: &Secp256k1) -> Result<String, NodeXError> {
         // NOTE: header
         let header = JWSHeader {
@@ -22,19 +22,19 @@ impl JWS {
             crit: vec![ "b64".to_string() ],
         };
         let _header = runtime::base64_url::Base64Url::encode(
-            &json!(&header).to_string().as_bytes(), &PaddingType::NoPadding
+            json!(&header).to_string().as_bytes(), &PaddingType::NoPadding
         );
 
         // NOTE: payload
         let _payload = runtime::base64_url::Base64Url::encode(
-            &object.to_string().as_bytes(), &PaddingType::NoPadding
+            object.to_string().as_bytes(), &PaddingType::NoPadding
         );
 
         // NOTE: message
-        let message = [ _header.clone(), _payload.clone() ].join(".");
+        let message = [ _header.clone(), _payload ].join(".");
 
         // NOTE: signature
-        let signature = match Signer::sign(&message, &context) {
+        let signature = match Signer::sign(&message, context) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{}),
         };
@@ -42,7 +42,7 @@ impl JWS {
             &signature, &PaddingType::NoPadding
         );
 
-        Ok([ _header.clone(), "".to_string(), _signature.clone() ].join("."))
+        Ok([ _header, "".to_string(), _signature ].join("."))
     }
 
 
@@ -68,10 +68,10 @@ impl JWS {
             Err(_) => return Err(NodeXError{})
         };
 
-        if header.alg != "ES256K".to_string() {
+        if header.alg != *"ES256K" {
             return Err(NodeXError{})
         }
-        if header.b64 != false {
+        if header.b64 {
             return Err(NodeXError{})
         }
         match header.crit.iter().position(|v| v == &"b64".to_string()) {
@@ -80,11 +80,11 @@ impl JWS {
         };
 
         // NOTE: payload
-        if __payload != "".to_string() {
+        if __payload != *"".to_string() {
             return Err(NodeXError{})
         }
         let _payload = runtime::base64_url::Base64Url::encode(
-            &object.to_string().as_bytes(), &PaddingType::NoPadding
+            object.to_string().as_bytes(), &PaddingType::NoPadding
         );
 
         // NOTE: message
@@ -97,7 +97,7 @@ impl JWS {
         };
 
         // NOTE: verify
-        match Signer::verify(&message, &signature, &context) {
+        match Signer::verify(&message, &signature, context) {
             Ok(v) => Ok(v),
             Err(_) => Err(NodeXError{})
         }
@@ -156,7 +156,7 @@ pub mod tests {
             Err(_) => panic!(),
         };
 
-        let result = match JWS::encode(&json, &context) {
+        let result = match Jws::encode(&json, &context) {
             Ok(v) => v,
             Err(_) => panic!()
         };
@@ -179,11 +179,11 @@ pub mod tests {
             Err(_) => panic!(),
         };
 
-        let result = match JWS::verify(&json, &signature(), &context) {
+        let result = match Jws::verify(&json, &signature(), &context) {
             Ok(v) => v,
             Err(_) => panic!(),
         };
 
-        assert_eq!(result, true)
+        assert!(result)
     }
 }

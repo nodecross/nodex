@@ -25,7 +25,7 @@ pub struct ResponseContainer {
 }
 
 pub async fn handler(
-    req: HttpRequest,
+    _req: HttpRequest,
     web::Json(json): web::Json<RequestContainer>,
     context: web::Data<Context>,
 ) -> actix_web::Result<HttpResponse> {
@@ -41,7 +41,7 @@ pub async fn handler(
         _ => return Ok(HttpResponse::InternalServerError().finish())
     };
 
-    match service.transfer(&to_did, &json.messages, &json.metadata).await {
+    match service.transfer(to_did, &json.messages, &json.metadata).await {
         Ok(v) => {
             let (tx, rx) = oneshot::channel();
 

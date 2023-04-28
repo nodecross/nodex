@@ -3,9 +3,9 @@ use serde_json::{self, Value};
 
 use crate::nodex::errors::NodeXError;
 
-pub struct JCS {}
+pub struct Jcs {}
 
-impl JCS {
+impl Jcs {
     pub fn canonicalize(input: &str) -> Result<String, NodeXError> {
         let json = match serde_json::from_str::<Value>(input) {
             Ok(v) => v,
@@ -31,7 +31,7 @@ pub mod tests {
 
     #[test]
     fn test_canonicalize() {
-        let result = match JCS::canonicalize(&json()) {
+        let result = match Jcs::canonicalize(&json()) {
             Ok(v) => v,
             Err(_) => panic!()
         };

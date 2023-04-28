@@ -8,7 +8,7 @@ const MULTIHASH_SHA256_SIZE: u8 = 0x20; // 0x20 = 32
 
 pub struct Multihash {}
 
-#[derive(PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug)]
 pub struct DecodedContainer {
     hash: Vec<u8>,
     algorithm: u64,
@@ -50,12 +50,12 @@ impl Multihash {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{}),
         };
-        let canonicalized = match super::jcs::JCS::canonicalize(&plain) {
+        let canonicalized = match super::jcs::Jcs::canonicalize(&plain) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
 
-        let hashed = Multihash::hash_as_non_multihash_buffer(&canonicalized.as_bytes());
+        let hashed = Multihash::hash_as_non_multihash_buffer(canonicalized.as_bytes());
 
         Ok(Multihash::hash_then_encode(&hashed))
     }
@@ -94,7 +94,7 @@ mod tests {
 
     #[test]
     fn test_hash() {
-        let result = Multihash::hash(&message().as_bytes().to_vec());
+        let result = Multihash::hash(message().as_bytes());
 
         assert_eq!(result, vec![
             0x12, 0x20, 0x5f, 0x46, 0x25, 0xd4, 0xf6, 0x1e, 0xdb, 0x52, 
@@ -106,7 +106,7 @@ mod tests {
 
     #[test]
     fn test_hash_as_non_multihash_buffer() {
-        let result = Multihash::hash_as_non_multihash_buffer(&message().as_bytes().to_vec());
+        let result = Multihash::hash_as_non_multihash_buffer(message().as_bytes());
 
         assert_eq!(result, vec![
             0x5f, 0x46, 0x25, 0xd4, 0xf6, 0x1e, 0xdb, 0x52, 0x78, 0x07, 
@@ -118,7 +118,7 @@ mod tests {
 
     #[test]
     fn test_canonicalize_then_double_hash_then_encode() {
-        let result = match Multihash::canonicalize_then_double_hash_then_encode(&message().as_bytes().to_vec()) {
+        let result = match Multihash::canonicalize_then_double_hash_then_encode(message().as_bytes()) {
             Ok(v) => v,
             Err(_) => panic!()
         };
@@ -128,14 +128,14 @@ mod tests {
 
     #[test]
     fn test_hash_then_encode() {
-        let result = Multihash::hash_then_encode(&message().as_bytes().to_vec());
+        let result = Multihash::hash_then_encode(message().as_bytes());
 
         assert_eq!(result, String::from("EiBfRiXU9h7bUngHRV9I-L4njnHoSqlNIxEf-rO2MJOnEw"));
     }
 
     #[test]
     fn test_decode() {
-        let encoded = Multihash::hash(&message().as_bytes().to_vec());
+        let encoded = Multihash::hash(message().as_bytes());
         let result = Multihash::decode(&encoded);
 
         assert!(result.is_ok());

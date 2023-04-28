@@ -23,7 +23,7 @@ impl DIDCommEncryptedService {
         };
 
         // NOTE: recipient to
-        let did_document = match service.find_identifier(&to_did).await {
+        let did_document = match service.find_identifier(to_did).await {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{}),
         };
@@ -57,22 +57,19 @@ impl DIDCommEncryptedService {
         let pk = PublicKey::from(&sk);
 
         // NOTE: message
-        let body = match DIDVCService::generate(&message) {
+        let body = match DIDVCService::generate(message) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{}),
         };
 
         let mut message = Message::new()
             .from(&my_did)
-            .to(&[ &to_did ])
+            .to(&[ to_did ])
             .body(&body.to_string());
 
         // NOTE: Has attachment
         if let Some(value) = metadata {
-            let id = match cuid::cuid() {
-                Ok(v) => v,
-                _ => return Err(NodeXError{}),
-            };
+            let id = cuid::cuid2();
 
             // let media_type = "application/json";
             let data = AttachmentDataBuilder::new()
@@ -90,7 +87,7 @@ impl DIDCommEncryptedService {
         match message.clone()
             .as_jwe(&CryptoAlgorithm::XC20P, Some(pk.as_bytes().to_vec()))
             .seal_signed(
-                &sk.to_bytes().to_vec(),
+                sk.to_bytes().as_ref(),
                 Some(vec![ Some(pk.as_bytes().to_vec()) ]),
                 SignatureAlgorithm::Es256k,
                 &my_keyring.get_sign_key_pair().get_secret_key()
@@ -98,10 +95,10 @@ impl DIDCommEncryptedService {
                 Ok(v) => {
                     match serde_json::from_str::<Value>(&v) {
                         Ok(v) => Ok(v),
-                        Err(_) => return Err(NodeXError{}),
+                        Err(_) => Err(NodeXError{}),
                     }
                 },
-                Err(_) => return Err(NodeXError{})
+                Err(_) => Err(NodeXError{})
             }
     }
 
@@ -181,7 +178,7 @@ impl DIDCommEncryptedService {
 
         let message = match Message::receive(
             &message.to_string(),
-            Some(&sk.to_bytes().to_vec()),
+            Some(sk.to_bytes().as_ref()),
             Some(pk.as_bytes().to_vec()),
             Some(&other_key.get_public_key()),
         ) {

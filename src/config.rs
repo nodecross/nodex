@@ -125,7 +125,7 @@ impl AppConfig {
                 None => panic!()
             };
 
-            match Self::touch(&config.path()) {
+            match Self::touch(config.path()) {
                 Ok(_) => {},
                 Err(_) => panic!()
             };
@@ -147,12 +147,7 @@ impl AppConfig {
     }
 
     pub fn encode(&self, value: &Option<Vec<u8>>) -> Option<String> {
-        match value {
-            Some(v) => {
-                Some(hex::encode(&v))
-            },
-            None => None,
-        }
+        value.as_ref().map(|v| hex::encode(&v))
     }
 
     pub fn decode(&self, value: &Option<String>) -> Option<Vec<u8>> {
@@ -198,6 +193,7 @@ impl AppConfig {
     }
 
     // NOTE: cipher - encrypt
+    #[allow(dead_code)]
     pub fn load_cipher_encrypt_sig(&self) -> Option<Extension> {
         match self.root.extensions.cipher.clone() {
             Some(v) => {
@@ -208,6 +204,7 @@ impl AppConfig {
     }
 
     // NOTE: cipher - decrypt
+    #[allow(dead_code)]
     pub fn load_cipher_decrypt_sig(&self) -> Option<Extension> {
         match self.root.extensions.cipher.clone() {
             Some(v) => {
@@ -383,7 +380,7 @@ impl AppConfig {
     }
 
     pub fn save_did(&mut self, value: &str) {
-        self.root.did = Some(value.clone().to_string());
+        self.root.did = Some(value.to_string());
 
         match self.write() {
             Ok(_) => {},
@@ -397,7 +394,7 @@ impl AppConfig {
     }
 
     pub fn save_mnemonic(&mut self, value: &str) {
-        self.root.mnemonic = Some(value.clone().to_string());
+        self.root.mnemonic = Some(value.to_string());
 
         match self.write() {
             Ok(_) => {},
@@ -406,12 +403,13 @@ impl AppConfig {
     }
 
     // NOTE: Is Initialized
+    #[allow(dead_code)]
     pub fn get_is_initialized(&self) -> bool {
         self.root.is_initialized
     }
 
     pub fn save_is_initialized(&mut self, value: bool) {
-        self.root.is_initialized = value.clone();
+        self.root.is_initialized = value;
         match self.write() {
             Ok(_) => {},
             Err(_) => panic!()
