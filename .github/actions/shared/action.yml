@@ -22,17 +22,3 @@ runs:
     - name: (install) clippy
       shell: bash
       run: rustup component add clippy
-
-    - name: (install) x86_64-unknown-linux-musl
-      shell: bash
-      run: rustup target add x86_64-unknown-linux-musl
-
-    - name: (install) x86_64-pc-windows-msvc
-      shell: bash
-      run: rustup target add x86_64-pc-windows-msvc
-
-    - name: (install) musl-tools
-      shell: bash
-      run: |
-        apt-get update
-        apt-get install -y musl-tools
