@@ -44,7 +44,5 @@ runs:
         github-token: ${{ inputs.github-token }}
         path-to-lcov: coverage/target.lcov
 
-    # - name: (check) coverage rate
-    #   # [!] check for coverage rate: greather than 85%
-    #   shell: bash
-    #   run: .bin/check-coverage.sh 85 coverage/target.lcov
+    - name: (cache) rust
+      uses: Swatinem/rust-cache@v2

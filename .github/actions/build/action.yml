@@ -16,3 +16,6 @@ runs:
     - name: (run) build
       shell: bash
       run: make build
+
+    - name: (cache) rust
+      uses: Swatinem/rust-cache@v2
