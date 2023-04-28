@@ -96,6 +96,7 @@ pub mod tests {
     }
 
     #[actix_rt::test]
+    #[ignore]
     async fn it_should_success_get() {
         let client_config: HttpClientConfig = HttpClientConfig {
             base_url: "https://httpbin.org".to_string(),
@@ -120,6 +121,7 @@ pub mod tests {
     }
 
     #[actix_rt::test]
+    #[ignore]
     async fn it_should_success_post() {
         let client_config: HttpClientConfig = HttpClientConfig {
             base_url: "https://httpbin.org".to_string(),
@@ -144,6 +146,7 @@ pub mod tests {
     }
 
     #[actix_rt::test]
+    #[ignore]
     async fn it_should_success_put() {
         let client_config: HttpClientConfig = HttpClientConfig {
             base_url: "https://httpbin.org".to_string(),
@@ -168,6 +171,7 @@ pub mod tests {
     }
 
     #[actix_rt::test]
+    #[ignore]
     async fn it_should_success_delete() {
         let client_config: HttpClientConfig = HttpClientConfig {
             base_url: "https://httpbin.org".to_string(),
