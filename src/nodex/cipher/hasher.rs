@@ -1,10 +1,12 @@
 use crate::nodex::{runtime, errors::NodeXError};
 
+#[allow(dead_code)]
 pub struct Hasher {}
 
 impl Hasher {
+    #[allow(dead_code)]
     pub fn digest(message: &[u8], secret: &[u8]) -> Result<String, NodeXError> {
-        let digest = match runtime::hmac::HmacSha512::digest(&secret, &message) {
+        let digest = match runtime::hmac::HmacSha512::digest(secret, message) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
@@ -12,13 +14,14 @@ impl Hasher {
         Ok(hex::encode(&digest))
     }
 
+    #[allow(dead_code)]
     pub fn verify(message: &[u8], digest: &[u8], secret: &[u8]) -> Result<bool, NodeXError> {
         let _digest = match hex::decode(&digest) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
 
-        match runtime::hmac::HmacSha512::verify(&secret, &message, &_digest) {
+        match runtime::hmac::HmacSha512::verify(secret, message, &_digest) {
             Ok(v) => Ok(v),
             Err(_) => Err(NodeXError{})
         }
@@ -47,7 +50,7 @@ pub mod tests {
 
     #[test]
     pub fn test_digest() {
-        let result = match Hasher::digest(&message().as_bytes(), &secret().as_bytes()) {
+        let result = match Hasher::digest(message().as_bytes(), secret().as_bytes()) {
             Ok(v) => v,
             Err(_) => panic!()
         };
@@ -57,11 +60,11 @@ pub mod tests {
 
     #[test]
     pub fn test_verify() {
-        let result = match Hasher::verify(&message().as_bytes(), &digest().as_bytes(), &secret().as_bytes()) {
+        let result = match Hasher::verify(message().as_bytes(), digest().as_bytes(), secret().as_bytes()) {
             Ok(v) => v,
             Err(_) => panic!()
         };
 
-        assert_eq!(result, true)
+        assert!(result)
     }
 }

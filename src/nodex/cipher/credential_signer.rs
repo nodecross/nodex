@@ -2,11 +2,11 @@ use chrono::Utc;
 use serde::{Serialize, Deserialize};
 use serde_json::{Value, json};
 
-use crate::{nodex::{keyring::secp256k1::Secp256k1, errors::NodeXError, utils, schema::general::GeneralVcDataModel}, services::nodex::NodeX};
+use crate::{nodex::{keyring::secp256k1::Secp256k1, errors::NodeXError, utils, schema::general::GeneralVcDataModel}};
 
-use super::jws::JWS;
+use super::jws::Jws;
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct Proof {
     #[serde(rename = "type")]
     pub r#type: String,
@@ -48,6 +48,7 @@ pub struct CredentialSignerSuite {
 pub struct CredentialSigner {}
 
 impl CredentialSigner {
+    #[allow(dead_code)]
     const PROOF_KEY: &'static str = "proof";
 
     pub fn sign(object: &GeneralVcDataModel, suite: &CredentialSignerSuite) -> Result<GeneralVcDataModel, NodeXError> {
@@ -57,7 +58,7 @@ impl CredentialSigner {
         // }
 
         let created = Utc::now().to_rfc3339();
-        let jws = match JWS::encode(&json!(object), &suite.context) {
+        let jws = match Jws::encode(&json!(object), &suite.context) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
@@ -85,7 +86,7 @@ impl CredentialSigner {
         };
 
         // NOTE: sign
-        let mut signed_object = json!(object.clone());
+        let mut signed_object = json!(object);
 
         utils::json::merge(&mut signed_object, json!(proof));
 
@@ -126,7 +127,7 @@ impl CredentialSigner {
         };
 
         // NOTE: verify
-        let verified = match JWS::verify(&payload, &jws, &suite.context) {
+        let verified = match Jws::verify(&payload, &jws, &suite.context) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
@@ -247,7 +248,7 @@ pub mod tests {
         let (result, verified) = match CredentialSigner::verify(&vc, &CredentialSignerSuite {
             did: None,
             key_id: None,
-            context: context.clone(),
+            context,
         }) {
             Ok(v) => v,
             Err(_) => panic!()
@@ -258,7 +259,7 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        assert_eq!(verified, true);
+        assert!(verified);
         assert_eq!(model, verified_model);
     }
 }

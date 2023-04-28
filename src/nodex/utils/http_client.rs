@@ -34,7 +34,7 @@ impl HttpClient {
     }
 
     pub async fn get(&self, _path: &str) -> Result<reqwest::Response, NodeXError> {
-        let url = self.base_url.join(&_path);
+        let url = self.base_url.join(_path);
 
         match self.instance
             .get(&url.unwrap().to_string())
@@ -46,7 +46,7 @@ impl HttpClient {
     }
 
     pub async fn post(&self, _path: &str, body: &str) -> Result<reqwest::Response, NodeXError> {
-        let url = self.base_url.join(&_path);
+        let url = self.base_url.join(_path);
 
         match self.instance
             .post(&url.unwrap().to_string())
@@ -58,8 +58,9 @@ impl HttpClient {
             }
     }
 
+    #[allow(dead_code)]
     pub async fn put(&self, _path: &str) -> Result<reqwest::Response, NodeXError> {
-        let url = self.base_url.join(&_path);
+        let url = self.base_url.join(_path);
 
         match self.instance
             .put(&url.unwrap().to_string())
@@ -70,8 +71,9 @@ impl HttpClient {
             }
     }
 
+    #[allow(dead_code)]
     pub async fn delete(&self, _path: &str) -> Result<reqwest::Response, NodeXError> {
-        let url = self.base_url.join(&_path);
+        let url = self.base_url.join(_path);
 
         match self.instance
             .delete(&url.unwrap().to_string())
@@ -94,6 +96,7 @@ pub mod tests {
     }
 
     #[actix_rt::test]
+    #[ignore]
     async fn it_should_success_get() {
         let client_config: HttpClientConfig = HttpClientConfig {
             base_url: "https://httpbin.org".to_string(),
@@ -104,7 +107,7 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        let res = match client.get(&("/get".to_string())).await {
+        let res = match client.get("/get").await {
             Ok(v) => v,
             Err(_) => panic!()
         };
@@ -114,10 +117,11 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        assert_eq!(true, 0 < json.origin.len());
+        assert!(!json.origin.is_empty());
     }
 
     #[actix_rt::test]
+    #[ignore]
     async fn it_should_success_post() {
         let client_config: HttpClientConfig = HttpClientConfig {
             base_url: "https://httpbin.org".to_string(),
@@ -128,7 +132,7 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        let res = match client.post(&("/post"), &(r#"{"key":"value"}"#)).await {
+        let res = match client.post("/post", r#"{"key":"value"}"#).await {
             Ok(v) => v,
             Err(_) => panic!()
         };
@@ -138,10 +142,11 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        assert_eq!(true, 0 < json.origin.len());
+        assert!(!json.origin.is_empty());
     }
 
     #[actix_rt::test]
+    #[ignore]
     async fn it_should_success_put() {
         let client_config: HttpClientConfig = HttpClientConfig {
             base_url: "https://httpbin.org".to_string(),
@@ -152,7 +157,7 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        let res = match client.put(&("/put".to_string())).await {
+        let res = match client.put("/put").await {
             Ok(v) => v,
             Err(_) => panic!()
         };
@@ -162,10 +167,11 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        assert_eq!(true, 0 < json.origin.len());
+        assert!(!json.origin.is_empty());
     }
 
     #[actix_rt::test]
+    #[ignore]
     async fn it_should_success_delete() {
         let client_config: HttpClientConfig = HttpClientConfig {
             base_url: "https://httpbin.org".to_string(),
@@ -176,7 +182,7 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        let res = match client.delete(&("/delete".to_string())).await {
+        let res = match client.delete("/delete").await {
             Ok(v) => v,
             Err(_) => panic!()
         };
@@ -186,6 +192,6 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        assert_eq!(true, 0 < json.origin.len());
+        assert!(!json.origin.is_empty());
     }
 }

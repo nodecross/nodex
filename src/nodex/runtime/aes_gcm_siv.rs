@@ -2,22 +2,24 @@ use crate::nodex::errors::NodeXError;
 use aes_gcm_siv::{Aes256GcmSiv, Key, Nonce};
 use aes_gcm_siv::aead::{Aead, NewAead};
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct AesGcmSiv {}
 
 impl AesGcmSiv {
+    #[allow(dead_code)]
     pub fn encrypt(_key: &[u8], _nonce: &[u8], _plain_text: &[u8]) -> Result<Vec<u8>, NodeXError> {
         let key = Key::from_slice(_key);
         let nonce = Nonce::from_slice(_nonce);
 
         let cipher = Aes256GcmSiv::new(key);
 
-        match cipher.encrypt(&nonce, _plain_text) {
+        match cipher.encrypt(nonce, _plain_text) {
             Ok(v) => Ok(v.to_vec()),
             Err(_) => Err(NodeXError{})
         }
     }
 
+    #[allow(dead_code)]
     pub fn decrypt(_key: &[u8], _nonce: &[u8], _cipher_text: &[u8]) -> Result<Vec<u8>, NodeXError> {
         let key = Key::from_slice(_key);
         let nonce = Nonce::from_slice(_nonce);

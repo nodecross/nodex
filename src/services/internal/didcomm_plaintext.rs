@@ -17,22 +17,19 @@ impl DIDCommPlaintextService {
             Err(_) => return Err(NodeXError{})
         };
 
-        let body = match DIDVCService::generate(&message) {
+        let body = match DIDVCService::generate(message) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{}),
         };
 
         let mut message = Message::new()
             .from(&did)
-            .to(&[ &to_did ])
+            .to(&[ to_did ])
             .body(&body.to_string());
 
         // NOTE: Has attachment
         if let Some(value) = metadata {
-            let id = match cuid::cuid() {
-                Ok(v) => v,
-                _ => return Err(NodeXError{}),
-            };
+            let id = cuid::cuid2();
 
             let data = AttachmentDataBuilder::new()
                 .with_link("https://did.getnodex.io")
@@ -53,7 +50,7 @@ impl DIDCommPlaintextService {
                     Err(_) => Err(NodeXError{}),
                 }
             },
-            Err(_) => return Err(NodeXError{}),
+            Err(_) => Err(NodeXError{}),
         }
     }
 

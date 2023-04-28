@@ -1,25 +1,25 @@
-use crate::{config::{AppConfig, Extension}, nodex::{errors::NodeXError, runtime::random::Random}, app_config};
+use crate::{config::Extension, nodex::{errors::NodeXError, runtime::random::Random}, app_config};
 use std::ffi::CStr;
 
-pub struct TRNG {
+pub struct Trng {
 }
 
-impl TRNG {
+impl Trng {
     const MAX_BUFFER_LENGTH: usize = 1024;
 
-    pub fn new() -> TRNG {
-        TRNG {}
+    pub fn new() -> Trng {
+        Trng {}
     }
 
     fn read_external(&self, extension: &Extension, size: &usize) -> Result<Vec<u8>, NodeXError> {
         log::info!("Called: read_external");
         
-        if TRNG::MAX_BUFFER_LENGTH < *size {
+        if Trng::MAX_BUFFER_LENGTH < *size {
             return Err(NodeXError {})
         }
 
         unsafe {
-            let buffer = [0u8; TRNG::MAX_BUFFER_LENGTH + 1];
+            let buffer = [0u8; Trng::MAX_BUFFER_LENGTH + 1];
             let buffer_ptr: *const i8 = buffer.as_ptr().cast();
 
             let lib = match libloading::Library::new(&extension.filename) {
@@ -27,7 +27,7 @@ impl TRNG {
                 Err(_) => return Err(NodeXError{})
             };
 
-            let func: libloading::Symbol<unsafe extern fn(buf: *const i8, bufsize: usize, size: usize) -> u32> = match lib.get(&extension.symbol.as_bytes()) {
+            let func: libloading::Symbol<unsafe extern fn(buf: *const i8, bufsize: usize, size: usize) -> u32> = match lib.get(extension.symbol.as_bytes()) {
                 Ok(v) => v,
                 Err(_) => return Err(NodeXError{})
             };
@@ -59,10 +59,10 @@ impl TRNG {
 
         match extension {
             Some(v) => {
-                self.read_external(&v, &size)
+                self.read_external(&v, size)
             },
             _ => {
-                self.read_internal(&size)
+                self.read_internal(size)
             }
         }
     }

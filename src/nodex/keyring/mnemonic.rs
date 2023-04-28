@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use crate::{nodex::{errors::NodeXError, runtime::{self, bip39::BIP39}, extension::secure_keystore::{SecureKeyStore, SecureKeyStoreType}}, config::{KeyPair, AppConfig}, app_config, SingletonAppConfig};
+use crate::{nodex::{errors::NodeXError, extension::secure_keystore::{SecureKeyStore, SecureKeyStoreType}, runtime}, config::KeyPair, app_config, SingletonAppConfig};
 
 use super::secp256k1::{Secp256k1, Secp256k1Context};
 
@@ -24,83 +24,59 @@ impl MnemonicKeyring {
         let config = app_config();
         let secure_keystore = SecureKeyStore::new();
 
-        let mnemonic = match config.inner.lock() {
-            Ok(config) => {
-                match config.get_mnemonic() {
-                    Some(v) => v,
-                    None => return Err(NodeXError{})
-                }
-            },
-            _ => return Err(NodeXError {}),
+        let mnemonic = config.inner.lock().unwrap().get_mnemonic();
+        let mnemonic = match mnemonic {
+            Some(v) => v,
+            None => return Err(NodeXError{})
         };
 
         let sign = match secure_keystore.read(&SecureKeyStoreType::Sign) {
-            Ok(v) => {
-                match v {
-                    Some(v) => {
-                        match Secp256k1::new(&Secp256k1Context {
-                            public: v.public_key,
-                            secret: v.secret_key,
-                        }) {
-                            Ok(v) => v,
-                            _ => return Err(NodeXError{}),
-                        }
-                    },
+            Ok(Some(v)) => {
+                match Secp256k1::new(&Secp256k1Context {
+                    public: v.public_key,
+                    secret: v.secret_key,
+                }) {
+                    Ok(v) => v,
                     _ => return Err(NodeXError{}),
                 }
             },
-            _ => return Err(NodeXError {}),
+            _ => return Err(NodeXError{}),
         };
         let update = match secure_keystore.read(&SecureKeyStoreType::Update) {
-            Ok(v) => {
-                match v {
-                    Some(v) => {
-                        match Secp256k1::new(&Secp256k1Context {
-                            public: v.public_key,
-                            secret: v.secret_key,
-                        }) {
-                            Ok(v) => v,
-                            _ => return Err(NodeXError{}),
-                        }
-                    },
+            Ok(Some(v)) => {
+                match Secp256k1::new(&Secp256k1Context {
+                    public: v.public_key,
+                    secret: v.secret_key,
+                }) {
+                    Ok(v) => v,
                     _ => return Err(NodeXError{}),
                 }
             },
-            _ => return Err(NodeXError {}),
+            _ => return Err(NodeXError{}),
         };
         let recovery = match secure_keystore.read(&SecureKeyStoreType::Recover) {
-            Ok(v) => {
-                match v {
-                    Some(v) => {
-                        match Secp256k1::new(&Secp256k1Context {
-                            public: v.public_key,
-                            secret: v.secret_key,
-                        }) {
-                            Ok(v) => v,
-                            _ => return Err(NodeXError{}),
-                        }
-                    },
+            Ok(Some(v)) => {
+                match Secp256k1::new(&Secp256k1Context {
+                    public: v.public_key,
+                    secret: v.secret_key,
+                }) {
+                    Ok(v) => v,
                     _ => return Err(NodeXError{}),
                 }
             },
-            _ => return Err(NodeXError {})
+            _ => return Err(NodeXError{}),
         };
         let encrypt = match secure_keystore.read(&SecureKeyStoreType::Encrypt) {
-            Ok(v) => {
-                match v {
-                    Some(v) => {
-                        match Secp256k1::new(&Secp256k1Context {
-                            public: v.public_key,
-                            secret: v.secret_key,
-                        }) {
-                            Ok(v) => v,
-                            _ => return Err(NodeXError{}),
-                        }
-                    },
+            Ok(Some(v)) => {
+                match Secp256k1::new(&Secp256k1Context {
+                    public: v.public_key,
+                    secret: v.secret_key,
+                }) {
+                    Ok(v) => v,
                     _ => return Err(NodeXError{}),
                 }
             },
-            _ => return Err(NodeXError {})
+            _ => return Err(NodeXError{}),
         };
 
         Ok(MnemonicKeyring {
@@ -127,19 +103,19 @@ impl MnemonicKeyring {
             Err(_) => return Err(NodeXError{})
         };
 
-        let sign = match Self::generate_secp256k1(&seed, &Self::SIGN_DERIVATION_PATH) {
+        let sign = match Self::generate_secp256k1(&seed, Self::SIGN_DERIVATION_PATH) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
-        let update = match Self::generate_secp256k1(&seed, &Self::UPDATE_DERIVATION_PATH) {
+        let update = match Self::generate_secp256k1(&seed, Self::UPDATE_DERIVATION_PATH) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
-        let recovery = match Self::generate_secp256k1(&seed, &Self::RECOVERY_DERIVATION_PATH) {
+        let recovery = match Self::generate_secp256k1(&seed, Self::RECOVERY_DERIVATION_PATH) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
-        let encrypt = match Self::generate_secp256k1(&seed, &Self::ENCRYPT_DERIVATION_PATH) {
+        let encrypt = match Self::generate_secp256k1(&seed, Self::ENCRYPT_DERIVATION_PATH) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
@@ -172,7 +148,7 @@ impl MnemonicKeyring {
     }
 
     pub fn generate_secp256k1(seed: &[u8], derivation_path: &str) -> Result<Secp256k1, NodeXError> {
-        let node = match runtime::bip32::BIP32::get_node(&seed, &derivation_path) {
+        let node = match runtime::bip32::BIP32::get_node(seed, derivation_path) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
@@ -218,7 +194,7 @@ impl MnemonicKeyring {
 
         match self.config.inner.lock() {
             Ok(mut config) => {
-                config.save_did(&did.to_string())
+                config.save_did(did)
             },
             _ => panic!(),
         };
@@ -239,28 +215,27 @@ impl MnemonicKeyring {
     }
 
     pub fn get_identifier(&self) -> Result<String, NodeXError> {
-        match self.config.inner.lock() {
-            Ok(config) => {
-                match config.get_did() {
-                    Some(v) => Ok(v),
-                    None => Err(NodeXError{})
-                }
-            },
-            _ => return Err(NodeXError {})
+        let did = self.config.inner.lock().unwrap().get_did();
+
+        match did {
+            Some(v) => Ok(v),
+            None => Err(NodeXError{})
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_mnemonic_phrase(&self) -> Result<Vec<String>, NodeXError> {
-        Ok(self.mnemonic.split(" ").into_iter().map(|v| v.to_string()).collect())
+        Ok(self.mnemonic.split(' ').into_iter().map(|v| v.to_string()).collect())
     }
 
+    #[allow(dead_code)]
     pub fn verify_mnemonic_phrase(&self, phrase: &Vec<String>) -> Result<bool, NodeXError> {
         let mnemonic = match self.get_mnemonic_phrase() {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
 
-        Ok(mnemonic.cmp(&phrase) == Ordering::Equal)
+        Ok(mnemonic.cmp(phrase) == Ordering::Equal)
     }
 
 }
@@ -314,6 +289,6 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        assert_eq!(result, true)
+        assert!(result)
     }
 }

@@ -6,7 +6,7 @@ use actix_web::{ HttpRequest, HttpResponse };
 struct MessageContainer {}
 
 pub async fn handler(
-    req: HttpRequest,
+    _req: HttpRequest,
 ) -> actix_web::Result<HttpResponse> {
     let service = crate::services::nodex::NodeX::new();
 

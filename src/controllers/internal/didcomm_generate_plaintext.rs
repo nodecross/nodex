@@ -12,7 +12,7 @@ pub struct MessageContainer {
 }
 
 pub async fn handler(
-    req: HttpRequest,
+    _req: HttpRequest,
     web::Json(json): web::Json<MessageContainer>,
 ) -> actix_web::Result<HttpResponse> {
     // NOTE: We will provide an update soon to allow multiple destinations.
@@ -25,7 +25,7 @@ pub async fn handler(
         _ => return Ok(HttpResponse::InternalServerError().finish())
     };
 
-    match DIDCommPlaintextService::generate(&to_did, &json.message, None) {
+    match DIDCommPlaintextService::generate(to_did, &json.message, None) {
         Ok(v) => {
             Ok(HttpResponse::Ok().json(&v))
         },

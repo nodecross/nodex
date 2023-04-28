@@ -1,27 +1,16 @@
-#![feature(libc)]
-#![feature(once_cell)]
-#![feature(const_option)]
-#![feature(default_alloc_error_handler)]
-#![feature(vec_into_raw_parts)]
-#![feature(trivial_bounds)]
-
 extern crate env_logger;
 
 use actix_web::{ middleware, HttpServer, App, web, dev::Server };
 use clap::Parser;
-use daemonize::Daemonize;
 use rumqttc::{AsyncClient, QoS, EventLoop, Event, Packet, MqttOptions};
 use serde::{Deserialize, Serialize};
 use services::nodex::NodeX;
 use tokio::sync::{mpsc, Mutex as TokioMutex};
 use tokio::sync::{mpsc::{Sender, Receiver}, RwLock, oneshot};
 use tokio::time::{Instant, Duration, sleep};
-use nodex::{extension::secure_keystore::{SecureKeyStore, SecureKeyStoreType}};
 use serde_json::{json, Value};
 use std::sync::atomic::AtomicBool;
-use std::{fs::{File, self}, path::PathBuf, sync::{Arc, Once, Mutex}, collections::HashMap};
-use dirs;
-use cuid;
+use std::{fs::{self}, path::PathBuf, sync::{Arc, Once, Mutex}, collections::HashMap};
 
 use crate::config::AppConfig;
 
@@ -57,9 +46,9 @@ pub fn app_config() -> Box<SingletonAppConfig> {
 #[clap(name = "nodex-agent")]
 #[clap(version, about, long_about = None)]
 struct Args {
-    /// Run as daemon mode
-    #[clap(short, long)]
-    daemonize: bool,
+    /// Show node ID
+    #[clap(long)]
+    did: bool,
 }
 
 type Responder = oneshot::Sender<bool>;
@@ -90,35 +79,32 @@ async fn sender_handler(mut rx: Receiver<Command>, client: AsyncClient, db: Arc<
                     "value": value,
                 });
 
-                match client.publish(topic.to_string(), QoS::AtLeastOnce, false, payload.to_string().as_bytes()).await {
-                    Ok(_) => {
-                        db.write().await.insert(id.clone(), false);
-
-                        let start = Instant::now();
-                        let threshold = Duration::from_secs(15);
-
-                        loop {
-                            if threshold < start.elapsed() {
-                                resp.send(false);
-                                break
-                            }
-
-                            match db.read().await.get(&id) {
-                                Some(v) => {
-                                    if *v {
-                                        resp.send(true);
-                                        break
-                                    }
-                                },
-                                None => {
-                                    continue;
-                                }
-                            }
-
-                            sleep(Duration::from_secs(1)).await;
+                if (client.publish(topic.to_string(), QoS::AtLeastOnce, false, payload.to_string().as_bytes()).await).is_ok() {
+                    db.write().await.insert(id.clone(), false);
+                
+                    let start = Instant::now();
+                    let threshold = Duration::from_secs(15);
+                
+                    loop {
+                        if threshold < start.elapsed() {
+                            _ = resp.send(false);
+                            break
                         }
-                    },
-                    _ => { }
+                
+                        match db.read().await.get(&id) {
+                            Some(v) => {
+                                if *v {
+                                    _ = resp.send(true);
+                                    break
+                                }
+                            },
+                            None => {
+                                continue;
+                            }
+                        }
+                
+                        sleep(Duration::from_secs(1)).await;
+                    }
                 }
             }
         }
@@ -142,26 +128,20 @@ async fn receiver_handler(shutdown_marker: Arc<AtomicBool>, mut eventloop: Event
 
         match notification {
             Event::Incoming(v) => {
-                match v {
-                    Packet::Publish(v) => {
-                        match serde_json::from_slice::<Response>(&v.payload) {
-                            Ok(payload) => {
-                                let mut keys = Vec::<String>::new();
-
-                                db.read().await.keys().enumerate().for_each(|v| {
-                                    keys.push(v.1.to_string());
-                                });
-
-                                let item = keys.iter().find(|v| v.to_string() == payload.received_id);
-
-                                if let Some(v) = item {
-                                    let _ = db.write().await.insert(v.to_string(), true);
-                                }
-                            },
-                            _ => {},
-                        };
-                    },
-                    _ => {},
+                if let Packet::Publish(v) = v {
+                    if let Ok(payload) = serde_json::from_slice::<Response>(&v.payload) {
+                        let mut keys = Vec::<String>::new();
+                    
+                        db.read().await.keys().enumerate().for_each(|v| {
+                            keys.push(v.1.to_string());
+                        });
+                    
+                        let item = keys.iter().find(|v| v.to_string() == payload.received_id);
+                    
+                        if let Some(v) = item {
+                            let _ = db.write().await.insert(v.to_string(), true);
+                        }
+                    };
                 }
             },
             Event::Outgoing(_) => {}
@@ -212,6 +192,8 @@ async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "info");
     env_logger::init();
 
+    let args = Args::parse();
+
     let hub_did_topic = "nodex/did:nodex:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
 
     let config = AppConfig::new();
@@ -237,21 +219,16 @@ async fn main() -> std::io::Result<()> {
         Err(_) => panic!(),
     };
 
-    let stdout = File::create(logs_dir.clone().join("nodex.log")).unwrap();
-    let stderr = File::create(logs_dir.clone().join("nodex.err")).unwrap();
-    let sock_path = runtime_dir.clone().join("nodex.sock");
-
-    let daemonize = Daemonize::new()
-        .pid_file(runtime_dir.clone().join("nodex.pid"))
-        .working_directory(".")
-        .stdout(stdout)
-        .stderr(stderr);
-
-    let args = Args::parse();
-
     // NOTE: generate Key Chain
     let node_x = NodeX::new();
     let did = node_x.create_identifier().await.unwrap();
+
+    if args.did {
+        println!("Node ID: {}", did.did_document.id);
+        return Ok(())
+    }
+
+    let sock_path = runtime_dir.clone().join("nodex.sock");
 
     // NOTE: connect mqtt server
     let mqtt_host = "demo-mqtt.getnodex.io";
@@ -292,16 +269,8 @@ async fn main() -> std::io::Result<()> {
         server_stop.await;
     });
 
-    if args.daemonize {
-        match daemonize.start() {
-            Ok(_) => {
-                let _ = tokio::try_join!(server_task, sender_task, receiver_task, shutdown);
-            },
-            Err(_) => panic!(),
-        }
-    } else {
-        let _ = tokio::try_join!(server_task, sender_task, receiver_task, shutdown);
+    match tokio::try_join!(server_task, sender_task, receiver_task, shutdown) {
+        Ok(_) => Ok(()),
+        Err(_) => panic!(),
     }
-
-    Ok(())
 }

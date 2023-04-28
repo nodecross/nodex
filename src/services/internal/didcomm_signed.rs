@@ -18,22 +18,19 @@ impl DIDCommSignedService {
             Err(_) => return Err(NodeXError{})
         };
 
-        let body = match DIDVCService::generate(&message) {
+        let body = match DIDVCService::generate(message) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{}),
         };
 
         let mut message = Message::new()
             .from(&did)
-            .to(&[ &to_did ])
+            .to(&[ to_did ])
             .body(&body.to_string());
 
         // NOTE: Has attachment
         if let Some(value) = metadata {
-            let id = match cuid::cuid() {
-                Ok(v) => v,
-                _ => return Err(NodeXError{}),
-            };
+            let id = cuid::cuid2();
 
             let data = AttachmentDataBuilder::new()
                 .with_link("https://did.getnodex.io")
@@ -114,7 +111,7 @@ impl DIDCommSignedService {
             Err(_) => return Err(NodeXError{}),
         };
 
-        let message = match Message::verify(&message.to_string().as_bytes(), &context.get_public_key()) {
+        let message = match Message::verify(message.to_string().as_bytes(), &context.get_public_key()) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{}),
         };

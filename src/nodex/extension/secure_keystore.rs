@@ -45,7 +45,7 @@ impl SecureKeyStore {
                 Err(_) => return Err(NodeXError{})
             };
 
-            let func: libloading::Symbol<unsafe extern fn(key_type: SecureKeystoreType, secret_key_buffer: *const i8, public_key_buffer: *const i8, secret_key_buffer_len: usize, public_key_buffer_len: usize) -> u32> = match lib.get(&extension.symbol.as_bytes()) {
+            let func: libloading::Symbol<unsafe extern fn(key_type: SecureKeystoreType, secret_key_buffer: *const i8, public_key_buffer: *const i8, secret_key_buffer_len: usize, public_key_buffer_len: usize) -> u32> = match lib.get(extension.symbol.as_bytes()) {
                 Ok(v) => v,
                 Err(_) => return Err(NodeXError{})
             };
@@ -82,7 +82,7 @@ impl SecureKeyStore {
             SecureKeyStoreType::Sign => {
                 match config.inner.lock() {
                     Ok(mut config) => {
-                        config.save_sign_key_pair(&key_pair)
+                        config.save_sign_key_pair(key_pair)
                     },
                     _ => Err(NodeXError {}),
                 }
@@ -90,7 +90,7 @@ impl SecureKeyStore {
             SecureKeyStoreType::Update => {
                 match config.inner.lock() {
                     Ok(mut config) => {
-                        config.save_update_key_pair(&key_pair)
+                        config.save_update_key_pair(key_pair)
                     },
                     _ => Err(NodeXError {}),
                 }
@@ -98,7 +98,7 @@ impl SecureKeyStore {
             SecureKeyStoreType::Recover => {
                 match config.inner.lock() {
                     Ok(mut config) => {
-                        config.save_recover_key_pair(&key_pair)
+                        config.save_recover_key_pair(key_pair)
                     },
                     _ => Err(NodeXError {}),
                 }
@@ -106,7 +106,7 @@ impl SecureKeyStore {
             SecureKeyStoreType::Encrypt => {
                 match config.inner.lock() {
                     Ok(mut config) => {
-                        config.save_encrypt_key_pair(&key_pair)
+                        config.save_encrypt_key_pair(key_pair)
                     },
                     _ => Err(NodeXError {}),
                 }
@@ -132,7 +132,7 @@ impl SecureKeyStore {
                 Err(_) => return Err(NodeXError{})
             };
 
-            let func: libloading::Symbol<unsafe extern fn(key_type: SecureKeystoreType, secret_key_buffer: *const i8, public_key_buffer: *const i8, secret_key_buffer_len: usize, public_key_buffer_len: usize, secret_key_len: *const usize, public_key_len: *const usize) -> u32> = match lib.get(&extension.symbol.as_bytes()) {
+            let func: libloading::Symbol<unsafe extern fn(key_type: SecureKeystoreType, secret_key_buffer: *const i8, public_key_buffer: *const i8, secret_key_buffer_len: usize, public_key_buffer_len: usize, secret_key_len: *const usize, public_key_len: *const usize) -> u32> = match lib.get(extension.symbol.as_bytes()) {
                 Ok(v) => v,
                 Err(_) => return Err(NodeXError{})
             };
@@ -154,7 +154,7 @@ impl SecureKeyStore {
 
             let secret_key = match CStr::from_ptr(secret_key_buffer_ptr).to_str() {
                 Ok(v) => {
-                    match hex::decode(v.to_string()) {
+                    match hex::decode(v) {
                         Ok(v) => v,
                         _ => return Err(NodeXError {})
                     }
@@ -163,7 +163,7 @@ impl SecureKeyStore {
             };
             let public_key = match CStr::from_ptr(public_key_buffer_ptr).to_str() {
                 Ok(v) => {
-                    match hex::decode(v.to_string()) {
+                    match hex::decode(v) {
                         Ok(v) => v,
                         _ => return Err(NodeXError {})
                     }
@@ -234,10 +234,10 @@ impl SecureKeyStore {
 
         match extension {
             Some(v) => {
-                self.write_external(&v, &key_type, &key_pair)
+                self.write_external(&v, key_type, key_pair)
             },
             _ => {
-                self.write_internal(&key_type, &key_pair)
+                self.write_internal(key_type, key_pair)
             }
         }
     }
@@ -253,10 +253,10 @@ impl SecureKeyStore {
 
         match extension {
             Some(v) => {
-                self.read_external(&v, &key_type)
+                self.read_external(&v, key_type)
             },
             _ => {
-                self.read_internal(&key_type)
+                self.read_internal(key_type)
             }
         }
     }

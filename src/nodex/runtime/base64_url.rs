@@ -5,6 +5,7 @@ use crate::nodex::errors::NodeXError;
 pub struct Base64Url {}
 
 pub enum PaddingType {
+    #[allow(dead_code)]
     Padding,
     NoPadding,
 }
@@ -13,10 +14,10 @@ impl Base64Url {
     pub fn encode(content: &[u8], padding: &PaddingType) -> String {
         match padding {
             PaddingType::Padding => {
-                BASE64URL.encode(&content.to_vec())
+                BASE64URL.encode(content)
             },
             PaddingType::NoPadding => {
-                BASE64URL_NOPAD.encode(&content.to_vec())
+                BASE64URL_NOPAD.encode(content)
             },
         }
     }
@@ -73,21 +74,21 @@ mod tests {
 
     #[test]
     fn test_base64url_encode() {
-        let result = Base64Url::encode(&message().as_bytes().to_vec(), &PaddingType::Padding);
+        let result = Base64Url::encode(message().as_bytes(), &PaddingType::Padding);
 
         assert_eq!(result, String::from("MDEyMzQ1Njc4OWFiY2RlZg=="));
     }
 
     #[test]
     fn test_base64url_encode_nopad() {
-        let result = Base64Url::encode(&message().as_bytes().to_vec(), &PaddingType::NoPadding);
+        let result = Base64Url::encode(message().as_bytes(), &PaddingType::NoPadding);
 
         assert_eq!(result, String::from("MDEyMzQ1Njc4OWFiY2RlZg"));
     }
 
     #[test]
     fn test_base64url_decode_byte() {
-        let encoded = Base64Url::encode(&message().as_bytes().to_vec(), &PaddingType::Padding);
+        let encoded = Base64Url::encode(message().as_bytes(), &PaddingType::Padding);
         let result = match Base64Url::decode_as_bytes(&encoded, &PaddingType::Padding) {
             Ok(v) => v,
             Err(_) => panic!()
@@ -101,7 +102,7 @@ mod tests {
 
     #[test]
     fn test_base64url_decode_byte_nopad() {
-        let encoded = Base64Url::encode(&message().as_bytes().to_vec(), &PaddingType::NoPadding);
+        let encoded = Base64Url::encode(message().as_bytes(), &PaddingType::NoPadding);
         let result = match Base64Url::decode_as_bytes(&encoded, &PaddingType::NoPadding) {
             Ok(v) => v,
             Err(_) => panic!()
@@ -115,7 +116,7 @@ mod tests {
 
     #[test]
     fn test_base64url_decode_string() {
-        let encoded = Base64Url::encode(&message().as_bytes().to_vec(), &PaddingType::Padding);
+        let encoded = Base64Url::encode(message().as_bytes(), &PaddingType::Padding);
         let result = match Base64Url::decode_as_string(&encoded, &PaddingType::Padding) {
             Ok(v) => v,
             Err(_) => panic!()
@@ -126,7 +127,7 @@ mod tests {
 
     #[test]
     fn test_base64url_decode_string_nopad() {
-        let encoded = Base64Url::encode(&message().as_bytes().to_vec(), &PaddingType::NoPadding);
+        let encoded = Base64Url::encode(message().as_bytes(), &PaddingType::NoPadding);
         let result = match Base64Url::decode_as_string(&encoded, &PaddingType::NoPadding) {
             Ok(v) => v,
             Err(_) => panic!()
