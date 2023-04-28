@@ -4,9 +4,6 @@ inputs:
   github-token:
     required: true
     description: ""
-  cargo-registry-token:
-    required: true
-    description: ""
 runs:
   using: composite
   steps:
@@ -20,13 +17,13 @@ runs:
       shell: bash
       run: yarn
 
-    - name: (install) rustc-dev
-      shell: bash
-      run: rustup component add rustc-dev
-
     - name: (install) semantic-release-rust
       shell: bash
       run: cargo install semantic-release-rust --version 1.0.0-alpha.8
+
+    - name: (install) cargo-semver
+      shell: bash
+      run: cargo install cargo-semver --vers 1.0.0-alpha.3
 
     - name: (run) set to bump-up mode
       shell: bash
@@ -39,20 +36,13 @@ runs:
         yarn run semantic-release
 
         [[ -f ".VERSION" ]] && {
-          # bump up
-          semantic-release-rust prepare "$(cat .VERSION)"
+          cargo semver set "$(cat .VERSION)"
 
           # set outputs
           echo "::set-output name=VERSION::$(cat .VERSION)"
-        } || :
-
-    - name: (run) lint
-      # re-generate `Cargo.lock` file
-      uses: ./.github/actions/lint
-      with:
-        checkout: false
-        github-token: ${{ inputs.github-token }}
-        cargo-registry-token: ${{ inputs.cargo-registry-token }}
+        } || {
+          exit 1
+        }
 
     - name: (run) create pull request
       uses: peter-evans/create-pull-request@v3

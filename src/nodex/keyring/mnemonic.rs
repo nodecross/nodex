@@ -225,7 +225,7 @@ impl MnemonicKeyring {
 
     #[allow(dead_code)]
     pub fn get_mnemonic_phrase(&self) -> Result<Vec<String>, NodeXError> {
-        Ok(self.mnemonic.split(' ').into_iter().map(|v| v.to_string()).collect())
+        Ok(self.mnemonic.split(' ').map(|v| v.to_string()).collect())
     }
 
     #[allow(dead_code)]

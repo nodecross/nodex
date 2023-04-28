@@ -11,12 +11,12 @@ impl Hasher {
             Err(_) => return Err(NodeXError{})
         };
 
-        Ok(hex::encode(&digest))
+        Ok(hex::encode(digest))
     }
 
     #[allow(dead_code)]
     pub fn verify(message: &[u8], digest: &[u8], secret: &[u8]) -> Result<bool, NodeXError> {
-        let _digest = match hex::decode(&digest) {
+        let _digest = match hex::decode(digest) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };

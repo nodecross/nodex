@@ -88,8 +88,8 @@ impl Secp256k1 {
     #[allow(dead_code)]
     pub fn to_hex_key_pair(&self) -> Secp256k1HexKeyPair {
         Secp256k1HexKeyPair {
-            public : hex::encode(&self.get_public_key()),
-            private: hex::encode(&self.get_secret_key()),
+            public : hex::encode(self.get_public_key()),
+            private: hex::encode(self.get_secret_key()),
         }
     }
 
@@ -229,11 +229,11 @@ impl Secp256k1 {
             Err(_) => return Err(NodeXError{})
         };
 
-        let nx = match IBig::from_str_radix(&hex::encode(&x), 16) {
+        let nx = match IBig::from_str_radix(&hex::encode(x), 16) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{}),
         };
-        let ny = match IBig::from_str_radix(&hex::encode(&y), 16) {
+        let ny = match IBig::from_str_radix(&hex::encode(y), 16) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
