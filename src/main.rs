@@ -2,7 +2,6 @@ extern crate env_logger;
 
 use actix_web::{ middleware, HttpServer, App, web, dev::Server };
 use clap::Parser;
-use daemonize::Daemonize;
 use rumqttc::{AsyncClient, QoS, EventLoop, Event, Packet, MqttOptions};
 use serde::{Deserialize, Serialize};
 use services::nodex::NodeX;
@@ -11,7 +10,7 @@ use tokio::sync::{mpsc::{Sender, Receiver}, RwLock, oneshot};
 use tokio::time::{Instant, Duration, sleep};
 use serde_json::{json, Value};
 use std::sync::atomic::AtomicBool;
-use std::{fs::{File, self}, path::PathBuf, sync::{Arc, Once, Mutex}, collections::HashMap};
+use std::{fs::{self}, path::PathBuf, sync::{Arc, Once, Mutex}, collections::HashMap};
 
 use crate::config::AppConfig;
 
@@ -47,9 +46,9 @@ pub fn app_config() -> Box<SingletonAppConfig> {
 #[clap(name = "nodex-agent")]
 #[clap(version, about, long_about = None)]
 struct Args {
-    /// Run as daemon mode
-    #[clap(short, long)]
-    daemonize: bool,
+    /// Show node ID
+    #[clap(long)]
+    did: bool,
 }
 
 type Responder = oneshot::Sender<bool>;
@@ -193,6 +192,8 @@ async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "info");
     env_logger::init();
 
+    let args = Args::parse();
+
     let hub_did_topic = "nodex/did:nodex:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
 
     let config = AppConfig::new();
@@ -218,21 +219,16 @@ async fn main() -> std::io::Result<()> {
         Err(_) => panic!(),
     };
 
-    let stdout = File::create(logs_dir.clone().join("nodex.log")).unwrap();
-    let stderr = File::create(logs_dir.clone().join("nodex.err")).unwrap();
-    let sock_path = runtime_dir.clone().join("nodex.sock");
-
-    let daemonize = Daemonize::new()
-        .pid_file(runtime_dir.clone().join("nodex.pid"))
-        .working_directory(".")
-        .stdout(stdout)
-        .stderr(stderr);
-
-    let args = Args::parse();
-
     // NOTE: generate Key Chain
     let node_x = NodeX::new();
     let did = node_x.create_identifier().await.unwrap();
+
+    if args.did {
+        println!("Node ID: {}", did.did_document.id);
+        return Ok(())
+    }
+
+    let sock_path = runtime_dir.clone().join("nodex.sock");
 
     // NOTE: connect mqtt server
     let mqtt_host = "demo-mqtt.getnodex.io";
@@ -273,16 +269,8 @@ async fn main() -> std::io::Result<()> {
         server_stop.await;
     });
 
-    if args.daemonize {
-        match daemonize.start() {
-            Ok(_) => {
-                let _ = tokio::try_join!(server_task, sender_task, receiver_task, shutdown);
-            },
-            Err(_) => panic!(),
-        }
-    } else {
-        let _ = tokio::try_join!(server_task, sender_task, receiver_task, shutdown);
+    match tokio::try_join!(server_task, sender_task, receiver_task, shutdown) {
+        Ok(_) => Ok(()),
+        Err(_) => panic!(),
     }
-
-    Ok(())
 }
