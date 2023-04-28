@@ -1,6 +1,6 @@
 [package]
 name = "nodex"
-version ="1.0.0"
+version = "1.0.0"
 authors = [ "NodeX Authors <>" ]
 edition = "2018"
 license-file = "LICENSE"
@@ -19,18 +19,7 @@ categories = [
   "embedded",
   "cryptography",
 ]
-include = [
-  "**/*.rs",
-  "/bindings/**/*.c",
-  "/bindings/**/*.h",
-  "/bindings/**/*.json",
-  "/Cargo.toml",
-  "/Cargo.lock",
-  "/CHANGELOG.md",
-  "/LICENSE",
-  "/README.md",
-  "/SECURITY.md",
-]
+
 [[bin]]
 name = "nodex"
 path = "src/main.rs"

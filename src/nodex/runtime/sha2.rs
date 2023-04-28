@@ -8,7 +8,7 @@ impl SHA256 {
     pub fn digest(message: &[u8]) -> Vec<u8> {
         let mut hasher = Sha256::new();
 
-        hasher.update(&message);
+        hasher.update(message);
 
         hasher.finalize().to_vec()
     }

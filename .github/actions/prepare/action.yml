@@ -4,9 +4,6 @@ inputs:
   github-token:
     required: true
     description: ""
-  cargo-registry-token:
-    required: true
-    description: ""
 runs:
   using: composite
   steps:

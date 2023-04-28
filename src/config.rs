@@ -117,7 +117,7 @@ impl AppConfig {
         if ! Path::exists(config.path()) {
             match config_dir {
                 Some(v) => {
-                    match fs::create_dir_all(&v) {
+                    match fs::create_dir_all(v) {
                         Ok(_) => {},
                         Err(_) => panic!()
                     };
@@ -147,13 +147,13 @@ impl AppConfig {
     }
 
     pub fn encode(&self, value: &Option<Vec<u8>>) -> Option<String> {
-        value.as_ref().map(|v| hex::encode(&v))
+        value.as_ref().map(hex::encode)
     }
 
     pub fn decode(&self, value: &Option<String>) -> Option<Vec<u8>> {
         match value {
             Some(v) => {
-                match hex::decode(&v) {
+                match hex::decode(v) {
                     Ok(v) => Some(v),
                     Err(_) => None,
                 }
