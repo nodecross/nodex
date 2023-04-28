@@ -2,16 +2,8 @@ CARGO = cargo
 ACT = act
 GRCOV = grcov
 
-build-windows:
-	$(CARGO) build --release --target x86_64-pc-windows-msvc
-
-build-linux:
-	$(CARGO) build --release --target x86_64-unknown-linux-musl
-
-build-macos:
-	$(CARGO) build --release --target x86_64-apple-darwin
-
-build: build-linux build-macos
+build:
+	$(CARGO) build --release
 
 lint:
 	$(CARGO) clippy --all-targets --all-features -- -D warnings

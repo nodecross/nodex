@@ -1,15 +1,15 @@
 name: lint
+description: ""
 inputs:
   checkout:
     required: false
-    default: true
-    type: boolean
+    description: ""
   github-token:
     required: true
-    type: string
+    description: ""
   cargo-registry-token:
     required: true
-    type: string
+    description: ""
 runs:
   using: composite
   steps:
