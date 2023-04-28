@@ -1,11 +1,15 @@
 use bip39::{Mnemonic, Language};
 
-use crate::nodex::{errors::NodeXError, extension::trng::TRNG};
+use crate::nodex::{errors::NodeXError, extension::trng::Trng};
 
 pub enum MnemonicType {
+    #[allow(dead_code)]
     Words12,
+    #[allow(dead_code)]
     Words15,
+    #[allow(dead_code)]
     Words18,
+    #[allow(dead_code)]
     Words21,
     Words24,
 }
@@ -22,7 +26,7 @@ impl BIP39 {
             MnemonicType::Words24 => 256,
         };
 
-        let trng = TRNG::new();
+        let trng = Trng::new();
 
         let seed = match trng.read(&(bits / 8)) {
             Ok(v) => v,
@@ -36,13 +40,13 @@ impl BIP39 {
     }
 
     pub fn mnemonic_to_seed (mnemonic_string: &str, passphrase: Option<&str>) -> Result<Vec<u8>, NodeXError> {
-        let mnemonic = match Mnemonic::parse_in_normalized(Language::English, &mnemonic_string) {
+        let mnemonic = match Mnemonic::parse_in_normalized(Language::English, mnemonic_string) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
 
         match passphrase {
-            Some(v) => Ok(mnemonic.to_seed_normalized(&v).to_vec()),
+            Some(v) => Ok(mnemonic.to_seed_normalized(v).to_vec()),
             None => Ok(mnemonic.to_seed_normalized("").to_vec()),
         }
     }
@@ -70,7 +74,7 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        assert_eq!(result.split(" ").count(), 12)
+        assert_eq!(result.split(' ').count(), 12)
     }
 
     #[test]
@@ -80,7 +84,7 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        assert_eq!(result.split(" ").count(), 15)
+        assert_eq!(result.split(' ').count(), 15)
     }
 
     #[test]
@@ -90,7 +94,7 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        assert_eq!(result.split(" ").count(), 18)
+        assert_eq!(result.split(' ').count(), 18)
     }
 
     #[test]
@@ -100,7 +104,7 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        assert_eq!(result.split(" ").count(), 21)
+        assert_eq!(result.split(' ').count(), 21)
     }
 
     #[test]
@@ -110,7 +114,7 @@ pub mod tests {
             Err(_) => panic!()
         };
 
-        assert_eq!(result.split(" ").count(), 24)
+        assert_eq!(result.split(' ').count(), 24)
     }
 
     #[test]

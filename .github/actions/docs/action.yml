@@ -1,11 +1,12 @@
 name: docs
+description: ""
 inputs:
   github-token:
     required: true
-    type: string
+    description: ""
   cargo-registry-token:
     required: true
-    type: string
+    description: ""
 runs:
   using: composite
   steps:

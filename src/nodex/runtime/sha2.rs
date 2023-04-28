@@ -1,8 +1,10 @@
 use sha2::{Sha256, Digest};
 
+#[allow(dead_code)]
 pub struct SHA256 {}
 
 impl SHA256 {
+    #[allow(dead_code)]
     pub fn digest(message: &[u8]) -> Vec<u8> {
         let mut hasher = Sha256::new();
 
@@ -24,7 +26,7 @@ pub mod tests {
 
     #[test]
     pub fn test_sha256() {
-        let result = SHA256::digest(&message().as_bytes());
+        let result = SHA256::digest(message().as_bytes());
 
         assert_eq!(result, vec![
             0x9f, 0x9f, 0x51, 0x11, 0xf7, 0xb2, 0x7a, 0x78, 0x1f, 0x1f,

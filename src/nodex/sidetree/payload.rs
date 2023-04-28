@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use serde_json::{json, Value};
+use serde_json::json;
 
 use crate::nodex::{keyring::secp256k1::KeyPairSecp256K1, errors::NodeXError};
 use crate::nodex::runtime::multihash::Multihash;
@@ -83,6 +83,7 @@ pub struct PublicKeyPayload {
 }
 
 // ACTION: add-public-keys
+#[allow(dead_code)]
 struct DIDAddPublicKeysPayload {
     id     : String,
     r#type : String,
@@ -90,27 +91,32 @@ struct DIDAddPublicKeysPayload {
     purpose: Vec<String>,
 }
 
+#[allow(dead_code)]
 struct DIDAddPublicKeysAction {
     action     : String, //'add-public-keys',
     public_keys: Vec<DIDAddPublicKeysPayload>
 }
 
 // ACTION: remove-public-keys
+#[allow(dead_code)]
 struct DIDRemovePublicKeysAction {
     action: String, // 'remove-public-keys',
     ids   : Vec<String>,
 }
 
 // ACTION: add-services
+#[allow(dead_code)]
 struct DIDAddServicesPayload {
 }
 
+#[allow(dead_code)]
 struct DIDAddServicesAction {
     action  : String, // 'add-services',
     services: Vec<DIDAddServicesPayload>,
 }
 
 // ACTION: remove-services
+#[allow(dead_code)]
 struct DIDRemoveServicesAction {
     action: String, // 'remove-services',
     ids   : Vec<String>,
@@ -145,11 +151,13 @@ struct DIDReplaceSuffixObject {
 }
 
 // ACTION: ietf-json-patch
+#[allow(dead_code)]
 struct DIDIetfJsonPatchAction {
     action : String, // 'replace',
     // patches: Vec<>
 }
 
+#[allow(dead_code)]
 struct DIDResolutionRequest {
     did: String
 }
@@ -218,26 +226,32 @@ pub struct DIDCreateResponse {
     pub method_metadata: MethodMetadata,
 }
 
+#[allow(dead_code)]
 struct DIDUpdateRequest {
     // NOT IMPLEMENTED
 }
 
+#[allow(dead_code)]
 struct DIDUpdateResponse {
     // NOT IMPLEMENTED
 }
 
+#[allow(dead_code)]
 struct DIDRecoverRequest {
     // NOT IMPLEMENTED
 }
 
+#[allow(dead_code)]
 struct DIDRecoverResponse {
     // NOT IMPLEMENTED
 }
 
+#[allow(dead_code)]
 struct DIDDeactivateRequest {
     // NOT IMPLEMENTED
 }
 
+#[allow(dead_code)]
 struct DIDDeactivateResponse {
     // NOT IMPLEMENTED
 }
@@ -245,13 +259,13 @@ struct DIDDeactivateResponse {
 impl OperationPayload {
     pub fn did_create_payload(params: &DIDCreateRequest) -> Result<String, NodeXError> {
         let update = json!(&params.commitment_keys.update);
-        let update_commitment = match Multihash::canonicalize_then_double_hash_then_encode(&update.to_string().as_bytes()) {
+        let update_commitment = match Multihash::canonicalize_then_double_hash_then_encode(update.to_string().as_bytes()) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
 
         let recovery = json!(&params.commitment_keys.recovery);
-        let recovery_commitment = match Multihash::canonicalize_then_double_hash_then_encode(&recovery.to_string().as_bytes()) {
+        let recovery_commitment = match Multihash::canonicalize_then_double_hash_then_encode(recovery.to_string().as_bytes()) {
             Ok(v) => v,
             Err(_) => return Err(NodeXError{})
         };
@@ -262,28 +276,28 @@ impl OperationPayload {
         };
         let patch: DIDReplaceAction = DIDReplaceAction {
             action  : "replace".to_string(),
-            document: document,
+            document,
         };
 
         let delta = json!(DIDReplaceDeltaObject {
             patches: vec![ patch ],
-            update_commitment: update_commitment,
+            update_commitment,
         }).to_string();
 
         let delta_bytes = delta.as_bytes();
         let delta_hash = Base64Url::encode(
-            &Multihash::hash(&delta_bytes), &PaddingType::NoPadding
+            &Multihash::hash(delta_bytes), &PaddingType::NoPadding
         );
 
         let suffix = json!(DIDReplaceSuffixObject {
-            delta_hash: delta_hash,
-            recovery_commitment: recovery_commitment,
+            delta_hash,
+            recovery_commitment,
         }).to_string();
 
         let suffix_bytes = suffix.as_bytes();
 
-        let encoded_delta = Base64Url::encode(&delta_bytes, &PaddingType::NoPadding);
-        let encoded_suffix = Base64Url::encode(&suffix_bytes, &PaddingType::NoPadding);
+        let encoded_delta = Base64Url::encode(delta_bytes, &PaddingType::NoPadding);
+        let encoded_suffix = Base64Url::encode(suffix_bytes, &PaddingType::NoPadding);
 
         let payload: DIDCreatePayload = DIDCreatePayload {
             r#type: "create".to_string(),
@@ -308,7 +322,7 @@ pub mod tests {
             Err(_) => panic!(),
         };
 
-        let public = match keyring.get_sign_key_pair().to_public_key("key_id", &vec![""]) {
+        let public = match keyring.get_sign_key_pair().to_public_key("key_id", &[""]) {
             Ok(v) => v,
             Err(_) => panic!()
         };
@@ -324,8 +338,8 @@ pub mod tests {
         let result = match OperationPayload::did_create_payload(&DIDCreateRequest {
             public_keys: vec![ public ],
             commitment_keys: CommitmentKeys {
-                recovery: recovery,
-                update: update,
+                recovery,
+                update,
             },
             service_endpoints: vec![],
         }) {
