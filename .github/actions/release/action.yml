@@ -4,6 +4,9 @@ inputs:
   github-token:
     required: true
     description: ""
+  use-cache:
+    required: true
+    description: ""
 runs:
   using: composite
   steps:
@@ -12,6 +15,10 @@ runs:
 
     - name: (setup) environment
       uses: ./.github/actions/shared
+
+    - name: (cache) rust
+      if: ${{ inputs.use-cache == 'true' }}
+      uses: Swatinem/rust-cache@v2
 
     - name: (install) yarn
       shell: bash
