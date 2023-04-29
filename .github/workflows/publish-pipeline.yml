@@ -4,6 +4,9 @@ on:
   pull_request:
     branches: [ main ]
     types: [ closed ]
+    paths:
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
 
 env:
   CARGO_TERM_COLOR: always
@@ -14,7 +17,7 @@ permissions:
 
 jobs:
   prepare:
-    if: ${{ (github.event.pull_request.merged == 'true') && (startsWith(github.event.pull_request.head.ref, 'release/release-')) }}
+    if: github.event.pull_request.merged == 'true' && startsWith(github.event.pull_request.head.ref, 'release/release-')
     runs-on: ubuntu-latest
 
     steps:
