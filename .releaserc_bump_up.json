@@ -2,10 +2,12 @@
   "branches": [ "main" ],
   "plugins": [
     [ "@semantic-release/commit-analyzer", {} ],
+    [ "@semantic-release/release-notes-generator", {} ],
+    [ "@semantic-release/changelog", {} ],
     [ "@semantic-release/exec", {
       "verifyReleaseCmd": "echo ${nextRelease.version} > .VERSION"
     } ]
   ],
-  "dryRun": true,
+  "dryRun": false,
   "ci": true
 }
