@@ -4,6 +4,9 @@ inputs:
   github-token:
     required: true
     description: ""
+  use-cache:
+    required: true
+    description: ""
 runs:
   using: composite
   steps:
@@ -13,13 +16,13 @@ runs:
     - name: (setup) environment
       uses: ./.github/actions/shared
 
+    - name: (cache) rust
+      if: ${{ inputs.use-cache == 'true' }}
+      uses: Swatinem/rust-cache@v2
+
     - name: (install) yarn
       shell: bash
       run: yarn
-
-    - name: (install) semantic-release-rust
-      shell: bash
-      run: cargo install semantic-release-rust --version 1.0.0-alpha.8
 
     - name: (run) set to publish mode
       shell: bash
