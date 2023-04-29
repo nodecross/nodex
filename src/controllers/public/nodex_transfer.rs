@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use actix_web::{ HttpRequest, HttpResponse, web };
 use serde_json::Value;
 use tokio::sync::oneshot;
-use crate::{Context, Command};
+use crate::{Command, server::Context};
 
 // NOTE: POST /transfer
 #[derive(Deserialize, Serialize)]

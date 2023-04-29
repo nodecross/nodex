@@ -4,9 +4,9 @@ inputs:
   github-token:
     required: true
     description: ""
-  cargo-registry-token:
+  use-cache:
     required: true
-    description: "" 
+    description: ""
 runs:
   using: composite
   steps:
@@ -15,6 +15,10 @@ runs:
 
     - name: (setup) environment
       uses: ./.github/actions/shared
+
+    - name: (cache) rust
+      if: ${{ inputs.use-cache == 'true' }}
+      uses: Swatinem/rust-cache@v2
 
     - name: (install) yarn
       shell: bash
@@ -46,8 +50,3 @@ runs:
       with:
         github-token: ${{ inputs.github-token }}
         path-to-lcov: coverage/target.lcov
-
-    # - name: (check) coverage rate
-    #   # [!] check for coverage rate: greather than 85%
-    #   shell: bash
-    #   run: .bin/check-coverage.sh 85 coverage/target.lcov
