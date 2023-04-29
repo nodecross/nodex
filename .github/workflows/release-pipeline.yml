@@ -8,6 +8,10 @@ env:
   CARGO_TERM_COLOR: always
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   prepare:
     runs-on: ubuntu-latest
@@ -62,3 +66,4 @@ jobs:
       uses: ./.github/actions/release
       with:
         github-token: ${{ env.GITHUB_TOKEN }}
+        use-cache: true
