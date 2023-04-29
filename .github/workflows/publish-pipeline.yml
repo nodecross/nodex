@@ -13,14 +13,78 @@ permissions:
   contents: read
 
 jobs:
-  publish:
+  prepare:
+    if: ${{ (github.event.pull_request.merged == 'true') && (startsWith(github.event.pull_request.head.ref, 'release/release-')) }}
     runs-on: ubuntu-latest
 
     steps:
     - name: (checkout) source code
       uses: actions/checkout@v2
 
+    - name: (run) prepare
+      uses: ./.github/actions/prepare
+      with:
+        github-token: ${{ env.GITHUB_TOKEN }}
+
+  build:
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+
+    runs-on: ${{ matrix.os }}
+    needs: [ prepare ]
+
+    steps:
+    - name: (checkout) source code
+      uses: actions/checkout@v2
+
+    - name: (run) build
+      uses: ./.github/actions/build
+      with:
+        github-token: ${{ env.GITHUB_TOKEN }}
+        use-cache: false
+
+    - name: (run) create artifact
+      uses: vimtor/action-zip@v1
+      with:
+        files: target/release/nodex-agent
+        dest: nodex-agent-${{ matrix.os }}.zip
+
+    - name: (run) upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: nodex-agent-${{ matrix.os }}
+        path: nodex-agent-${{ matrix.os }}.zip
+
+  test:
+    runs-on: ubuntu-latest
+    needs: [ prepare ]
+
+    steps:
+    - name: (checkout) source code
+      uses: actions/checkout@v2
+
+    - name: (run) test
+      uses: ./.github/actions/test
+      with:
+        github-token: ${{ env.GITHUB_TOKEN }}
+        use-cache: true
+
+  publish:
+    needs: [ build, test ]
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: (checkout) source code
+      uses: actions/checkout@v2
+
+    - name: (run) download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts
+
     - name: (run) publish
       uses: ./.github/actions/publish
       with:
         github-token: ${{ env.GITHUB_TOKEN }}
+        use-cache: false
