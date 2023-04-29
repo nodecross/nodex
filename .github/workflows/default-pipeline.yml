@@ -37,6 +37,7 @@ jobs:
       uses: ./.github/actions/build
       with:
         github-token: ${{ env.GITHUB_TOKEN }}
+        use-cache: true
 
   test:
     runs-on: ubuntu-latest

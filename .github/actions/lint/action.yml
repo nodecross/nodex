@@ -11,7 +11,7 @@ runs:
   using: composite
   steps:
     - name: (checkout) source code
-      if: inputs.checkout == true
+      if: ${{ inputs.checkout == 'true' }}
       uses: actions/checkout@v2
 
     # - name: (check) conventional commits

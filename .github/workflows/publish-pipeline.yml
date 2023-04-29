@@ -10,22 +10,8 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-  docs:
-    if: (github.event.pull_request.merged == true) && (startsWith(github.event.pull_request.head.ref, 'release/release-'))
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: (checkout) source code
-      uses: actions/checkout@v2
-
-    - name: (run) docs
-      uses: ./.github/actions/docs
-      with:
-        github-token: ${{ env.GITHUB_TOKEN }}
-
   publish:
     runs-on: ubuntu-latest
-    needs: [ docs ]
 
     steps:
     - name: (checkout) source code

@@ -21,35 +21,37 @@ jobs:
       with:
         github-token: ${{ env.GITHUB_TOKEN }}
 
-  build:
-    runs-on: ubuntu-latest
-    needs: [ prepare ]
+  # build:
+  #   runs-on: ubuntu-latest
+  #   needs: [ prepare ]
 
-    steps:
-    - name: (checkout) source code
-      uses: actions/checkout@v2
+  #   steps:
+  #   - name: (checkout) source code
+  #     uses: actions/checkout@v2
 
-    - name: (run) build
-      uses: ./.github/actions/build
-      with:
-        github-token: ${{ env.GITHUB_TOKEN }}
+  #   - name: (run) build
+  #     uses: ./.github/actions/build
+  #     with:
+  #       github-token: ${{ env.GITHUB_TOKEN }}
+  #       use-cache: true
 
-  test:
-    runs-on: ubuntu-latest
-    needs: [ prepare ]
+  # test:
+  #   runs-on: ubuntu-latest
+  #   needs: [ prepare ]
 
-    steps:
-    - name: (checkout) source code
-      uses: actions/checkout@v2
+  #   steps:
+  #   - name: (checkout) source code
+  #     uses: actions/checkout@v2
 
-    - name: (run) test
-      uses: ./.github/actions/test
-      with:
-        github-token: ${{ env.GITHUB_TOKEN }}
+  #   - name: (run) test
+  #     uses: ./.github/actions/test
+  #     with:
+  #       github-token: ${{ env.GITHUB_TOKEN }}
 
   release:
     runs-on: ubuntu-latest
-    needs: [ build, test ]
+    # needs: [ build, test ]
+    needs: [ prepare ]
 
     steps:
     - name: (checkout) source code

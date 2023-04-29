@@ -1,23 +1,26 @@
 extern crate env_logger;
 
-use actix_web::{ middleware, HttpServer, App, web, dev::Server };
 use clap::Parser;
-use rumqttc::{AsyncClient, QoS, EventLoop, Event, Packet, MqttOptions};
-use serde::{Deserialize, Serialize};
+use rumqttc::{AsyncClient, QoS, MqttOptions};
 use services::nodex::NodeX;
-use tokio::sync::{mpsc, Mutex as TokioMutex};
-use tokio::sync::{mpsc::{Sender, Receiver}, RwLock, oneshot};
-use tokio::time::{Instant, Duration, sleep};
-use serde_json::{json, Value};
+use tokio::sync::mpsc;
+use tokio::sync::RwLock;
+use tokio::time::Duration;
 use std::sync::atomic::AtomicBool;
-use std::{fs::{self}, path::PathBuf, sync::{Arc, Once, Mutex}, collections::HashMap};
+use std::{fs::{self}, sync::{Arc, Once, Mutex}, collections::HashMap};
+use shadow_rs::shadow;
 
+use handlers::Command;
 use crate::config::AppConfig;
 
 mod nodex;
 mod services;
 mod config;
 mod controllers;
+mod handlers;
+mod server;
+
+shadow!(build);
 
 #[derive(Clone)]
 pub struct SingletonAppConfig {
@@ -44,155 +47,23 @@ pub fn app_config() -> Box<SingletonAppConfig> {
 #[derive(Parser, Debug)]
 #[clap(name = "nodex-agent")]
 #[clap(name = "nodex-agent")]
-#[clap(version, about, long_about = None)]
-struct Args {
+#[clap(
+    version = shadow_rs::formatcp!("v{} ({} {})\n{} @ {}", build::PKG_VERSION, build::SHORT_COMMIT, build::BUILD_TIME_3339, build::RUST_VERSION, build::BUILD_TARGET),
+    about,
+    long_about = None
+)]
+struct Cli {
     /// Show node ID
     #[clap(long)]
     did: bool,
 }
 
-type Responder = oneshot::Sender<bool>;
-
-#[derive(Debug)]
-enum Command {
-    Send {
-        value: Value,
-        resp: Responder,
-    }
-}
-
-#[derive(Debug)]
-pub struct Context {
-    sender: TokioMutex<Sender<Command>>
-}
-
-async fn sender_handler(mut rx: Receiver<Command>, client: AsyncClient, db: Arc<RwLock<HashMap::<String, bool>>>, topic: String) {
-    log::info!("start sender");
-
-    while let Some(cmd) = rx.recv().await {
-        match cmd {
-            Command::Send { value, resp } => {
-                let id = cuid::cuid2();
-
-                let payload: Value = json!({
-                    "id": id,
-                    "value": value,
-                });
-
-                if (client.publish(topic.to_string(), QoS::AtLeastOnce, false, payload.to_string().as_bytes()).await).is_ok() {
-                    db.write().await.insert(id.clone(), false);
-                
-                    let start = Instant::now();
-                    let threshold = Duration::from_secs(15);
-                
-                    loop {
-                        if threshold < start.elapsed() {
-                            _ = resp.send(false);
-                            break
-                        }
-                
-                        match db.read().await.get(&id) {
-                            Some(v) => {
-                                if *v {
-                                    _ = resp.send(true);
-                                    break
-                                }
-                            },
-                            None => {
-                                continue;
-                            }
-                        }
-                
-                        sleep(Duration::from_secs(1)).await;
-                    }
-                }
-            }
-        }
-    }
-
-    log::info!("stop sender");
-}
-
-async fn receiver_handler(shutdown_marker: Arc<AtomicBool>, mut eventloop: EventLoop, db: Arc<RwLock<HashMap::<String, bool>>>) {
-    #[derive(Debug, Serialize, Deserialize)]
-    struct Response {
-        received_id: String,
-    }
-
-    log::info!("start receiver");
-
-    while let Ok(notification) = eventloop.poll().await {
-        if shutdown_marker.load(std::sync::atomic::Ordering::SeqCst) {
-            break;
-        }
-
-        match notification {
-            Event::Incoming(v) => {
-                if let Packet::Publish(v) = v {
-                    if let Ok(payload) = serde_json::from_slice::<Response>(&v.payload) {
-                        let mut keys = Vec::<String>::new();
-                    
-                        db.read().await.keys().enumerate().for_each(|v| {
-                            keys.push(v.1.to_string());
-                        });
-                    
-                        let item = keys.iter().find(|v| v.to_string() == payload.received_id);
-                    
-                        if let Some(v) = item {
-                            let _ = db.write().await.insert(v.to_string(), true);
-                        }
-                    };
-                }
-            },
-            Event::Outgoing(_) => {}
-        }
-    }
-
-    log::info!("stop receiver");
-}
-
-fn new_server(sock_path: &PathBuf, sender: Sender<Command>) -> Server {
-    let context = web::Data::new(Context {
-        sender: TokioMutex::new(sender),
-    });
-
-    HttpServer::new(move || {
-        App::new()
-            .wrap(middleware::DefaultHeaders::new().add(("x-version", "0.1.0")))
-            .wrap(middleware::Compress::default())
-            .wrap(middleware::Logger::default())
-            .app_data(context.clone())
-
-            // NOTE: Public Routes
-            .route("/identifiers", web::post().to(controllers::public::nodex_create_identifier::handler))
-            .route("/identifiers/{did}", web::get().to(controllers::public::nodex_find_identifier::handler))
-            .route("/transfer", web::post().to(controllers::public::nodex_transfer::handler))
-
-            // NOTE: Internal (Private) Routes
-            .route("/internal/verifiable-credentials", web::post().to(controllers::internal::did_generate_vc::handler))
-            .route("/internal/verifiable-credentials/verify", web::post().to(controllers::internal::did_verify_vc::handler))
-            .route("/internal/verifiable-presentations", web::post().to(controllers::internal::did_generate_vp::handler))
-            .route("/internal/verifiable-presentations/verify", web::post().to(controllers::internal::did_verify_vp::handler))
-
-            .route("/internal/didcomm/plaintext-messages", web::post().to(controllers::internal::didcomm_generate_plaintext::handler))
-            .route("/internal/didcomm/plaintext-messages/verify", web::post().to(controllers::internal::didcomm_verify_plaintext::handler))
-            .route("/internal/didcomm/signed-messages", web::post().to(controllers::internal::didcomm_generate_signed::handler))
-            .route("/internal/didcomm/signed-messages/verify", web::post().to(controllers::internal::didcomm_verify_signed::handler))
-            .route("/internal/didcomm/encrypted-messages", web::post().to(controllers::internal::didcomm_generate_encrypted::handler))
-            .route("/internal/didcomm/encrypted-messages/verify", web::post().to(controllers::internal::didcomm_verify_encrypted::handler))
-    })
-    .bind_uds(&sock_path)
-    .unwrap()
-    .workers(1)
-    .run()
-}
-
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
+    let cli = Cli::parse();
+
     std::env::set_var("RUST_LOG", "info");
     env_logger::init();
-
-    let args = Args::parse();
 
     let hub_did_topic = "nodex/did:nodex:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
 
@@ -223,9 +94,12 @@ async fn main() -> std::io::Result<()> {
     let node_x = NodeX::new();
     let did = node_x.create_identifier().await.unwrap();
 
-    if args.did {
-        println!("Node ID: {}", did.did_document.id);
-        return Ok(())
+    match cli.did {
+        true => {
+            println!("Node ID: {}", did.did_document.id);
+            return Ok(())
+        },
+        false => (),
     }
 
     let sock_path = runtime_dir.clone().join("nodex.sock");
@@ -251,14 +125,14 @@ async fn main() -> std::io::Result<()> {
     let (tx, rx) = mpsc::channel::<Command>(32);
     let db = Arc::new(RwLock::new(HashMap::<String, bool>::new()));
 
-    let server = new_server(&sock_path, tx);
+    let server = server::new_server(&sock_path, tx);
     let server_handle = server.handle();
 
     let shutdown_marker = Arc::new(AtomicBool::new(false));
 
     let server_task = tokio::spawn(server);
-    let sender_task = tokio::spawn(sender_handler(rx, client, Arc::clone(&db), mqtt_topic));
-    let receiver_task = tokio::spawn(receiver_handler(Arc::clone(&shutdown_marker), eventloop, Arc::clone(&db)));
+    let sender_task = tokio::spawn(handlers::sender::handler(rx, client, Arc::clone(&db), mqtt_topic));
+    let receiver_task = tokio::spawn(handlers::receiver::handler(Arc::clone(&shutdown_marker), eventloop, Arc::clone(&db)));
 
     let shutdown = tokio::spawn(async move {
         tokio::signal::ctrl_c().await.unwrap();
