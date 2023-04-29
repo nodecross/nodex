@@ -47,6 +47,7 @@ jobs:
   #     uses: ./.github/actions/test
   #     with:
   #       github-token: ${{ env.GITHUB_TOKEN }}
+  #       use-cache: true
 
   release:
     runs-on: ubuntu-latest
