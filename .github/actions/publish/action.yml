@@ -13,10 +13,17 @@ runs:
     - name: (setup) environment
       uses: ./.github/actions/shared
 
-    - name: (run) download artifacts
+    - name: (run) download artifacts (mac)
       uses: actions/download-artifact@v3
       with:
-        path: artifacts
+        name: macos-latest
+        path: ~/macos-latest
+
+    - name: (run) download artifacts (linux)
+      uses: actions/download-artifact@v3
+      with:
+        name: ubuntu-latest
+        path: ~/ubuntu-latest
 
     - name: (run) commit analyzer
       id: commit_analyzer
@@ -34,11 +41,8 @@ runs:
     - name: (debug)
       shell: bash
       run: |
-        ls -la
-        ls -la /home/runner/work/nodex
-        ls -la /home/runner/work/nodex/nodex
-        ls -la /home/runner/work/nodex/nodex/artifacts
-        find /home/runner/work/nodex/nodex -type f
+        ls -la ~/
+        find ~/ -type f
 
     - name: (publish) upload asset (linux)
       uses: actions/upload-release-asset@v1
