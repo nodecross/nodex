@@ -14,15 +14,15 @@ runs:
     - name: (checkout) source code
       uses: actions/checkout@v2
 
-    - name: (setup) environment
-      uses: ./.github/actions/shared
+    - name: (install) nodejs toolchain
+      uses: actions/setup-node@v2
 
     - name: (run) commit-analyzer
       id: commit_analyzer
       shell: bash
       run: |
         yarn
-        yarn semantic-release
+        yarn semantic-release -b "${{ github.ref_name }}"
 
         [[ -f ".VERSION" ]] && {
           echo "version=$(cat .VERSION)" >> $GITHUB_OUTPUT
