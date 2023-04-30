@@ -1,9 +1,11 @@
 {
   "branches": [ "main" ],
   "plugins": [
+    [ "@semantic-release/release-notes-generator", {} ],
+    [ "@semantic-release/changelog", {} ],
     [ "@semantic-release/github", {
       "assets": [
-        {"path": "artifacts/**/*.zip" }
+        { "path": "artifacts/**/*.zip" }
       ]
     } ]
   ],
