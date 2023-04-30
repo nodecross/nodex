@@ -9,6 +9,9 @@ env:
   CARGO_TERM_COLOR: always
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+permissions:
+  contents: write
+
 jobs:
   create-tag:
     if: (github.event.pull_request.merged == true) && (startsWith(github.event.pull_request.head.ref, 'release/release-'))
