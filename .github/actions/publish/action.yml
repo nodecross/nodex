@@ -28,7 +28,6 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       with:
-        tag: "v${{ steps.commit_analyzer.outputs.version }}"
         version: "v${{ steps.commit_analyzer.outputs.version }}"
         publish: false
 
