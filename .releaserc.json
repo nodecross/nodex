@@ -6,6 +6,6 @@
       "verifyReleaseCmd": "echo ${nextRelease.version} > .VERSION"
     } ]
   ],
-  "dryRun": false,
+  "dryRun": true,
   "ci": true
 }

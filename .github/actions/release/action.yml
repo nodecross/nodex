@@ -30,19 +30,19 @@ runs:
 
     - name: (run) bump up
       shell: bash
-      run: cargo semver set "${{ steps.commit_analyzer.outputs.VERSION }}"
+      run: cargo semver set "${{ steps.commit_analyzer.outputs.version }}"
 
     - name: (run) create pull request
       uses: peter-evans/create-pull-request@v3
       with:
         token: "${{ inputs.github-token }}"
-        commit-message: "chore(release): bump up to ${{ steps.commit_analyzer.outputs.VERSION }}"
+        commit-message: "chore(release): bump up to ${{ steps.commit_analyzer.outputs.version }}"
         committer: "${{ github.actor }} [bot] <${{ github.actor }}@users.noreply.github.com>"
         branch: release/release
         branch-suffix: random
-        title: "[release] bump up to ${{ steps.commit_analyzer.outputs.VERSION }}"
+        title: "[release] bump up to ${{ steps.commit_analyzer.outputs.version }}"
         body: |
-          [release] bump up to ${{ steps.commit_analyzer.outputs.VERSION }}
+          [release] bump up to ${{ steps.commit_analyzer.outputs.version }}
 
           This PullRequest was automatically created by GitHub Workflow. Please review and then accept or reject.
 

@@ -4,6 +4,10 @@ inputs:
   github-token:
     required: true
     description: ""
+outputs:
+  version:
+    description: ""
+    value: ${{ steps.commit_analyzer.outputs.version }}
 runs:
   using: composite
   steps:
@@ -13,15 +17,15 @@ runs:
     - name: (setup) environment
       uses: ./.github/actions/shared
 
-    - name: (run) bump-up
-      id: bump-up
+    - name: (run) commit-analyzer
+      id: commit_analyzer
       shell: bash
       run: |
         yarn
         yarn semantic-release
 
         [[ -f ".VERSION" ]] && {
-          echo "::set-output name=VERSION::$(cat .VERSION)"
+          echo "version=$(cat .VERSION)" >> $GITHUB_OUTPUT
         } || {
           exit 1
         }
