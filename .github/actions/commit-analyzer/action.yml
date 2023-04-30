@@ -1,0 +1,26 @@
+name: commit-analyzer
+description: ""
+inputs:
+  github-token:
+    required: true
+    description: ""
+runs:
+  using: composite
+  steps:
+    - name: (checkout) source code
+      uses: actions/checkout@v2
+
+    - name: (setup) environment
+      uses: ./.github/actions/shared
+
+    - name: (run) bump-up
+      id: bump-up
+      shell: bash
+      run: |
+        yarn run semantic-release
+
+        [[ -f ".VERSION" ]] && {
+          echo "::set-output name=VERSION::$(cat .VERSION)"
+        } || {
+          exit 1
+        }

@@ -2,12 +2,10 @@ name: publish-pipeline
 
 on:
   push:
-    branches: [ main ]
     tags:
-      - "*"
-    paths:
-      - "Cargo.toml"
-      - "Cargo.lock"
+      - "v1.*"
+      - "v2.*"
+      - "v3.*"
 
 env:
   CARGO_TERM_COLOR: always
@@ -15,6 +13,7 @@ env:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   prepare:
@@ -45,7 +44,7 @@ jobs:
       uses: ./.github/actions/build
       with:
         github-token: ${{ env.GITHUB_TOKEN }}
-        use-cache: false
+        use-cache: true
 
     - name: (run) create artifact
       uses: vimtor/action-zip@v1
@@ -56,7 +55,7 @@ jobs:
     - name: (run) upload artifact
       uses: actions/upload-artifact@v3
       with:
-        name: nodex-agent-${{ matrix.os }}
+        name: ${{ matrix.os }}
         path: nodex-agent-${{ matrix.os }}.zip
 
   test:
@@ -81,13 +80,7 @@ jobs:
     - name: (checkout) source code
       uses: actions/checkout@v2
 
-    - name: (run) download artifacts
-      uses: actions/download-artifact@v3
-      with:
-        path: artifacts
-
     - name: (run) publish
       uses: ./.github/actions/publish
       with:
         github-token: ${{ env.GITHUB_TOKEN }}
-        use-cache: false

@@ -20,44 +20,29 @@ runs:
       if: ${{ inputs.use-cache == 'true' }}
       uses: Swatinem/rust-cache@v2
 
-    - name: (install) yarn
-      shell: bash
-      run: yarn
-
     - name: (install) cargo-semver
       shell: bash
       run: cargo install cargo-semver --vers 1.0.0-alpha.3
 
-    - name: (run) set to bump-up mode
+    - name: (run) commit analyzer
+      id: commit_analyzer
+      uses: ./.github/actions/commit-analyzer
+
+    - name: (run) bump up
       shell: bash
-      run: cp -pfv ".releaserc_bump_up.json" ".releaserc.json"
-
-    - name: (run) bump-up
-      id: bump-up
-      shell: bash
-      run: |
-        yarn run semantic-release
-
-        [[ -f ".VERSION" ]] && {
-          cargo semver set "$(cat .VERSION)"
-
-          # set outputs
-          echo "::set-output name=VERSION::$(cat .VERSION)"
-        } || {
-          exit 1
-        }
+      run: cargo semver set "${{ steps.commit_analyzer.outputs.VERSION }}"
 
     - name: (run) create pull request
       uses: peter-evans/create-pull-request@v3
       with:
         token: "${{ inputs.github-token }}"
-        commit-message: "chore(release): bump up to ${{ steps.bump-up.outputs.VERSION }}"
+        commit-message: "chore(release): bump up to ${{ steps.commit_analyzer.outputs.VERSION }}"
         committer: "${{ github.actor }} [bot] <${{ github.actor }}@users.noreply.github.com>"
         branch: release/release
         branch-suffix: random
-        title: "[release] bump up to ${{ steps.bump-up.outputs.VERSION }}"
+        title: "[release] bump up to ${{ steps.commit_analyzer.outputs.VERSION }}"
         body: |
-          [release] bump up to ${{ steps.bump-up.outputs.VERSION }}
+          [release] bump up to ${{ steps.commit_analyzer.outputs.VERSION }}
 
           This PullRequest was automatically created by GitHub Workflow. Please review and then accept or reject.
 
