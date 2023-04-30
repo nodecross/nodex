@@ -20,10 +20,6 @@ runs:
       if: ${{ inputs.use-cache == 'true' }}
       uses: Swatinem/rust-cache@v2
 
-    - name: (install) yarn
-      shell: bash
-      run: yarn
-
     - name: (install) llvm-tools-preview
       shell: bash
       run: rustup component add llvm-tools-preview
