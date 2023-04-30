@@ -50,10 +50,6 @@ First off, thank you for considering making contributions. It's people like you 
 - File a bug report. Be sure to include information like what version of NodeX you are using, what your operating system and CPU is, and steps to recreate the bug.
 - Suggest a new feature.
 
-## Changelog
-
-[CHANGELOG](CHANGELOG.md)
-
 ## Security
 
 [SECURITY](SECURITY.md)
