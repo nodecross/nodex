@@ -3,6 +3,10 @@ name: release-pipeline
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "CHANGELOG.md"
 
 env:
   CARGO_TERM_COLOR: always
