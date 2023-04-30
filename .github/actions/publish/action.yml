@@ -31,13 +31,22 @@ runs:
         version: "v${{ steps.commit_analyzer.outputs.version }}"
         publish: false
 
+    - name: (debug)
+      shell: bash
+      run: |
+        ls -la
+        ls -la /home/runner/work/nodex
+        ls -la /home/runner/work/nodex/nodex
+        ls -la /home/runner/work/nodex/nodex/artifacts
+        find /home/runner/work/nodex/nodex -type f
+
     - name: (publish) upload asset (linux)
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       with:
         upload_url: ${{ steps.release_drafter.outputs.upload_url }}
-        asset_path: ./artifacts/ubuntu-latest/nodex-agent-ubuntu-latest.zip
+        asset_path: ./nodex/artifacts/ubuntu-latest/nodex-agent-ubuntu-latest.zip
         asset_name: nodex-agent-x86_64.zip
         asset_content_type: application/zip
 
@@ -47,6 +56,6 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       with:
         upload_url: ${{ steps.release_drafter.outputs.upload_url }}
-        asset_path: ./artifacts/macos-latest/nodex-agent-macos-latest.zip
+        asset_path: ./nodex/artifacts/macos-latest/nodex-agent-macos-latest.zip
         asset_name: nodex-agent-mac.zip
         asset_content_type: application/zip
