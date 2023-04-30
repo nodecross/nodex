@@ -17,7 +17,8 @@ runs:
       id: bump-up
       shell: bash
       run: |
-        yarn run semantic-release
+        yarn
+        yarn semantic-release
 
         [[ -f ".VERSION" ]] && {
           echo "::set-output name=VERSION::$(cat .VERSION)"
