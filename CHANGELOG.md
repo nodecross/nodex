@@ -1,3 +1,10 @@
+## [1.1.5](https://github.com/nodecross/nodex/compare/v1.1.4...v1.1.5) (2023-04-30)
+
+
+### Bug Fixes
+
+* fixed github actions ([9ffd7ba](https://github.com/nodecross/nodex/commit/9ffd7bad135075ccb4e82ea767f9a76b6a967b7b))
+
 ## [1.1.4](https://github.com/nodecross/nodex/compare/v1.1.3...v1.1.4) (2023-04-30)
 
 
