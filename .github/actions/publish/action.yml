@@ -4,9 +4,6 @@ inputs:
   github-token:
     required: true
     description: ""
-  tag:
-    required: true
-    description: ""
 runs:
   using: composite
   steps:
@@ -21,12 +18,16 @@ runs:
       with:
         path: artifacts
 
+    - name: (run) commit analyzer
+      id: commit_analyzer
+      uses: ./.github/actions/commit-analyzer
+
     - name: (publish) release drafter
       id: release_drafter
       uses: release-drafter/release-drafter@v5
       with:
-        tag: ${{ inputs.tag }}
-        version: ${{ inputs.tag }}
+        tag: "v${{ steps.commit_analyzer.outputs.version }}"
+        version: "v${{ steps.commit_analyzer.outputs.version }}"
         publish: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
