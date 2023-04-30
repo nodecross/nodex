@@ -22,7 +22,7 @@ runs:
       shell: bash
       run: |
         yarn
-        yarn semantic-release --branches "${{ github.ref }}"
+        yarn semantic-release -b "${{ github.ref_name }}"
 
         [[ -f ".VERSION" ]] && {
           echo "version=$(cat .VERSION)" >> $GITHUB_OUTPUT
