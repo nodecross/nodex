@@ -8,5 +8,5 @@
     } ]
   ],
   "dryRun": false,
-  "ci": false
+  "ci": true
 }

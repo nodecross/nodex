@@ -1,23 +1,22 @@
 name: publish-pipeline
 
 on:
-  pull_request:
+  push:
     branches: [ main ]
-    types: [ closed ]
     paths:
-      - "**/Cargo.toml"
-      - "**/Cargo.lock"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "CHANGELOG.md"
 
 env:
   CARGO_TERM_COLOR: always
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   prepare:
-    if: github.event.pull_request.merged == true && startsWith(github.head_ref, 'release/release-')
     runs-on: ubuntu-latest
 
     steps:
