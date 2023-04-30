@@ -25,17 +25,17 @@ runs:
     - name: (publish) release drafter
       id: release_drafter
       uses: release-drafter/release-drafter@v5
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       with:
         tag: "v${{ steps.commit_analyzer.outputs.version }}"
         version: "v${{ steps.commit_analyzer.outputs.version }}"
         publish: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: (publish) upload asset (linux)
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       with:
         upload_url: ${{ steps.release_drafter.outputs.upload_url }}
         asset_path: ./artifacts/ubuntu-latest/nodex-agent-ubuntu-latest.zip
@@ -45,7 +45,7 @@ runs:
     - name: (publish) upload asset (mac)
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       with:
         upload_url: ${{ steps.release_drafter.outputs.upload_url }}
         asset_path: ./artifacts/macos-latest/nodex-agent-macos-latest.zip
