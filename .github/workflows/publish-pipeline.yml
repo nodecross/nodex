@@ -43,7 +43,7 @@ jobs:
       uses: ./.github/actions/build
       with:
         github-token: ${{ env.GITHUB_TOKEN }}
-        use-cache: true
+        use-cache: false
 
     - name: (run) create artifact
       uses: vimtor/action-zip@v1
