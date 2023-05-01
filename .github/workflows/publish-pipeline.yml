@@ -42,20 +42,9 @@ jobs:
     - name: (run) build
       uses: ./.github/actions/build
       with:
-        github-token: ${{ env.GITHUB_TOKEN }}
+        os: ${{ matrix.os }}
         use-cache: false
-
-    - name: (run) create artifact
-      uses: vimtor/action-zip@v1
-      with:
-        files: target/release/nodex-agent
-        dest: nodex-agent-${{ matrix.os }}.zip
-
-    - name: (run) upload artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: ${{ matrix.os }}
-        path: nodex-agent-${{ matrix.os }}.zip
+        github-token: ${{ env.GITHUB_TOKEN }}
 
   test:
     runs-on: ubuntu-latest
