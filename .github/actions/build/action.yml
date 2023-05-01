@@ -1,17 +1,20 @@
 name: build
 description: ""
 inputs:
-  github-token:
+  os:
     required: true
     description: ""
   use-cache:
+    required: true
+    description: ""
+  github-token:
     required: true
     description: ""
 runs:
   using: composite
   steps:
     - name: (checkout) source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: (setup) environment
       uses: ./.github/actions/shared
@@ -23,3 +26,15 @@ runs:
     - name: (run) build
       shell: bash
       run: make build
+
+    - name: (run) create artifact
+      uses: vimtor/action-zip@v1.1
+      with:
+        files: target/release/nodex-agent
+        dest: nodex-agent-${{ inputs.os }}.zip
+
+    - name: (run) upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ inputs.os }}
+        path: nodex-agent-${{ inputs.os }}.zip

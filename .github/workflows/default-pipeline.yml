@@ -17,7 +17,7 @@ jobs:
 
     steps:
     - name: (checkout) source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: (run) prepare
       uses: ./.github/actions/prepare
@@ -34,13 +34,14 @@ jobs:
 
     steps:
     - name: (checkout) source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: (run) build
       uses: ./.github/actions/build
       with:
-        github-token: ${{ env.GITHUB_TOKEN }}
+        os: ${{ matrix.os }}
         use-cache: true
+        github-token: ${{ env.GITHUB_TOKEN }}
 
   test:
     runs-on: ubuntu-latest
@@ -48,7 +49,7 @@ jobs:
 
     steps:
     - name: (checkout) source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: (run) test
       uses: ./.github/actions/test

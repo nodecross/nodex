@@ -20,7 +20,7 @@ jobs:
 
     steps:
     - name: (checkout) source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: (run) prepare
       uses: ./.github/actions/prepare
@@ -37,25 +37,14 @@ jobs:
 
     steps:
     - name: (checkout) source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: (run) build
       uses: ./.github/actions/build
       with:
-        github-token: ${{ env.GITHUB_TOKEN }}
+        os: ${{ matrix.os }}
         use-cache: false
-
-    - name: (run) create artifact
-      uses: vimtor/action-zip@v1
-      with:
-        files: target/release/nodex-agent
-        dest: nodex-agent-${{ matrix.os }}.zip
-
-    - name: (run) upload artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: ${{ matrix.os }}
-        path: nodex-agent-${{ matrix.os }}.zip
+        github-token: ${{ env.GITHUB_TOKEN }}
 
   test:
     runs-on: ubuntu-latest
@@ -63,7 +52,7 @@ jobs:
 
     steps:
     - name: (checkout) source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: (run) test
       uses: ./.github/actions/test
@@ -77,7 +66,7 @@ jobs:
 
     steps:
     - name: (checkout) source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: (run) publish
       uses: ./.github/actions/publish
@@ -90,7 +79,7 @@ jobs:
 
     steps:
     - name: (checkout) source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: (run) create tag
       uses: ./.github/actions/create-tag
