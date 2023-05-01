@@ -23,7 +23,7 @@ jobs:
 
     steps:
     - name: (checkout) source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: (run) prepare
       uses: ./.github/actions/prepare
@@ -36,7 +36,7 @@ jobs:
 
     steps:
     - name: (checkout) source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: (run) release
       uses: ./.github/actions/release

@@ -20,7 +20,7 @@ jobs:
 
     steps:
     - name: (checkout) source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: (run) prepare
       uses: ./.github/actions/prepare
@@ -37,7 +37,7 @@ jobs:
 
     steps:
     - name: (checkout) source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: (run) build
       uses: ./.github/actions/build
@@ -52,7 +52,7 @@ jobs:
 
     steps:
     - name: (checkout) source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: (run) test
       uses: ./.github/actions/test
@@ -66,7 +66,7 @@ jobs:
 
     steps:
     - name: (checkout) source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: (run) publish
       uses: ./.github/actions/publish
@@ -79,7 +79,7 @@ jobs:
 
     steps:
     - name: (checkout) source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: (run) create tag
       uses: ./.github/actions/create-tag
