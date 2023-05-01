@@ -39,8 +39,9 @@ jobs:
     - name: (run) build
       uses: ./.github/actions/build
       with:
-        github-token: ${{ env.GITHUB_TOKEN }}
+        os: ${{ matrix.os }}
         use-cache: true
+        github-token: ${{ env.GITHUB_TOKEN }}
 
   test:
     runs-on: ubuntu-latest
