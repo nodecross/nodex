@@ -41,8 +41,8 @@ runs:
     - name: (debug)
       shell: bash
       run: |
-        ls -la ~/
-        find ~/ -type f
+        find ~/macos-latest -type f
+        find ~/ubuntu-latest -type f
 
     - name: (publish) upload asset (linux)
       uses: actions/upload-release-asset@v1
