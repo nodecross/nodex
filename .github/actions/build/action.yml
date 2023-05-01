@@ -28,7 +28,7 @@ runs:
       run: make build
 
     - name: (run) create artifact
-      uses: vimtor/action-zip@v1
+      uses: vimtor/action-zip@v1.1
       with:
         files: target/release/nodex-agent
         dest: nodex-agent-${{ inputs.os }}.zip
