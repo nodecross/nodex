@@ -24,5 +24,5 @@ const call = async (m: string, p: string, j: any) => {
   return JSON.stringify(json, null, 4)
 }
 
-export const get = async (p: string) => call('get', p, {})
+export const get = async (p: string) => call('get', p, null)
 export const post = async (p: string, j: any) => call('post', p, j)
