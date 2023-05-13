@@ -4,7 +4,7 @@ import got from 'got'
 
 const base = `unix:${ path.join(os.homedir(), '.nodex/run/nodex.sock') }`
 
-export const call = async (m: string, p: string, j: any) => {
+const call = async (m: string, p: string, j: any) => {
   let json
   switch (m) {
     case 'get':
@@ -23,3 +23,6 @@ export const call = async (m: string, p: string, j: any) => {
   }
   return JSON.stringify(json, null, 4)
 }
+
+export const get = async (p: string) => call('get', p, {})
+export const post = async (p: string, j: any) => call('post', p, j)

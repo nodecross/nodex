@@ -1,7 +1,7 @@
-import { call } from './sock.js'
+import { post } from './sock.js'
 
 (async () => {
-  const json = await call('post', '/internal/verifiable-credentials/verify', {
+  const json = await post('/internal/verifiable-credentials/verify', {
     message: {
       "@context": [
         "https://www.w3.org/2018/credentials/v1"

@@ -1,7 +1,7 @@
-import { call } from './sock.js'
+import { post } from './sock.js'
 
 (async () => {
-  const json = await call('post', '/internal/didcomm/plaintext-messages/verify', {
+  const json = await post('/internal/didcomm/plaintext-messages/verify', {
     message: {
       "body": {
         "@context": [

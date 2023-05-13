@@ -1,7 +1,7 @@
-import { call } from './sock.js'
+import { post } from './sock.js'
 
 (async () => {
-  const json = await call('post', '/identifiers', {})
+  const json = await post('/identifiers', {})
 
   console.log(json)
 })()

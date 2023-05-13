@@ -1,7 +1,7 @@
-import { call } from './sock.js'
+import { post } from './sock.js'
 
 (async () => {
-  const json = await call('post', '/transfer', {
+  const json = await post('/transfer', {
     destinations: [ 'did:nodex:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA' ],
     messages: [ {
       string: 'value',
