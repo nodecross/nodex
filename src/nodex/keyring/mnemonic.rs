@@ -1,24 +1,33 @@
 use std::cmp::Ordering;
 
-use crate::{nodex::{errors::NodeXError, extension::secure_keystore::{SecureKeyStore, SecureKeyStoreType}, runtime}, config::KeyPair, app_config, SingletonAppConfig};
+use crate::{
+    app_config,
+    config::KeyPair,
+    nodex::{
+        errors::NodeXError,
+        extension::secure_keystore::{SecureKeyStore, SecureKeyStoreType},
+        runtime,
+    },
+    SingletonAppConfig,
+};
 
 use super::secp256k1::{Secp256k1, Secp256k1Context};
 
 pub struct MnemonicKeyring {
     mnemonic: String,
-    sign    : Secp256k1,
-    update  : Secp256k1,
+    sign: Secp256k1,
+    update: Secp256k1,
     recovery: Secp256k1,
-    encrypt : Secp256k1,
-    config  : Box<SingletonAppConfig>,
-    secure_keystore: SecureKeyStore
+    encrypt: Secp256k1,
+    config: Box<SingletonAppConfig>,
+    secure_keystore: SecureKeyStore,
 }
 
 impl MnemonicKeyring {
-    const SIGN_DERIVATION_PATH: &'static str     = "m/44'/0'/0'/0/10";
-    const UPDATE_DERIVATION_PATH: &'static str   = "m/44'/0'/0'/0/20";
+    const SIGN_DERIVATION_PATH: &'static str = "m/44'/0'/0'/0/10";
+    const UPDATE_DERIVATION_PATH: &'static str = "m/44'/0'/0'/0/20";
     const RECOVERY_DERIVATION_PATH: &'static str = "m/44'/0'/0'/0/30";
-    const ENCRYPT_DERIVATION_PATH: &'static str  = "m/44'/0'/0'/0/40";
+    const ENCRYPT_DERIVATION_PATH: &'static str = "m/44'/0'/0'/0/40";
 
     pub fn load_keyring() -> Result<Self, NodeXError> {
         let config = app_config();
@@ -27,7 +36,7 @@ impl MnemonicKeyring {
         let mnemonic = config.inner.lock().unwrap().get_mnemonic();
         let mnemonic = match mnemonic {
             Some(v) => v,
-            None => return Err(NodeXError{})
+            None => return Err(NodeXError {}),
         };
 
         let sign = match secure_keystore.read(&SecureKeyStoreType::Sign) {
@@ -37,10 +46,10 @@ impl MnemonicKeyring {
                     secret: v.secret_key,
                 }) {
                     Ok(v) => v,
-                    _ => return Err(NodeXError{}),
+                    _ => return Err(NodeXError {}),
                 }
-            },
-            _ => return Err(NodeXError{}),
+            }
+            _ => return Err(NodeXError {}),
         };
         let update = match secure_keystore.read(&SecureKeyStoreType::Update) {
             Ok(Some(v)) => {
@@ -49,10 +58,10 @@ impl MnemonicKeyring {
                     secret: v.secret_key,
                 }) {
                     Ok(v) => v,
-                    _ => return Err(NodeXError{}),
+                    _ => return Err(NodeXError {}),
                 }
-            },
-            _ => return Err(NodeXError{}),
+            }
+            _ => return Err(NodeXError {}),
         };
         let recovery = match secure_keystore.read(&SecureKeyStoreType::Recover) {
             Ok(Some(v)) => {
@@ -61,10 +70,10 @@ impl MnemonicKeyring {
                     secret: v.secret_key,
                 }) {
                     Ok(v) => v,
-                    _ => return Err(NodeXError{}),
+                    _ => return Err(NodeXError {}),
                 }
-            },
-            _ => return Err(NodeXError{}),
+            }
+            _ => return Err(NodeXError {}),
         };
         let encrypt = match secure_keystore.read(&SecureKeyStoreType::Encrypt) {
             Ok(Some(v)) => {
@@ -73,10 +82,10 @@ impl MnemonicKeyring {
                     secret: v.secret_key,
                 }) {
                     Ok(v) => v,
-                    _ => return Err(NodeXError{}),
+                    _ => return Err(NodeXError {}),
                 }
-            },
-            _ => return Err(NodeXError{}),
+            }
+            _ => return Err(NodeXError {}),
         };
 
         Ok(MnemonicKeyring {
@@ -94,30 +103,32 @@ impl MnemonicKeyring {
         let config = app_config();
         let secure_keystore = SecureKeyStore::new();
 
-        let mnemonic = match runtime::bip39::BIP39::generate_mnemonic(&runtime::bip39::MnemonicType::Words24) {
+        let mnemonic = match runtime::bip39::BIP39::generate_mnemonic(
+            &runtime::bip39::MnemonicType::Words24,
+        ) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError{})
+            Err(_) => return Err(NodeXError {}),
         };
         let seed = match runtime::bip39::BIP39::mnemonic_to_seed(&mnemonic, None) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError{})
+            Err(_) => return Err(NodeXError {}),
         };
 
         let sign = match Self::generate_secp256k1(&seed, Self::SIGN_DERIVATION_PATH) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError{})
+            Err(_) => return Err(NodeXError {}),
         };
         let update = match Self::generate_secp256k1(&seed, Self::UPDATE_DERIVATION_PATH) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError{})
+            Err(_) => return Err(NodeXError {}),
         };
         let recovery = match Self::generate_secp256k1(&seed, Self::RECOVERY_DERIVATION_PATH) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError{})
+            Err(_) => return Err(NodeXError {}),
         };
         let encrypt = match Self::generate_secp256k1(&seed, Self::ENCRYPT_DERIVATION_PATH) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError{})
+            Err(_) => return Err(NodeXError {}),
         };
 
         Ok(MnemonicKeyring {
@@ -150,66 +161,76 @@ impl MnemonicKeyring {
     pub fn generate_secp256k1(seed: &[u8], derivation_path: &str) -> Result<Secp256k1, NodeXError> {
         let node = match runtime::bip32::BIP32::get_node(seed, derivation_path) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError{})
+            Err(_) => return Err(NodeXError {}),
         };
 
         match Secp256k1::new(&Secp256k1Context {
-            public : node.public_key,
+            public: node.public_key,
             secret: node.private_key,
         }) {
             Ok(v) => Ok(v),
-            Err(_) => Err(NodeXError{})
+            Err(_) => Err(NodeXError {}),
         }
     }
 
     pub fn save(&mut self, did: &str) {
-        match self.secure_keystore.write(&SecureKeyStoreType::Sign, &KeyPair {
-            public_key: self.get_sign_key_pair().get_public_key(),
-            secret_key: self.get_sign_key_pair().get_secret_key(),
-        }) {
+        match self.secure_keystore.write(
+            &SecureKeyStoreType::Sign,
+            &KeyPair {
+                public_key: self.get_sign_key_pair().get_public_key(),
+                secret_key: self.get_sign_key_pair().get_secret_key(),
+            },
+        ) {
             Ok(_) => (),
             _ => panic!(),
         };
-        match self.secure_keystore.write(&SecureKeyStoreType::Update, &KeyPair {
-            public_key: self.get_update_key_pair().get_public_key(),
-            secret_key: self.get_update_key_pair().get_secret_key()
-        }) {
+        match self.secure_keystore.write(
+            &SecureKeyStoreType::Update,
+            &KeyPair {
+                public_key: self.get_update_key_pair().get_public_key(),
+                secret_key: self.get_update_key_pair().get_secret_key(),
+            },
+        ) {
             Ok(_) => (),
             _ => panic!(),
         };
-        match self.secure_keystore.write(&SecureKeyStoreType::Recover, &KeyPair {
-            public_key: self.get_recovery_key_pair().get_public_key(),
-            secret_key: self.get_recovery_key_pair().get_secret_key(),
-        }) {
+        match self.secure_keystore.write(
+            &SecureKeyStoreType::Recover,
+            &KeyPair {
+                public_key: self.get_recovery_key_pair().get_public_key(),
+                secret_key: self.get_recovery_key_pair().get_secret_key(),
+            },
+        ) {
             Ok(_) => (),
             _ => panic!(),
         };
-        match self.secure_keystore.write(&SecureKeyStoreType::Encrypt, &KeyPair {
-            public_key: self.get_encrypt_key_pair().get_public_key(),
-            secret_key: self.get_encrypt_key_pair().get_secret_key(),
-        }) {
+        match self.secure_keystore.write(
+            &SecureKeyStoreType::Encrypt,
+            &KeyPair {
+                public_key: self.get_encrypt_key_pair().get_public_key(),
+                secret_key: self.get_encrypt_key_pair().get_secret_key(),
+            },
+        ) {
             Ok(_) => (),
             _ => panic!(),
         };
 
         match self.config.inner.lock() {
-            Ok(mut config) => {
-                config.save_did(did)
-            },
+            Ok(mut config) => config.save_did(did),
             _ => panic!(),
         };
 
         match self.config.inner.lock() {
             Ok(mut config) => {
                 config.save_mnemonic(&self.mnemonic);
-            },
+            }
             _ => panic!(),
         };
 
         match self.config.inner.lock() {
             Ok(mut config) => {
                 config.save_is_initialized(true);
-            },
+            }
             _ => panic!(),
         }
     }
@@ -219,7 +240,7 @@ impl MnemonicKeyring {
 
         match did {
             Some(v) => Ok(v),
-            None => Err(NodeXError{})
+            None => Err(NodeXError {}),
         }
     }
 
@@ -232,12 +253,11 @@ impl MnemonicKeyring {
     pub fn verify_mnemonic_phrase(&self, phrase: &Vec<String>) -> Result<bool, NodeXError> {
         let mnemonic = match self.get_mnemonic_phrase() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError{})
+            Err(_) => return Err(NodeXError {}),
         };
 
         Ok(mnemonic.cmp(phrase) == Ordering::Equal)
     }
-
 }
 
 #[cfg(test)]
@@ -248,7 +268,7 @@ pub mod tests {
     pub fn test_create_keyring() {
         let keyring = match MnemonicKeyring::create_keyring() {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         assert_eq!(keyring.get_sign_key_pair().get_secret_key().len(), 32);
@@ -261,12 +281,12 @@ pub mod tests {
     pub fn test_get_mnemonic_phrase() {
         let keyring = match MnemonicKeyring::create_keyring() {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         let result = match keyring.get_mnemonic_phrase() {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         assert_eq!(result.len(), 24)
@@ -276,17 +296,17 @@ pub mod tests {
     pub fn test_verify_mnemonic_phrase() {
         let keyring = match MnemonicKeyring::create_keyring() {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         let mnemonic = match keyring.get_mnemonic_phrase() {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         let result = match keyring.verify_mnemonic_phrase(&mnemonic) {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         assert!(result)

@@ -1,9 +1,9 @@
-pub mod utils;
-pub mod errors;
-pub mod runtime;
-pub mod keyring;
-pub mod sidetree;
-pub mod cipher;
-pub mod schema;
-pub mod extension;
 pub mod agent;
+pub mod cipher;
+pub mod errors;
+pub mod extension;
+pub mod keyring;
+pub mod runtime;
+pub mod schema;
+pub mod sidetree;
+pub mod utils;

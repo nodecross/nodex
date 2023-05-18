@@ -1,7 +1,7 @@
 use sha2::{Digest, Sha256};
 
-use crate::nodex::runtime::base64_url::{Base64Url, PaddingType};
 use crate::nodex::errors::NodeXError;
+use crate::nodex::runtime::base64_url::{Base64Url, PaddingType};
 
 const MULTIHASH_SHA256_CODE: u8 = 0x12; // 0x12 = 18
 const MULTIHASH_SHA256_SIZE: u8 = 0x20; // 0x20 = 32
@@ -25,10 +25,7 @@ impl Multihash {
 
     // [NOTE]: SHA2-256 ONLY
     pub fn hash(message: &[u8]) -> Vec<u8> {
-        let mut prefix: Vec<u8> = Vec::from([
-            MULTIHASH_SHA256_CODE,
-            MULTIHASH_SHA256_SIZE,
-        ]);
+        let mut prefix: Vec<u8> = Vec::from([MULTIHASH_SHA256_CODE, MULTIHASH_SHA256_SIZE]);
 
         let mut hashed: Vec<u8> = Multihash::hash_as_non_multihash_buffer(message);
         let mut joined: Vec<u8> = Vec::from([]);
@@ -48,11 +45,11 @@ impl Multihash {
     pub fn canonicalize_then_double_hash_then_encode(message: &[u8]) -> Result<String, NodeXError> {
         let plain = match String::from_utf8(message.to_vec()) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError{}),
+            Err(_) => return Err(NodeXError {}),
         };
         let canonicalized = match super::jcs::Jcs::canonicalize(&plain) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError{})
+            Err(_) => return Err(NodeXError {}),
         };
 
         let hashed = Multihash::hash_as_non_multihash_buffer(canonicalized.as_bytes());
@@ -64,7 +61,7 @@ impl Multihash {
     pub fn decode(encoded: &[u8]) -> Result<DecodedContainer, NodeXError> {
         // check for: [ code, size, digest... ]
         if encoded.len() < 2 {
-            return Err(NodeXError{});
+            return Err(NodeXError {});
         }
 
         let code = encoded[0];
@@ -72,7 +69,7 @@ impl Multihash {
         let digest = encoded[2..].to_vec();
 
         if digest.len() != usize::from(length) {
-            return Err(NodeXError{})
+            return Err(NodeXError {});
         }
 
         Ok(DecodedContainer {
@@ -96,41 +93,52 @@ mod tests {
     fn test_hash() {
         let result = Multihash::hash(message().as_bytes());
 
-        assert_eq!(result, vec![
-            0x12, 0x20, 0x5f, 0x46, 0x25, 0xd4, 0xf6, 0x1e, 0xdb, 0x52, 
-            0x78, 0x07, 0x45, 0x5f, 0x48, 0xf8, 0xbe, 0x27, 0x8e, 0x71, 
-            0xe8, 0x4a, 0xa9, 0x4d, 0x23, 0x11, 0x1f, 0xfa, 0xb3, 0xb6, 
-            0x30, 0x93, 0xa7, 0x13, 
-        ]);
+        assert_eq!(
+            result,
+            vec![
+                0x12, 0x20, 0x5f, 0x46, 0x25, 0xd4, 0xf6, 0x1e, 0xdb, 0x52, 0x78, 0x07, 0x45, 0x5f,
+                0x48, 0xf8, 0xbe, 0x27, 0x8e, 0x71, 0xe8, 0x4a, 0xa9, 0x4d, 0x23, 0x11, 0x1f, 0xfa,
+                0xb3, 0xb6, 0x30, 0x93, 0xa7, 0x13,
+            ]
+        );
     }
 
     #[test]
     fn test_hash_as_non_multihash_buffer() {
         let result = Multihash::hash_as_non_multihash_buffer(message().as_bytes());
 
-        assert_eq!(result, vec![
-            0x5f, 0x46, 0x25, 0xd4, 0xf6, 0x1e, 0xdb, 0x52, 0x78, 0x07, 
-            0x45, 0x5f, 0x48, 0xf8, 0xbe, 0x27, 0x8e, 0x71, 0xe8, 0x4a, 
-            0xa9, 0x4d, 0x23, 0x11, 0x1f, 0xfa, 0xb3, 0xb6, 0x30, 0x93, 
-            0xa7, 0x13, 
-        ]);
+        assert_eq!(
+            result,
+            vec![
+                0x5f, 0x46, 0x25, 0xd4, 0xf6, 0x1e, 0xdb, 0x52, 0x78, 0x07, 0x45, 0x5f, 0x48, 0xf8,
+                0xbe, 0x27, 0x8e, 0x71, 0xe8, 0x4a, 0xa9, 0x4d, 0x23, 0x11, 0x1f, 0xfa, 0xb3, 0xb6,
+                0x30, 0x93, 0xa7, 0x13,
+            ]
+        );
     }
 
     #[test]
     fn test_canonicalize_then_double_hash_then_encode() {
-        let result = match Multihash::canonicalize_then_double_hash_then_encode(message().as_bytes()) {
-            Ok(v) => v,
-            Err(_) => panic!()
-        };
+        let result =
+            match Multihash::canonicalize_then_double_hash_then_encode(message().as_bytes()) {
+                Ok(v) => v,
+                Err(_) => panic!(),
+            };
 
-        assert_eq!(result, String::from("EiAEX1W46vVid7IjJyFY5ibjmyrgepTjW0rYrw-wo4xLCw"));
+        assert_eq!(
+            result,
+            String::from("EiAEX1W46vVid7IjJyFY5ibjmyrgepTjW0rYrw-wo4xLCw")
+        );
     }
 
     #[test]
     fn test_hash_then_encode() {
         let result = Multihash::hash_then_encode(message().as_bytes());
 
-        assert_eq!(result, String::from("EiBfRiXU9h7bUngHRV9I-L4njnHoSqlNIxEf-rO2MJOnEw"));
+        assert_eq!(
+            result,
+            String::from("EiBfRiXU9h7bUngHRV9I-L4njnHoSqlNIxEf-rO2MJOnEw")
+        );
     }
 
     #[test]
@@ -139,14 +147,16 @@ mod tests {
         let result = Multihash::decode(&encoded);
 
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), DecodedContainer {
-            hash: vec![
-                0x5f, 0x46, 0x25, 0xd4, 0xf6, 0x1e, 0xdb, 0x52, 0x78, 0x07, 
-                0x45, 0x5f, 0x48, 0xf8, 0xbe, 0x27, 0x8e, 0x71, 0xe8, 0x4a, 
-                0xa9, 0x4d, 0x23, 0x11, 0x1f, 0xfa, 0xb3, 0xb6, 0x30, 0x93, 
-                0xa7, 0x13, 
-            ],
-            algorithm: 18,
-        });
+        assert_eq!(
+            result.unwrap(),
+            DecodedContainer {
+                hash: vec![
+                    0x5f, 0x46, 0x25, 0xd4, 0xf6, 0x1e, 0xdb, 0x52, 0x78, 0x07, 0x45, 0x5f, 0x48,
+                    0xf8, 0xbe, 0x27, 0x8e, 0x71, 0xe8, 0x4a, 0xa9, 0x4d, 0x23, 0x11, 0x1f, 0xfa,
+                    0xb3, 0xb6, 0x30, 0x93, 0xa7, 0x13,
+                ],
+                algorithm: 18,
+            }
+        );
     }
 }

@@ -8,7 +8,7 @@ impl Random {
 
         match getrandom::getrandom(&mut bytes) {
             Ok(_) => Ok(bytes),
-            Err(_) => Err(NodeXError{})
+            Err(_) => Err(NodeXError {}),
         }
     }
 }
@@ -21,7 +21,7 @@ mod tests {
     fn it_should_success_random_bytes_32() {
         let result = match Random::bytes(&32) {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         assert_eq!(result.len(), 32);
@@ -31,7 +31,7 @@ mod tests {
     fn it_should_success_random_bytes_128() {
         let result = match Random::bytes(&128) {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         assert_eq!(result.len(), 128);

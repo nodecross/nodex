@@ -1,5 +1,5 @@
+use actix_web::{web, HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
-use actix_web::{ HttpRequest, HttpResponse, web };
 use serde_json::Value;
 
 use crate::services::internal::didcomm_signed::DIDCommSignedService;
@@ -15,11 +15,7 @@ pub async fn handler(
     web::Json(json): web::Json<MessageContainer>,
 ) -> actix_web::Result<HttpResponse> {
     match DIDCommSignedService::verify(&json.message).await {
-        Ok(v) => {
-            Ok(HttpResponse::Ok().json(&v))
-        },
-        Err(_) => {
-            Ok(HttpResponse::InternalServerError().finish())
-        }
+        Ok(v) => Ok(HttpResponse::Ok().json(&v)),
+        Err(_) => Ok(HttpResponse::InternalServerError().finish()),
     }
 }

@@ -1,11 +1,11 @@
+use home_config::HomeConfig;
 use serde::Deserialize;
 use serde::Serialize;
-use home_config::HomeConfig;
+use std::fs;
 use std::fs::OpenOptions;
+use std::io;
 use std::io::Write;
 use std::path::Path;
-use std::io;
-use std::fs;
 
 use crate::nodex::errors::NodeXError;
 
@@ -100,11 +100,9 @@ pub struct AppConfig {
 impl AppConfig {
     fn touch(path: &Path) -> io::Result<()> {
         match OpenOptions::new().create(true).write(true).open(path) {
-            Ok(mut file) => {
-                match file.write_all(b"{}") {
-                    Ok(_) => Ok(()),
-                    Err(err) => Err(err)
-                }
+            Ok(mut file) => match file.write_all(b"{}") {
+                Ok(_) => Ok(()),
+                Err(err) => Err(err),
             },
             Err(err) => Err(err),
         }
@@ -114,20 +112,20 @@ impl AppConfig {
         let config = HomeConfig::with_config_dir("nodex", "config.json");
         let config_dir = config.path().parent();
 
-        if ! Path::exists(config.path()) {
+        if !Path::exists(config.path()) {
             match config_dir {
                 Some(v) => {
                     match fs::create_dir_all(v) {
-                        Ok(_) => {},
-                        Err(_) => panic!()
+                        Ok(_) => {}
+                        Err(_) => panic!(),
                     };
-                },
-                None => panic!()
+                }
+                None => panic!(),
             };
 
             match Self::touch(config.path()) {
-                Ok(_) => {},
-                Err(_) => panic!()
+                Ok(_) => {}
+                Err(_) => panic!(),
             };
         }
 
@@ -142,7 +140,7 @@ impl AppConfig {
     pub fn write(&self) -> Result<(), NodeXError> {
         match self.config.save_json(&self.root) {
             Ok(v) => Ok(v),
-            Err(_) => panic!()
+            Err(_) => panic!(),
         }
     }
 
@@ -152,11 +150,9 @@ impl AppConfig {
 
     pub fn decode(&self, value: &Option<String>) -> Option<Vec<u8>> {
         match value {
-            Some(v) => {
-                match hex::decode(v) {
-                    Ok(v) => Some(v),
-                    Err(_) => None,
-                }
+            Some(v) => match hex::decode(v) {
+                Ok(v) => Some(v),
+                Err(_) => None,
             },
             None => None,
         }
@@ -165,9 +161,7 @@ impl AppConfig {
     // NOTE: trng - read
     pub fn load_trng_read_sig(&self) -> Option<Extension> {
         match self.root.extensions.trng.clone() {
-            Some(v) => {
-                Some(v.read)
-            },
+            Some(v) => Some(v.read),
             None => None,
         }
     }
@@ -175,9 +169,7 @@ impl AppConfig {
     // NOTE: secure_keystore - write
     pub fn load_secure_keystore_write_sig(&self) -> Option<Extension> {
         match self.root.extensions.secure_keystore.clone() {
-            Some(v) => {
-                Some(v.write)
-            },
+            Some(v) => Some(v.write),
             None => None,
         }
     }
@@ -185,9 +177,7 @@ impl AppConfig {
     // NOTE: secure_keystore - read
     pub fn load_secure_keystore_read_sig(&self) -> Option<Extension> {
         match self.root.extensions.secure_keystore.clone() {
-            Some(v) => {
-                Some(v.read)
-            },
+            Some(v) => Some(v.read),
             None => None,
         }
     }
@@ -196,9 +186,7 @@ impl AppConfig {
     #[allow(dead_code)]
     pub fn load_cipher_encrypt_sig(&self) -> Option<Extension> {
         match self.root.extensions.cipher.clone() {
-            Some(v) => {
-                Some(v.encrypt)
-            },
+            Some(v) => Some(v.encrypt),
             None => None,
         }
     }
@@ -207,9 +195,7 @@ impl AppConfig {
     #[allow(dead_code)]
     pub fn load_cipher_decrypt_sig(&self) -> Option<Extension> {
         match self.root.extensions.cipher.clone() {
-            Some(v) => {
-                Some(v.decrypt)
-            },
+            Some(v) => Some(v.decrypt),
             None => None,
         }
     }
@@ -227,8 +213,11 @@ impl AppConfig {
                     None => return None,
                 };
 
-                Some(KeyPair { public_key: pk, secret_key: sk })
-            },
+                Some(KeyPair {
+                    public_key: pk,
+                    secret_key: sk,
+                })
+            }
             None => None,
         }
     }
@@ -250,7 +239,7 @@ impl AppConfig {
 
         match self.write() {
             Ok(_) => Ok(()),
-            Err(_) => panic!()
+            Err(_) => panic!(),
         }
     }
 
@@ -267,8 +256,11 @@ impl AppConfig {
                     None => return None,
                 };
 
-                Some(KeyPair { public_key: pk, secret_key: sk })
-            },
+                Some(KeyPair {
+                    public_key: pk,
+                    secret_key: sk,
+                })
+            }
             None => None,
         }
     }
@@ -290,7 +282,7 @@ impl AppConfig {
 
         match self.write() {
             Ok(_) => Ok(()),
-            Err(_) => panic!()
+            Err(_) => panic!(),
         }
     }
 
@@ -307,8 +299,11 @@ impl AppConfig {
                     None => return None,
                 };
 
-                Some(KeyPair { public_key: pk, secret_key: sk })
-            },
+                Some(KeyPair {
+                    public_key: pk,
+                    secret_key: sk,
+                })
+            }
             None => None,
         }
     }
@@ -330,7 +325,7 @@ impl AppConfig {
 
         match self.write() {
             Ok(_) => Ok(()),
-            Err(_) => panic!()
+            Err(_) => panic!(),
         }
     }
 
@@ -347,8 +342,11 @@ impl AppConfig {
                     None => return None,
                 };
 
-                Some(KeyPair { public_key: pk, secret_key: sk })
-            },
+                Some(KeyPair {
+                    public_key: pk,
+                    secret_key: sk,
+                })
+            }
             None => None,
         }
     }
@@ -370,7 +368,7 @@ impl AppConfig {
 
         match self.write() {
             Ok(_) => Ok(()),
-            Err(_) => panic!()
+            Err(_) => panic!(),
         }
     }
 
@@ -383,8 +381,8 @@ impl AppConfig {
         self.root.did = Some(value.to_string());
 
         match self.write() {
-            Ok(_) => {},
-            Err(_) => panic!()
+            Ok(_) => {}
+            Err(_) => panic!(),
         }
     }
 
@@ -397,8 +395,8 @@ impl AppConfig {
         self.root.mnemonic = Some(value.to_string());
 
         match self.write() {
-            Ok(_) => {},
-            Err(_) => panic!()
+            Ok(_) => {}
+            Err(_) => panic!(),
         }
     }
 
@@ -411,8 +409,8 @@ impl AppConfig {
     pub fn save_is_initialized(&mut self, value: bool) {
         self.root.is_initialized = value;
         match self.write() {
-            Ok(_) => {},
-            Err(_) => panic!()
+            Ok(_) => {}
+            Err(_) => panic!(),
         }
     }
 }
