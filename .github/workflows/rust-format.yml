@@ -2,9 +2,9 @@ name: Rust Format Check
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop, rust-fmt ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
 
 jobs:
   check_fmt:
