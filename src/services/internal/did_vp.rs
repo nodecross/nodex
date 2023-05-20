@@ -1,7 +1,6 @@
 use crate::nodex::errors::NodeXError;
 
-pub struct DIDVPService {
-}
+pub struct DIDVPService {}
 
 impl DIDVPService {
     pub fn generate() -> Result<String, NodeXError> {

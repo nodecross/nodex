@@ -1,24 +1,28 @@
 extern crate env_logger;
 
 use clap::Parser;
-use rumqttc::{AsyncClient, QoS, MqttOptions};
+use rumqttc::{AsyncClient, MqttOptions, QoS};
 use services::nodex::NodeX;
+use shadow_rs::shadow;
+use std::sync::atomic::AtomicBool;
+use std::{
+    collections::HashMap,
+    fs::{self},
+    sync::{Arc, Mutex, Once},
+};
 use tokio::sync::mpsc;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
-use std::sync::atomic::AtomicBool;
-use std::{fs::{self}, sync::{Arc, Once, Mutex}, collections::HashMap};
-use shadow_rs::shadow;
 
-use handlers::Command;
 use crate::config::AppConfig;
+use handlers::Command;
 
-mod nodex;
-mod services;
 mod config;
 mod controllers;
 mod handlers;
+mod nodex;
 mod server;
+mod services;
 
 shadow!(build);
 
@@ -34,7 +38,7 @@ pub fn app_config() -> Box<SingletonAppConfig> {
     unsafe {
         ONCE.call_once(|| {
             let singleton = SingletonAppConfig {
-                inner: Arc::new(Mutex::new(AppConfig::new()))
+                inner: Arc::new(Mutex::new(AppConfig::new())),
             };
 
             SINGLETON = Some(Box::new(singleton))
@@ -97,8 +101,8 @@ async fn main() -> std::io::Result<()> {
     match cli.did {
         true => {
             println!("Node ID: {}", did.did_document.id);
-            return Ok(())
-        },
+            return Ok(());
+        }
         false => (),
     }
 
@@ -118,7 +122,10 @@ async fn main() -> std::io::Result<()> {
 
     let (client, eventloop) = AsyncClient::new(mqtt_options, 10);
 
-    client.subscribe(hub_did_topic, QoS::ExactlyOnce).await.unwrap();
+    client
+        .subscribe(hub_did_topic, QoS::ExactlyOnce)
+        .await
+        .unwrap();
     log::info!("subscribed: {}", hub_did_topic);
 
     // NOTE: booting...
@@ -131,8 +138,17 @@ async fn main() -> std::io::Result<()> {
     let shutdown_marker = Arc::new(AtomicBool::new(false));
 
     let server_task = tokio::spawn(server);
-    let sender_task = tokio::spawn(handlers::sender::handler(rx, client, Arc::clone(&db), mqtt_topic));
-    let receiver_task = tokio::spawn(handlers::receiver::handler(Arc::clone(&shutdown_marker), eventloop, Arc::clone(&db)));
+    let sender_task = tokio::spawn(handlers::sender::handler(
+        rx,
+        client,
+        Arc::clone(&db),
+        mqtt_topic,
+    ));
+    let receiver_task = tokio::spawn(handlers::receiver::handler(
+        Arc::clone(&shutdown_marker),
+        eventloop,
+        Arc::clone(&db),
+    ));
 
     let shutdown = tokio::spawn(async move {
         tokio::signal::ctrl_c().await.unwrap();

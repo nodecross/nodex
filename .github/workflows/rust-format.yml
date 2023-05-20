@@ -1,0 +1,25 @@
+name: Rust Format Check
+
+on:
+  push:
+    branches: [ main, develop, rust-fmt ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  check_fmt:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Install rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+        components: rustfmt
+
+    - name: Check formatting
+      run: cargo fmt -- --check
