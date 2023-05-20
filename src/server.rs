@@ -35,45 +35,19 @@ pub fn new_server(sock_path: &PathBuf, sender: Sender<Command>) -> Server {
                 web::post().to(controllers::public::nodex_transfer::handler),
             )
             // NOTE: Internal (Private) Routes
-            .route(
-                "/internal/verifiable-credentials",
-                web::post().to(controllers::internal::did_generate_vc::handler),
-            )
-            .route(
-                "/internal/verifiable-credentials/verify",
-                web::post().to(controllers::internal::did_verify_vc::handler),
-            )
-            .route(
-                "/internal/verifiable-presentations",
-                web::post().to(controllers::internal::did_generate_vp::handler),
-            )
-            .route(
-                "/internal/verifiable-presentations/verify",
-                web::post().to(controllers::internal::did_verify_vp::handler),
-            )
-            .route(
-                "/internal/didcomm/plaintext-messages",
-                web::post().to(controllers::internal::didcomm_generate_plaintext::handler),
-            )
-            .route(
-                "/internal/didcomm/plaintext-messages/verify",
-                web::post().to(controllers::internal::didcomm_verify_plaintext::handler),
-            )
-            .route(
-                "/internal/didcomm/signed-messages",
-                web::post().to(controllers::internal::didcomm_generate_signed::handler),
-            )
-            .route(
-                "/internal/didcomm/signed-messages/verify",
-                web::post().to(controllers::internal::didcomm_verify_signed::handler),
-            )
-            .route(
-                "/internal/didcomm/encrypted-messages",
-                web::post().to(controllers::internal::didcomm_generate_encrypted::handler),
-            )
-            .route(
-                "/internal/didcomm/encrypted-messages/verify",
-                web::post().to(controllers::internal::didcomm_verify_encrypted::handler),
+            .service(web::scope("/internal")
+                .route("/verifiable-credentials", web::post().to(controllers::internal::did_generate_vc::handler))
+                .route("/verifiable-credentials/verify", web::post().to(controllers::internal::did_verify_vc::handler))
+                .route("/verifiable-presentations", web::post().to(controllers::internal::did_generate_vp::handler))
+                .route("/verifiable-presentations/verify", web::post().to(controllers::internal::did_verify_vp::handler))
+                .service(web::scope("/didcomm")
+                    .route("/plaintext-messages", web::post().to(controllers::internal::didcomm_generate_plaintext::handler))
+                    .route("/plaintext-messages/verify", web::post().to(controllers::internal::didcomm_verify_plaintext::handler))
+                    .route("/signed-messages", web::post().to(controllers::internal::didcomm_generate_signed::handler))
+                    .route("/signed-messages/verify", web::post().to(controllers::internal::didcomm_verify_signed::handler))
+                    .route("/encrypted-messages", web::post().to(controllers::internal::didcomm_generate_encrypted::handler))
+                    .route("/encrypted-messages/verify", web::post().to(controllers::internal::didcomm_verify_encrypted::handler))
+                )
             )
     })
     .bind_uds(&sock_path)
