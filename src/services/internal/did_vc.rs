@@ -13,11 +13,17 @@ impl DIDVCService {
     pub fn generate(message: &Value) -> Result<Value, NodeXError> {
         let keyring = match keyring::mnemonic::MnemonicKeyring::load_keyring() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let did = match keyring.get_identifier() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let r#type = "VerifiableCredential".to_string();
@@ -47,7 +53,10 @@ impl DIDVCService {
             },
         ) {
             Ok(v) => v,
-            Err(_) => panic!(),
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
         };
 
         Ok(json!(signed))
@@ -58,12 +67,18 @@ impl DIDVCService {
 
         let model = match serde_json::from_value::<GeneralVcDataModel>(message.clone()) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let did_document = match service.find_identifier(&model.issuer.id).await {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let public_keys = match did_document.did_document.public_key {
             Some(v) => v,
@@ -79,7 +94,10 @@ impl DIDVCService {
 
         let context = match keyring::secp256k1::Secp256k1::from_jwk(&public_key.public_key_jwk) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let (verified_model, verified) = match CredentialSigner::verify(
@@ -91,7 +109,10 @@ impl DIDVCService {
             },
         ) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         if !verified {

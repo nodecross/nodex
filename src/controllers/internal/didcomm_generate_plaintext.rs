@@ -27,6 +27,9 @@ pub async fn handler(
 
     match DIDCommPlaintextService::generate(to_did, &json.message, None) {
         Ok(v) => Ok(HttpResponse::Ok().json(&v)),
-        Err(_) => Ok(HttpResponse::InternalServerError().finish()),
+        Err(e) => {
+            log::error!("{:?}", e);
+            Ok(HttpResponse::InternalServerError().finish())
+        }
     }
 }

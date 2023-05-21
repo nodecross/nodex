@@ -261,7 +261,10 @@ impl OperationPayload {
             update.to_string().as_bytes(),
         ) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let recovery = json!(&params.commitment_keys.recovery);
@@ -269,7 +272,10 @@ impl OperationPayload {
             recovery.to_string().as_bytes(),
         ) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let document: DIDReplacePayload = DIDReplacePayload {

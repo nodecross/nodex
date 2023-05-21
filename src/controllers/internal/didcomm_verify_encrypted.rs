@@ -16,6 +16,9 @@ pub async fn handler(
 ) -> actix_web::Result<HttpResponse> {
     match DIDCommEncryptedService::verify(&json.message).await {
         Ok(v) => Ok(HttpResponse::Ok().json(&v)),
-        Err(_) => Ok(HttpResponse::InternalServerError().finish()),
+        Err(e) => {
+            log::error!("{:?}", e);
+            Ok(HttpResponse::InternalServerError().finish())
+        }
     }
 }

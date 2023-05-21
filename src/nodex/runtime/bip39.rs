@@ -30,12 +30,18 @@ impl BIP39 {
 
         let seed = match trng.read(&(bits / 8)) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         match Mnemonic::from_entropy_in(Language::English, &seed) {
             Ok(v) => Ok(v.to_string()),
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 
@@ -45,7 +51,10 @@ impl BIP39 {
     ) -> Result<Vec<u8>, NodeXError> {
         let mnemonic = match Mnemonic::parse_in_normalized(Language::English, mnemonic_string) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         match passphrase {

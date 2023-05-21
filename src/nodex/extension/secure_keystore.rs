@@ -50,7 +50,10 @@ impl SecureKeyStore {
 
             let lib = match libloading::Library::new(&extension.filename) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             };
 
             let func: libloading::Symbol<
@@ -63,7 +66,10 @@ impl SecureKeyStore {
                 ) -> u32,
             > = match lib.get(extension.symbol.as_bytes()) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             };
 
             let result = match key_type {
@@ -153,7 +159,10 @@ impl SecureKeyStore {
 
             let lib = match libloading::Library::new(&extension.filename) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             };
 
             let func: libloading::Symbol<
@@ -168,7 +177,10 @@ impl SecureKeyStore {
                 ) -> u32,
             > = match lib.get(extension.symbol.as_bytes()) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             };
 
             let result = match key_type {

@@ -10,6 +10,9 @@ pub async fn handler(_req: HttpRequest) -> actix_web::Result<HttpResponse> {
 
     match service.create_identifier().await {
         Ok(v) => Ok(HttpResponse::Ok().json(&v)),
-        Err(_) => Ok(HttpResponse::InternalServerError().finish()),
+        Err(e) => {
+            log::error!("{:?}", e);
+            Ok(HttpResponse::InternalServerError().finish())
+        }
     }
 }

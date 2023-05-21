@@ -45,11 +45,17 @@ impl Multihash {
     pub fn canonicalize_then_double_hash_then_encode(message: &[u8]) -> Result<String, NodeXError> {
         let plain = match String::from_utf8(message.to_vec()) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let canonicalized = match super::jcs::Jcs::canonicalize(&plain) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let hashed = Multihash::hash_as_non_multihash_buffer(canonicalized.as_bytes());

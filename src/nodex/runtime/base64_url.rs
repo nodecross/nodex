@@ -22,11 +22,17 @@ impl Base64Url {
         match padding {
             PaddingType::Padding => match BASE64URL.decode(message.as_bytes()) {
                 Ok(v) => Ok(v),
-                Err(_) => Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    Err(NodeXError {})
+                }
             },
             PaddingType::NoPadding => match BASE64URL_NOPAD.decode(message.as_bytes()) {
                 Ok(v) => Ok(v),
-                Err(_) => Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    Err(NodeXError {})
+                }
             },
         }
     }
@@ -35,17 +41,26 @@ impl Base64Url {
         let bytes = match padding {
             PaddingType::Padding => match BASE64URL.decode(message.as_bytes()) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             },
             PaddingType::NoPadding => match BASE64URL_NOPAD.decode(message.as_bytes()) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             },
         };
 
         match String::from_utf8(bytes) {
             Ok(v) => Ok(v),
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 }

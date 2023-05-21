@@ -117,7 +117,10 @@ impl AppConfig {
                 Some(v) => {
                     match fs::create_dir_all(v) {
                         Ok(_) => {}
-                        Err(_) => panic!(),
+                        Err(e) => {
+                            log::error!("{:?}", e);
+                            panic!()
+                        }
                     };
                 }
                 None => panic!(),
@@ -125,13 +128,19 @@ impl AppConfig {
 
             match Self::touch(config.path()) {
                 Ok(_) => {}
-                Err(_) => panic!(),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    panic!()
+                }
             };
         }
 
         let root = match config.json::<ConfigRoot>() {
             Ok(v) => v,
-            Err(_) => panic!(),
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
         };
 
         AppConfig { root, config }
@@ -140,7 +149,10 @@ impl AppConfig {
     pub fn write(&self) -> Result<(), NodeXError> {
         match self.config.save_json(&self.root) {
             Ok(v) => Ok(v),
-            Err(_) => panic!(),
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
         }
     }
 
@@ -152,7 +164,10 @@ impl AppConfig {
         match value {
             Some(v) => match hex::decode(v) {
                 Ok(v) => Some(v),
-                Err(_) => None,
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    None
+                }
             },
             None => None,
         }
@@ -239,7 +254,10 @@ impl AppConfig {
 
         match self.write() {
             Ok(_) => Ok(()),
-            Err(_) => panic!(),
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
         }
     }
 
@@ -282,7 +300,10 @@ impl AppConfig {
 
         match self.write() {
             Ok(_) => Ok(()),
-            Err(_) => panic!(),
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
         }
     }
 
@@ -325,7 +346,10 @@ impl AppConfig {
 
         match self.write() {
             Ok(_) => Ok(()),
-            Err(_) => panic!(),
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
         }
     }
 
@@ -368,7 +392,10 @@ impl AppConfig {
 
         match self.write() {
             Ok(_) => Ok(()),
-            Err(_) => panic!(),
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
         }
     }
 
@@ -382,7 +409,10 @@ impl AppConfig {
 
         match self.write() {
             Ok(_) => {}
-            Err(_) => panic!(),
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
         }
     }
 
@@ -396,7 +426,10 @@ impl AppConfig {
 
         match self.write() {
             Ok(_) => {}
-            Err(_) => panic!(),
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
         }
     }
 
@@ -410,7 +443,10 @@ impl AppConfig {
         self.root.is_initialized = value;
         match self.write() {
             Ok(_) => {}
-            Err(_) => panic!(),
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
         }
     }
 }

@@ -14,7 +14,10 @@ impl BIP32 {
     pub fn get_node(seed: &[u8], derivation_path: &str) -> Result<BIP32Container, NodeXError> {
         let master = match ExtendedPrivKey::with_seed(seed) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let chain = DefaultKeyChain::new(master);
@@ -22,7 +25,10 @@ impl BIP32 {
 
         let (private_key, _) = match chain.derive_private_key(path) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let public_key = ExtendedPubKey::from_private_key(&private_key);

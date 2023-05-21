@@ -27,14 +27,20 @@ impl Trng {
 
             let lib = match libloading::Library::new(&extension.filename) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             };
 
             let func: libloading::Symbol<
                 unsafe extern "C" fn(buf: *const i8, bufsize: usize, size: usize) -> u32,
             > = match lib.get(extension.symbol.as_bytes()) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             };
 
             let result = func(buffer_ptr, buffer.len(), *size);

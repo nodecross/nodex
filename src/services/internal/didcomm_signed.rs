@@ -22,16 +22,25 @@ impl DIDCommSignedService {
     ) -> Result<Value, NodeXError> {
         let keyring = match keyring::mnemonic::MnemonicKeyring::load_keyring() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let did = match keyring.get_identifier() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let body = match DIDVCService::generate(message) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let mut message = Message::new()
@@ -61,9 +70,15 @@ impl DIDCommSignedService {
         ) {
             Ok(v) => match serde_json::from_str::<Value>(&v) {
                 Ok(v) => Ok(v),
-                Err(_) => Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    Err(NodeXError {})
+                }
             },
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 
@@ -82,9 +97,15 @@ impl DIDCommSignedService {
             match base64_url::Base64Url::decode_as_string(&payload, &PaddingType::NoPadding) {
                 Ok(v) => match serde_json::from_str::<Value>(&v) {
                     Ok(v) => v,
-                    Err(_) => return Err(NodeXError {}),
+                    Err(e) => {
+                        log::error!("{:?}", e);
+                        return Err(NodeXError {});
+                    }
                 },
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             };
 
         let from_did = match decoded.get("from") {
@@ -97,7 +118,10 @@ impl DIDCommSignedService {
 
         let did_document = match service.find_identifier(&from_did).await {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let public_keys = match did_document.did_document.public_key {
             Some(v) => v,
@@ -113,13 +137,19 @@ impl DIDCommSignedService {
 
         let context = match keyring::secp256k1::Secp256k1::from_jwk(&public_key.public_key_jwk) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let message =
             match Message::verify(message.to_string().as_bytes(), &context.get_public_key()) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             };
 
         let metadata = message
@@ -132,9 +162,15 @@ impl DIDCommSignedService {
         let body = match message.clone().get_body() {
             Ok(v) => match serde_json::from_str::<Value>(&v) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             },
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         match metadata {

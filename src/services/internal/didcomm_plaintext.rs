@@ -17,16 +17,25 @@ impl DIDCommPlaintextService {
     ) -> Result<Value, NodeXError> {
         let keyring = match keyring::mnemonic::MnemonicKeyring::load_keyring() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let did = match keyring.get_identifier() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let body = match DIDVCService::generate(message) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let mut message = Message::new()
@@ -53,16 +62,25 @@ impl DIDCommPlaintextService {
         match message.clone().as_raw_json() {
             Ok(v) => match serde_json::from_str::<Value>(&v) {
                 Ok(v) => Ok(v),
-                Err(_) => Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    Err(NodeXError {})
+                }
             },
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 
     pub fn verify(message: &Value) -> Result<VerifiedContainer, NodeXError> {
         let message = match Message::receive(&message.to_string(), None, None, None) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let metadata = message
@@ -75,9 +93,15 @@ impl DIDCommPlaintextService {
         let body = match message.clone().get_body() {
             Ok(v) => match serde_json::from_str::<Value>(&v) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             },
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         match metadata {
