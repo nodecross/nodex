@@ -88,7 +88,7 @@ pub fn new_server(sock_path: &PathBuf, sender: Sender<Command>) -> Server {
                     ),
             )
     })
-    .bind_uds(&sock_path)
+    .bind_uds(sock_path)
     .unwrap()
     .workers(1)
     .run()
