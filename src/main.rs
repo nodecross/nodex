@@ -15,6 +15,8 @@ use tokio::sync::RwLock;
 use tokio::time::Duration;
 
 use crate::config::AppConfig;
+use crate::config::ServerConfig;
+use dotenv::dotenv;
 use handlers::Command;
 
 mod config;
@@ -48,6 +50,10 @@ pub fn app_config() -> Box<SingletonAppConfig> {
     }
 }
 
+pub fn server_config() -> ServerConfig {
+    ServerConfig::new()
+}
+
 #[derive(Parser, Debug)]
 #[clap(name = "nodex-agent")]
 #[clap(name = "nodex-agent")]
@@ -64,6 +70,8 @@ struct Cli {
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
+    dotenv().ok();
+
     let cli = Cli::parse();
 
     std::env::set_var("RUST_LOG", "info");

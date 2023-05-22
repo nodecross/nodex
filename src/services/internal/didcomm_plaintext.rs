@@ -1,4 +1,4 @@
-use super::{did_vc::DIDVCService, types::VerifiedContainer};
+use super::{attachment_link, did_vc::DIDVCService, types::VerifiedContainer};
 use crate::nodex::{
     errors::NodeXError,
     keyring::{self},
@@ -48,7 +48,7 @@ impl DIDCommPlaintextService {
             let id = cuid::cuid2();
 
             let data = AttachmentDataBuilder::new()
-                .with_link("https://did.getnodex.io")
+                .with_link(&attachment_link())
                 .with_json(&value.to_string());
 
             message.apeend_attachment(

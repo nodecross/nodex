@@ -10,7 +10,7 @@ use didcomm_rs::{
 };
 use serde_json::Value;
 
-use super::{did_vc::DIDVCService, types::VerifiedContainer};
+use super::{attachment_link, did_vc::DIDVCService, types::VerifiedContainer};
 
 pub struct DIDCommSignedService {}
 
@@ -53,7 +53,7 @@ impl DIDCommSignedService {
             let id = cuid::cuid2();
 
             let data = AttachmentDataBuilder::new()
-                .with_link("https://did.getnodex.io")
+                .with_link(&attachment_link())
                 .with_json(&value.to_string());
 
             message.apeend_attachment(

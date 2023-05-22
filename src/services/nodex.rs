@@ -9,6 +9,7 @@ use crate::nodex::{
 use serde_json::{json, Value};
 
 use super::internal::didcomm_encrypted::DIDCommEncryptedService;
+use crate::server_config;
 
 pub struct NodeX {
     http_client: HttpClient,
@@ -16,8 +17,9 @@ pub struct NodeX {
 
 impl NodeX {
     pub fn new() -> Self {
+        let server_config = server_config();
         let client_config: HttpClientConfig = HttpClientConfig {
-            base_url: "https://did.nodecross.io".to_string(),
+            base_url: server_config.did_http_endpoint(),
         };
 
         let client = match HttpClient::new(&client_config) {

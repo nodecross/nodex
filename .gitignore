@@ -11,3 +11,4 @@ default.profraw
 html/
 latex/
 .VERSION
+.env
