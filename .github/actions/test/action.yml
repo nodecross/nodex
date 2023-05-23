@@ -32,7 +32,7 @@ runs:
       shell: bash
       run: make test
       env:
-        RUSTFLAGS: -Zinstrument-coverage
+        RUSTFLAGS: -C instrument-coverage
         LLVM_PROFILE_FILE: coverage/target-%p-%m.profraw
 
     - name: (run) coverage

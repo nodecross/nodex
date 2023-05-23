@@ -1,6 +1,7 @@
 use home_config::HomeConfig;
 use serde::Deserialize;
 use serde::Serialize;
+use std::env;
 use std::fs;
 use std::fs::OpenOptions;
 use std::io;
@@ -448,5 +449,36 @@ impl AppConfig {
                 panic!()
             }
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct ServerConfig {
+    did_http_endpoint: String,
+    did_attachment_link: String,
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ServerConfig {
+    pub fn new() -> ServerConfig {
+        let endpoint =
+            env::var("NODEX_DID_HTTP_ENDPOINT").unwrap_or("https://did.nodecross.io".to_string());
+        let link =
+            env::var("NODEX_DID_ATTACHMENT_LINK").unwrap_or("https://did.getnodex.io".to_string());
+        ServerConfig {
+            did_http_endpoint: endpoint,
+            did_attachment_link: link,
+        }
+    }
+    pub fn did_http_endpoint(&self) -> String {
+        self.did_http_endpoint.clone()
+    }
+    pub fn did_attachment_link(&self) -> String {
+        self.did_attachment_link.clone()
     }
 }
