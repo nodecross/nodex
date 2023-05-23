@@ -74,7 +74,10 @@ async fn main() -> std::io::Result<()> {
     let config = AppConfig::new();
     match config.write() {
         Ok(()) => (),
-        Err(_) => panic!(),
+        Err(e) => {
+            log::error!("{:?}", e);
+            panic!()
+        }
     };
 
     let home_dir = match dirs::home_dir() {
@@ -87,11 +90,17 @@ async fn main() -> std::io::Result<()> {
 
     match fs::create_dir_all(&runtime_dir) {
         Ok(()) => (),
-        Err(_) => panic!(),
+        Err(e) => {
+            log::error!("{:?}", e);
+            panic!()
+        }
     };
     match fs::create_dir_all(&logs_dir) {
         Ok(()) => (),
-        Err(_) => panic!(),
+        Err(e) => {
+            log::error!("{:?}", e);
+            panic!()
+        }
     };
 
     // NOTE: generate Key Chain
@@ -161,6 +170,9 @@ async fn main() -> std::io::Result<()> {
 
     match tokio::try_join!(server_task, sender_task, receiver_task, shutdown) {
         Ok(_) => Ok(()),
-        Err(_) => panic!(),
+        Err(e) => {
+            log::error!("{:?}", e);
+            panic!()
+        }
     }
 }

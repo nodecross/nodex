@@ -9,12 +9,18 @@ impl Jcs {
     pub fn canonicalize(input: &str) -> Result<String, NodeXError> {
         let json = match serde_json::from_str::<Value>(input) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         match serde_jcs::to_string(&json) {
             Ok(v) => Ok(v),
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 }

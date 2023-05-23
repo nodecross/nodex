@@ -1,13 +1,13 @@
-name: Rust Format Check
+name: Rust Check
 
 on:
   push:
-    branches: [ main, develop, rust-fmt ]
+    branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
 
 jobs:
-  check_fmt:
+  check:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -19,7 +19,9 @@ jobs:
         profile: minimal
         toolchain: stable
         override: true
-        components: rustfmt
+        components: rustfmt, clippy
 
     - name: Check formatting
       run: cargo fmt -- --check
+    - name: Check clippy
+      run: cargo clippy -- -D warnings

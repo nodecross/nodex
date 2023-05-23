@@ -42,7 +42,10 @@ impl Jws {
         // NOTE: signature
         let signature = match Signer::sign(&message, context) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let _signature =
             runtime::base64_url::Base64Url::encode(&signature, &PaddingType::NoPadding);
@@ -68,9 +71,15 @@ impl Jws {
         ) {
             Ok(v) => match serde_json::from_str::<JWSHeader>(&v) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             },
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         if header.alg != *"ES256K" {
@@ -102,13 +111,19 @@ impl Jws {
             &PaddingType::NoPadding,
         ) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         // NOTE: verify
         match Signer::verify(&message, &signature, context) {
             Ok(v) => Ok(v),
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 }

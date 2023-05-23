@@ -8,7 +8,10 @@ impl Hasher {
     pub fn digest(message: &[u8], secret: &[u8]) -> Result<String, NodeXError> {
         let digest = match runtime::hmac::HmacSha512::digest(secret, message) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         Ok(hex::encode(digest))
@@ -18,12 +21,18 @@ impl Hasher {
     pub fn verify(message: &[u8], digest: &[u8], secret: &[u8]) -> Result<bool, NodeXError> {
         let _digest = match hex::decode(digest) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         match runtime::hmac::HmacSha512::verify(secret, message, &_digest) {
             Ok(v) => Ok(v),
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 }

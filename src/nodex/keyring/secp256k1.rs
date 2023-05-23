@@ -58,7 +58,10 @@ impl Secp256k1 {
         if context.public.len() == Self::COMPRESSED_PUBLIC_KEY_SIZE {
             let public = match Secp256k1::transform_uncompressed_public_key(&context.public) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             };
 
             return Ok(Secp256k1 {
@@ -107,21 +110,30 @@ impl Secp256k1 {
             &PaddingType::NoPadding,
         ) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let y = match runtime::base64_url::Base64Url::decode_as_bytes(
             &jwk.y,
             &PaddingType::NoPadding,
         ) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let public = [&[0x04], &x[..], &y[..]].concat();
         let private =
             match runtime::base64_url::Base64Url::decode_as_bytes(&d, &PaddingType::NoPadding) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             };
 
         Ok(Secp256k1 { public, private })
@@ -130,7 +142,10 @@ impl Secp256k1 {
     pub fn to_jwk(&self, included_private_key: bool) -> Result<KeyPairSecp256K1, NodeXError> {
         let validated = match self.validate_point() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         if !validated {
@@ -139,11 +154,17 @@ impl Secp256k1 {
 
         let x = match self.get_point_x() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let y = match self.get_point_y() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         if included_private_key {
@@ -177,7 +198,10 @@ impl Secp256k1 {
     ) -> Result<PublicKeyPayload, NodeXError> {
         let validated = match self.validate_point() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         if !validated {
@@ -186,7 +210,10 @@ impl Secp256k1 {
 
         let jwk = match self.to_jwk(false) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         Ok(PublicKeyPayload {
@@ -236,27 +263,42 @@ impl Secp256k1 {
     pub fn validate_point(&self) -> Result<bool, NodeXError> {
         let x = match self.get_point_x() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let y = match self.get_point_y() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let nx = match IBig::from_str_radix(&hex::encode(x), 16) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let ny = match IBig::from_str_radix(&hex::encode(y), 16) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let np = match IBig::from_str_radix(
             "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F",
             16,
         ) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let verified: IBig = (&ny * &ny - &nx * &nx * &nx - 7) % &np;

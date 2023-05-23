@@ -9,7 +9,10 @@ impl Signer {
             &context.get_secret_key(),
         ) {
             Ok(v) => Ok(v),
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 
@@ -24,7 +27,10 @@ impl Signer {
             &context.get_public_key(),
         ) {
             Ok(v) => Ok(v),
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 }

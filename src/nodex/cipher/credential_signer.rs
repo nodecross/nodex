@@ -65,7 +65,10 @@ impl CredentialSigner {
         let created = Utc::now().to_rfc3339();
         let jws = match Jws::encode(&json!(object), &suite.context) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let did = match &suite.did {
@@ -97,7 +100,10 @@ impl CredentialSigner {
 
         match serde_json::from_value::<GeneralVcDataModel>(signed_object) {
             Ok(v) => Ok(v),
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 
@@ -114,7 +120,10 @@ impl CredentialSigner {
 
         let proof = match serde_json::from_value::<Proof>(serialized["proof"].take()) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         // FIXME:
@@ -131,13 +140,19 @@ impl CredentialSigner {
         let jws = proof.jws;
         let payload = match serde_json::from_value::<GeneralVcDataModel>(serialized) {
             Ok(v) => json!(v),
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         // NOTE: verify
         let verified = match Jws::verify(&payload, &jws, &suite.context) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         Ok((payload, verified))

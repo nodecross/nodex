@@ -77,9 +77,15 @@ pub async fn handler(
                         }))
                     }
                 }
-                _ => Ok(HttpResponse::InternalServerError().finish()),
+                Err(e) => {
+                    log::error!("{:?}", e.to_string());
+                    Ok(HttpResponse::InternalServerError().finish())
+                }
             }
         }
-        Err(_) => Ok(HttpResponse::InternalServerError().finish()),
+        Err(e) => {
+            log::error!("{:?}", e);
+            Ok(HttpResponse::InternalServerError().finish())
+        }
     }
 }

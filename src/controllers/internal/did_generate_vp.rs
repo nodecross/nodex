@@ -10,6 +10,9 @@ struct MessageContainer {}
 pub async fn handler(_req: HttpRequest) -> actix_web::Result<HttpResponse> {
     match DIDVPService::generate() {
         Ok(v) => Ok(HttpResponse::Ok().body(v)),
-        Err(_) => Ok(HttpResponse::InternalServerError().finish()),
+        Err(e) => {
+            log::error!("{:?}", e);
+            Ok(HttpResponse::InternalServerError().finish())
+        }
     }
 }

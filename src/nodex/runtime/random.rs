@@ -8,7 +8,10 @@ impl Random {
 
         match getrandom::getrandom(&mut bytes) {
             Ok(_) => Ok(bytes),
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 }

@@ -22,7 +22,10 @@ impl NodeX {
 
         let client = match HttpClient::new(&client_config) {
             Ok(v) => v,
-            Err(_) => panic!(),
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
         };
 
         NodeX {
@@ -44,7 +47,10 @@ impl NodeX {
         // NOTE: does not exists did key ring
         let mut keyring = match keyring::mnemonic::MnemonicKeyring::create_keyring() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         // NOTE: create payload
@@ -53,15 +59,24 @@ impl NodeX {
             .to_public_key("signingKey", &["auth", "general"])
         {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let update = match keyring.get_recovery_key_pair().to_jwk(false) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let recovery = match keyring.get_update_key_pair().to_jwk(false) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let payload = match OperationPayload::did_create_payload(&DIDCreateRequest {
@@ -70,17 +85,26 @@ impl NodeX {
             service_endpoints: vec![],
         }) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let res = match self.http_client.post("/api/v1/operations", &payload).await {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let json = match res.json::<DIDResolutionResponse>().await {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         // NOTE: save context
@@ -97,12 +121,18 @@ impl NodeX {
             .await
         {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         match res.json::<DIDResolutionResponse>().await {
             Ok(v) => Ok(v),
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 
@@ -117,7 +147,10 @@ impl NodeX {
             match DIDCommEncryptedService::generate(to_did, &json!(messages), Some(metadata)).await
             {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             };
 
         Ok(container)

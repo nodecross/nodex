@@ -18,7 +18,10 @@ impl HttpClient {
     pub fn new(_config: &HttpClientConfig) -> Result<Self, NodeXError> {
         let url = match Url::parse(&_config.base_url.to_string()) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let client: reqwest::Client = reqwest::Client::new();
 
@@ -48,7 +51,10 @@ impl HttpClient {
             .await
         {
             Ok(v) => Ok(v),
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 
@@ -64,7 +70,10 @@ impl HttpClient {
             .await
         {
             Ok(v) => Ok(v),
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 
@@ -80,7 +89,10 @@ impl HttpClient {
             .await
         {
             Ok(v) => Ok(v),
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 
@@ -96,7 +108,10 @@ impl HttpClient {
             .await
         {
             Ok(v) => Ok(v),
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 }

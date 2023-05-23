@@ -15,7 +15,10 @@ impl AesGcmSiv {
 
         match cipher.encrypt(nonce, _plain_text) {
             Ok(v) => Ok(v.to_vec()),
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 
@@ -28,7 +31,10 @@ impl AesGcmSiv {
 
         match cipher.decrypt(nonce, _cipher_text) {
             Ok(v) => Ok(v),
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 }

@@ -17,11 +17,17 @@ impl Secp256k1 {
     pub fn ecdh(private_key: &[u8], public_key: &[u8]) -> Result<Vec<u8>, NodeXError> {
         let sk = match SecretKey::from_be_bytes(private_key) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let pk = match PublicKey::from_sec1_bytes(public_key) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         Ok(diffie_hellman(sk.to_nonzero_scalar(), pk.as_affine())
@@ -33,7 +39,10 @@ impl Secp256k1 {
     pub fn generate_public_key(private_key: &[u8]) -> Result<Vec<u8>, NodeXError> {
         let signing_key = match SigningKey::from_bytes(private_key.to_vec().as_slice()) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         Ok(signing_key.verifying_key().to_bytes().to_vec())
@@ -43,7 +52,10 @@ impl Secp256k1 {
     pub fn convert_public_key(public_key: &[u8], compress: bool) -> Result<Vec<u8>, NodeXError> {
         let public_key = match PublicKey::from_sec1_bytes(public_key) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         Ok(public_key.to_encoded_point(compress).as_bytes().to_vec())
@@ -53,12 +65,18 @@ impl Secp256k1 {
     pub fn ecdsa_sign(message: &[u8], private_key: &[u8]) -> Result<Vec<u8>, NodeXError> {
         let signing_key = match SigningKey::from_bytes(private_key.to_vec().as_slice()) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let signature: Signature = match signing_key.try_sign(message.to_vec().as_slice()) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         Ok(signature.as_ref().to_vec())
@@ -72,7 +90,10 @@ impl Secp256k1 {
     ) -> Result<bool, NodeXError> {
         let verify_key = match VerifyingKey::from_sec1_bytes(public_key) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         if signature.len() != 64 {
@@ -84,12 +105,18 @@ impl Secp256k1 {
 
         let wrapped_signature = match Signature::from_scalars(*r, *s) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         match verify_key.verify(message, &wrapped_signature) {
             Ok(()) => Ok(true),
-            Err(_) => Ok(false),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Ok(false)
+            }
         }
     }
 }

@@ -19,7 +19,10 @@ impl HmacSha256 {
     pub fn digest(secret: &[u8], message: &[u8]) -> Result<Vec<u8>, NodeXError> {
         let mut mac = match _HmacSha256::new_from_slice(secret) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         mac.update(message);
@@ -31,7 +34,10 @@ impl HmacSha256 {
     pub fn verify(secret: &[u8], message: &[u8], digest: &[u8]) -> Result<bool, NodeXError> {
         let computed = match HmacSha256::digest(secret, message) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         Ok(computed.eq(digest))
@@ -46,7 +52,10 @@ impl HmacSha512 {
     pub fn digest(secret: &[u8], message: &[u8]) -> Result<Vec<u8>, NodeXError> {
         let mut mac = match _HmacSha512::new_from_slice(secret) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         mac.update(message);
@@ -58,7 +67,10 @@ impl HmacSha512 {
     pub fn verify(secret: &[u8], message: &[u8], digest: &[u8]) -> Result<bool, NodeXError> {
         let computed = match HmacSha512::digest(secret, message) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         Ok(computed.eq(digest))

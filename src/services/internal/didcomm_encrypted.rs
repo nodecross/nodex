@@ -29,17 +29,26 @@ impl DIDCommEncryptedService {
         // NOTE: recipient from
         let my_keyring = match keyring::mnemonic::MnemonicKeyring::load_keyring() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let my_did = match my_keyring.get_identifier() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         // NOTE: recipient to
         let did_document = match service.find_identifier(to_did).await {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let public_keys = match did_document.did_document.public_key {
             Some(v) => v,
@@ -55,7 +64,10 @@ impl DIDCommEncryptedService {
 
         let other_key = match keyring::secp256k1::Secp256k1::from_jwk(&public_key.public_key_jwk) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         // NOTE: ecdh
@@ -64,7 +76,10 @@ impl DIDCommEncryptedService {
             &other_key.get_public_key(),
         ) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let sk = StaticSecret::from(array_ref!(shared_key, 0, 32).to_owned());
@@ -73,7 +88,10 @@ impl DIDCommEncryptedService {
         // NOTE: message
         let body = match DIDVCService::generate(message) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let mut message = Message::new()
@@ -109,9 +127,15 @@ impl DIDCommEncryptedService {
             ) {
             Ok(v) => match serde_json::from_str::<Value>(&v) {
                 Ok(v) => Ok(v),
-                Err(_) => Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    Err(NodeXError {})
+                }
             },
-            Err(_) => Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 
@@ -121,7 +145,10 @@ impl DIDCommEncryptedService {
         // NOTE: recipient to
         let my_keyring = match keyring::mnemonic::MnemonicKeyring::load_keyring() {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         // NOTE: recipient from
@@ -137,9 +164,15 @@ impl DIDCommEncryptedService {
             match base64_url::Base64Url::decode_as_string(&protected, &PaddingType::NoPadding) {
                 Ok(v) => match serde_json::from_str::<Value>(&v) {
                     Ok(v) => v,
-                    Err(_) => return Err(NodeXError {}),
+                    Err(e) => {
+                        log::error!("{:?}", e);
+                        return Err(NodeXError {});
+                    }
                 },
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             };
 
         let other_did = match decoded.get("skid") {
@@ -152,7 +185,10 @@ impl DIDCommEncryptedService {
 
         let did_document = match service.find_identifier(&other_did).await {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let public_keys = match did_document.did_document.public_key {
@@ -169,7 +205,10 @@ impl DIDCommEncryptedService {
 
         let other_key = match keyring::secp256k1::Secp256k1::from_jwk(&public_key.public_key_jwk) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         // NOTE: ecdh
@@ -178,7 +217,10 @@ impl DIDCommEncryptedService {
             &other_key.get_public_key(),
         ) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let sk = StaticSecret::from(array_ref!(shared_key, 0, 32).to_owned());
@@ -191,7 +233,10 @@ impl DIDCommEncryptedService {
             Some(&other_key.get_public_key()),
         ) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let metadata = message
@@ -204,9 +249,15 @@ impl DIDCommEncryptedService {
         let body = match message.clone().get_body() {
             Ok(v) => match serde_json::from_str::<Value>(&v) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError {}),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             },
-            Err(_) => return Err(NodeXError {}),
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         match metadata {
