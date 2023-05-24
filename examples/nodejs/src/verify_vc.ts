@@ -15,19 +15,19 @@ import { post } from './sock.js'
           "string": "value"
         }
       },
-      "issuanceDate": "2023-01-12T14:02:44.193299+00:00",
+      "issuanceDate": "2023-05-23T10:39:07.130753+00:00",
       "issuer": {
-        "id": "did:nodex:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA"
+        "id": "did:nodex:test:EiB-ak3q__Y94I7suelC2h3h03YIWgKSE3YwS9cV1WQA1A"
       },
       "proof": {
         "challenge": null,
         "controller": null,
-        "created": "2023-01-12T14:02:44.193327+00:00",
+        "created": "2023-05-23T10:39:07.130753+00:00",
         "domain": null,
-        "jws": "eyJhbGciOiJFUzI1NksiLCJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdfQ..m-49v1qZ1Dv4qMuDe9p_4RaSlNESuLL3ONnH_gcyOfZYOys7kFzP_mK5mORM1eR3dF1oojST9BPv6pbV7pWPnQ",
+        "jws": "eyJhbGciOiJFUzI1NksiLCJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdfQ..RCp1sTu409PTjJlLqhVbVHlkuY4HvtZP6ecIxCAXhSc__3_r1h9qxPVyVrapITrY1bcSOayLzX2392utgh2BzQ",
         "proofPurpose": "authentication",
         "type": "EcdsaSecp256k1Signature2019",
-        "verificationMethod": "did:nodex:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA#signingKey"
+        "verificationMethod": "did:nodex:test:EiB-ak3q__Y94I7suelC2h3h03YIWgKSE3YwS9cV1WQA1A#signingKey"
       },
       "type": [
         "VerifiableCredential"
