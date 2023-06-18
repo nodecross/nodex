@@ -12,17 +12,31 @@ permissions:
   contents: read
 
 jobs:
-  prepare:
+  lint:
     runs-on: ubuntu-latest
 
     steps:
     - name: (checkout) source code
       uses: actions/checkout@v3
 
-    - name: (run) prepare
-      uses: ./.github/actions/prepare
+    - name: (run) lint
+      uses: ./.github/actions/lint
       with:
         github-token: ${{ env.GITHUB_TOKEN }}
+        use-cache: true
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: (checkout) source code
+      uses: actions/checkout@v3
+
+    - name: (run) test
+      uses: ./.github/actions/test
+      with:
+        github-token: ${{ env.GITHUB_TOKEN }}
+        use-cache: true
 
   build:
     strategy:
@@ -30,7 +44,6 @@ jobs:
         os: [ ubuntu-latest, macos-latest ]
 
     runs-on: ${{ matrix.os }}
-    needs: [ prepare ]
 
     steps:
     - name: (checkout) source code
@@ -42,17 +55,3 @@ jobs:
         os: ${{ matrix.os }}
         use-cache: true
         github-token: ${{ env.GITHUB_TOKEN }}
-
-  test:
-    runs-on: ubuntu-latest
-    needs: [ prepare ]
-
-    steps:
-    - name: (checkout) source code
-      uses: actions/checkout@v3
-
-    - name: (run) test
-      uses: ./.github/actions/test
-      with:
-        github-token: ${{ env.GITHUB_TOKEN }}
-        use-cache: true

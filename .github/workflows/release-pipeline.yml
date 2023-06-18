@@ -18,21 +18,8 @@ permissions:
   pull-requests: write
 
 jobs:
-  prepare:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: (checkout) source code
-      uses: actions/checkout@v3
-
-    - name: (run) prepare
-      uses: ./.github/actions/prepare
-      with:
-        github-token: ${{ env.GITHUB_TOKEN }}
-
   release:
     runs-on: ubuntu-latest
-    needs: [ prepare ]
 
     steps:
     - name: (checkout) source code
