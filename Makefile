@@ -2,10 +2,8 @@ CARGO = cargo
 ACT = act
 GRCOV = grcov
 
-build:
-	$(CARGO) build --release
-
 lint:
+	$(CARGO) fmt --all -- --check
 	$(CARGO) clippy --all-targets --all-features -- -D warnings
 
 test:
@@ -13,5 +11,8 @@ test:
 
 test-gh-actions:
 	$(ACT)
+
+build:
+	$(CARGO) build --release
 
 .PHONY: build
