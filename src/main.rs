@@ -75,7 +75,7 @@ async fn main() -> std::io::Result<()> {
     let cli = Cli::parse();
 
     std::env::set_var("RUST_LOG", "info");
-    env_logger::init();
+    log_init();
 
     let hub_did_topic = "nodex/did:nodex:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
 
@@ -185,8 +185,33 @@ async fn main() -> std::io::Result<()> {
     }
 }
 
+use env_logger::fmt::Color;
+use log::Level;
 
+fn log_init() {
+    let mut builder = env_logger::Builder::from_default_env();
+    builder.format(|buf, record| {
+        let level_color = match record.level() {
+            Level::Trace => Color::White,
+            Level::Debug => Color::Blue,
+            Level::Info => Color::Green,
+            Level::Warn => Color::Yellow,
+            Level::Error => Color::Red,
+        };
+        let mut level_style = buf.style();
+        level_style.set_color(level_color);
 
-
-
-
+        use std::io::Write;
+        writeln!(
+            buf,
+            "{} [{}] - {} - {} - {}:{}",
+            chrono::Local::now().format("%Y-%m-%dT%H:%M:%S"),
+            level_style.value(record.level()),
+            record.target(),
+            record.args(),
+            record.file().unwrap_or(""),
+            record.line().unwrap_or(0),
+        )
+    });
+    builder.init();
+}
