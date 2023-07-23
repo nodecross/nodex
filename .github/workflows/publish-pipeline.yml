@@ -14,18 +14,31 @@ permissions:
   pull-requests: write
 
 jobs:
-  prepare:
-    if: (github.event.pull_request.merged == true) && (startsWith(github.event.pull_request.head.ref, 'release/release-'))
+  lint:
     runs-on: ubuntu-latest
 
     steps:
     - name: (checkout) source code
       uses: actions/checkout@v3
 
-    - name: (run) prepare
-      uses: ./.github/actions/prepare
+    - name: (run) lint
+      uses: ./.github/actions/lint
       with:
         github-token: ${{ env.GITHUB_TOKEN }}
+        use-cache: true
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: (checkout) source code
+      uses: actions/checkout@v3
+
+    - name: (run) test
+      uses: ./.github/actions/test
+      with:
+        github-token: ${{ env.GITHUB_TOKEN }}
+        use-cache: true
 
   build:
     strategy:
@@ -33,7 +46,6 @@ jobs:
         os: [ ubuntu-latest, macos-latest ]
 
     runs-on: ${{ matrix.os }}
-    needs: [ prepare ]
 
     steps:
     - name: (checkout) source code
@@ -46,22 +58,8 @@ jobs:
         use-cache: false
         github-token: ${{ env.GITHUB_TOKEN }}
 
-  test:
-    runs-on: ubuntu-latest
-    needs: [ prepare ]
-
-    steps:
-    - name: (checkout) source code
-      uses: actions/checkout@v3
-
-    - name: (run) test
-      uses: ./.github/actions/test
-      with:
-        github-token: ${{ env.GITHUB_TOKEN }}
-        use-cache: true
-
   publish:
-    needs: [ build, test ]
+    needs: [ lint, test, build ]
     runs-on: ubuntu-latest
 
     steps:

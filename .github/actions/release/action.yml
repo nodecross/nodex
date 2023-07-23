@@ -1,6 +1,9 @@
 name: release
 description: ""
 inputs:
+  checkout:
+    required: false
+    description: ""
   github-token:
     required: true
     description: ""
@@ -11,10 +14,8 @@ runs:
   using: composite
   steps:
     - name: (checkout) source code
+      if: ${{ inputs.checkout == 'true' }}
       uses: actions/checkout@v3
-
-    - name: (setup) environment
-      uses: ./.github/actions/shared
 
     - name: (cache) rust
       if: ${{ inputs.use-cache == 'true' }}
