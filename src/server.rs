@@ -1,19 +1,18 @@
+use crate::{controllers, handlers::TransferClient};
 use actix_web::{dev::Server, middleware, web, App, HttpServer};
 use std::path::PathBuf;
-use tokio::sync::mpsc::Sender;
 use tokio::sync::Mutex as TokioMutex;
 
-use crate::controllers::{self, public::nodex_receive::ConnectionRepository};
-use crate::handlers::Command;
+use crate::controllers::public::nodex_receive::ConnectionRepository;
 
 pub struct Context {
-    pub sender: TokioMutex<Sender<Command>>,
+    pub sender: TokioMutex<Box<dyn TransferClient>>,
     pub connections: ConnectionRepository,
 }
 
 pub fn new_server(
     sock_path: &PathBuf,
-    sender: Sender<Command>,
+    sender: Box<dyn TransferClient>,
     ws_connections: ConnectionRepository,
 ) -> Server {
     let context = web::Data::new(Context {

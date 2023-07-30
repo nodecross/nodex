@@ -1,8 +1,7 @@
-use crate::{server::Context, Command};
+use crate::server::Context;
 use actix_web::{web, HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio::sync::oneshot;
 
 // NOTE: POST /transfer
 #[derive(Deserialize, Serialize)]
@@ -45,44 +44,31 @@ pub async fn handler(
         .transfer(to_did, &json.messages, &json.metadata)
         .await
     {
-        Ok(v) => {
-            let (tx, rx) = oneshot::channel();
-
-            let command = Command::Send {
-                value: v.clone(),
-                resp: tx,
-            };
-
-            if context.sender.lock().await.send(command).await.is_err() {
-                return Ok(HttpResponse::InternalServerError().finish());
-            }
-
-            match rx.await {
-                Ok(is_success) => {
-                    if is_success {
-                        Ok(HttpResponse::Ok().json(&ResponseContainer {
-                            results: vec![Result {
-                                destination: to_did.clone(),
-                                errors: vec![],
-                                success: true,
-                            }],
-                        }))
-                    } else {
-                        Ok(HttpResponse::Ok().json(&ResponseContainer {
-                            results: vec![Result {
-                                destination: to_did.clone(),
-                                errors: vec!["Request Timeout".to_string()],
-                                success: false,
-                            }],
-                        }))
-                    }
-                }
-                Err(e) => {
-                    log::error!("{:?}", e.to_string());
-                    Ok(HttpResponse::InternalServerError().finish())
+        Ok(v) => match context.sender.lock().await.send(v.clone()).await {
+            Ok(is_success) => {
+                if is_success {
+                    Ok(HttpResponse::Ok().json(&ResponseContainer {
+                        results: vec![Result {
+                            destination: to_did.clone(),
+                            errors: vec![],
+                            success: true,
+                        }],
+                    }))
+                } else {
+                    Ok(HttpResponse::Ok().json(&ResponseContainer {
+                        results: vec![Result {
+                            destination: to_did.clone(),
+                            errors: vec!["Request Timeout".to_string()],
+                            success: false,
+                        }],
+                    }))
                 }
             }
-        }
+            Err(e) => {
+                log::error!("{:?}", e);
+                Ok(HttpResponse::InternalServerError().finish())
+            }
+        },
         Err(e) => {
             log::error!("{:?}", e);
             Ok(HttpResponse::InternalServerError().finish())
