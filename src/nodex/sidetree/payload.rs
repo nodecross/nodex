@@ -325,7 +325,7 @@ pub mod tests {
 
     #[test]
     pub fn test_did_create_payload() {
-        let keyring = match keyring::mnemonic::MnemonicKeyring::create_keyring() {
+        let keyring = match keyring::keypair::KeyPairing::create_keyring() {
             Ok(v) => v,
             Err(_) => panic!(),
         };

@@ -11,7 +11,7 @@ pub struct DIDVCService {}
 
 impl DIDVCService {
     pub fn generate(message: &Value) -> Result<Value, NodeXError> {
-        let keyring = match keyring::mnemonic::MnemonicKeyring::load_keyring() {
+        let keyring = match keyring::keypair::KeyPairing::load_keyring() {
             Ok(v) => v,
             Err(e) => {
                 log::error!("{:?}", e);

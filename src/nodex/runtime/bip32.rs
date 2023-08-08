@@ -1,4 +1,3 @@
-// use bip32::{Mnemonic, Seed, XPrv};
 use crate::nodex::errors::NodeXError;
 use hdwallet::{ChainPath, DefaultKeyChain, ExtendedPrivKey, ExtendedPubKey, KeyChain};
 
