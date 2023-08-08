@@ -27,7 +27,7 @@ impl DIDCommEncryptedService {
         let service = crate::services::nodex::NodeX::new();
 
         // NOTE: recipient from
-        let my_keyring = match keyring::mnemonic::MnemonicKeyring::load_keyring() {
+        let my_keyring = match keyring::keypair::KeyPairing::load_keyring() {
             Ok(v) => v,
             Err(e) => {
                 log::error!("{:?}", e);
@@ -143,7 +143,7 @@ impl DIDCommEncryptedService {
         let service = crate::services::nodex::NodeX::new();
 
         // NOTE: recipient to
-        let my_keyring = match keyring::mnemonic::MnemonicKeyring::load_keyring() {
+        let my_keyring = match keyring::keypair::KeyPairing::load_keyring() {
             Ok(v) => v,
             Err(e) => {
                 log::error!("{:?}", e);

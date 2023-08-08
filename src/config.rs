@@ -63,7 +63,6 @@ pub struct ExtensionsConfig {
 #[serde(default)]
 pub struct ConfigRoot {
     did: Option<String>,
-    mnemonic: Option<String>,
     key_pairs: KeyPairsConfig,
     extensions: ExtensionsConfig,
     is_initialized: bool,
@@ -74,7 +73,6 @@ impl Default for ConfigRoot {
     fn default() -> Self {
         ConfigRoot {
             did: None,
-            mnemonic: None,
             key_pairs: KeyPairsConfig {
                 sign: None,
                 update: None,
@@ -407,23 +405,6 @@ impl AppConfig {
 
     pub fn save_did(&mut self, value: &str) {
         self.root.did = Some(value.to_string());
-
-        match self.write() {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        }
-    }
-
-    // NOTE: Mnemonic
-    pub fn get_mnemonic(&self) -> Option<String> {
-        self.root.mnemonic.clone()
-    }
-
-    pub fn save_mnemonic(&mut self, value: &str) {
-        self.root.mnemonic = Some(value.to_string());
 
         match self.write() {
             Ok(_) => {}

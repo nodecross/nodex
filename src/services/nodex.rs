@@ -38,7 +38,7 @@ impl NodeX {
     // NOTE: DONE
     pub async fn create_identifier(&self) -> Result<DIDResolutionResponse, NodeXError> {
         // NOTE: find did
-        if let Ok(v) = keyring::mnemonic::MnemonicKeyring::load_keyring() {
+        if let Ok(v) = keyring::keypair::KeyPairing::load_keyring() {
             if let Ok(did) = v.get_identifier() {
                 if let Ok(json) = self.find_identifier(&did).await {
                     return Ok(json);
@@ -47,7 +47,7 @@ impl NodeX {
         }
 
         // NOTE: does not exists did key ring
-        let mut keyring = match keyring::mnemonic::MnemonicKeyring::create_keyring() {
+        let mut keyring = match keyring::keypair::KeyPairing::create_keyring() {
             Ok(v) => v,
             Err(e) => {
                 log::error!("{:?}", e);
