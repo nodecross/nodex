@@ -77,7 +77,7 @@ async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "info");
     log_init();
 
-    let hub_did_topic = "nodex/did:nodex:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
+    let hub_did_topic = "nodex/did:unid:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
 
     let config = AppConfig::new();
     match config.write() {
@@ -126,7 +126,7 @@ async fn main() -> std::io::Result<()> {
     let sock_path = runtime_dir.clone().join("nodex.sock");
 
     // NOTE: connect mqtt server
-    let mqtt_host = "demo-mqtt.getnodex.io";
+    let mqtt_host = "trusted-web-hub-prod.getunid.io";
     let mqtt_port = 1883;
     let mqtt_client_id = cuid::cuid2();
 
