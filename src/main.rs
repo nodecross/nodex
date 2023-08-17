@@ -1,7 +1,8 @@
 extern crate env_logger;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use rumqttc::{AsyncClient, MqttOptions, QoS};
+use services::hub::Hub;
 use services::nodex::NodeX;
 use shadow_rs::shadow;
 use std::sync::atomic::AtomicBool;
@@ -16,12 +17,14 @@ use tokio::time::Duration;
 
 use crate::config::AppConfig;
 use crate::config::ServerConfig;
+use crate::network::Network;
 use dotenv::dotenv;
 use handlers::Command;
 
 mod config;
 mod controllers;
 mod handlers;
+mod network;
 mod nodex;
 mod server;
 mod services;
@@ -33,6 +36,11 @@ pub struct SingletonAppConfig {
     inner: Arc<Mutex<AppConfig>>,
 }
 
+#[derive(Clone)]
+pub struct SingletonNetworkConfig {
+    inner: Arc<Mutex<Network>>,
+}
+
 pub fn app_config() -> Box<SingletonAppConfig> {
     static mut SINGLETON: Option<Box<SingletonAppConfig>> = None;
     static ONCE: Once = Once::new();
@@ -41,6 +49,23 @@ pub fn app_config() -> Box<SingletonAppConfig> {
         ONCE.call_once(|| {
             let singleton = SingletonAppConfig {
                 inner: Arc::new(Mutex::new(AppConfig::new())),
+            };
+
+            SINGLETON = Some(Box::new(singleton))
+        });
+
+        SINGLETON.clone().unwrap()
+    }
+}
+
+pub fn network_config() -> Box<SingletonNetworkConfig> {
+    static mut SINGLETON: Option<Box<SingletonNetworkConfig>> = None;
+    static ONCE: Once = Once::new();
+
+    unsafe {
+        ONCE.call_once(|| {
+            let singleton = SingletonNetworkConfig {
+                inner: Arc::new(Mutex::new(Network::new())),
             };
 
             SINGLETON = Some(Box::new(singleton))
@@ -63,9 +88,38 @@ pub fn server_config() -> ServerConfig {
     long_about = None
 )]
 struct Cli {
-    /// Show node ID
     #[clap(long)]
-    did: bool,
+    config: bool,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Debug, Subcommand)]
+enum Commands {
+    #[command(about = "help for did")]
+    Did {},
+    #[command(about = "help for network")]
+    Network {
+        #[command(subcommand)]
+        command: NetworkSubCommands,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum NetworkSubCommands {
+    #[command(about = "help for Set")]
+    Set {
+        #[arg(short, long)]
+        key: String,
+        #[arg(short, long)]
+        value: String,
+    },
+    #[command(about = "help for Get")]
+    Get {
+        #[arg(short, long)]
+        key: String,
+    },
 }
 
 #[tokio::main]
@@ -115,13 +169,17 @@ async fn main() -> std::io::Result<()> {
     let node_x = NodeX::new();
     let did = node_x.create_identifier().await.unwrap();
 
-    match cli.did {
+    // NOTE: CLI
+    match cli.config {
         true => {
-            println!("Node ID: {}", did.did_document.id);
+            use_cli(cli.command, did.did_document.id.clone());
             return Ok(());
         }
         false => (),
     }
+
+    // NOTE: hub initilize
+    hub_initilize(did.did_document.id.clone()).await;
 
     let sock_path = runtime_dir.clone().join("nodex.sock");
 
@@ -183,6 +241,86 @@ async fn main() -> std::io::Result<()> {
             panic!()
         }
     }
+}
+
+fn use_cli(command: Option<Commands>, did: String) {
+    let mut network_config = Network::new();
+    const SECRET_KEY: &str = "secret_key";
+    const PROJECT_ID: &str = "project_id";
+
+    if let Some(command) = command {
+        match command {
+            Commands::Did {} => {
+                println!("Node ID: {}", did);
+            }
+            Commands::Network { command } => match command {
+                NetworkSubCommands::Set { key, value } => match &*key {
+                    SECRET_KEY => {
+                        network_config.save_secretk_key(&value);
+                        print!("Network {} is set", SECRET_KEY);
+                    }
+                    PROJECT_ID => {
+                        network_config.save_project_id(&value);
+                        print!("Network {} is set", PROJECT_ID);
+                    }
+                    _ => {
+                        print!("key is not found");
+                    }
+                },
+                NetworkSubCommands::Get { key } => match &*key {
+                    SECRET_KEY => {
+                        if let Some(v) = network_config.get_secretk_key() {
+                            println!("Network {}: {}", SECRET_KEY, v);
+                            return;
+                        };
+                        print!("Network {} is not set", SECRET_KEY);
+                    }
+                    PROJECT_ID => {
+                        if let Some(v) = network_config.get_project_id() {
+                            println!("Network {}: {}", PROJECT_ID, v);
+                            return;
+                        };
+                        print!("Network {} is not set", PROJECT_ID);
+                    }
+                    _ => {
+                        print!("key is not found");
+                    }
+                },
+            },
+        }
+    }
+}
+
+async fn hub_initilize(did: String) {
+    let network_config = Network::new();
+    // NOTE: check network secret_key and project_id
+    match network_config.get_secretk_key() {
+        Some(_) => (),
+        None => {
+            log::error!("Network secret_key is not set. Please set secret_key use cli");
+            panic!()
+        }
+    }
+    match network_config.get_project_id() {
+        Some(_) => (),
+        None => {
+            log::error!("Network project_id is not set. Please set project_id use cli");
+            panic!()
+        }
+    }
+
+    // NOTE: register device
+    let hub = Hub::new();
+    match hub
+        .register_device(did, network_config.get_project_id().unwrap())
+        .await
+    {
+        Ok(()) => (),
+        Err(e) => {
+            log::error!("{:?}", e);
+            panic!()
+        }
+    };
 }
 
 use env_logger::fmt::Color;
