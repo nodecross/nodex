@@ -44,7 +44,7 @@ impl Hub {
             project_id,
         };
         let payload = serde_json::to_string(&request).expect("failed to serialize");
-        let res = match self.http_client.post("/device", &payload).await {
+        let res = match self.http_client.post("/v1/device", &payload).await {
             Ok(v) => v,
             Err(e) => {
                 log::error!("{:?}", e);
