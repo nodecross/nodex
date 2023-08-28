@@ -18,6 +18,14 @@ struct RegisterDeviceRequest {
     project_id: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct SendDeviceInfoRequest {
+    device_did: String,
+    mac_address: String,
+    version: String,
+    os: String,
+}
+
 impl Hub {
     pub fn new() -> Self {
         let server_config = server_config();
@@ -45,6 +53,33 @@ impl Hub {
         };
         let payload = serde_json::to_string(&request).expect("failed to serialize");
         let res = match self.http_client.post("/v1/device", &payload).await {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
+        };
+        match res.json::<EmptyResponse>().await {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
+        }
+    }
+
+    pub async fn send_device_info(
+        &self,
+        to_did: String,
+        mac_address: String,
+        version: String,
+        os: String,
+    ) -> Result<(), NodeXError> {
+        let res = match self
+            .http_client
+            .send_device_info("/v1/device_info", &to_did, &mac_address, &version, &os)
+            .await
+        {
             Ok(v) => v,
             Err(e) => {
                 log::error!("{:?}", e);
