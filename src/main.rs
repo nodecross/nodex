@@ -331,8 +331,7 @@ async fn send_device_info(did: String) {
     const OS: &str = env::consts::OS;
     let mac_address: String = match get_mac_address() {
         Ok(Some(ma)) => ma.to_string(),
-        Ok(None) => String::from("No MAC address found."),
-        Err(_) => String::from("No MAC address found."),
+        _ => String::from("No MAC address found."),
     };
 
     let hub = Hub::new();
