@@ -34,6 +34,10 @@ pub fn new_server(sock_path: &PathBuf, sender: Sender<Command>) -> Server {
                 "/transfer",
                 web::post().to(controllers::public::nodex_transfer::handler),
             )
+            .route(
+                "/receive",
+                web::get().to(controllers::public::nodex_receive::handler),
+            )
             // NOTE: Internal (Private) Routes
             .service(
                 web::scope("/internal")

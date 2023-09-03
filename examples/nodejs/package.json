@@ -6,6 +6,7 @@
   "type": "module",
   "devDependencies": {
     "@types/node": "^18.11.17",
+    "@types/ws": "^8.5.5",
     "ts-node": "^10.9.1",
     "typescript": "^4.9.4"
   },
@@ -18,12 +19,14 @@
     "generate_didcomm_signed_message": "npm run exec src/generate_didcomm_signed_message.ts",
     "generate_vc": "npm run exec src/generate_vc.ts",
     "transfer": "npm run exec src/transfer.ts",
+    "receive": "npm run exec src/receive.ts",
     "verify_didcomm_encrypted_message": "npm run exec src/verify_didcomm_encrypted_message.ts",
     "verify_didcomm_plaintext_message": "npm run exec src/verify_didcomm_plaintext_message.ts",
     "verify_didcomm_signed_message": "npm run exec src/verify_didcomm_signed_message.ts",
     "verify_vc": "npm run exec src/verify_vc.ts"
   },
   "dependencies": {
-    "got": "^12.5.3"
+    "got": "^12.5.3",
+    "ws": "^8.13.0"
   }
 }
