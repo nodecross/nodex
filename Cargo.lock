@@ -2373,6 +2373,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "mac_address"
+version = "1.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4863ee94f19ed315bf3bc00299338d857d4b5bc856af375cc97d237382ad3856"
+dependencies = [
+ "nix",
+ "winapi",
+]
+
+[[package]]
 name = "match_cfg"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2442,6 +2452,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "nix"
+version = "0.23.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f3790c00a0150112de0f4cd161e3d7fc4b2d8a5542ffc35f099a2562aecb35c"
+dependencies = [
+ "bitflags",
+ "cc",
+ "cfg-if",
+ "libc",
+ "memoffset",
+]
+
+[[package]]
 name = "nodex"
 version = "1.1.12"
 dependencies = [
@@ -2469,6 +2492,7 @@ dependencies = [
  "k256 0.10.4",
  "libloading",
  "log",
+ "mac_address",
  "qstring",
  "reqwest",
  "rstest",

@@ -7,6 +7,9 @@ use reqwest::{
 };
 use sha2::Sha256;
 
+use crate::services::internal::didcomm_encrypted::DIDCommEncryptedService;
+use serde_json::json;
+
 type HmacSha256 = Hmac<Sha256>;
 
 pub struct HubClientConfig {
@@ -82,8 +85,8 @@ impl HubClient {
         }
     }
 
-    pub async fn post(&self, _path: &str, body: &str) -> Result<reqwest::Response, NodeXError> {
-        let url = self.base_url.join(_path);
+    pub async fn post(&self, path: &str, body: &str) -> Result<reqwest::Response, NodeXError> {
+        let url = self.base_url.join(path);
         let headers = self.auth_headers(body.to_string());
         if let Err(e) = headers {
             log::error!("{:?}", e);
@@ -94,6 +97,49 @@ impl HubClient {
             .post(&url.unwrap().to_string())
             .headers(headers.unwrap())
             .body(body.to_string())
+            .send()
+            .await
+        {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
+        }
+    }
+
+    pub async fn send_device_info(
+        &self,
+        path: &str,
+        to_did: &str,
+        mac_address: &str,
+        version: &str,
+        os: &str,
+    ) -> Result<reqwest::Response, NodeXError> {
+        let message = json!({
+            "mac_address": mac_address,
+            "version": version,
+            "os": os,
+        });
+        let payload = match DIDCommEncryptedService::generate(to_did, &json!(message), None).await {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
+        };
+        let payload = match serde_json::to_string(&payload) {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
+        };
+        let url = self.base_url.join(path);
+        match self
+            .instance
+            .post(&url.unwrap().to_string())
+            .body(payload.to_string())
             .send()
             .await
         {

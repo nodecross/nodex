@@ -20,6 +20,8 @@ use crate::config::ServerConfig;
 use crate::network::Network;
 use dotenv::dotenv;
 use handlers::Command;
+use mac_address::get_mac_address;
+use std::env;
 
 mod config;
 mod controllers;
@@ -180,6 +182,7 @@ async fn main() -> std::io::Result<()> {
 
     // NOTE: hub initilize
     hub_initilize(did.did_document.id.clone()).await;
+    send_device_info(did.did_document.id.clone()).await;
 
     let sock_path = runtime_dir.clone().join("nodex.sock");
 
@@ -313,6 +316,27 @@ async fn hub_initilize(did: String) {
     let hub = Hub::new();
     match hub
         .register_device(did, network_config.get_project_id().unwrap())
+        .await
+    {
+        Ok(()) => (),
+        Err(e) => {
+            log::error!("{:?}", e);
+            panic!()
+        }
+    };
+}
+
+async fn send_device_info(did: String) {
+    const VERSION: &str = env!("CARGO_PKG_VERSION");
+    const OS: &str = env::consts::OS;
+    let mac_address: String = match get_mac_address() {
+        Ok(Some(ma)) => ma.to_string(),
+        _ => String::from("No MAC address found."),
+    };
+
+    let hub = Hub::new();
+    match hub
+        .send_device_info(did, mac_address, VERSION.to_string(), OS.to_string())
         .await
     {
         Ok(()) => (),
