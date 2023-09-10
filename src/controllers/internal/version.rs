@@ -19,17 +19,17 @@ pub async fn handler_update(
     _req: HttpRequest,
     web::Json(json): web::Json<MessageContainer>,
 ) -> actix_web::Result<HttpResponse> {
-    let binary_url =match json.message["binary_url"].as_str() {
+    let binary_url = match json.message["binary_url"].as_str() {
         Some(url) => url,
         None => return Ok(HttpResponse::BadRequest().json("binary_url is required")),
     };
-    let path= match json.message["path"].as_str() {
+    let path = match json.message["path"].as_str() {
         Some(p) => p,
         None => return Ok(HttpResponse::BadRequest().json("path is required")),
     };
     match check_for_updates(binary_url, path).await {
         Ok(_) => Ok(HttpResponse::Ok().json("ok")),
-        Err(_) => Ok(HttpResponse::InternalServerError().finish())
+        Err(_) => Ok(HttpResponse::InternalServerError().finish()),
     }
 }
 
