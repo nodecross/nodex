@@ -21,7 +21,9 @@
     "verify_didcomm_encrypted_message": "npm run exec src/verify_didcomm_encrypted_message.ts",
     "verify_didcomm_plaintext_message": "npm run exec src/verify_didcomm_plaintext_message.ts",
     "verify_didcomm_signed_message": "npm run exec src/verify_didcomm_signed_message.ts",
-    "verify_vc": "npm run exec src/verify_vc.ts"
+    "verify_vc": "npm run exec src/verify_vc.ts",
+    "version_get": "npm run exec src/version_get.ts",
+    "version_update": "npm run exec src/version_update.ts"
   },
   "dependencies": {
     "got": "^12.5.3"
