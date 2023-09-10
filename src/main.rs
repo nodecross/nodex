@@ -1,6 +1,7 @@
 extern crate env_logger;
 
 use clap::{Parser, Subcommand};
+use controllers::public::nodex_receive::ConnectionRepository;
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use services::hub::Hub;
 use services::nodex::NodeX;
@@ -16,8 +17,8 @@ use tokio::sync::RwLock;
 use tokio::time::Duration;
 
 use crate::config::AppConfig;
-use crate::config::ServerConfig;
 use crate::network::Network;
+use crate::{config::ServerConfig, controllers::public::nodex_receive};
 use dotenv::dotenv;
 use handlers::Command;
 
@@ -207,10 +208,17 @@ async fn main() -> std::io::Result<()> {
     let (tx, rx) = mpsc::channel::<Command>(32);
     let db = Arc::new(RwLock::new(HashMap::<String, bool>::new()));
 
-    let server = server::new_server(&sock_path, tx);
+    let connection_repository = ConnectionRepository::new();
+
+    let server = server::new_server(&sock_path, tx, connection_repository.clone());
     let server_handle = server.handle();
 
     let shutdown_marker = Arc::new(AtomicBool::new(false));
+
+    let message_polling_task = tokio::spawn(nodex_receive::polling_task(
+        Arc::clone(&shutdown_marker),
+        connection_repository.clone(),
+    ));
 
     let server_task = tokio::spawn(server);
     let sender_task = tokio::spawn(handlers::sender::handler(
@@ -234,7 +242,13 @@ async fn main() -> std::io::Result<()> {
         server_stop.await;
     });
 
-    match tokio::try_join!(server_task, sender_task, receiver_task, shutdown) {
+    match tokio::try_join!(
+        server_task,
+        sender_task,
+        receiver_task,
+        message_polling_task,
+        shutdown
+    ) {
         Ok(_) => Ok(()),
         Err(e) => {
             log::error!("{:?}", e);
