@@ -90,10 +90,7 @@ impl Handler<Message> for MessageReceiveActor {
 
     fn handle(&mut self, msg: Message, ctx: &mut Self::Context) -> Self::Result {
         log::info!("Received message: {:?}", msg);
-        let msg = serde_json::to_string(&msg).map_err(|e| {
-            log::error!("Error: {:?}", e);
-            ()
-        })?;
+        let msg = serde_json::to_string(&msg).map_err(|e| log::error!("Error: {:?}", e))?;
         ctx.text(msg);
 
         Ok(())
