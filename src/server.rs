@@ -3,16 +3,22 @@ use std::path::PathBuf;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::Mutex as TokioMutex;
 
-use crate::controllers;
+use crate::controllers::{self, public::nodex_receive::ConnectionRepository};
 use crate::handlers::Command;
 
 pub struct Context {
     pub sender: TokioMutex<Sender<Command>>,
+    pub connections: ConnectionRepository,
 }
 
-pub fn new_server(sock_path: &PathBuf, sender: Sender<Command>) -> Server {
+pub fn new_server(
+    sock_path: &PathBuf,
+    sender: Sender<Command>,
+    ws_connections: ConnectionRepository,
+) -> Server {
     let context = web::Data::new(Context {
         sender: TokioMutex::new(sender),
+        connections: ws_connections,
     });
 
     HttpServer::new(move || {
@@ -33,6 +39,10 @@ pub fn new_server(sock_path: &PathBuf, sender: Sender<Command>) -> Server {
             .route(
                 "/transfer",
                 web::post().to(controllers::public::nodex_transfer::handler),
+            )
+            .route(
+                "/receive",
+                web::get().to(controllers::public::nodex_receive::handler),
             )
             // NOTE: Internal (Private) Routes
             .service(
