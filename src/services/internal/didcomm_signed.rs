@@ -2,6 +2,7 @@ use crate::nodex::{
     errors::NodeXError,
     keyring::{self},
     runtime::base64_url::{self, PaddingType},
+    schema::general::GeneralVcDataModel,
 };
 use cuid;
 use didcomm_rs::{
@@ -160,7 +161,7 @@ impl DIDCommSignedService {
             });
 
         let body = match message.clone().get_body() {
-            Ok(v) => match serde_json::from_str::<Value>(&v) {
+            Ok(v) => match serde_json::from_str::<GeneralVcDataModel>(&v) {
                 Ok(v) => v,
                 Err(e) => {
                     log::error!("{:?}", e);

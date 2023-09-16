@@ -1,5 +1,8 @@
-use crate::network_config;
 use crate::nodex::errors::NodeXError;
+use crate::{
+    network_config,
+    services::{hub, nodex::NodeX},
+};
 use hmac::{Hmac, Mac};
 use reqwest::{
     header::{HeaderMap, HeaderValue},
@@ -149,6 +152,17 @@ impl HubClient {
                 Err(NodeXError {})
             }
         }
+    }
+
+    pub async fn get_message(&self, path: &str) -> Result<reqwest::Response, NodeXError> {
+        // This did is project did
+        let to_did = "did:nodex:test:EiBRpW42SlvoMpK7D1FYrHNu2HlGrXsyDM92Wv6gOqCQYA";
+
+        let payload = DIDCommEncryptedService::generate(to_did, &serde_json::Value::Null, None)
+            .await?
+            .to_string();
+        let url = self.base_url.join(path);
+        self.post(&url.unwrap().to_string(), &payload).await
     }
 
     #[allow(dead_code)]

@@ -3,10 +3,22 @@ use crate::nodex::{
     utils::hub_client::{HubClient, HubClientConfig},
 };
 use crate::server_config;
+use log::logger;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
 pub struct EmptyResponse {}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct MessageResponse {
+    pub id: String,
+    pub raw_message: String,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct ErrorResponse {
+    pub message: String,
+}
 
 pub struct Hub {
     http_client: HubClient,
@@ -90,6 +102,40 @@ impl Hub {
             Ok(_) => Ok(()),
             Err(e) => {
                 log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
+        }
+    }
+
+    pub async fn get_message(&self) -> Result<Vec<MessageResponse>, NodeXError> {
+        let res = match self.http_client.get_message("/v1/message/list").await {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
+        };
+
+        match res.status() {
+            reqwest::StatusCode::OK => match res.json::<Vec<MessageResponse>>().await {
+                Ok(v) => Ok(v),
+                Err(e) => {
+                    log::error!("StatusCode=200, but parse failed. {:?}", e);
+                    Err(NodeXError {})
+                }
+            },
+            reqwest::StatusCode::BAD_REQUEST => match res.json::<ErrorResponse>().await {
+                Ok(v) => {
+                    log::error!("StatusCode=400, error message = {:?}", v.message);
+                    Err(NodeXError {})
+                }
+                Err(e) => {
+                    log::error!("StatusCode=400, but parse failed. {:?}", e);
+                    Err(NodeXError {})
+                }
+            },
+            other => {
+                log::error!("StatusCode={other}, unexpected response");
                 Err(NodeXError {})
             }
         }
