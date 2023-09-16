@@ -53,6 +53,10 @@ pub fn new_server(sock_path: &PathBuf, sender: Sender<Command>) -> Server {
                         "/verifiable-presentations/verify",
                         web::post().to(controllers::internal::did_verify_vp::handler),
                     )
+                    .route(
+                        "/network",
+                        web::post().to(controllers::internal::network::handler),
+                    )
                     .service(
                         web::scope("/didcomm")
                             .route(
