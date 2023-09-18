@@ -14,7 +14,7 @@ use crate::nodex::errors::NodeXError;
 #[derive(Default)]
 pub struct ConfigNetwork {
     secret_key: Option<String>,
-    project_id: Option<String>,
+    project_did: Option<String>,
 }
 
 #[derive(Debug)]
@@ -99,13 +99,13 @@ impl Network {
         }
     }
 
-    // NOTE: project_id
-    pub fn get_project_id(&self) -> Option<String> {
-        self.root.project_id.clone()
+    // NOTE: project_did
+    pub fn get_project_did(&self) -> Option<String> {
+        self.root.project_did.clone()
     }
 
-    pub fn save_project_id(&mut self, value: &str) {
-        self.root.project_id = Some(value.to_string());
+    pub fn save_project_did(&mut self, value: &str) {
+        self.root.project_did = Some(value.to_string());
 
         match self.write() {
             Ok(_) => {}

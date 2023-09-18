@@ -15,7 +15,7 @@ pub struct Hub {
 #[derive(Debug, Serialize, Deserialize)]
 struct RegisterDeviceRequest {
     device_did: String,
-    project_id: String,
+    project_did: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -46,10 +46,14 @@ impl Hub {
         }
     }
 
-    pub async fn register_device(&self, did: String, project_id: String) -> Result<(), NodeXError> {
+    pub async fn register_device(
+        &self,
+        device_did: String,
+        project_did: String,
+    ) -> Result<(), NodeXError> {
         let request = RegisterDeviceRequest {
-            device_did: did,
-            project_id,
+            device_did,
+            project_did,
         };
         let payload = serde_json::to_string(&request).expect("failed to serialize");
         let res = match self.http_client.post("/v1/device", &payload).await {
