@@ -13,14 +13,18 @@ use crate::nodex::errors::NodeXError;
 #[serde(default)]
 #[derive(Default)]
 pub struct ConfigNetwork {
-    secret_key: Option<String>,
-    project_did: Option<String>,
+    pub secret_key: Option<String>,
+    pub project_did: Option<String>,
+    pub recipient_dids: Option<Vec<String>>,
+    pub hub_endpoint: Option<String>,
+    pub heartbeat: Option<u64>,
+    pub trm: Option<String>,
 }
 
 #[derive(Debug)]
 pub struct Network {
     config: HomeConfig,
-    root: ConfigNetwork,
+    pub root: ConfigNetwork,
 }
 
 impl Network {
@@ -109,6 +113,93 @@ impl Network {
 
         match self.write() {
             Ok(_) => {}
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
+        }
+    }
+
+    // NOTE: recipient_dids
+    #[allow(dead_code)]
+    pub fn get_recipient_dids(&self) -> Option<Vec<String>> {
+        self.root.recipient_dids.clone()
+    }
+
+    #[allow(dead_code)]
+    pub fn save_recipient_dids(&mut self, value: Vec<String>) {
+        self.root.recipient_dids = Some(value);
+
+        match self.write() {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
+        }
+    }
+
+    // NOTE: hub_endpoint
+    #[allow(dead_code)]
+    pub fn get_hub_endpoint(&self) -> Option<String> {
+        self.root.hub_endpoint.clone()
+    }
+
+    #[allow(dead_code)]
+    pub fn save_hub_endpoint(&mut self, value: &str) {
+        self.root.hub_endpoint = Some(value.to_string());
+
+        match self.write() {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
+        }
+    }
+
+    // NOTE: heartbeat
+    #[allow(dead_code)]
+    pub fn get_heartbeat(&self) -> Option<u64> {
+        self.root.heartbeat
+    }
+
+    #[allow(dead_code)]
+    pub fn save_heartbeat(&mut self, value: u64) {
+        self.root.heartbeat = Some(value);
+
+        match self.write() {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
+        }
+    }
+
+    // NOTE: trm
+    #[allow(dead_code)]
+    pub fn get_trm(&self) -> Option<String> {
+        self.root.trm.clone()
+    }
+
+    #[allow(dead_code)]
+    pub fn save_trm(&mut self, value: &str) {
+        self.root.trm = Some(value.to_string());
+
+        match self.write() {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
+        }
+    }
+
+    // NOTE: write
+    pub fn save(&mut self) -> Result<(), NodeXError> {
+        match self.write() {
+            Ok(v) => Ok(v),
             Err(e) => {
                 log::error!("{:?}", e);
                 panic!()
