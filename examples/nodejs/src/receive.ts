@@ -7,8 +7,7 @@ const socket = new WebSocket(URL);
 
 console.log("socket connected");
 socket.on('open', () => {
-    socket.send("hello");
-    console.log("socket emitted hello");
+    console.log("socket opened");
 })
 
 socket.on('message', (data) => {

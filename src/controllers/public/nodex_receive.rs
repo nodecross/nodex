@@ -10,6 +10,7 @@ use std::{
 };
 
 use crate::{
+    network::Network,
     nodex::errors::NodeXError,
     server,
     services::{hub::Hub, internal::didcomm_encrypted::DIDCommEncryptedService},
@@ -65,10 +66,15 @@ struct ResponseJson {
 // TODO: Remove this after implementing Hub API
 async fn receive_message() -> Result<Vec<ResponseJson>, NodeXError> {
     let hub = Hub::new();
-    let message = hub.get_message().await?;
+    let project_did = if let Some(v) = Network::new().root.project_did {
+        v
+    } else {
+        return Err(NodeXError {});
+    };
 
     let mut response = Vec::new();
-    for m in message.into_iter() {
+
+    for m in hub.get_message(&project_did).await? {
         let json_message = serde_json::from_str(&m.raw_message).map_err(|e| {
             log::error!("Error: {:?}", e);
             NodeXError {}
@@ -135,12 +141,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MessageReceiveAct
         };
 
         match msg {
-            ws::Message::Ping(msg) => {
-                log::info!("Ping: {:?}", msg);
-                ctx.pong(&msg)
-            }
+            ws::Message::Ping(msg) => ctx.pong(&msg),
             ws::Message::Text(text) => {
-                log::info!("Received text: {}", text.to_string());
+                let text = text.to_string();
                 ctx.text(text)
             }
             ws::Message::Close(reason) => {
@@ -176,6 +179,7 @@ pub async fn polling_task(
     connection_repository: ConnectionRepository,
 ) {
     log::info!("Polling task is started");
+
     let mut interval = tokio::time::interval(Duration::from_secs(5));
     while !shutdown_marker.load(std::sync::atomic::Ordering::SeqCst) {
         interval.tick().await;

@@ -111,8 +111,11 @@ impl Hub {
         }
     }
 
-    pub async fn get_message(&self) -> Result<Vec<MessageResponse>, NodeXError> {
-        let res = match self.http_client.get_message("/v1/message/list").await {
+    pub async fn get_message(
+        &self,
+        project_did: &str,
+    ) -> Result<Vec<MessageResponse>, NodeXError> {
+        let res = match self.http_client.get_message("/v1/message/list", project_did).await {
             Ok(v) => v,
             Err(e) => {
                 log::error!("{:?}", e);
