@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashSet,
     sync::{atomic::AtomicBool, Arc, RwLock},
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 
 use crate::{
@@ -53,54 +53,77 @@ impl MessageReceiveActor {
     }
 }
 
-// TODO: Remove this after implementing Hub API
 #[derive(Deserialize, Serialize, Debug, Clone, Message)]
 #[rtype(result = "Result<(), ()>")]
 struct ResponseJson {
     pub message_from: String,
     pub message_id: String,
     pub payload: serde_json::Value,
-    pub received_at: u128,
 }
 
-// TODO: Remove this after implementing Hub API
-async fn receive_message() -> Result<Vec<ResponseJson>, NodeXError> {
-    let hub = Hub::new();
-    let project_did = if let Some(v) = Network::new().root.project_did {
-        v
-    } else {
-        return Err(NodeXError {});
-    };
+#[derive(Deserialize, Serialize, Debug, Clone)]
+struct AckMessage {
+    pub message_id: String,
+}
 
-    let mut response = Vec::new();
+struct MessageReceiveUsecase {
+    hub: Hub,
+    project_did: String,
+}
 
-    for m in hub.get_message(&project_did).await? {
-        let json_message = serde_json::from_str(&m.raw_message).map_err(|e| {
-            log::error!("Error: {:?}", e);
-            NodeXError {}
-        })?;
-        match DIDCommEncryptedService::verify(&json_message).await {
-            Ok(verified) => {
-                let message = ResponseJson {
-                    message_from: verified.message.issuer.id,
-                    message_id: m.id,
-                    payload: verified.message.credential_subject.container,
-                    received_at: SystemTime::now()
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap()
-                        .as_millis(),
-                };
-                response.push(message);
-            }
-            Err(e) => {
-                log::error!("Error: {:?}", e);
-                // TODO: add verify error response to hub.
-                continue;
-            }
+impl MessageReceiveUsecase {
+    pub fn new() -> Self {
+        let network = Network::new();
+        let project_did = if let Some(v) = network.root.project_did {
+            v
+        } else {
+            panic!("Failed to read project_did")
+        };
+
+        Self {
+            hub: Hub::new(),
+            project_did,
         }
     }
 
-    Ok(response)
+    pub async fn receive_message(&self) -> Result<Vec<ResponseJson>, NodeXError> {
+        let mut response = Vec::new();
+
+        for m in self.hub.get_message(&self.project_did).await? {
+            let json_message = serde_json::from_str(&m.raw_message).map_err(|e| {
+                log::error!("Invalid Json: {:?}", e);
+                NodeXError {}
+            })?;
+            match DIDCommEncryptedService::verify(&json_message).await {
+                Ok(verified) => {
+                    let message = ResponseJson {
+                        message_from: verified.message.issuer.id,
+                        message_id: m.id,
+                        payload: verified.message.credential_subject.container,
+                    };
+                    response.push(message);
+                }
+                Err(_) => {
+                    log::error!("Verify failed");
+                    self.hub.ack_message(&self.project_did, m.id, false).await?;
+                    continue;
+                }
+            }
+        }
+
+        Ok(response)
+    }
+
+    async fn ack_message(&self, message_id: String) {
+        match self
+            .hub
+            .ack_message(&self.project_did, message_id, true)
+            .await
+        {
+            Ok(_) => log::info!("Ack message success"),
+            Err(e) => log::error!("Failed to ack message : {:?}", e),
+        }
+    }
 }
 
 impl Actor for MessageReceiveActor {
@@ -144,7 +167,19 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MessageReceiveAct
             ws::Message::Ping(msg) => ctx.pong(&msg),
             ws::Message::Text(text) => {
                 let text = text.to_string();
-                ctx.text(text)
+                match serde_json::from_str::<AckMessage>(&text) {
+                    Ok(v) => {
+                        ctx.wait(
+                            async {
+                                MessageReceiveUsecase::new().ack_message(v.message_id).await;
+                            }
+                            .into_actor(self),
+                        );
+                    }
+                    Err(e) => {
+                        log::error!("Invalid Json: {:?}", e);
+                    }
+                };
             }
             ws::Message::Close(reason) => {
                 ctx.close(reason);
@@ -158,10 +193,6 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MessageReceiveAct
         }
     }
 }
-
-// NOTE: GET /receive
-#[derive(Deserialize, Serialize)]
-struct MessageContainer {}
 
 pub async fn handler(
     req: HttpRequest,
@@ -180,10 +211,12 @@ pub async fn polling_task(
 ) {
     log::info!("Polling task is started");
 
+    let usecase = MessageReceiveUsecase::new();
+
     let mut interval = tokio::time::interval(Duration::from_secs(5));
     while !shutdown_marker.load(std::sync::atomic::Ordering::SeqCst) {
         interval.tick().await;
-        match receive_message().await {
+        match usecase.receive_message().await {
             Ok(messages) => messages
                 .into_iter()
                 .for_each(|msg| connection_repository.send_all(msg)),

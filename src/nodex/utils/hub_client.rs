@@ -1,8 +1,5 @@
+use crate::network_config;
 use crate::nodex::errors::NodeXError;
-use crate::{
-    network_config,
-    services::{hub, nodex::NodeX},
-};
 use hmac::{Hmac, Mac};
 use reqwest::{
     header::{HeaderMap, HeaderValue},
@@ -164,6 +161,25 @@ impl HubClient {
                 .await?
                 .to_string();
         let url = self.base_url.join(path);
+        self.post(&url.unwrap().to_string(), &payload).await
+    }
+
+    pub async fn ack_message(
+        &self,
+        path: &str,
+        project_did: &str,
+        message_id: String,
+        is_verified: bool,
+    ) -> Result<reqwest::Response, NodeXError> {
+        let url = self.base_url.join(path);
+        let payload = json!({
+            "message_id": message_id,
+            "is_verified": is_verified,
+        });
+        let payload = DIDCommEncryptedService::generate(&project_did, &payload, None)
+            .await?
+            .to_string();
+
         self.post(&url.unwrap().to_string(), &payload).await
     }
 

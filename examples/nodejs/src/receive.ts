@@ -12,6 +12,11 @@ socket.on('open', () => {
 
 socket.on('message', (data) => {
     console.log("socket received: " + data);
+    const message = JSON.parse(data.toString());
+    const response = {
+        "message_id": message.message_id
+    };
+    socket.send(JSON.stringify(response));
 })
 
 // close the socket after 30 seconds

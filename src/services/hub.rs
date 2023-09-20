@@ -3,7 +3,6 @@ use crate::nodex::{
     utils::hub_client::{HubClient, HubClientConfig},
 };
 use crate::server_config;
-use log::logger;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
@@ -111,11 +110,12 @@ impl Hub {
         }
     }
 
-    pub async fn get_message(
-        &self,
-        project_did: &str,
-    ) -> Result<Vec<MessageResponse>, NodeXError> {
-        let res = match self.http_client.get_message("/v1/message/list", project_did).await {
+    pub async fn get_message(&self, project_did: &str) -> Result<Vec<MessageResponse>, NodeXError> {
+        let res = match self
+            .http_client
+            .get_message("/v1/message/list", project_did)
+            .await
+        {
             Ok(v) => v,
             Err(e) => {
                 log::error!("{:?}", e);
@@ -143,6 +143,33 @@ impl Hub {
             },
             other => {
                 log::error!("StatusCode={other}, unexpected response");
+                Err(NodeXError {})
+            }
+        }
+    }
+
+    pub async fn ack_message(
+        &self,
+        project_did: &str,
+        message_id: String,
+        is_verified: bool,
+    ) -> Result<(), NodeXError> {
+        let res = match self
+            .http_client
+            .ack_message("/v1/message/ack", project_did, message_id, is_verified)
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
+        };
+
+        match res.json::<EmptyResponse>().await {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                log::error!("{:?}", e);
                 Err(NodeXError {})
             }
         }
