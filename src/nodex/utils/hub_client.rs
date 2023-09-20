@@ -157,11 +157,11 @@ impl HubClient {
         project_did: &str,
     ) -> Result<reqwest::Response, NodeXError> {
         let payload =
-            DIDCommEncryptedService::generate(&project_did, &serde_json::Value::Null, None)
+            DIDCommEncryptedService::generate(project_did, &serde_json::Value::Null, None)
                 .await?
                 .to_string();
         let url = self.base_url.join(path);
-        self.post(&url.unwrap().to_string(), &payload).await
+        self.post(url.unwrap().as_ref(), &payload).await
     }
 
     pub async fn ack_message(
@@ -176,11 +176,11 @@ impl HubClient {
             "message_id": message_id,
             "is_verified": is_verified,
         });
-        let payload = DIDCommEncryptedService::generate(&project_did, &payload, None)
+        let payload = DIDCommEncryptedService::generate(project_did, &payload, None)
             .await?
             .to_string();
 
-        self.post(&url.unwrap().to_string(), &payload).await
+        self.post(url.unwrap().as_ref(), &payload).await
     }
 
     #[allow(dead_code)]
