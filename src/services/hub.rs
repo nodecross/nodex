@@ -191,6 +191,32 @@ impl Hub {
         }
     }
 
+    pub async fn send_message(
+        &self,
+        to_did: &str,
+        message: serde_json::Value,
+    ) -> Result<(), NodeXError> {
+        let res = match self
+            .http_client
+            .send_message("/v1/message", to_did, message)
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
+        };
+
+        match res.json::<EmptyResponse>().await {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
+        }
+    }
+
     pub async fn heartbeat(&self, project_did: &str, is_active: bool) -> Result<(), NodeXError> {
         let res = match self
             .http_client

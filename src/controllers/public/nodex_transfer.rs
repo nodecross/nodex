@@ -1,4 +1,4 @@
-use crate::server::Context;
+use crate::{server::Context, services::hub::Hub};
 use actix_web::{web, HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -26,10 +26,8 @@ pub struct ResponseContainer {
 pub async fn handler(
     _req: HttpRequest,
     web::Json(json): web::Json<RequestContainer>,
-    context: web::Data<Context>,
+    _context: web::Data<Context>,
 ) -> actix_web::Result<HttpResponse> {
-    let service = crate::services::nodex::NodeX::new();
-
     // NOTE: We will provide an update soon to allow multiple destinations.
     if json.destinations.len() != 1 {
         return Ok(HttpResponse::InternalServerError().finish());
@@ -40,35 +38,18 @@ pub async fn handler(
         _ => return Ok(HttpResponse::InternalServerError().finish()),
     };
 
-    match service
-        .transfer(to_did, &json.messages, &json.metadata)
+    // FIXME Implement both HTTP and MQTT transfer
+    match Hub::new()
+        .send_message(to_did, serde_json::json!(json.messages))
         .await
     {
-        Ok(v) => match context.sender.lock().await.send(v.clone()).await {
-            Ok(is_success) => {
-                if is_success {
-                    Ok(HttpResponse::Ok().json(&ResponseContainer {
-                        results: vec![Result {
-                            destination: to_did.clone(),
-                            errors: vec![],
-                            success: true,
-                        }],
-                    }))
-                } else {
-                    Ok(HttpResponse::Ok().json(&ResponseContainer {
-                        results: vec![Result {
-                            destination: to_did.clone(),
-                            errors: vec!["Request Timeout".to_string()],
-                            success: false,
-                        }],
-                    }))
-                }
-            }
-            Err(e) => {
-                log::error!("{:?}", e);
-                Ok(HttpResponse::InternalServerError().finish())
-            }
-        },
+        Ok(_) => Ok(HttpResponse::Ok().json(&ResponseContainer {
+            results: vec![Result {
+                destination: to_did.clone(),
+                errors: vec![],
+                success: true,
+            }],
+        })),
         Err(e) => {
             log::error!("{:?}", e);
             Ok(HttpResponse::InternalServerError().finish())

@@ -168,7 +168,19 @@ impl HubClient {
         let payload = DIDCommEncryptedService::generate(project_did, &payload, None)
             .await?
             .to_string();
+        self.post(url.unwrap().as_ref(), &payload).await
+    }
 
+    pub async fn send_message(
+        &self,
+        path: &str,
+        to_did: &str,
+        message: serde_json::Value,
+    ) -> Result<reqwest::Response, NodeXError> {
+        let payload = DIDCommEncryptedService::generate(to_did, &message, None)
+            .await?
+            .to_string();
+        let url = self.base_url.join(path);
         self.post(url.unwrap().as_ref(), &payload).await
     }
 

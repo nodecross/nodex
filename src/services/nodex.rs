@@ -138,6 +138,7 @@ impl NodeX {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn transfer(
         &self,
         to_did: &str,
