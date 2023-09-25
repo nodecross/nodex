@@ -2,6 +2,7 @@ use super::{attachment_link, did_vc::DIDVCService, types::VerifiedContainer};
 use crate::nodex::{
     errors::NodeXError,
     keyring::{self},
+    schema::general::GeneralVcDataModel,
 };
 use cuid;
 use didcomm_rs::{AttachmentBuilder, AttachmentDataBuilder, Message};
@@ -91,7 +92,7 @@ impl DIDCommPlaintextService {
             });
 
         let body = match message.clone().get_body() {
-            Ok(v) => match serde_json::from_str::<Value>(&v) {
+            Ok(v) => match serde_json::from_str::<GeneralVcDataModel>(&v) {
                 Ok(v) => v,
                 Err(e) => {
                     log::error!("{:?}", e);
