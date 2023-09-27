@@ -64,6 +64,14 @@ pub fn new_server(
                         web::post().to(controllers::internal::did_verify_vp::handler),
                     )
                     .route(
+                        "/version/get",
+                        web::post().to(controllers::internal::version::handler_get),
+                    )
+                    .route(
+                        "/version/update",
+                        web::post().to(controllers::internal::version::handler_update),
+                    )
+                    .route(
                         "/network",
                         web::post().to(controllers::internal::network::handler),
                     )
