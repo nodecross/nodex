@@ -70,6 +70,8 @@ pub fn new_server(
                     .route(
                         "/version/update",
                         web::post().to(controllers::internal::version::handler_update),
+                    )
+                    .route(
                         "/network",
                         web::post().to(controllers::internal::network::handler),
                     )
