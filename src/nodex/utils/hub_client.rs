@@ -151,6 +151,38 @@ impl HubClient {
         }
     }
 
+    pub async fn get_message(
+        &self,
+        path: &str,
+        project_did: &str,
+    ) -> Result<reqwest::Response, NodeXError> {
+        let payload =
+            DIDCommEncryptedService::generate(project_did, &serde_json::Value::Null, None)
+                .await?
+                .to_string();
+        let url = self.base_url.join(path);
+        self.post(url.unwrap().as_ref(), &payload).await
+    }
+
+    pub async fn ack_message(
+        &self,
+        path: &str,
+        project_did: &str,
+        message_id: String,
+        is_verified: bool,
+    ) -> Result<reqwest::Response, NodeXError> {
+        let url = self.base_url.join(path);
+        let payload = json!({
+            "message_id": message_id,
+            "is_verified": is_verified,
+        });
+        let payload = DIDCommEncryptedService::generate(project_did, &payload, None)
+            .await?
+            .to_string();
+
+        self.post(url.unwrap().as_ref(), &payload).await
+    }
+
     #[allow(dead_code)]
     pub async fn put(&self, _path: &str) -> Result<reqwest::Response, NodeXError> {
         let url = self.base_url.join(_path);

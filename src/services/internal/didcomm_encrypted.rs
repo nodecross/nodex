@@ -6,6 +6,7 @@ use crate::nodex::{
         self,
         base64_url::{self, PaddingType},
     },
+    schema::general::GeneralVcDataModel,
 };
 use arrayref::array_ref;
 use cuid;
@@ -247,7 +248,7 @@ impl DIDCommEncryptedService {
             });
 
         let body = match message.clone().get_body() {
-            Ok(v) => match serde_json::from_str::<Value>(&v) {
+            Ok(v) => match serde_json::from_str::<GeneralVcDataModel>(&v) {
                 Ok(v) => v,
                 Err(e) => {
                     log::error!("{:?}", e);

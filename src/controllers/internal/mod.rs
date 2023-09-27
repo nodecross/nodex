@@ -9,3 +9,4 @@ pub mod didcomm_verify_encrypted;
 pub mod didcomm_verify_plaintext;
 pub mod didcomm_verify_signed;
 pub mod version;
+pub mod network;

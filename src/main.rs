@@ -1,6 +1,7 @@
 extern crate env_logger;
 
 use clap::{Parser, Subcommand};
+use controllers::public::nodex_receive::ConnectionRepository;
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use services::hub::Hub;
 use services::nodex::NodeX;
@@ -16,8 +17,8 @@ use tokio::sync::RwLock;
 use tokio::time::Duration;
 
 use crate::config::AppConfig;
-use crate::config::ServerConfig;
 use crate::network::Network;
+use crate::{config::ServerConfig, controllers::public::nodex_receive};
 use dotenv::dotenv;
 use handlers::Command;
 use mac_address::get_mac_address;
@@ -169,20 +170,20 @@ async fn main() -> std::io::Result<()> {
 
     // NOTE: generate Key Chain
     let node_x = NodeX::new();
-    let did = node_x.create_identifier().await.unwrap();
+    let device_did = node_x.create_identifier().await.unwrap();
 
     // NOTE: CLI
     match cli.config {
         true => {
-            use_cli(cli.command, did.did_document.id.clone());
+            use_cli(cli.command, device_did.did_document.id.clone());
             return Ok(());
         }
         false => (),
     }
 
     // NOTE: hub initilize
-    hub_initilize(did.did_document.id.clone()).await;
-    send_device_info(did.did_document.id.clone()).await;
+    hub_initilize(device_did.did_document.id.clone()).await;
+    send_device_info(device_did.did_document.id.clone()).await;
 
     let sock_path = runtime_dir.clone().join("nodex.sock");
 
@@ -191,7 +192,7 @@ async fn main() -> std::io::Result<()> {
     let mqtt_port = 1883;
     let mqtt_client_id = cuid::cuid2();
 
-    let did_id = did.did_document.id;
+    let did_id = device_did.did_document.id;
     let mqtt_topic = format!("nodex/{}", did_id);
 
     let mut mqtt_options = MqttOptions::new(&mqtt_client_id, mqtt_host, mqtt_port);
@@ -210,10 +211,17 @@ async fn main() -> std::io::Result<()> {
     let (tx, rx) = mpsc::channel::<Command>(32);
     let db = Arc::new(RwLock::new(HashMap::<String, bool>::new()));
 
-    let server = server::new_server(&sock_path, tx);
+    let connection_repository = ConnectionRepository::new();
+
+    let server = server::new_server(&sock_path, tx, connection_repository.clone());
     let server_handle = server.handle();
 
     let shutdown_marker = Arc::new(AtomicBool::new(false));
+
+    let message_polling_task = tokio::spawn(nodex_receive::polling_task(
+        Arc::clone(&shutdown_marker),
+        connection_repository.clone(),
+    ));
 
     let server_task = tokio::spawn(server);
     let sender_task = tokio::spawn(handlers::sender::handler(
@@ -237,7 +245,13 @@ async fn main() -> std::io::Result<()> {
         server_stop.await;
     });
 
-    match tokio::try_join!(server_task, sender_task, receiver_task, shutdown) {
+    match tokio::try_join!(
+        server_task,
+        sender_task,
+        receiver_task,
+        message_polling_task,
+        shutdown
+    ) {
         Ok(_) => Ok(()),
         Err(e) => {
             log::error!("{:?}", e);
@@ -249,7 +263,7 @@ async fn main() -> std::io::Result<()> {
 fn use_cli(command: Option<Commands>, did: String) {
     let mut network_config = Network::new();
     const SECRET_KEY: &str = "secret_key";
-    const PROJECT_ID: &str = "project_id";
+    const PROJECT_DID: &str = "project_did";
 
     if let Some(command) = command {
         match command {
@@ -262,9 +276,9 @@ fn use_cli(command: Option<Commands>, did: String) {
                         network_config.save_secretk_key(&value);
                         print!("Network {} is set", SECRET_KEY);
                     }
-                    PROJECT_ID => {
-                        network_config.save_project_id(&value);
-                        print!("Network {} is set", PROJECT_ID);
+                    PROJECT_DID => {
+                        network_config.save_project_did(&value);
+                        print!("Network {} is set", PROJECT_DID);
                     }
                     _ => {
                         print!("key is not found");
@@ -278,12 +292,12 @@ fn use_cli(command: Option<Commands>, did: String) {
                         };
                         print!("Network {} is not set", SECRET_KEY);
                     }
-                    PROJECT_ID => {
-                        if let Some(v) = network_config.get_project_id() {
-                            println!("Network {}: {}", PROJECT_ID, v);
+                    PROJECT_DID => {
+                        if let Some(v) = network_config.get_project_did() {
+                            println!("Network {}: {}", PROJECT_DID, v);
                             return;
                         };
-                        print!("Network {} is not set", PROJECT_ID);
+                        print!("Network {} is not set", PROJECT_DID);
                     }
                     _ => {
                         print!("key is not found");
@@ -294,9 +308,9 @@ fn use_cli(command: Option<Commands>, did: String) {
     }
 }
 
-async fn hub_initilize(did: String) {
+async fn hub_initilize(my_did: String) {
     let network_config = Network::new();
-    // NOTE: check network secret_key and project_id
+    // NOTE: check network secret_key and project_did
     match network_config.get_secretk_key() {
         Some(_) => (),
         None => {
@@ -304,10 +318,10 @@ async fn hub_initilize(did: String) {
             panic!()
         }
     }
-    match network_config.get_project_id() {
+    match network_config.get_project_did() {
         Some(_) => (),
         None => {
-            log::error!("Network project_id is not set. Please set project_id use cli");
+            log::error!("Network project_did is not set. Please set project_did use cli");
             panic!()
         }
     }
@@ -315,7 +329,7 @@ async fn hub_initilize(did: String) {
     // NOTE: register device
     let hub = Hub::new();
     match hub
-        .register_device(did, network_config.get_project_id().unwrap())
+        .register_device(my_did, network_config.get_project_did().unwrap())
         .await
     {
         Ok(()) => (),
@@ -326,7 +340,7 @@ async fn hub_initilize(did: String) {
     };
 }
 
-async fn send_device_info(did: String) {
+async fn send_device_info(device_did: String) {
     const VERSION: &str = env!("CARGO_PKG_VERSION");
     const OS: &str = env::consts::OS;
     let mac_address: String = match get_mac_address() {
@@ -336,7 +350,7 @@ async fn send_device_info(did: String) {
 
     let hub = Hub::new();
     match hub
-        .send_device_info(did, mac_address, VERSION.to_string(), OS.to_string())
+        .send_device_info(device_did, mac_address, VERSION.to_string(), OS.to_string())
         .await
     {
         Ok(()) => (),
