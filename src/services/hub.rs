@@ -174,4 +174,26 @@ impl Hub {
             }
         }
     }
+
+    pub async fn heartbeat(&self, project_did: &str, is_active: bool) -> Result<(), NodeXError> {
+        let res = match self
+            .http_client
+            .heartbeat("/v1/heartbeat", project_did, is_active)
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
+        };
+
+        match res.json::<EmptyResponse>().await {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
+        }
+    }
 }

@@ -223,6 +223,11 @@ async fn main() -> std::io::Result<()> {
         connection_repository.clone(),
     ));
 
+    let heartbeat_task = tokio::spawn(handlers::heartbeat::handler(
+        Arc::clone(&shutdown_marker),
+        connection_repository.clone(),
+    ));
+
     let server_task = tokio::spawn(server);
     let sender_task = tokio::spawn(handlers::sender::handler(
         rx,
@@ -250,6 +255,7 @@ async fn main() -> std::io::Result<()> {
         sender_task,
         receiver_task,
         message_polling_task,
+        heartbeat_task,
         shutdown
     ) {
         Ok(_) => Ok(()),

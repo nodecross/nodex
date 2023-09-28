@@ -183,6 +183,23 @@ impl HubClient {
         self.post(url.unwrap().as_ref(), &payload).await
     }
 
+    pub async fn heartbeat(
+        &self,
+        path: &str,
+        project_did: &str,
+        is_active: bool,
+    ) -> Result<reqwest::Response, NodeXError> {
+        let url = self.base_url.join(path);
+        let payload = json!({
+            "is_health": is_active,
+        });
+        let payload = DIDCommEncryptedService::generate(project_did, &payload, None)
+            .await?
+            .to_string();
+
+        self.post(url.unwrap().as_ref(), &payload).await
+    }
+
     #[allow(dead_code)]
     pub async fn put(&self, _path: &str) -> Result<reqwest::Response, NodeXError> {
         let url = self.base_url.join(_path);

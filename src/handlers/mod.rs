@@ -1,6 +1,7 @@
 use serde_json::Value;
 use tokio::sync::oneshot;
 
+pub mod heartbeat;
 pub mod receiver;
 pub mod sender;
 
