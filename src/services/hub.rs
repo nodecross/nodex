@@ -207,13 +207,27 @@ impl Hub {
                 return Err(NodeXError {});
             }
         };
-
-        match res.json::<EmptyResponse>().await {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
+        let status = res.status();
+        match status {
+            reqwest::StatusCode::OK => Ok(()),
+            _ => match res.json::<ErrorResponse>().await {
+                Ok(v) => {
+                    log::error!(
+                        "StatusCode={:?}, error message = {:?}",
+                        status.as_str(),
+                        v.message
+                    );
+                    Err(NodeXError {})
+                }
+                Err(e) => {
+                    log::error!(
+                        "StatusCode={:?}, but parse failed. {:?}",
+                        status.as_str(),
+                        e
+                    );
+                    Err(NodeXError {})
+                }
+            },
         }
     }
 
