@@ -188,10 +188,26 @@ impl Hub {
             }
         };
 
-        match res.json::<EmptyResponse>().await {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                log::error!("{:?}", e);
+        match res.status() {
+            reqwest::StatusCode::OK => match res.json::<EmptyResponse>().await {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    log::error!("StatusCode=200, but parse failed. {:?}", e);
+                    Err(NodeXError {})
+                }
+            },
+            reqwest::StatusCode::BAD_REQUEST => match res.json::<ErrorResponse>().await {
+                Ok(v) => {
+                    log::error!("StatusCode=400, error message = {:?}", v.message);
+                    Err(NodeXError {})
+                }
+                Err(e) => {
+                    log::error!("StatusCode=400, but parse failed. {:?}", e);
+                    Err(NodeXError {})
+                }
+            },
+            other => {
+                log::error!("StatusCode={other}, unexpected response");
                 Err(NodeXError {})
             }
         }

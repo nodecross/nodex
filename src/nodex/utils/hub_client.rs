@@ -191,7 +191,7 @@ impl HubClient {
     ) -> Result<reqwest::Response, NodeXError> {
         let url = self.base_url.join(path);
         let payload = json!({
-            "is_health": is_active,
+            "is_healthy": is_active,
         });
         let payload = DIDCommEncryptedService::generate(project_did, &payload, None)
             .await?
