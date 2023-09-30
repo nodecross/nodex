@@ -1,3 +1,5 @@
+use std::io::Empty;
+
 use crate::nodex::{
     errors::NodeXError,
     utils::hub_client::{HubClient, HubClientConfig},
@@ -85,14 +87,14 @@ impl Hub {
 
     pub async fn send_device_info(
         &self,
-        to_did: String,
+        project_did: String,
         mac_address: String,
         version: String,
         os: String,
     ) -> Result<(), NodeXError> {
         let res = match self
             .http_client
-            .send_device_info("/v1/device_info", &to_did, &mac_address, &version, &os)
+            .send_device_info("/v1/device-info", &project_did, &mac_address, &version, &os)
             .await
         {
             Ok(v) => v,
@@ -101,10 +103,26 @@ impl Hub {
                 return Err(NodeXError {});
             }
         };
-        match res.json::<EmptyResponse>().await {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                log::error!("{:?}", e);
+        match res.status() {
+            reqwest::StatusCode::OK => match res.json::<EmptyResponse>().await {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    log::error!("StatusCode=200, but parse failed. {:?}", e);
+                    Err(NodeXError {})
+                }
+            },
+            reqwest::StatusCode::BAD_REQUEST => match res.json::<ErrorResponse>().await {
+                Ok(v) => {
+                    log::error!("StatusCode=400, error message = {:?}", v.message);
+                    Err(NodeXError {})
+                }
+                Err(e) => {
+                    log::error!("StatusCode=400, but parse failed. {:?}", e);
+                    Err(NodeXError {})
+                }
+            },
+            other => {
+                log::error!("StatusCode={other}, unexpected response");
                 Err(NodeXError {})
             }
         }
