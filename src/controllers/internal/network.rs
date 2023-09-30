@@ -1,5 +1,4 @@
 use crate::network::Network;
-use crate::nodex::keyring;
 use crate::services::hub::Hub;
 use actix_web::{web, HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
@@ -15,22 +14,11 @@ pub async fn handler(
     _req: HttpRequest,
     web::Json(_): web::Json<MessageContainer>,
 ) -> actix_web::Result<HttpResponse> {
-    let device_did = match keyring::keypair::KeyPairing::load_keyring() {
-        Ok(v) => match v.get_identifier() {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Ok(HttpResponse::InternalServerError().json("Internal Server Error"));
-            }
-        },
-        Err(e) => {
-            log::error!("{:?}", e);
-            return Ok(HttpResponse::InternalServerError().json("Internal Server Error"));
-        }
-    };
+    let network = Network::new();
+    let project_did = network.root.project_did.expect("project_did is not set");
 
     let hub = Hub::new();
-    match hub.network(&device_did).await {
+    match hub.network(&project_did).await {
         Ok(res) => {
             let mut network_config = Network::new();
             network_config.root.secret_key = Some(res.secret_key);
