@@ -25,7 +25,7 @@ pub struct MqttClient {
 
 impl MqttClient {
     pub fn new(sender: tokio::sync::mpsc::Sender<Command>) -> Self {
-        MqttClient { sender: sender }
+        MqttClient { sender }
     }
 }
 
@@ -34,10 +34,7 @@ impl TransferClient for MqttClient {
     async fn send(&self, value: Value) -> Result<bool, NodeXError> {
         let (tx, rx) = oneshot::channel();
 
-        let command = Command::Send {
-            value: value,
-            resp: tx,
-        };
+        let command = Command::Send { value, resp: tx };
 
         self.sender.send(command).await.map_err(|e| {
             log::error!("{:?}", e.to_string());
