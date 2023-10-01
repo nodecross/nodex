@@ -28,6 +28,10 @@ impl ConnectionRepository {
         }
     }
 
+    pub fn connection_count(&self) -> usize {
+        self.connections.read().unwrap().len()
+    }
+
     pub fn insert(&mut self, addr: Addr<MessageReceiveActor>) -> bool {
         self.connections.write().unwrap().insert(addr)
     }
