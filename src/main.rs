@@ -183,7 +183,7 @@ async fn main() -> std::io::Result<()> {
 
     // NOTE: hub initilize
     hub_initilize(device_did.did_document.id.clone()).await;
-    send_device_info(device_did.did_document.id.clone()).await;
+    send_device_info().await;
 
     let sock_path = runtime_dir.clone().join("nodex.sock");
 
@@ -346,7 +346,7 @@ async fn hub_initilize(my_did: String) {
     };
 }
 
-async fn send_device_info(device_did: String) {
+async fn send_device_info() {
     const VERSION: &str = env!("CARGO_PKG_VERSION");
     const OS: &str = env::consts::OS;
     let mac_address: String = match get_mac_address() {
@@ -354,9 +354,15 @@ async fn send_device_info(device_did: String) {
         _ => String::from("No MAC address found."),
     };
 
+    let network = Network::new();
     let hub = Hub::new();
     match hub
-        .send_device_info(device_did, mac_address, VERSION.to_string(), OS.to_string())
+        .send_device_info(
+            network.root.project_did.expect("Failed to get project_did"),
+            mac_address,
+            VERSION.to_string(),
+            OS.to_string(),
+        )
         .await
     {
         Ok(()) => (),

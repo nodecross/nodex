@@ -111,7 +111,7 @@ impl HubClient {
     pub async fn send_device_info(
         &self,
         path: &str,
-        to_did: &str,
+        project_did: &str,
         mac_address: &str,
         version: &str,
         os: &str,
@@ -121,13 +121,14 @@ impl HubClient {
             "version": version,
             "os": os,
         });
-        let payload = match DIDCommEncryptedService::generate(to_did, &json!(message), None).await {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        let payload =
+            match DIDCommEncryptedService::generate(project_did, &json!(message), None).await {
+                Ok(v) => v,
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
+            };
         let payload = match serde_json::to_string(&payload) {
             Ok(v) => v,
             Err(e) => {
@@ -136,19 +137,7 @@ impl HubClient {
             }
         };
         let url = self.base_url.join(path);
-        match self
-            .instance
-            .post(&url.unwrap().to_string())
-            .body(payload.to_string())
-            .send()
-            .await
-        {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+        self.post(url.unwrap().as_ref(), &payload).await
     }
 
     pub async fn get_message(
