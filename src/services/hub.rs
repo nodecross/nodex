@@ -44,7 +44,6 @@ pub struct NetworkResponse {
     pub recipient_dids: Vec<String>,
     pub hub_endpoint: String,
     pub heartbeat: u64,
-    pub trm: String,
 }
 
 impl Hub {

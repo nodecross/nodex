@@ -26,7 +26,6 @@ pub async fn handler(
             network_config.root.recipient_dids = Some(res.recipient_dids);
             network_config.root.hub_endpoint = Some(res.hub_endpoint);
             network_config.root.heartbeat = Some(res.heartbeat);
-            network_config.root.trm = Some(res.trm);
             match network_config.save() {
                 Ok(_) => {}
                 Err(e) => {
