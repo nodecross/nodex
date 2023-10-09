@@ -191,6 +191,46 @@ impl Hub {
         }
     }
 
+    pub async fn send_message(
+        &self,
+        to_did: &str,
+        message: serde_json::Value,
+    ) -> Result<(), NodeXError> {
+        let res = match self
+            .http_client
+            .send_message("/v1/message", to_did, message)
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
+        };
+        let status = res.status();
+        match status {
+            reqwest::StatusCode::OK => Ok(()),
+            _ => match res.json::<ErrorResponse>().await {
+                Ok(v) => {
+                    log::error!(
+                        "StatusCode={:?}, error message = {:?}",
+                        status.as_str(),
+                        v.message
+                    );
+                    Err(NodeXError {})
+                }
+                Err(e) => {
+                    log::error!(
+                        "StatusCode={:?}, but parse failed. {:?}",
+                        status.as_str(),
+                        e
+                    );
+                    Err(NodeXError {})
+                }
+            },
+        }
+    }
+
     pub async fn heartbeat(&self, project_did: &str, is_active: bool) -> Result<(), NodeXError> {
         let res = match self
             .http_client

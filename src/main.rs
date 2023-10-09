@@ -21,6 +21,7 @@ use crate::network::Network;
 use crate::{config::ServerConfig, controllers::public::nodex_receive};
 use dotenv::dotenv;
 use handlers::Command;
+use handlers::MqttClient;
 use mac_address::get_mac_address;
 use std::env;
 
@@ -212,8 +213,9 @@ async fn main() -> std::io::Result<()> {
     let db = Arc::new(RwLock::new(HashMap::<String, bool>::new()));
 
     let connection_repository = ConnectionRepository::new();
+    let transfer_client = Box::new(MqttClient::new(tx));
 
-    let server = server::new_server(&sock_path, tx, connection_repository.clone());
+    let server = server::new_server(&sock_path, transfer_client, connection_repository.clone());
     let server_handle = server.handle();
 
     let shutdown_marker = Arc::new(AtomicBool::new(false));
