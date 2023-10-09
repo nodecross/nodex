@@ -9,12 +9,19 @@ use std::{
     time::Duration,
 };
 
+use crate::services::nodex::NodeX;
 use crate::{
     network::Network,
     nodex::errors::NodeXError,
     server,
     services::{hub::Hub, internal::didcomm_encrypted::DIDCommEncryptedService},
 };
+
+#[derive(Deserialize)]
+enum OperationType {
+    UpdateAgent,
+    UpdateNetworkJson,
+}
 
 #[derive(Debug, Clone)]
 pub struct ConnectionRepository {
@@ -72,6 +79,7 @@ struct AckMessage {
 
 struct MessageReceiveUsecase {
     hub: Hub,
+    agent: NodeX,
     project_did: String,
 }
 
@@ -86,6 +94,7 @@ impl MessageReceiveUsecase {
 
         Self {
             hub: Hub::new(),
+            agent: NodeX::new(),
             project_did,
         }
     }
@@ -105,6 +114,33 @@ impl MessageReceiveUsecase {
                         message_id: m.id,
                         payload: verified.message.credential_subject.container,
                     };
+                    if message.message_from == self.project_did {
+                        let operation_type = message.payload["operation"].clone();
+                        match serde_json::from_value::<OperationType>(operation_type) {
+                            Ok(OperationType::UpdateAgent) => {
+                                let binary_url = match message.payload["binary_url"].as_str() {
+                                    Some(url) => url,
+                                    None => return Err(NodeXError {}),
+                                };
+                                self.agent
+                                    .update_version(binary_url, "/tmp/nodex-agent")
+                                    .await?;
+                                self.hub
+                                    .ack_message(&self.project_did, message.message_id, true)
+                                    .await?;
+                            }
+                            Ok(OperationType::UpdateNetworkJson) => {
+                                self.hub.network().await?;
+                                self.hub
+                                    .ack_message(&self.project_did, message.message_id, true)
+                                    .await?;
+                            }
+                            Err(e) => {
+                                log::error!("Error: {:?}", e);
+                            }
+                        }
+                        continue;
+                    }
                     response.push(message);
                 }
                 Err(_) => {
