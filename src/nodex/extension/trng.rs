@@ -1,8 +1,11 @@
-use crate::{config::Extension, nodex::{errors::NodeXError, runtime::random::Random}, app_config};
+use crate::{
+    app_config,
+    config::Extension,
+    nodex::{errors::NodeXError, runtime::random::Random},
+};
 use std::ffi::CStr;
 
-pub struct Trng {
-}
+pub struct Trng {}
 
 impl Trng {
     const MAX_BUFFER_LENGTH: usize = 1024;
@@ -13,9 +16,9 @@ impl Trng {
 
     fn read_external(&self, extension: &Extension, size: &usize) -> Result<Vec<u8>, NodeXError> {
         log::info!("Called: read_external");
-        
+
         if Trng::MAX_BUFFER_LENGTH < *size {
-            return Err(NodeXError {})
+            return Err(NodeXError {});
         }
 
         unsafe {
@@ -24,18 +27,26 @@ impl Trng {
 
             let lib = match libloading::Library::new(&extension.filename) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError{})
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             };
 
-            let func: libloading::Symbol<unsafe extern fn(buf: *const i8, bufsize: usize, size: usize) -> u32> = match lib.get(extension.symbol.as_bytes()) {
+            let func: libloading::Symbol<
+                unsafe extern "C" fn(buf: *const i8, bufsize: usize, size: usize) -> u32,
+            > = match lib.get(extension.symbol.as_bytes()) {
                 Ok(v) => v,
-                Err(_) => return Err(NodeXError{})
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    return Err(NodeXError {});
+                }
             };
 
             let result = func(buffer_ptr, buffer.len(), *size);
 
             if result != 0 {
-                return Err(NodeXError {})
+                return Err(NodeXError {});
             }
 
             Ok(CStr::from_ptr(buffer_ptr).to_bytes().to_vec())
@@ -51,19 +62,13 @@ impl Trng {
     pub fn read(&self, size: &usize) -> Result<Vec<u8>, NodeXError> {
         let config = app_config();
         let extension = match config.inner.lock() {
-            Ok(config) => {
-                config.load_trng_read_sig()
-            },
-            _ => return Err(NodeXError {})
+            Ok(config) => config.load_trng_read_sig(),
+            _ => return Err(NodeXError {}),
         };
 
         match extension {
-            Some(v) => {
-                self.read_external(&v, size)
-            },
-            _ => {
-                self.read_internal(size)
-            }
+            Some(v) => self.read_external(&v, size),
+            _ => self.read_internal(size),
         }
     }
 }

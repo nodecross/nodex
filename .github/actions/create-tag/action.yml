@@ -10,9 +10,6 @@ runs:
     - name: (checkout) source code
       uses: actions/checkout@v3
 
-    - name: (setup) environment
-      uses: ./.github/actions/shared
-
     - name: (run) commit analyzer
       id: commit_analyzer
       uses: ./.github/actions/commit-analyzer

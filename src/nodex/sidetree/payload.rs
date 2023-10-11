@@ -1,10 +1,10 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::nodex::{keyring::secp256k1::KeyPairSecp256K1, errors::NodeXError};
-use crate::nodex::runtime::multihash::Multihash;
 use crate::nodex::runtime::base64_url::Base64Url;
 use crate::nodex::runtime::base64_url::PaddingType;
+use crate::nodex::runtime::multihash::Multihash;
+use crate::nodex::{errors::NodeXError, keyring::secp256k1::KeyPairSecp256K1};
 
 pub struct OperationPayload {}
 
@@ -22,7 +22,7 @@ pub struct ServiceEndpoint {
     #[serde(rename = "description")]
     pub description: Option<String>,
 }
-  
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DidPublicKey {
     #[serde(rename = "id")]
@@ -37,7 +37,7 @@ pub struct DidPublicKey {
     #[serde(rename = "publicKeyJwk")]
     pub public_key_jwk: KeyPairSecp256K1,
 }
-  
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Authentication {
     #[serde(rename = "type")]
@@ -52,7 +52,6 @@ pub struct DIDDocument {
     // TODO: impl parser for mixed type
     // #[serde(rename = "@context")]
     // context: String,
-
     #[serde(rename = "id")]
     pub id: String,
 
@@ -85,33 +84,32 @@ pub struct PublicKeyPayload {
 // ACTION: add-public-keys
 #[allow(dead_code)]
 struct DIDAddPublicKeysPayload {
-    id     : String,
-    r#type : String,
-    jwk    : KeyPairSecp256K1,
+    id: String,
+    r#type: String,
+    jwk: KeyPairSecp256K1,
     purpose: Vec<String>,
 }
 
 #[allow(dead_code)]
 struct DIDAddPublicKeysAction {
-    action     : String, //'add-public-keys',
-    public_keys: Vec<DIDAddPublicKeysPayload>
+    action: String, //'add-public-keys',
+    public_keys: Vec<DIDAddPublicKeysPayload>,
 }
 
 // ACTION: remove-public-keys
 #[allow(dead_code)]
 struct DIDRemovePublicKeysAction {
     action: String, // 'remove-public-keys',
-    ids   : Vec<String>,
+    ids: Vec<String>,
 }
 
 // ACTION: add-services
 #[allow(dead_code)]
-struct DIDAddServicesPayload {
-}
+struct DIDAddServicesPayload {}
 
 #[allow(dead_code)]
 struct DIDAddServicesAction {
-    action  : String, // 'add-services',
+    action: String, // 'add-services',
     services: Vec<DIDAddServicesPayload>,
 }
 
@@ -119,22 +117,22 @@ struct DIDAddServicesAction {
 #[allow(dead_code)]
 struct DIDRemoveServicesAction {
     action: String, // 'remove-services',
-    ids   : Vec<String>,
+    ids: Vec<String>,
 }
 
 // ACTION: replace
 #[derive(Debug, Serialize, Deserialize)]
 struct DIDReplacePayload {
-    #[serde(rename = "public_keys")] 
+    #[serde(rename = "public_keys")]
     public_keys: Vec<PublicKeyPayload>,
 
-    #[serde(rename = "service_endpoints")] 
+    #[serde(rename = "service_endpoints")]
     service_endpoints: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct DIDReplaceAction {
-    action  : String, // 'replace',
+    action: String, // 'replace',
     document: DIDReplacePayload,
 }
 
@@ -153,13 +151,13 @@ struct DIDReplaceSuffixObject {
 // ACTION: ietf-json-patch
 #[allow(dead_code)]
 struct DIDIetfJsonPatchAction {
-    action : String, // 'replace',
-    // patches: Vec<>
+    action: String, // 'replace',
+                    // patches: Vec<>
 }
 
 #[allow(dead_code)]
 struct DIDResolutionRequest {
-    did: String
+    did: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -197,13 +195,13 @@ pub struct CommitmentKeys {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct DIDCreateRequest {
-    #[serde(rename = "publicKeys")] 
+    #[serde(rename = "publicKeys")]
     pub public_keys: Vec<PublicKeyPayload>,
 
-    #[serde(rename = "commitmentKeys")] 
+    #[serde(rename = "commitmentKeys")]
     pub commitment_keys: CommitmentKeys,
 
-    #[serde(rename = "serviceEndpoints")] 
+    #[serde(rename = "serviceEndpoints")]
     pub service_endpoints: Vec<String>,
 }
 
@@ -259,15 +257,25 @@ struct DIDDeactivateResponse {
 impl OperationPayload {
     pub fn did_create_payload(params: &DIDCreateRequest) -> Result<String, NodeXError> {
         let update = json!(&params.commitment_keys.update);
-        let update_commitment = match Multihash::canonicalize_then_double_hash_then_encode(update.to_string().as_bytes()) {
+        let update_commitment = match Multihash::canonicalize_then_double_hash_then_encode(
+            update.to_string().as_bytes(),
+        ) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError{})
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let recovery = json!(&params.commitment_keys.recovery);
-        let recovery_commitment = match Multihash::canonicalize_then_double_hash_then_encode(recovery.to_string().as_bytes()) {
+        let recovery_commitment = match Multihash::canonicalize_then_double_hash_then_encode(
+            recovery.to_string().as_bytes(),
+        ) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError{})
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         let document: DIDReplacePayload = DIDReplacePayload {
@@ -275,24 +283,24 @@ impl OperationPayload {
             service_endpoints: params.service_endpoints.clone(),
         };
         let patch: DIDReplaceAction = DIDReplaceAction {
-            action  : "replace".to_string(),
+            action: "replace".to_string(),
             document,
         };
 
         let delta = json!(DIDReplaceDeltaObject {
-            patches: vec![ patch ],
+            patches: vec![patch],
             update_commitment,
-        }).to_string();
+        })
+        .to_string();
 
         let delta_bytes = delta.as_bytes();
-        let delta_hash = Base64Url::encode(
-            &Multihash::hash(delta_bytes), &PaddingType::NoPadding
-        );
+        let delta_hash = Base64Url::encode(&Multihash::hash(delta_bytes), &PaddingType::NoPadding);
 
         let suffix = json!(DIDReplaceSuffixObject {
             delta_hash,
             recovery_commitment,
-        }).to_string();
+        })
+        .to_string();
 
         let suffix_bytes = suffix.as_bytes();
 
@@ -317,34 +325,31 @@ pub mod tests {
 
     #[test]
     pub fn test_did_create_payload() {
-        let keyring = match keyring::mnemonic::MnemonicKeyring::create_keyring() {
+        let keyring = match keyring::keypair::KeyPairing::create_keyring() {
             Ok(v) => v,
             Err(_) => panic!(),
         };
 
         let public = match keyring.get_sign_key_pair().to_public_key("key_id", &[""]) {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
         let update = match keyring.get_recovery_key_pair().to_jwk(false) {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
         let recovery = match keyring.get_update_key_pair().to_jwk(false) {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         let result = match OperationPayload::did_create_payload(&DIDCreateRequest {
-            public_keys: vec![ public ],
-            commitment_keys: CommitmentKeys {
-                recovery,
-                update,
-            },
+            public_keys: vec![public],
+            commitment_keys: CommitmentKeys { recovery, update },
             service_endpoints: vec![],
         }) {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         println!("{}", json!(&result));

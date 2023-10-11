@@ -14,9 +14,8 @@ runs:
       if: ${{ inputs.checkout == 'true' }}
       uses: actions/checkout@v3
 
-    # - name: (check) conventional commits
-    #   uses: webiny/action-conventional-commits@v1.0.3
-
     - name: (check) lint
       shell: bash
-      run: make lint
+      run: |
+        cargo fmt --all -- --check
+        cargo clippy -- -D warnings

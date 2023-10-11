@@ -1,6 +1,9 @@
 name: test
 description: ""
 inputs:
+  checkout:
+    required: false
+    description: ""
   github-token:
     required: true
     description: ""
@@ -11,10 +14,8 @@ runs:
   using: composite
   steps:
     - name: (checkout) source code
+      if: ${{ inputs.checkout == 'true' }}
       uses: actions/checkout@v3
-
-    - name: (setup) environment
-      uses: ./.github/actions/shared
 
     - name: (cache) rust
       if: ${{ inputs.use-cache == 'true' }}
@@ -24,25 +25,16 @@ runs:
       shell: bash
       run: rustup component add llvm-tools-preview
 
-    - name: (install) grcov
+    - name: (install) cargo-llvm-cov
       shell: bash
-      run: cargo install grcov
+      run: cargo install cargo-llvm-cov
 
     - name: (run) tests
       shell: bash
-      run: make test
-      env:
-        RUSTFLAGS: -Zinstrument-coverage
-        LLVM_PROFILE_FILE: coverage/target-%p-%m.profraw
-
-    - name: (run) coverage
-      shell: bash
-      run: grcov . --source-dir . --binary-path target/debug --output-type lcov --branch --ignore-not-existing --ignore "/*" --output-path coverage/target.lcov
-      env:
-        LLVM_PROFILE_FILE: coverage/target-%p-%m.profraw
+      run: cargo llvm-cov --lcov --output-path coverage.lcov
 
     - name: (run) upload to coveralls
       uses: coverallsapp/github-action@v2
       with:
         github-token: ${{ inputs.github-token }}
-        path-to-lcov: coverage/target.lcov
+        path-to-lcov: coverage.lcov

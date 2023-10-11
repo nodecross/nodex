@@ -1,2 +1,2 @@
+pub mod keypair;
 pub mod secp256k1;
-pub mod mnemonic;

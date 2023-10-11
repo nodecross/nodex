@@ -1,0 +1,17 @@
+import { post } from './sock.js'
+
+(async () => {
+  const json = await post('/internal/didcomm/signed-messages/verify', {
+    message: {
+      "payload": "eyJ0eXAiOiJhcHBsaWNhdGlvbi9kaWRjb21tLXBsYWluK2pzb24iLCJpZCI6IjlhOWYwNDI5LWQzM2ItNGYzZi05ZjYyLWVmNDhiYjI2NGUwOSIsInR5cGUiOiJKV00iLCJ0byI6WyJkaWQ6bm9kZXg6dGVzdDpFaUJwclhyZU1pYmE0bG95bDNwc1htMFJzRUNkdGxDaVFJak04RzlCdGRRcGxBIl0sImZyb20iOiJkaWQ6bm9kZXg6dGVzdDpFaUItYWszcV9fWTk0STdzdWVsQzJoM2gwM1lJV2dLU0UzWXdTOWNWMVdRQTFBIiwiYm9keSI6eyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSJdLCJjcmVkZW50aWFsU3ViamVjdCI6eyJjb250YWluZXIiOnsiYXJyYXkiOltdLCJib29sZWFuIjp0cnVlLCJtYXAiOnt9LCJudW1iZXIiOjEsInN0cmluZyI6InZhbHVlIn19LCJpc3N1YW5jZURhdGUiOiIyMDIzLTA1LTIzVDEwOjE1OjAwLjkyNjAwNSswMDowMCIsImlzc3VlciI6eyJpZCI6ImRpZDpub2RleDp0ZXN0OkVpQi1hazNxX19ZOTRJN3N1ZWxDMmgzaDAzWUlXZ0tTRTNZd1M5Y1YxV1FBMUEifSwicHJvb2YiOnsiY2hhbGxlbmdlIjpudWxsLCJjb250cm9sbGVyIjpudWxsLCJjcmVhdGVkIjoiMjAyMy0wNS0yM1QxMDoxNTowMC45MjYwODgrMDA6MDAiLCJkb21haW4iOm51bGwsImp3cyI6ImV5SmhiR2NpT2lKRlV6STFOa3NpTENKaU5qUWlPbVpoYkhObExDSmpjbWwwSWpwYkltSTJOQ0pkZlEuLnNYLXFmbDFGeVBKOVhSaXJiclRWcDY0MmlKZ0tDZHJrSHdDVkozdUFDczRUNy1VaDNjMjd0MXNHcjhJZ2lCbTBZc1pTb2RoblJzMnEtbVE0dy0xM1NRIiwicHJvb2ZQdXJwb3NlIjoiYXV0aGVudGljYXRpb24iLCJ0eXBlIjoiRWNkc2FTZWNwMjU2azFTaWduYXR1cmUyMDE5IiwidmVyaWZpY2F0aW9uTWV0aG9kIjoiZGlkOm5vZGV4OnRlc3Q6RWlCLWFrM3FfX1k5NEk3c3VlbEMyaDNoMDNZSVdnS1NFM1l3UzljVjFXUUExQSNzaWduaW5nS2V5In0sInR5cGUiOlsiVmVyaWZpYWJsZUNyZWRlbnRpYWwiXX19",
+      "signatures": [
+        {
+          "protected": "eyJ0eXAiOiJhcHBsaWNhdGlvbi9kaWRjb21tLXNpZ25lZCtqc29uIiwiYWxnIjoiRVMyNTZLIn0",
+          "signature": "rT3NPrLU-Z5FlAOgJoaxlY142zRi7j37OTVhDKwDsgp-4xKtMZtRSoRwK6-vBFUqh1kmFCeCqn5z0Z6i9Jr0Qw"
+        }
+      ]
+    },
+  })
+
+  console.log(json)
+})()

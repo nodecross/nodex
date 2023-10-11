@@ -1,4 +1,4 @@
-use crate::nodex::{runtime, errors::NodeXError};
+use crate::nodex::{errors::NodeXError, runtime};
 
 #[allow(dead_code)]
 pub struct Hasher {}
@@ -8,7 +8,10 @@ impl Hasher {
     pub fn digest(message: &[u8], secret: &[u8]) -> Result<String, NodeXError> {
         let digest = match runtime::hmac::HmacSha512::digest(secret, message) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError{})
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         Ok(hex::encode(digest))
@@ -18,12 +21,18 @@ impl Hasher {
     pub fn verify(message: &[u8], digest: &[u8], secret: &[u8]) -> Result<bool, NodeXError> {
         let _digest = match hex::decode(digest) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError{})
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
 
         match runtime::hmac::HmacSha512::verify(secret, message, &_digest) {
             Ok(v) => Ok(v),
-            Err(_) => Err(NodeXError{})
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
+            }
         }
     }
 }
@@ -52,7 +61,7 @@ pub mod tests {
     pub fn test_digest() {
         let result = match Hasher::digest(message().as_bytes(), secret().as_bytes()) {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         assert_eq!(result, digest())
@@ -60,9 +69,13 @@ pub mod tests {
 
     #[test]
     pub fn test_verify() {
-        let result = match Hasher::verify(message().as_bytes(), digest().as_bytes(), secret().as_bytes()) {
+        let result = match Hasher::verify(
+            message().as_bytes(),
+            digest().as_bytes(),
+            secret().as_bytes(),
+        ) {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         assert!(result)

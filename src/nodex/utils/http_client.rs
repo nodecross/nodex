@@ -1,5 +1,8 @@
-use reqwest::{Url, header::{HeaderMap, HeaderValue}};
 use crate::nodex::errors::NodeXError;
+use reqwest::{
+    header::{HeaderMap, HeaderValue},
+    Url,
+};
 
 pub struct HttpClientConfig {
     pub base_url: String,
@@ -15,73 +18,101 @@ impl HttpClient {
     pub fn new(_config: &HttpClientConfig) -> Result<Self, NodeXError> {
         let url = match Url::parse(&_config.base_url.to_string()) {
             Ok(v) => v,
-            Err(_) => return Err(NodeXError{})
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
         };
         let client: reqwest::Client = reqwest::Client::new();
 
-        Ok(
-            HttpClient {
-                instance: client,
-                base_url: url,
-            }
-        )
+        Ok(HttpClient {
+            instance: client,
+            base_url: url,
+        })
     }
 
     fn default_headers(&self) -> HeaderMap {
         let mut headers = HeaderMap::new();
-        headers.insert(reqwest::header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        headers.insert(
+            reqwest::header::CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
         headers
     }
 
     pub async fn get(&self, _path: &str) -> Result<reqwest::Response, NodeXError> {
         let url = self.base_url.join(_path);
 
-        match self.instance
+        match self
+            .instance
             .get(&url.unwrap().to_string())
             .headers(self.default_headers())
-            .send().await {
-                Ok(v) => Ok(v),
-                Err(_) => Err(NodeXError{})
+            .send()
+            .await
+        {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
             }
+        }
     }
 
     pub async fn post(&self, _path: &str, body: &str) -> Result<reqwest::Response, NodeXError> {
         let url = self.base_url.join(_path);
 
-        match self.instance
+        match self
+            .instance
             .post(&url.unwrap().to_string())
             .headers(self.default_headers())
             .body(body.to_string())
-            .send().await {
-                Ok(v) => Ok(v),
-                Err(_) => Err(NodeXError{}),
+            .send()
+            .await
+        {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
             }
+        }
     }
 
     #[allow(dead_code)]
     pub async fn put(&self, _path: &str) -> Result<reqwest::Response, NodeXError> {
         let url = self.base_url.join(_path);
 
-        match self.instance
+        match self
+            .instance
             .put(&url.unwrap().to_string())
             .headers(self.default_headers())
-            .send().await {
-                Ok(v) => Ok(v),
-                Err(_) => Err(NodeXError{})
+            .send()
+            .await
+        {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
             }
+        }
     }
 
     #[allow(dead_code)]
     pub async fn delete(&self, _path: &str) -> Result<reqwest::Response, NodeXError> {
         let url = self.base_url.join(_path);
 
-        match self.instance
+        match self
+            .instance
             .delete(&url.unwrap().to_string())
             .headers(self.default_headers())
-            .send().await {
-                Ok(v) => Ok(v),
-                Err(_) => Err(NodeXError{})
+            .send()
+            .await
+        {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(NodeXError {})
             }
+        }
     }
 }
 
@@ -104,17 +135,17 @@ pub mod tests {
 
         let client = match HttpClient::new(&client_config) {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         let res = match client.get("/get").await {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         let json: Res = match res.json().await {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         assert!(!json.origin.is_empty());
@@ -129,17 +160,17 @@ pub mod tests {
 
         let client = match HttpClient::new(&client_config) {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         let res = match client.post("/post", r#"{"key":"value"}"#).await {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         let json: Res = match res.json().await {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         assert!(!json.origin.is_empty());
@@ -154,17 +185,17 @@ pub mod tests {
 
         let client = match HttpClient::new(&client_config) {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         let res = match client.put("/put").await {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         let json: Res = match res.json().await {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         assert!(!json.origin.is_empty());
@@ -179,17 +210,17 @@ pub mod tests {
 
         let client = match HttpClient::new(&client_config) {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         let res = match client.delete("/delete").await {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         let json: Res = match res.json().await {
             Ok(v) => v,
-            Err(_) => panic!()
+            Err(_) => panic!(),
         };
 
         assert!(!json.origin.is_empty());
