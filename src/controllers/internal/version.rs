@@ -1,8 +1,7 @@
-use crate::nodex::errors::NodeXError;
+use crate::services::nodex::NodeX;
 use actix_web::{web, HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{fs, process::Command};
 
 // NOTE: POST /internal/version
 #[derive(Deserialize, Serialize)]
@@ -27,34 +26,9 @@ pub async fn handler_update(
         Some(p) => p,
         None => return Ok(HttpResponse::BadRequest().json("path is required")),
     };
-    match check_for_updates(binary_url, path).await {
+    let nodex = NodeX::new();
+    match nodex.update_version(binary_url, path).await {
         Ok(_) => Ok(HttpResponse::Ok().json("ok")),
         Err(_) => Ok(HttpResponse::InternalServerError().finish()),
-    }
-}
-
-async fn check_for_updates(binary_url: &str, path: &str) -> Result<(), NodeXError> {
-    let response = reqwest::get(binary_url).await;
-    match response {
-        Ok(r) => {
-            let content = match r.bytes().await {
-                Ok(c) => c,
-                Err(_) => return Err(NodeXError {}),
-            };
-            match fs::write(path, &content) {
-                Ok(_) => (),
-                Err(_) => return Err(NodeXError {}),
-            };
-            match Command::new("chmod").arg("+x").arg(path).status() {
-                Ok(_) => (),
-                Err(_) => return Err(NodeXError {}),
-            };
-            match Command::new(path).spawn() {
-                Ok(_) => (),
-                Err(_) => return Err(NodeXError {}),
-            };
-            Ok(())
-        }
-        Err(_) => Err(NodeXError {}),
     }
 }
