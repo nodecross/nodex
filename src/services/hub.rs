@@ -94,15 +94,15 @@ impl Hub {
             },
             reqwest::StatusCode::BAD_REQUEST => {
                 log::error!("StatusCode=400, bad request");
-                return Err(NodeXError {});
+                Err(NodeXError {})
             }
             reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
                 log::error!("StatusCode=500, internal server error");
-                return Err(NodeXError {});
+                Err(NodeXError {})
             }
             other => {
                 log::error!("StatusCode={other}, unexpected response");
-                return Err(NodeXError {});
+                Err(NodeXError {})
             }
         }
     }
