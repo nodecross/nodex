@@ -84,11 +84,25 @@ impl Hub {
                 return Err(NodeXError {});
             }
         };
-        match res.json::<EmptyResponse>().await {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
+        match res.status() {
+            reqwest::StatusCode::OK => match res.json::<EmptyResponse>().await {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    Err(NodeXError {})
+                }
+            },
+            reqwest::StatusCode::BAD_REQUEST => {
+                log::error!("StatusCode=400, bad request");
+                return Err(NodeXError {});
+            }
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
+                log::error!("StatusCode=500, internal server error");
+                return Err(NodeXError {});
+            }
+            other => {
+                log::error!("StatusCode={other}, unexpected response");
+                return Err(NodeXError {});
             }
         }
     }
