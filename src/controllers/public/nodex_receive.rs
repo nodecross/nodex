@@ -106,9 +106,14 @@ impl MessageReceiveUsecase {
                 log::error!("Invalid Json: {:?}", e);
                 NodeXError {}
             })?;
+            log::info!("Receive message. message_id = {:?}", m.id);
             match DIDCommEncryptedService::verify(&json_message).await {
                 Ok(verified) => {
-                    log::info!("Verify success. message_id = {}", m.id);
+                    log::info!(
+                        "Verify success. message_id = {}, from = {}",
+                        m.id,
+                        verified.message.issuer.id
+                    );
                     let response = ResponseJson {
                         message_id: m.id,
                         message: verified.message.clone(),
