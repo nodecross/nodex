@@ -249,7 +249,7 @@ impl SecureKeyStore {
     }
 
     fn read_internal(&self, key_type: &SecureKeyStoreType) -> Result<Option<KeyPair>, NodeXError> {
-        log::info!("Called: read_internal (type: {:?})", key_type);
+        log::debug!("Called: read_internal (type: {:?})", key_type);
 
         let config = app_config();
 

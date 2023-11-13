@@ -106,8 +106,14 @@ impl MessageReceiveUsecase {
                 log::error!("Invalid Json: {:?}", e);
                 NodeXError {}
             })?;
+            log::info!("Receive message. message_id = {:?}", m.id);
             match DIDCommEncryptedService::verify(&json_message).await {
                 Ok(verified) => {
+                    log::info!(
+                        "Verify success. message_id = {}, from = {}",
+                        m.id,
+                        verified.message.issuer.id
+                    );
                     let response = ResponseJson {
                         message_id: m.id,
                         message: verified.message.clone(),
@@ -143,7 +149,7 @@ impl MessageReceiveUsecase {
                     responses.push(response);
                 }
                 Err(_) => {
-                    log::error!("Verify failed");
+                    log::error!("Verify failed : message_id = {}", m.id);
                     self.hub.ack_message(&self.project_did, m.id, false).await?;
                     continue;
                 }
@@ -156,10 +162,10 @@ impl MessageReceiveUsecase {
     async fn ack_message(&self, message_id: String) {
         match self
             .hub
-            .ack_message(&self.project_did, message_id, true)
+            .ack_message(&self.project_did, message_id.clone(), true)
             .await
         {
-            Ok(_) => log::info!("Ack message success"),
+            Ok(_) => log::info!("Ack message success : message_id = {}", message_id),
             Err(e) => log::error!("Failed to ack message : {:?}", e),
         }
     }
