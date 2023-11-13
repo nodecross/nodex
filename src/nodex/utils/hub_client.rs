@@ -1,5 +1,6 @@
 use crate::network_config;
 use crate::nodex::errors::NodeXError;
+use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use reqwest::{
     header::{HeaderMap, HeaderValue},
@@ -189,9 +190,11 @@ impl HubClient {
         path: &str,
         project_did: &str,
         is_active: bool,
+        event_at: DateTime<Utc>,
     ) -> Result<reqwest::Response, NodeXError> {
         let url = self.base_url.join(path);
         let payload = json!({
+            "event_at": event_at.to_rfc3339(),
             "is_healthy": is_active,
         });
         let payload = DIDCommEncryptedService::generate(project_did, &payload, None)

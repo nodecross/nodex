@@ -4,6 +4,7 @@ use crate::nodex::{
     utils::hub_client::{HubClient, HubClientConfig},
 };
 use crate::server_config;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
@@ -255,10 +256,15 @@ impl Hub {
         }
     }
 
-    pub async fn heartbeat(&self, project_did: &str, is_active: bool) -> Result<(), NodeXError> {
+    pub async fn heartbeat(
+        &self,
+        project_did: &str,
+        is_active: bool,
+        event_at: DateTime<Utc>,
+    ) -> Result<(), NodeXError> {
         let res = match self
             .http_client
-            .heartbeat("/v1/heartbeat", project_did, is_active)
+            .heartbeat("/v1/heartbeat", project_did, is_active, event_at)
             .await
         {
             Ok(v) => v,
