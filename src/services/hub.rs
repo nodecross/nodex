@@ -242,7 +242,12 @@ impl Hub {
         }
     }
 
-    pub async fn heartbeat(&self, project_did: &str, is_active: bool, event_at: DateTime<Utc>) -> Result<(), NodeXError> {
+    pub async fn heartbeat(
+        &self,
+        project_did: &str,
+        is_active: bool,
+        event_at: DateTime<Utc>,
+    ) -> Result<(), NodeXError> {
         let res = match self
             .http_client
             .heartbeat("/v1/heartbeat", project_did, is_active, event_at)
