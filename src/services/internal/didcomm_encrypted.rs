@@ -227,13 +227,18 @@ impl DIDCommEncryptedService {
         let sk = StaticSecret::from(array_ref!(shared_key, 0, 32).to_owned());
         let pk = PublicKey::from(&sk);
 
+        log::info!("DIDCommMessage = {:?}", message.to_string());
+
         let message = match Message::receive(
             &message.to_string(),
             Some(sk.to_bytes().as_ref()),
             Some(pk.as_bytes().to_vec()),
             Some(&other_key.get_public_key()),
         ) {
-            Ok(v) => v,
+            Ok(v) => {
+                log::info!("DIDCommMessage ciphertext decrypted. Data = {:?}", v);
+                v
+            }
             Err(e) => {
                 log::error!("{:?}", e);
                 return Err(NodeXError {});
