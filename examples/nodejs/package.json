@@ -18,6 +18,7 @@
     "generate_didcomm_plaintext_message": "npm run exec src/generate_didcomm_plaintext_message.ts",
     "generate_didcomm_signed_message": "npm run exec src/generate_didcomm_signed_message.ts",
     "generate_vc": "npm run exec src/generate_vc.ts",
+    "thermometer": "npm run exec thermometer/index.ts",
     "transfer": "npm run exec src/transfer.ts",
     "receive": "npm run exec src/receive.ts",
     "verify_didcomm_encrypted_message": "npm run exec src/verify_didcomm_encrypted_message.ts",
