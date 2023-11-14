@@ -6,7 +6,7 @@ This guide demonstrates the implementation of secure, end-to-end messaging in No
 
 ![Secure Messaging with Node.js Using NodeX Agent](https://github.com/nodecross/nodex/assets/23056537/401a1491-fbe8-439a-ab06-5c04746c8375)
 
-Leveraging NodeX Agent, this example illustrates the secure transmission of machine-specific data (CPU temperature) between two processes. It's particularly relevant for developers aiming to incorporate secure messaging in distributed Node.js systems.
+Leveraging NodeX Agent, this example illustrates the secure transmission of machine-specific data (amount of freeable memory) between two processes. It's particularly relevant for developers aiming to incorporate secure messaging in distributed Node.js systems.
 
 This sample serves as a practical guide for developers looking to implement secure messaging in their Node.js applications, particularly useful in scenarios where the data needs to be shared across a network securely.
 
@@ -56,7 +56,7 @@ The application will exchange and display the freeable memory of both machines.
 
 ## Confirm the secure messaging
 
-The application will collect the freeable memory of the machine and send it to the other agent. And at the same time, it will receive the CPU temperature from the other agent and print it out.
+The application will collect the freeable memory of the machine and send it to the other agent. And at the same time, it will receive the amount of freeable memory from the other agent and print it out.
 
 You'll be able to see the messages' logs of the end to end secure messaging on the [log page](https://studio.nodecross.io/logs) of the NodeX Studio.
 
@@ -75,7 +75,7 @@ $ yarn thermometer
 ...
 ```
 
-The other is the logs to demonstrate the outgoing message, which the application sends CPU temperature to the other agent.
+The other is the logs to demonstrate the outgoing message, which the application sends amount of freeable memory to the other agent.
 
 ```console
 $ yarn thermometer
