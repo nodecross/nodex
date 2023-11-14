@@ -46,10 +46,10 @@ Run the following command to start the application and pass the DID of the other
 
 ```console
 # In device A
-yarn thermometer [DID B]
+yarn app [DID B]
 
 # In device B
-yarn thermometer [DID B]
+yarn app [DID B]
 ```
 
 The application will exchange and display the freeable memory of both machines.
