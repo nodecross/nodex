@@ -71,6 +71,6 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       with:
         upload_url: ${{ steps.release_drafter.outputs.upload_url }}
-        asset_path: /home/runner/ubuntu-latest/examples/nodejs/example.zip
+        asset_path: ./examples/nodejs/example.zip
         asset_name: example.zip
         asset_content_type: application/zip
