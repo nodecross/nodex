@@ -1,8 +1,10 @@
+use crate::network::Network;
 use crate::nodex::{
     errors::NodeXError,
     utils::hub_client::{HubClient, HubClientConfig},
 };
 use crate::server_config;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
@@ -35,6 +37,15 @@ struct SendDeviceInfoRequest {
     mac_address: String,
     version: String,
     os: String,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct NetworkResponse {
+    pub secret_key: String,
+    pub project_did: String,
+    pub recipient_dids: Vec<String>,
+    pub hub_endpoint: String,
+    pub heartbeat: u64,
 }
 
 impl Hub {
@@ -74,10 +85,24 @@ impl Hub {
                 return Err(NodeXError {});
             }
         };
-        match res.json::<EmptyResponse>().await {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                log::error!("{:?}", e);
+        match res.status() {
+            reqwest::StatusCode::OK => match res.json::<EmptyResponse>().await {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    Err(NodeXError {})
+                }
+            },
+            reqwest::StatusCode::BAD_REQUEST => {
+                log::error!("StatusCode=400, bad request");
+                Err(NodeXError {})
+            }
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
+                log::error!("StatusCode=500, internal server error");
+                Err(NodeXError {})
+            }
+            other => {
+                log::error!("StatusCode={other}, unexpected response");
                 Err(NodeXError {})
             }
         }
@@ -231,10 +256,15 @@ impl Hub {
         }
     }
 
-    pub async fn heartbeat(&self, project_did: &str, is_active: bool) -> Result<(), NodeXError> {
+    pub async fn heartbeat(
+        &self,
+        project_did: &str,
+        is_active: bool,
+        event_at: DateTime<Utc>,
+    ) -> Result<(), NodeXError> {
         let res = match self
             .http_client
-            .heartbeat("/v1/heartbeat", project_did, is_active)
+            .heartbeat("/v1/heartbeat", project_did, is_active, event_at)
             .await
         {
             Ok(v) => v,
@@ -247,6 +277,57 @@ impl Hub {
         match res.status() {
             reqwest::StatusCode::OK => match res.json::<EmptyResponse>().await {
                 Ok(_) => Ok(()),
+                Err(e) => {
+                    log::error!("StatusCode=200, but parse failed. {:?}", e);
+                    Err(NodeXError {})
+                }
+            },
+            reqwest::StatusCode::BAD_REQUEST => match res.json::<ErrorResponse>().await {
+                Ok(v) => {
+                    log::error!("StatusCode=400, error message = {:?}", v.message);
+                    Err(NodeXError {})
+                }
+                Err(e) => {
+                    log::error!("StatusCode=400, but parse failed. {:?}", e);
+                    Err(NodeXError {})
+                }
+            },
+            other => {
+                log::error!("StatusCode={other}, unexpected response");
+                Err(NodeXError {})
+            }
+        }
+    }
+
+    pub async fn network(&self) -> Result<(), NodeXError> {
+        let network = Network::new();
+        let project_did = network.root.project_did.expect("project_did is not set");
+        let res = match self.http_client.network("/v1/network", &project_did).await {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("{:?}", e);
+                return Err(NodeXError {});
+            }
+        };
+
+        match res.status() {
+            reqwest::StatusCode::OK => match res.json::<NetworkResponse>().await {
+                Ok(v) => {
+                    let mut network_config = Network::new();
+                    network_config.root.secret_key = Some(v.secret_key);
+                    network_config.root.project_did = Some(v.project_did);
+                    network_config.root.recipient_dids = Some(v.recipient_dids);
+                    network_config.root.hub_endpoint = Some(v.hub_endpoint);
+                    network_config.root.heartbeat = Some(v.heartbeat);
+                    match network_config.save() {
+                        Ok(_) => Ok(()),
+                        Err(e) => {
+                            log::error!("{:?}", e);
+                            Err(NodeXError {})
+                        }
+                    }
+                }
+
                 Err(e) => {
                     log::error!("StatusCode=200, but parse failed. {:?}", e);
                     Err(NodeXError {})

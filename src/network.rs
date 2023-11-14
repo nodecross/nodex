@@ -18,7 +18,6 @@ pub struct ConfigNetwork {
     pub recipient_dids: Option<Vec<String>>,
     pub hub_endpoint: Option<String>,
     pub heartbeat: Option<u64>,
-    pub trm: Option<String>,
 }
 
 #[derive(Debug)]
@@ -167,25 +166,6 @@ impl Network {
     #[allow(dead_code)]
     pub fn save_heartbeat(&mut self, value: u64) {
         self.root.heartbeat = Some(value);
-
-        match self.write() {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        }
-    }
-
-    // NOTE: trm
-    #[allow(dead_code)]
-    pub fn get_trm(&self) -> Option<String> {
-        self.root.trm.clone()
-    }
-
-    #[allow(dead_code)]
-    pub fn save_trm(&mut self, value: &str) {
-        self.root.trm = Some(value.to_string());
 
         match self.write() {
             Ok(_) => {}

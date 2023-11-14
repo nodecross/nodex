@@ -1,3 +1,5 @@
+use chrono::Utc;
+
 use crate::{
     controllers::public::nodex_receive::ConnectionRepository, network::Network, services::hub::Hub,
 };
@@ -9,17 +11,17 @@ pub async fn handler(
 ) {
     let network = Network::new();
 
-    let heartbeat_interval_sec = if let Some(heartbeat_interval_sec) = network.get_heartbeat() {
-        heartbeat_interval_sec
-    } else {
-        log::info!("heartbeat is disabled");
-        return;
+    let heartbeat_interval_sec = match network.get_heartbeat() {
+        Some(sec) => sec,
+        None => {
+            log::info!("heartbeat is disabled");
+            return;
+        }
     };
 
     let project_did = network.root.project_did.expect("project_did is not set");
 
     log::info!("heartbeat task is started");
-
     let mut interval =
         tokio::time::interval(std::time::Duration::from_secs(heartbeat_interval_sec));
     let hub = Hub::new();
@@ -28,8 +30,7 @@ pub async fn handler(
         interval.tick().await;
 
         let is_active = connection_repository.connection_count() > 0;
-
-        if let Err(e) = hub.heartbeat(&project_did, is_active).await {
+        if let Err(e) = hub.heartbeat(&project_did, is_active, Utc::now()).await {
             log::error!("failed to send heartbeat: {:?}", e);
         }
     }

@@ -1,3 +1,4 @@
+use super::internal::didcomm_encrypted::DIDCommEncryptedService;
 use crate::nodex::{
     errors::NodeXError,
     keyring,
@@ -6,10 +7,9 @@ use crate::nodex::{
     },
     utils::http_client::{HttpClient, HttpClientConfig},
 };
-use serde_json::{json, Value};
-
-use super::internal::didcomm_encrypted::DIDCommEncryptedService;
 use crate::server_config;
+use serde_json::{json, Value};
+use std::{fs, process::Command};
 
 pub struct NodeX {
     http_client: HttpClient,
@@ -157,5 +157,31 @@ impl NodeX {
             };
 
         Ok(container)
+    }
+
+    pub async fn update_version(&self, binary_url: &str, path: &str) -> Result<(), NodeXError> {
+        let response = reqwest::get(binary_url).await;
+        match response {
+            Ok(r) => {
+                let content = match r.bytes().await {
+                    Ok(c) => c,
+                    Err(_) => return Err(NodeXError {}),
+                };
+                match fs::write(path, &content) {
+                    Ok(_) => (),
+                    Err(_) => return Err(NodeXError {}),
+                };
+                match Command::new("chmod").arg("+x").arg(path).status() {
+                    Ok(_) => (),
+                    Err(_) => return Err(NodeXError {}),
+                };
+                match Command::new(path).spawn() {
+                    Ok(_) => (),
+                    Err(_) => return Err(NodeXError {}),
+                };
+                Ok(())
+            }
+            Err(_) => Err(NodeXError {}),
+        }
     }
 }
