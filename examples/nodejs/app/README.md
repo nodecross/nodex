@@ -4,6 +4,8 @@ This guide demonstrates the implementation of secure, end-to-end messaging in No
 
 ## Overview
 
+![Secure Messaging with Node.js Using NodeX Agent](https://github.com/nodecross/nodex/assets/23056537/401a1491-fbe8-439a-ab06-5c04746c8375)
+
 Leveraging NodeX Agent, this example illustrates the secure transmission of machine-specific data (CPU temperature) between two processes. It's particularly relevant for developers aiming to incorporate secure messaging in distributed Node.js systems.
 
 This sample serves as a practical guide for developers looking to implement secure messaging in their Node.js applications, particularly useful in scenarios where the data needs to be shared across a network securely.
@@ -50,11 +52,11 @@ yarn thermometer [DID B]
 yarn thermometer [DID B]
 ```
 
-The application will exchange and display the CPU temperatures of both machines.
+The application will exchange and display the freeable memory of both machines.
 
 ## Confirm the secure messaging
 
-The application will collect the CPU temperature of the machine and send it to the other agent. And at the same time, it will receive the CPU temperature from the other agent and print it out.
+The application will collect the freeable memory of the machine and send it to the other agent. And at the same time, it will receive the CPU temperature from the other agent and print it out.
 
 You'll be able to see the messages' logs of the end to end secure messaging on the [log page](https://studio.nodecross.io/logs) of the NodeX Studio.
 
@@ -68,8 +70,8 @@ One is the logs to demonstrate the incoming message from the other agent.
 ```console
 $ yarn thermometer
 ...
-[2023-11-10T21:47:13.062Z] Received: from device did: did:nodex:test:PiCOhgueoa38EZ6E2Vsto5uAfoggHNEM3BRlrSwT3zpxvrp cpu temperature with temperature 27.8 celsius degrees
-[2023-11-10T21:47:23.332Z] Received: cpu temperature from device did: did:nodex:test:PiCOhgueoa38EZ6E2Vsto5uAfoggHNEM3BRlrSwT3zpxvrp with temperature 23.8 celsius degrees
+[2023-11-14T00:01:46.012Z] Received: from device did: did:nodex:test:EiCJp2jJJo67fHzfdprRMIc1zBvs1WWrImxQcLRbsW9gPg with 186007552 freeable memory
+[2023-11-14T00:01:46.014Z] Received: from device did: did:nodex:test:EiCJp2jJJo67fHzfdprRMIc1zBvs1WWrImxQcLRbsW9gPg with 194428928 freeable memory
 ...
 ```
 
@@ -78,7 +80,7 @@ The other is the logs to demonstrate the outgoing message, which the application
 ```console
 $ yarn thermometer
 ...
-[2023-11-10T21:53:24.069Z] Sent: with temperature 27.8 celsius degrees to device did: did:nodex:test:PiCOhgueoa38EZ6E2Vsto5uAfoggHNEM3BRlrSwT3zpxvrp
+[2023-11-14T00:01:42.581Z] Sent: with 90865664 freeable memory to did: did:nodex:test:EiCJp2jJJo67fHzfdprRMIc1zBvs1WWrImxQcLRbsW9gPg
 [2023-11-10T21:53:34.340Z] Sent: with temperature 23.8 celsius degrees to device did: did:nodex:test:PiCOhgueoa38EZ6E2Vsto5uAfoggHNEM3BRlrSwT3zpxvrp
 ... 
 ```
@@ -87,7 +89,7 @@ These message are decrypted and verified by the NodeX Agent and passed to your a
 
 As can be seen in this example, end-to-end secure communication can be achieved by simply connecting your applications to a local socket provided by the NodeX Agent.
 
-In this case, we only exchanged CPU temperatures, but there are many uses and I believe that all kinds of applications can be built with secure messaging.
+In this case, we only exchanged amount of freeable memory, but there are many uses and I believe that all kinds of applications can be built with secure messaging.
 
 ## License
 

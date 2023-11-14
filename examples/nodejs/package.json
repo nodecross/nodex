@@ -11,14 +11,14 @@
     "typescript": "^4.9.4"
   },
   "scripts": {
-    "exec": "NODE_OPTIONS='--loader ts-node/esm' node",
+    "app": "npm run exec app/index.ts",
     "create_did": "npm run exec src/create_did.ts",
+    "exec": "NODE_OPTIONS='--loader ts-node/esm' node",
     "find_did": "npm run exec src/find_did.ts",
     "generate_didcomm_encrypted_message": "npm run exec src/generate_didcomm_encrypted_message.ts",
     "generate_didcomm_plaintext_message": "npm run exec src/generate_didcomm_plaintext_message.ts",
     "generate_didcomm_signed_message": "npm run exec src/generate_didcomm_signed_message.ts",
     "generate_vc": "npm run exec src/generate_vc.ts",
-    "thermometer": "npm run exec thermometer/index.ts",
     "transfer": "npm run exec src/transfer.ts",
     "receive": "npm run exec src/receive.ts",
     "verify_didcomm_encrypted_message": "npm run exec src/verify_didcomm_encrypted_message.ts",
@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "got": "^12.5.3",
+    "systeminformation": "^5.21.17",
     "ws": "^8.13.0"
   }
 }
