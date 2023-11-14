@@ -35,6 +35,7 @@ npm install -g yarn
 Then, install the dependencies of the application by running the following command:
 
 ```console
+cd example
 yarn
 ```
 
