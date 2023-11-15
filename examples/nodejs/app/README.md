@@ -17,7 +17,8 @@ This sample serves as a practical guide for developers looking to implement secu
 3. **Application Code**: Obtain the application using:
 
 ```console
-curl -L https://github.com/nodecross/nodex/releases/latest/download/example.zip | tar -xz
+curl -OL https://github.com/nodecross/nodex/releases/latest/download/example.zip
+unzip example.zip
 ```
 
 ## How to run
@@ -69,7 +70,7 @@ As a demonstration, this application emits the messages that were sent and recei
 One is the logs to demonstrate the incoming message from the other agent.
 
 ```console
-$ yarn thermometer
+$ yarn app [DID B]
 ...
 [2023-11-14T00:01:46.012Z] Received: from device did: did:nodex:test:EiCJp2jJJo67fHzfdprRMIc1zBvs1WWrImxQcLRbsW9gPg with 186007552 freeable memory
 [2023-11-14T00:01:46.014Z] Received: from device did: did:nodex:test:EiCJp2jJJo67fHzfdprRMIc1zBvs1WWrImxQcLRbsW9gPg with 194428928 freeable memory
@@ -79,7 +80,7 @@ $ yarn thermometer
 The other is the logs to demonstrate the outgoing message, which the application sends amount of freeable memory to the other agent.
 
 ```console
-$ yarn thermometer
+$ yarn app [DID A]
 ...
 [2023-11-14T00:01:42.581Z] Sent: with 90865664 freeable memory to did: did:nodex:test:EiCJp2jJJo67fHzfdprRMIc1zBvs1WWrImxQcLRbsW9gPg
 [2023-11-10T21:53:34.340Z] Sent: with temperature 23.8 celsius degrees to device did: did:nodex:test:PiCOhgueoa38EZ6E2Vsto5uAfoggHNEM3BRlrSwT3zpxvrp
