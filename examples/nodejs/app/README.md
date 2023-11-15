@@ -17,7 +17,8 @@ This sample serves as a practical guide for developers looking to implement secu
 3. **Application Code**: Obtain the application using:
 
 ```console
-curl -L https://github.com/nodecross/nodex/releases/latest/download/example.zip | tar -xz
+curl -OL https://github.com/nodecross/nodex/releases/latest/download/example.zip
+unzip example.zip
 ```
 
 ## How to run
