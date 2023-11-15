@@ -63,7 +63,7 @@ runs:
       working-directory: examples/nodejs
       run: |
         mv app/README.md .
-        zip -r example.zip app/ package.json yarn.lock ../../LICENSE README.md
+        zip -r app/ example.zip README.md package.json tsconfig.json yarn.lock ../../LICENSE
 
     - name: (publish) upload asset (example)
       uses: actions/upload-release-asset@v1
