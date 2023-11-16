@@ -44,10 +44,17 @@ impl DIDCommSignedService {
             }
         };
 
-        let mut message = Message::new()
+        let mut message = match Message::new()
             .from(&did)
             .to(&[to_did])
-            .body(&body.to_string());
+            .body(&body.to_string())
+        {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("Failed to initialize message. with error = {:?}", e);
+                return Err(NodeXError {});
+            }
+        };
 
         // NOTE: Has attachment
         if let Some(value) = metadata {
@@ -57,7 +64,7 @@ impl DIDCommSignedService {
                 .with_link(&attachment_link())
                 .with_json(&value.to_string());
 
-            message.apeend_attachment(
+            message.append_attachment(
                 AttachmentBuilder::new(true)
                     .with_id(&id)
                     .with_format("metadata")
@@ -154,7 +161,7 @@ impl DIDCommSignedService {
             };
 
         let metadata = message
-            .get_attachments()
+            .attachment_iter()
             .find(|item| match item.format.clone() {
                 Some(value) => value == "metadata",
                 None => false,
