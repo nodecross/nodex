@@ -51,7 +51,7 @@ impl DIDCommSignedService {
         {
             Ok(v) => v,
             Err(e) => {
-                log::error!("Failed to initialize message. with error = {:?}", e);
+                log::error!("Failed to initialize message with error = {:?}", e);
                 return Err(NodeXError {});
             }
         };
