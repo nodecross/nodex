@@ -9,7 +9,33 @@ permissions:
   pull-requests: write
 
 jobs:
+  check-user:
+    name: Check Team affiliation and Branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stop workflow if not on main branch
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "This job is only allowed to run on the main branch."
+          exit 1
+
+      - name: Check user for team affiliation
+        uses: tspascoal/get-user-teams-membership@v2
+        id: teamAffiliation
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ github.actor }}
+          team: maintainer
+
+      - name: Stop workflow if user is no member
+        if: ${{ steps.teamAffiliation.outputs.isTeamMember == 'false' }}
+        run: |
+          echo "You have no rights to trigger this job."
+          exit 1
+
   build:
+    name: Build
+    needs: check-user
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
