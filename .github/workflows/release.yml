@@ -2,6 +2,15 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        type: choice
+        required: true
+        description: "Major, minor or patch version bump"
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
@@ -132,3 +141,45 @@ jobs:
           asset_path: ./examples/nodejs/example.zip
           asset_name: example.zip
           asset_content_type: application/zip
+
+  bump-version:
+    name: Bump Version
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install `cargo-edit`
+        run: cargo install cargo-edit
+
+      - name: Install `cargo-get`
+        run: cargo install cargo-get
+
+      - id: cargo-set-version
+        name: Set Version
+        run: cargo set-version --bump ${{ inputs.version }}
+
+      - name: Set Crate Version as Environment Variable
+        id: set_crate_version
+        run: |
+          CARGO_TOML_VERSION=$(cargo get package.version)
+          echo "version=$CARGO_TOML_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create PR
+        id: create-pr
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: "chore: bump version to v${{ steps.set_crate_version.outputs.version }}"
+          branch: "chore/bump-version-to-v${{ steps.set_crate_version.outputs.version }}"
+          delete-branch: true
+          title: "chore: bump version to v${{ steps.set_crate_version.outputs.version }}"
+          body: |
+            Bumps the version to v${{ steps.set_crate_version.outputs.version }}.
+
+            This PR was created by the [release workflow](${{ github.event.repository.html_url }}/actions/workflows/release.yml).
+
+            [release workflow]: ${{ github.event.repository.html_url }}/actions/workflows/release.yml
