@@ -4,8 +4,8 @@
 
 <h2 align="center">
   NodeX - E2E Secure Messaging Platform<br />
-  <a href="https://github.com/nodecross/nodex/actions/workflows/release-pipeline.yml">
-    <img src="https://github.com/nodecross/nodex/actions/workflows/release-pipeline.yml/badge.svg?branch=main" alt="Release Pipeline" />
+  <a href="https://github.com/nodecross/nodex/actions/workflows/release.yml">
+    <img src="https://github.com/nodecross/nodex/actions/workflows/release.yml/badge.svg?branch=main" alt="Release Pipeline" />
   </a>
   <a href="https://coveralls.io/github/nodecross/nodex">
     <img src="https://coveralls.io/repos/github/nodecross/nodex/badge.svg" alt="Coverage Status" />
