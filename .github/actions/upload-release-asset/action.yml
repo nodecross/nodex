@@ -1,0 +1,42 @@
+name: Upload Release Asset
+description: Upload assets to a GitHub release
+
+inputs:
+  release_id:
+    required: true
+    description: The ID of the release to upload to
+  asset_path:
+    required: true
+    description: Path to the asset to upload
+  asset_name:
+    required: true
+    description: Name of the asset to upload
+  asset_content_type:
+    required: true
+    description: Content type of the asset to upload
+  github_token:
+    required: true
+    description: GitHub token to use for authentication
+runs:
+  using: composite
+  steps:
+    - name: Upload Asset
+      uses: actions/github-script@v5
+      id: release
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+      with:
+        script: |
+          const fs = require('fs').promises;
+          const asset = await fs.readFile("${{ inputs.content_path }}");
+          await github.rest.repos.uploadReleaseAsset({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            release_id: "${{ inputs.release_id }}",
+            name: "${{ inputs.asset_name }}",
+            data: asset,
+            headers: {
+              "content-type": "${{ inputs.asset_content_type }}",
+              "content-length": asset.length
+            }
+          });
