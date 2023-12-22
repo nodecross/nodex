@@ -133,11 +133,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload asset (example)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ inputs.github-token }}
+        uses: ./.github/actions/upload-release-asset
         with:
-          upload_url: ${{ steps.release_drafter.outputs.upload_url }}
+          release_id: ${{ steps.release.outputs.result }}
           asset_path: ./examples/nodejs/example.zip
           asset_name: example.zip
           asset_content_type: application/zip
@@ -183,3 +181,4 @@ jobs:
             This PR was created by the [release workflow](${{ github.event.repository.html_url }}/actions/workflows/release.yml).
 
             [release workflow]: ${{ github.event.repository.html_url }}/actions/workflows/release.yml
+          github_token: ${{ secrets.GITHUB_TOKEN }}
