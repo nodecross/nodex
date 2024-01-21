@@ -222,20 +222,22 @@ impl SecureKeyStore {
                 ),
             };
 
-            let secret_key = match CStr::from_ptr(secret_key_buffer_ptr).to_str() {
-                Ok(v) => match hex::decode(v) {
-                    Ok(v) => v,
+            let secret_key =
+                match CStr::from_ptr(secret_key_buffer_ptr as *const core::ffi::c_char).to_str() {
+                    Ok(v) => match hex::decode(v) {
+                        Ok(v) => v,
+                        _ => return Err(NodeXError {}),
+                    },
                     _ => return Err(NodeXError {}),
-                },
-                _ => return Err(NodeXError {}),
-            };
-            let public_key = match CStr::from_ptr(public_key_buffer_ptr).to_str() {
-                Ok(v) => match hex::decode(v) {
-                    Ok(v) => v,
+                };
+            let public_key =
+                match CStr::from_ptr(public_key_buffer_ptr as *const core::ffi::c_char).to_str() {
+                    Ok(v) => match hex::decode(v) {
+                        Ok(v) => v,
+                        _ => return Err(NodeXError {}),
+                    },
                     _ => return Err(NodeXError {}),
-                },
-                _ => return Err(NodeXError {}),
-            };
+                };
 
             if result == 0 {
                 Ok(Some(KeyPair {

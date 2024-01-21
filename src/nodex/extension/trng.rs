@@ -49,7 +49,9 @@ impl Trng {
                 return Err(NodeXError {});
             }
 
-            Ok(CStr::from_ptr(buffer_ptr).to_bytes().to_vec())
+            Ok(CStr::from_ptr(buffer_ptr as *const core::ffi::c_char)
+                .to_bytes()
+                .to_vec())
         }
     }
 
