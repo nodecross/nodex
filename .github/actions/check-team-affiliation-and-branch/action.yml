@@ -17,6 +17,7 @@ runs:
   steps:
     - name: Stop workflow if not on main branch
       if: ${{ inputs.ref != 'refs/heads/main' }}
+      shell: bash
       run: |
         echo "This job is only allowed to run on the main branch."
         exit 1
@@ -31,6 +32,7 @@ runs:
 
     - name: Stop workflow if user is no member
       if: ${{ steps.teamAffiliation.outputs.isTeamMember == 'false' }}
+      shell: bash
       run: |
         echo "You have no rights to trigger this job."
         exit 1
