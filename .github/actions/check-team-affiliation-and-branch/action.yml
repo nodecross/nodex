@@ -26,7 +26,7 @@ runs:
       uses: tspascoal/get-user-teams-membership@v2
       id: teamAffiliation
       with:
-        GITHUB_TOKEN: ${{ input.github_token }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
         username: ${{ github.actor }}
         team: maintainer
 
