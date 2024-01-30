@@ -2579,6 +2579,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.2",
  "shadow-rs",
+ "thiserror",
  "tokio",
  "x25519-dalek",
 ]

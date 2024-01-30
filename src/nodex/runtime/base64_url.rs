@@ -1,6 +1,5 @@
 use data_encoding::{BASE64URL, BASE64URL_NOPAD};
-
-use crate::nodex::errors::NodeXError;
+use thiserror::Error;
 
 pub struct Base64Url {}
 
@@ -8,6 +7,14 @@ pub enum PaddingType {
     #[allow(dead_code)]
     Padding,
     NoPadding,
+}
+
+#[derive(Error, Debug)]
+pub enum Base64UrlError {
+    #[error("decode failed")]
+    DecodeFailed(#[from] data_encoding::DecodeError),
+    #[error("convert from utf8 failed")]
+    ConvertFromUtf8Error(#[from] std::string::FromUtf8Error),
 }
 
 impl Base64Url {
@@ -18,50 +25,27 @@ impl Base64Url {
         }
     }
 
-    pub fn decode_as_bytes(message: &str, padding: &PaddingType) -> Result<Vec<u8>, NodeXError> {
-        match padding {
-            PaddingType::Padding => match BASE64URL.decode(message.as_bytes()) {
-                Ok(v) => Ok(v),
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    Err(NodeXError {})
-                }
-            },
-            PaddingType::NoPadding => match BASE64URL_NOPAD.decode(message.as_bytes()) {
-                Ok(v) => Ok(v),
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    Err(NodeXError {})
-                }
-            },
-        }
+    pub fn decode_as_bytes(
+        message: &str,
+        padding: &PaddingType,
+    ) -> Result<Vec<u8>, Base64UrlError> {
+        (match padding {
+            PaddingType::Padding => BASE64URL.decode(message.as_bytes()),
+            PaddingType::NoPadding => BASE64URL_NOPAD.decode(message.as_bytes()),
+        })
+        .map_err(|e| e.into())
     }
 
-    pub fn decode_as_string(message: &str, padding: &PaddingType) -> Result<String, NodeXError> {
-        let bytes = match padding {
-            PaddingType::Padding => match BASE64URL.decode(message.as_bytes()) {
-                Ok(v) => v,
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    return Err(NodeXError {});
-                }
-            },
-            PaddingType::NoPadding => match BASE64URL_NOPAD.decode(message.as_bytes()) {
-                Ok(v) => v,
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    return Err(NodeXError {});
-                }
-            },
-        };
+    pub fn decode_as_string(
+        message: &str,
+        padding: &PaddingType,
+    ) -> Result<String, Base64UrlError> {
+        let bytes = (match padding {
+            PaddingType::Padding => BASE64URL.decode(message.as_bytes()),
+            PaddingType::NoPadding => BASE64URL_NOPAD.decode(message.as_bytes()),
+        })?;
 
-        match String::from_utf8(bytes) {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+        String::from_utf8(bytes).map_err(|e| e.into())
     }
 }
 
