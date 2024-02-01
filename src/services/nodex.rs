@@ -9,7 +9,9 @@ use crate::nodex::{
 };
 use crate::server_config;
 use serde_json::{json, Value};
-use std::{fs, process::Command};
+use std::{fs, io::Cursor, path::PathBuf, process::Command};
+use zip_extract;
+
 
 pub struct NodeX {
     http_client: HttpClient,
@@ -159,7 +161,23 @@ impl NodeX {
         Ok(container)
     }
 
-    pub async fn update_version(&self, binary_url: &str, path: &str) -> Result<(), NodeXError> {
+    pub async fn update_version(
+        &self,
+        binary_url: &str,
+        output_path: &str,
+    ) -> Result<(), NodeXError> {
+        if !binary_url.starts_with("https://github.com/nodecross/nodex/releases/download/") {
+            log::error!("{:?}", "Invalid url");
+            return Err(NodeXError {});
+        }
+
+        let output_path = if output_path.ends_with('/') {
+            output_path.trim_end()
+        } else {
+            output_path
+        };
+        let agent_path = format!("{}/nodex-agent", output_path);
+
         let response = reqwest::get(binary_url).await;
         match response {
             Ok(r) => {
@@ -167,15 +185,24 @@ impl NodeX {
                     Ok(c) => c,
                     Err(_) => return Err(NodeXError {}),
                 };
-                match fs::write(path, &content) {
+
+                if PathBuf::from(&agent_path).exists() {
+                    fs::remove_file(&agent_path).expect("File delete failed");
+                }
+                let target_dir = PathBuf::from(output_path);
+                match zip_extract::extract(Cursor::new(content), &target_dir, true) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        log::error!("{:?}", e);
+                        return Err(NodeXError {});
+                    }
+                };
+
+                match Command::new("chmod").arg("+x").arg(&agent_path).status() {
                     Ok(_) => (),
                     Err(_) => return Err(NodeXError {}),
                 };
-                match Command::new("chmod").arg("+x").arg(path).status() {
-                    Ok(_) => (),
-                    Err(_) => return Err(NodeXError {}),
-                };
-                match Command::new(path).spawn() {
+                match Command::new(&agent_path).spawn() {
                     Ok(_) => (),
                     Err(_) => return Err(NodeXError {}),
                 };
