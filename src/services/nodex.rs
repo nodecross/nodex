@@ -12,7 +12,6 @@ use serde_json::{json, Value};
 use std::{fs, io::Cursor, path::PathBuf, process::Command};
 use zip_extract;
 
-
 pub struct NodeX {
     http_client: HttpClient,
 }
