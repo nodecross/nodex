@@ -1,8 +1,6 @@
 use chrono::Utc;
 
-use crate::{
-    controllers::public::nodex_receive::ConnectionRepository, services::hub::Hub,
-};
+use crate::{controllers::public::nodex_receive::ConnectionRepository, services::hub::Hub};
 use std::sync::{atomic::AtomicBool, Arc};
 
 pub async fn handler(
