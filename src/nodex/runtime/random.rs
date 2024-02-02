@@ -1,17 +1,12 @@
-use crate::nodex::errors::NodeXError;
-
 pub struct Random {}
 
 impl Random {
-    pub fn bytes(size: &usize) -> Result<Vec<u8>, NodeXError> {
+    pub fn bytes(size: &usize) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let mut bytes = vec![0u8; *size];
 
         match getrandom::getrandom(&mut bytes) {
             Ok(_) => Ok(bytes),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
+            Err(e) => Err(Box::new(e)),
         }
     }
 }
