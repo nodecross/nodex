@@ -42,7 +42,7 @@ impl HubClient {
 
     fn auth_headers(&self, payload: String) -> Result<HeaderMap, NodeXError> {
         let config = network_config();
-        let secret = config.inner.lock().unwrap().get_secretk_key().unwrap();
+        let secret = config.lock().get_secret_key().unwrap();
         let mut mac = match HmacSha256::new_from_slice(secret.as_bytes()) {
             Ok(v) => v,
             Err(_) => {

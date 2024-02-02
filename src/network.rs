@@ -1,18 +1,48 @@
 use home_config::HomeConfig;
 use serde::Deserialize;
 use serde::Serialize;
-use std::fs;
 use std::fs::OpenOptions;
 use std::io;
 use std::io::Write;
 use std::path::Path;
+use std::{fs, sync::MutexGuard};
+
+use std::sync::{Arc, Mutex, Once};
 
 use crate::nodex::errors::NodeXError;
+
+#[derive(Clone)]
+pub struct SingletonNetworkConfig {
+    inner: Arc<Mutex<Network>>,
+}
+
+impl SingletonNetworkConfig {
+    pub fn lock(&self) -> MutexGuard<'_, Network> {
+        self.inner.lock().unwrap()
+    }
+}
+
+pub fn network_config() -> Box<SingletonNetworkConfig> {
+    static mut SINGLETON: Option<Box<SingletonNetworkConfig>> = None;
+    static ONCE: Once = Once::new();
+
+    unsafe {
+        ONCE.call_once(|| {
+            let singleton = SingletonNetworkConfig {
+                inner: Arc::new(Mutex::new(Network::new())),
+            };
+
+            SINGLETON = Some(Box::new(singleton))
+        });
+
+        SINGLETON.clone().unwrap()
+    }
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(default)]
 #[derive(Default)]
-pub struct ConfigNetwork {
+struct ConfigNetwork {
     pub secret_key: Option<String>,
     pub project_did: Option<String>,
     pub recipient_dids: Option<Vec<String>>,
@@ -23,36 +53,30 @@ pub struct ConfigNetwork {
 #[derive(Debug)]
 pub struct Network {
     config: HomeConfig,
-    pub root: ConfigNetwork,
+    root: ConfigNetwork,
 }
 
 impl Network {
     fn touch(path: &Path) -> io::Result<()> {
-        match OpenOptions::new().create(true).write(true).open(path) {
-            Ok(mut file) => match file.write_all(b"{}") {
-                Ok(_) => Ok(()),
-                Err(err) => Err(err),
-            },
-            Err(err) => Err(err),
-        }
+        let mut file = OpenOptions::new().create(true).write(true).open(path)?;
+        file.write_all(b"{}")?;
+        Ok(())
     }
 
-    pub fn new() -> Self {
-        let config = HomeConfig::with_config_dir("nodex", "network.json");
-        let config_dir = config.path().parent();
+    const APP_NAME: &'static str = "nodex";
+    const CONFIG_FILE: &'static str = "network.json";
+
+    fn new() -> Self {
+        let config = HomeConfig::with_config_dir(Network::APP_NAME, Network::CONFIG_FILE);
+        let config_dir = config.path().parent().expect("unreachable");
 
         if !Path::exists(config.path()) {
-            match config_dir {
-                Some(v) => {
-                    match fs::create_dir_all(v) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            log::error!("{:?}", e);
-                            panic!()
-                        }
-                    };
+            match fs::create_dir_all(config_dir) {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    panic!()
                 }
-                None => panic!(),
             };
 
             match Self::touch(config.path()) {
@@ -86,7 +110,7 @@ impl Network {
     }
 
     // NOTE: secret key
-    pub fn get_secretk_key(&self) -> Option<String> {
+    pub fn get_secret_key(&self) -> Option<String> {
         self.root.secret_key.clone()
     }
 

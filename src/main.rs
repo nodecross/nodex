@@ -1,29 +1,29 @@
 extern crate env_logger;
 
+use crate::config::AppConfig;
+pub use crate::network::network_config;
+
+use crate::{config::ServerConfig, controllers::public::nodex_receive};
 use clap::{Parser, Subcommand};
 use controllers::public::nodex_receive::ConnectionRepository;
+use dotenv::dotenv;
+use handlers::Command;
+use handlers::MqttClient;
+use mac_address::get_mac_address;
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use services::hub::Hub;
 use services::nodex::NodeX;
 use shadow_rs::shadow;
+use std::env;
 use std::sync::atomic::AtomicBool;
 use std::{
     collections::HashMap,
-    fs::{self},
+    fs,
     sync::{Arc, Mutex, Once},
 };
 use tokio::sync::mpsc;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
-
-use crate::config::AppConfig;
-use crate::network::Network;
-use crate::{config::ServerConfig, controllers::public::nodex_receive};
-use dotenv::dotenv;
-use handlers::Command;
-use handlers::MqttClient;
-use mac_address::get_mac_address;
-use std::env;
 
 mod config;
 mod controllers;
@@ -40,11 +40,6 @@ pub struct SingletonAppConfig {
     inner: Arc<Mutex<AppConfig>>,
 }
 
-#[derive(Clone)]
-pub struct SingletonNetworkConfig {
-    inner: Arc<Mutex<Network>>,
-}
-
 pub fn app_config() -> Box<SingletonAppConfig> {
     static mut SINGLETON: Option<Box<SingletonAppConfig>> = None;
     static ONCE: Once = Once::new();
@@ -53,23 +48,6 @@ pub fn app_config() -> Box<SingletonAppConfig> {
         ONCE.call_once(|| {
             let singleton = SingletonAppConfig {
                 inner: Arc::new(Mutex::new(AppConfig::new())),
-            };
-
-            SINGLETON = Some(Box::new(singleton))
-        });
-
-        SINGLETON.clone().unwrap()
-    }
-}
-
-pub fn network_config() -> Box<SingletonNetworkConfig> {
-    static mut SINGLETON: Option<Box<SingletonNetworkConfig>> = None;
-    static ONCE: Once = Once::new();
-
-    unsafe {
-        ONCE.call_once(|| {
-            let singleton = SingletonNetworkConfig {
-                inner: Arc::new(Mutex::new(Network::new())),
             };
 
             SINGLETON = Some(Box::new(singleton))
@@ -137,7 +115,8 @@ async fn main() -> std::io::Result<()> {
 
     let hub_did_topic = "nodex/did:nodex:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
 
-    let config = AppConfig::new();
+    let config = app_config();
+    let config = config.inner.lock().unwrap();
     match config.write() {
         Ok(()) => (),
         Err(e) => {
@@ -269,7 +248,8 @@ async fn main() -> std::io::Result<()> {
 }
 
 fn use_cli(command: Option<Commands>, did: String) {
-    let mut network_config = Network::new();
+    let network_config = crate::network_config();
+    let mut network_config = network_config.lock();
     const SECRET_KEY: &str = "secret_key";
     const PROJECT_DID: &str = "project_did";
 
@@ -294,7 +274,7 @@ fn use_cli(command: Option<Commands>, did: String) {
                 },
                 NetworkSubCommands::Get { key } => match &*key {
                     SECRET_KEY => {
-                        if let Some(v) = network_config.get_secretk_key() {
+                        if let Some(v) = network_config.get_secret_key() {
                             println!("Network {}: {}", SECRET_KEY, v);
                             return;
                         };
@@ -317,9 +297,11 @@ fn use_cli(command: Option<Commands>, did: String) {
 }
 
 async fn hub_initilize(my_did: String) {
-    let network_config = Network::new();
+    let network = network_config();
+    let network_config = network.lock();
+
     // NOTE: check network secret_key and project_did
-    match network_config.get_secretk_key() {
+    match network_config.get_secret_key() {
         Some(_) => (),
         None => {
             log::error!("Network secret_key is not set. Please set secret_key use cli");
@@ -356,11 +338,14 @@ async fn send_device_info() {
         _ => String::from("No MAC address found."),
     };
 
-    let network = Network::new();
+    let network = crate::network_config();
+    let network = network.lock();
     let hub = Hub::new();
     match hub
         .send_device_info(
-            network.root.project_did.expect("Failed to get project_did"),
+            network
+                .get_project_did()
+                .expect("Failed to get project_did"),
             mac_address,
             VERSION.to_string(),
             OS.to_string(),
@@ -375,10 +360,10 @@ async fn send_device_info() {
     };
 }
 
-use env_logger::fmt::Color;
-use log::Level;
-
 fn log_init() {
+    use env_logger::fmt::Color;
+    use log::Level;
+
     let mut builder = env_logger::Builder::from_default_env();
     builder.format(|buf, record| {
         let level_color = match record.level() {
