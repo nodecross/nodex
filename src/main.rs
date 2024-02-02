@@ -1,7 +1,6 @@
 extern crate env_logger;
 
 pub use crate::config::app_config;
-
 pub use crate::network::network_config;
 
 use crate::{config::ServerConfig, controllers::public::nodex_receive};
@@ -17,11 +16,7 @@ use services::nodex::NodeX;
 use shadow_rs::shadow;
 use std::env;
 use std::sync::atomic::AtomicBool;
-use std::{
-    collections::HashMap,
-    fs,
-    sync::{Arc},
-};
+use std::{collections::HashMap, fs, sync::Arc};
 use tokio::sync::mpsc;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
