@@ -1,13 +1,12 @@
 use super::secp256k1::{Secp256k1, Secp256k1Context, Secp256k1Error};
 use crate::{
     app_config,
-    config::KeyPair,
+    config::{KeyPair, SingletonAppConfig},
     nodex::{
         extension::secure_keystore::{SecureKeyStore, SecureKeyStoreType},
         extension::{secure_keystore::SecureKeyStoreError, trng::Trng},
         runtime,
     },
-    SingletonAppConfig,
 };
 
 use thiserror::Error;
@@ -171,16 +170,14 @@ impl KeyPairing {
             _ => panic!(),
         };
 
-        let mut config = self.config.inner.lock().unwrap();
+        let mut config = self.config.lock();
         config.save_did(did);
         config.save_is_initialized(true);
     }
 
     pub fn get_identifier(&self) -> Result<String, KeyPairingError> {
         self.config
-            .inner
             .lock()
-            .unwrap()
             .get_did()
             .ok_or(KeyPairingError::DIDNotFound)
     }

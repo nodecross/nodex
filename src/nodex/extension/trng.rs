@@ -61,7 +61,7 @@ impl Trng {
 
     pub fn read(&self, size: &usize) -> Result<Vec<u8>, TrngError> {
         let config = app_config();
-        let config = config.inner.lock().unwrap();
+        let config = config.lock();
 
         if let Some(ref extension) = config.load_trng_read_sig() {
             self.read_external(extension, size)

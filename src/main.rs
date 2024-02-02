@@ -1,6 +1,7 @@
 extern crate env_logger;
 
-use crate::config::AppConfig;
+pub use crate::config::app_config;
+
 pub use crate::network::network_config;
 
 use crate::{config::ServerConfig, controllers::public::nodex_receive};
@@ -19,7 +20,7 @@ use std::sync::atomic::AtomicBool;
 use std::{
     collections::HashMap,
     fs,
-    sync::{Arc, Mutex, Once},
+    sync::{Arc},
 };
 use tokio::sync::mpsc;
 use tokio::sync::RwLock;
@@ -34,28 +35,6 @@ mod server;
 mod services;
 
 shadow!(build);
-
-#[derive(Clone)]
-pub struct SingletonAppConfig {
-    inner: Arc<Mutex<AppConfig>>,
-}
-
-pub fn app_config() -> Box<SingletonAppConfig> {
-    static mut SINGLETON: Option<Box<SingletonAppConfig>> = None;
-    static ONCE: Once = Once::new();
-
-    unsafe {
-        ONCE.call_once(|| {
-            let singleton = SingletonAppConfig {
-                inner: Arc::new(Mutex::new(AppConfig::new())),
-            };
-
-            SINGLETON = Some(Box::new(singleton))
-        });
-
-        SINGLETON.clone().unwrap()
-    }
-}
 
 pub fn server_config() -> ServerConfig {
     ServerConfig::new()
@@ -116,7 +95,7 @@ async fn main() -> std::io::Result<()> {
     let hub_did_topic = "nodex/did:nodex:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
 
     let config = app_config();
-    let config = config.inner.lock().unwrap();
+    let config = config.lock();
     match config.write() {
         Ok(()) => (),
         Err(e) => {
