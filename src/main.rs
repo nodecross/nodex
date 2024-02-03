@@ -89,15 +89,17 @@ async fn main() -> std::io::Result<()> {
 
     let hub_did_topic = "nodex/did:nodex:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
 
-    let config = app_config();
-    let config = config.lock();
-    match config.write() {
-        Ok(()) => (),
-        Err(e) => {
-            log::error!("{:?}", e);
-            panic!()
-        }
-    };
+    {
+        let config = app_config();
+        let config = config.lock();
+        match config.write() {
+            Ok(()) => (),
+            Err(e) => {
+                log::error!("{:?}", e);
+                panic!()
+            }
+        };
+    }
 
     let home_dir = match dirs::home_dir() {
         Some(v) => v,
@@ -271,31 +273,26 @@ fn use_cli(command: Option<Commands>, did: String) {
 }
 
 async fn hub_initilize(my_did: String) {
-    let network = network_config();
-    let network_config = network.lock();
+    let project_did = {
+        let network = network_config();
+        let network_config = network.lock();
 
-    // NOTE: check network secret_key and project_did
-    match network_config.get_secret_key() {
-        Some(_) => (),
-        None => {
-            log::error!("Network secret_key is not set. Please set secret_key use cli");
-            panic!()
+        // NOTE: check network secret_key and project_did
+        match network_config.get_secret_key() {
+            Some(_) => (),
+            None => {
+                log::error!("Network secret_key is not set. Please set secret_key use cli");
+                panic!()
+            }
         }
-    }
-    match network_config.get_project_did() {
-        Some(_) => (),
-        None => {
-            log::error!("Network project_did is not set. Please set project_did use cli");
-            panic!()
-        }
-    }
+        network_config
+            .get_project_did()
+            .expect("Network project_did is not set. Please set project_did use cli")
+    };
 
     // NOTE: register device
     let hub = Hub::new();
-    match hub
-        .register_device(my_did, network_config.get_project_did().unwrap())
-        .await
-    {
+    match hub.register_device(my_did, project_did).await {
         Ok(()) => (),
         Err(e) => {
             log::error!("{:?}", e);
@@ -312,14 +309,15 @@ async fn send_device_info() {
         _ => String::from("No MAC address found."),
     };
 
-    let network = crate::network_config();
-    let network = network.lock();
+    let project_did = network_config()
+        .lock()
+        .get_project_did()
+        .expect("Failed to get project_did");
+
     let hub = Hub::new();
     match hub
         .send_device_info(
-            network
-                .get_project_did()
-                .expect("Failed to get project_did"),
+            project_did,
             mac_address,
             VERSION.to_string(),
             OS.to_string(),
