@@ -3,9 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use thiserror::Error;
 
-use crate::nodex::{
-    keyring::secp256k1::Secp256k1, schema::general::GeneralVcDataModel, utils,
-};
+use crate::nodex::{keyring::secp256k1::Secp256k1, schema::general::GeneralVcDataModel, utils};
 
 use super::jws::Jws;
 

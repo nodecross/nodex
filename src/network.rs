@@ -98,12 +98,9 @@ impl Network {
     }
 
     pub fn write(&self) {
-        match self.config.save_json(&self.root) {
-            Ok(_v) => (),
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
+        if let Err(e) = self.config.save_json(&self.root) {
+            log::error!("{:?}", e);
+            panic!()
         }
     }
 

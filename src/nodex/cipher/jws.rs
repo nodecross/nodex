@@ -88,12 +88,7 @@ impl Jws {
         if header.b64 {
             return Err(JwsError::B64NotSupported);
         }
-        if header
-            .crit
-            .iter()
-            .position(|v| v == &"b64".to_string())
-            .is_some()
-        {
+        if header.crit.iter().any(|v| v == &"b64".to_string()) {
             return Err(JwsError::B64NotSupported);
         };
 
