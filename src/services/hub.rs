@@ -324,13 +324,7 @@ impl Hub {
                     network.save_recipient_dids(v.recipient_dids);
                     network.save_hub_endpoint(&v.hub_endpoint);
                     network.save_heartbeat(v.heartbeat);
-                    match network.save() {
-                        Ok(_) => Ok(()),
-                        Err(e) => {
-                            log::error!("{:?}", e);
-                            Err(NodeXError {})
-                        }
-                    }
+                    Ok(())
                 }
 
                 Err(e) => {

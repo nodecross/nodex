@@ -2,30 +2,23 @@ use hmac::{Hmac, Mac};
 use sha2::{Sha256, Sha512};
 use thiserror::Error;
 
-use crate::nodex::errors::NodeXError;
-
 type _HmacSha256 = Hmac<Sha256>;
 type _HmacSha512 = Hmac<Sha512>;
-
-// pub trait HmacExecutable {
-//     fn digest(secret: &[u8], message: &[u8]) -> Result<Vec<u8>, NodeXError>;
-//     fn verify(secret: &[u8], message: &[u8], digest: &[u8]) -> Result<bool, NodeXError>;
-// }
 
 #[allow(dead_code)]
 pub struct HmacSha256 {}
 
 #[derive(Debug, Error)]
-pub enum HmacSha256Error {
+pub enum HmacError {
     #[error("InvalidLength")]
     InvalidLength(Box<dyn std::error::Error>),
 }
 
 impl HmacSha256 {
     #[allow(dead_code)]
-    pub fn digest(secret: &[u8], message: &[u8]) -> Result<Vec<u8>, HmacSha256Error> {
+    pub fn digest(secret: &[u8], message: &[u8]) -> Result<Vec<u8>, HmacError> {
         let mut mac = _HmacSha256::new_from_slice(secret)
-            .map_err(|e| HmacSha256Error::InvalidLength(Box::new(e)))?;
+            .map_err(|e| HmacError::InvalidLength(Box::new(e)))?;
 
         mac.update(message);
 
@@ -33,7 +26,7 @@ impl HmacSha256 {
     }
 
     #[allow(dead_code)]
-    pub fn verify(secret: &[u8], message: &[u8], digest: &[u8]) -> Result<bool, HmacSha256Error> {
+    pub fn verify(secret: &[u8], message: &[u8], digest: &[u8]) -> Result<bool, HmacError> {
         let computed = HmacSha256::digest(secret, message)?;
         Ok(computed.eq(digest))
     }
@@ -44,14 +37,9 @@ pub struct HmacSha512 {}
 
 impl HmacSha512 {
     #[allow(dead_code)]
-    pub fn digest(secret: &[u8], message: &[u8]) -> Result<Vec<u8>, NodeXError> {
-        let mut mac = match _HmacSha512::new_from_slice(secret) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+    pub fn digest(secret: &[u8], message: &[u8]) -> Result<Vec<u8>, HmacError> {
+        let mut mac = _HmacSha512::new_from_slice(secret)
+            .map_err(|e| HmacError::InvalidLength(Box::new(e)))?;
 
         mac.update(message);
 
@@ -59,14 +47,8 @@ impl HmacSha512 {
     }
 
     #[allow(dead_code)]
-    pub fn verify(secret: &[u8], message: &[u8], digest: &[u8]) -> Result<bool, NodeXError> {
-        let computed = match HmacSha512::digest(secret, message) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+    pub fn verify(secret: &[u8], message: &[u8], digest: &[u8]) -> Result<bool, HmacError> {
+        let computed = HmacSha512::digest(secret, message)?;
 
         Ok(computed.eq(digest))
     }

@@ -1,39 +1,31 @@
-use crate::nodex::{errors::NodeXError, runtime};
+use thiserror::Error;
+
+use crate::nodex::{runtime};
 
 #[allow(dead_code)]
 pub struct Hasher {}
 
+#[derive(Debug, Error)]
+pub enum HasherError {
+    #[error(transparent)]
+    HmacError(#[from] runtime::hmac::HmacError),
+    #[error(transparent)]
+    HexDecodeError(#[from] hex::FromHexError),
+}
+
 impl Hasher {
     #[allow(dead_code)]
-    pub fn digest(message: &[u8], secret: &[u8]) -> Result<String, NodeXError> {
-        let digest = match runtime::hmac::HmacSha512::digest(secret, message) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+    pub fn digest(message: &[u8], secret: &[u8]) -> Result<String, HasherError> {
+        let digest = runtime::hmac::HmacSha512::digest(secret, message)?;
 
         Ok(hex::encode(digest))
     }
 
     #[allow(dead_code)]
-    pub fn verify(message: &[u8], digest: &[u8], secret: &[u8]) -> Result<bool, NodeXError> {
-        let _digest = match hex::decode(digest) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+    pub fn verify(message: &[u8], digest: &[u8], secret: &[u8]) -> Result<bool, HasherError> {
+        let digest = hex::decode(digest)?;
 
-        match runtime::hmac::HmacSha512::verify(secret, message, &_digest) {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+        Ok(runtime::hmac::HmacSha512::verify(secret, message, &digest)?)
     }
 }
 

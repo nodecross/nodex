@@ -3,7 +3,7 @@ use crate::nodex::{
     errors::NodeXError,
     keyring,
     sidetree::payload::{
-        CommitmentKeys, DIDCreateRequest, DIDResolutionResponse, OperationPayload,
+        CommitmentKeys, DIDCreateRequest, DIDResolutionResponse, OperationPayloadBuilder,
     },
     utils::http_client::{HttpClient, HttpClientConfig},
 };
@@ -81,7 +81,7 @@ impl NodeX {
             }
         };
 
-        let payload = match OperationPayload::did_create_payload(&DIDCreateRequest {
+        let payload = match OperationPayloadBuilder::did_create_payload(&DIDCreateRequest {
             public_keys: vec![public],
             commitment_keys: CommitmentKeys { recovery, update },
             service_endpoints: vec![],

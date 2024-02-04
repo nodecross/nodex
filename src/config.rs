@@ -157,31 +157,25 @@ pub enum AppConfigError {
 
 impl AppConfig {
     fn touch(path: &Path) -> io::Result<()> {
-        match OpenOptions::new().create(true).write(true).open(path) {
-            Ok(mut file) => match file.write_all(b"{}") {
-                Ok(_) => Ok(()),
-                Err(err) => Err(err),
-            },
-            Err(err) => Err(err),
-        }
+        let mut file = OpenOptions::new().create(true).write(true).open(path)?;
+        file.write_all(b"{}")?;
+        Ok(())
     }
 
+    const APP_NAME: &'static str = "nodex";
+    const CONFIG_FILE: &'static str = "config.json";
+
     fn new() -> Self {
-        let config = HomeConfig::with_config_dir("nodex", "config.json");
-        let config_dir = config.path().parent();
+        let config = HomeConfig::with_config_dir(AppConfig::APP_NAME, AppConfig::CONFIG_FILE);
+        let config_dir = config.path().parent().expect("unreachable");
 
         if !Path::exists(config.path()) {
-            match config_dir {
-                Some(v) => {
-                    match fs::create_dir_all(v) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            log::error!("{:?}", e);
-                            panic!()
-                        }
-                    };
+            match fs::create_dir_all(config_dir) {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    panic!()
                 }
-                None => panic!(),
             };
 
             match Self::touch(config.path()) {
