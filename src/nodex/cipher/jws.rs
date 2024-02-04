@@ -1,5 +1,3 @@
-
-
 use crate::nodex::{
     keyring::secp256k1::Secp256k1,
     runtime::{self, base64_url::PaddingType},
@@ -17,6 +15,8 @@ struct JWSHeader {
     crit: Vec<String>,
 }
 
+pub struct Jws {}
+
 #[derive(Debug, Error)]
 pub enum JwsError {
     #[error(transparent)]
@@ -29,13 +29,13 @@ pub enum JwsError {
     JsonParseError(#[from] serde_json::Error),
     #[error("InvalidAlgorithm: {0}")]
     InvalidAlgorithm(String),
-    #[error("B64NotSupported")]
+    #[error("b64 option is not supported")]
     B64NotSupported,
+    #[error("b64 option is not supported, but contained")]
+    B64NotSupportedButContained,
     #[error("EmptyPayload")]
     EmptyPayload,
 }
-
-pub struct Jws {}
 
 impl Jws {
     pub fn encode(object: &Value, context: &Secp256k1) -> Result<String, JwsError> {
@@ -88,8 +88,8 @@ impl Jws {
         if header.b64 {
             return Err(JwsError::B64NotSupported);
         }
-        if header.crit.iter().any(|v| v == &"b64".to_string()) {
-            return Err(JwsError::B64NotSupported);
+        if header.crit.iter().all(|v| v != "b64") {
+            return Err(JwsError::B64NotSupportedButContained);
         };
 
         // NOTE: payload
