@@ -1,7 +1,6 @@
 use crate::nodex::schema::general::GeneralVcDataModel;
 use crate::services::nodex::NodeX;
 use crate::{
-    network::Network,
     nodex::errors::NodeXError,
     server,
     services::{hub::Hub, internal::didcomm_encrypted::DIDCommEncryptedService},
@@ -84,12 +83,14 @@ struct MessageReceiveUsecase {
 
 impl MessageReceiveUsecase {
     pub fn new() -> Self {
-        let network = Network::new();
-        let project_did = if let Some(v) = network.root.project_did {
+        let network = crate::network_config();
+        let network = network.lock();
+        let project_did = if let Some(v) = network.get_project_did() {
             v
         } else {
             panic!("Failed to read project_did")
         };
+        drop(network);
 
         Self {
             hub: Hub::new(),

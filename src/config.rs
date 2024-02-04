@@ -1,12 +1,15 @@
 use home_config::HomeConfig;
 use serde::Deserialize;
 use serde::Serialize;
-use std::fs;
-use std::fs::OpenOptions;
 use std::io;
 use std::io::Write;
 use std::path::Path;
 use std::{env, error::Error};
+use std::{
+    fs,
+    sync::{Arc, Mutex, Once},
+};
+use std::{fs::OpenOptions, sync::MutexGuard};
 use thiserror::Error;
 
 pub struct KeyPair {
@@ -110,6 +113,34 @@ impl Default for ConfigRoot {
     }
 }
 
+#[derive(Clone)]
+pub struct SingletonAppConfig {
+    inner: Arc<Mutex<AppConfig>>,
+}
+
+impl SingletonAppConfig {
+    pub fn lock(&self) -> MutexGuard<'_, AppConfig> {
+        self.inner.lock().unwrap()
+    }
+}
+
+pub fn app_config() -> Box<SingletonAppConfig> {
+    static mut SINGLETON: Option<Box<SingletonAppConfig>> = None;
+    static ONCE: Once = Once::new();
+
+    unsafe {
+        ONCE.call_once(|| {
+            let singleton = SingletonAppConfig {
+                inner: Arc::new(Mutex::new(AppConfig::new())),
+            };
+
+            SINGLETON = Some(Box::new(singleton))
+        });
+
+        SINGLETON.clone().unwrap()
+    }
+}
+
 #[derive(Debug)]
 pub struct AppConfig {
     config: HomeConfig,
@@ -135,7 +166,7 @@ impl AppConfig {
         }
     }
 
-    pub fn new() -> Self {
+    fn new() -> Self {
         let config = HomeConfig::with_config_dir("nodex", "config.json");
         let config_dir = config.path().parent();
 

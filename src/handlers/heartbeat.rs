@@ -1,25 +1,28 @@
 use chrono::Utc;
 
-use crate::{
-    controllers::public::nodex_receive::ConnectionRepository, network::Network, services::hub::Hub,
-};
+use crate::{controllers::public::nodex_receive::ConnectionRepository, services::hub::Hub};
 use std::sync::{atomic::AtomicBool, Arc};
 
 pub async fn handler(
     shutdown_marker: Arc<AtomicBool>,
     connection_repository: ConnectionRepository,
 ) {
-    let network = Network::new();
+    let (heartbeat_interval_sec, project_did) = {
+        let network = crate::network_config();
+        let network = network.lock();
 
-    let heartbeat_interval_sec = match network.get_heartbeat() {
-        Some(sec) => sec,
-        None => {
-            log::info!("heartbeat is disabled");
-            return;
-        }
+        let heartbeat_interval_sec = match network.get_heartbeat() {
+            Some(sec) => sec,
+            None => {
+                log::info!("heartbeat is disabled");
+                return;
+            }
+        };
+
+        let project_did = network.get_project_did().expect("project_did is not set");
+
+        (heartbeat_interval_sec, project_did)
     };
-
-    let project_did = network.root.project_did.expect("project_did is not set");
 
     log::info!("heartbeat task is started");
     let mut interval =

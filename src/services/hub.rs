@@ -1,9 +1,9 @@
-use crate::network::Network;
 use crate::nodex::{
     errors::NodeXError,
     utils::hub_client::{HubClient, HubClientConfig},
 };
 use crate::server_config;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -300,8 +300,12 @@ impl Hub {
     }
 
     pub async fn network(&self) -> Result<(), NodeXError> {
-        let network = Network::new();
-        let project_did = network.root.project_did.expect("project_did is not set");
+        let project_did = {
+            let network = crate::network_config();
+            let network = network.lock();
+            network.get_project_did().expect("project_did is not set")
+        };
+
         let res = match self.http_client.network("/v1/network", &project_did).await {
             Ok(v) => v,
             Err(e) => {
@@ -313,13 +317,14 @@ impl Hub {
         match res.status() {
             reqwest::StatusCode::OK => match res.json::<NetworkResponse>().await {
                 Ok(v) => {
-                    let mut network_config = Network::new();
-                    network_config.root.secret_key = Some(v.secret_key);
-                    network_config.root.project_did = Some(v.project_did);
-                    network_config.root.recipient_dids = Some(v.recipient_dids);
-                    network_config.root.hub_endpoint = Some(v.hub_endpoint);
-                    network_config.root.heartbeat = Some(v.heartbeat);
-                    match network_config.save() {
+                    let network = crate::network_config();
+                    let mut network = network.lock();
+                    network.save_secretk_key(&v.secret_key);
+                    network.save_project_did(&v.project_did);
+                    network.save_recipient_dids(v.recipient_dids);
+                    network.save_hub_endpoint(&v.hub_endpoint);
+                    network.save_heartbeat(v.heartbeat);
+                    match network.save() {
                         Ok(_) => Ok(()),
                         Err(e) => {
                             log::error!("{:?}", e);

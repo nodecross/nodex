@@ -119,7 +119,7 @@ impl SecureKeyStore {
         log::info!("Called: write_internal (type: {:?})", key_type);
 
         let config = app_config();
-        let mut config = config.inner.lock().unwrap();
+        let mut config = config.lock();
 
         match key_type {
             SecureKeyStoreType::Sign => config.save_sign_key_pair(key_pair),
@@ -227,7 +227,7 @@ impl SecureKeyStore {
         log::debug!("Called: read_internal (type: {:?})", key_type);
 
         let config = app_config();
-        let config = config.inner.lock().unwrap();
+        let config = config.lock();
 
         match key_type {
             SecureKeyStoreType::Sign => config.load_sign_key_pair(),
@@ -243,7 +243,7 @@ impl SecureKeyStore {
         key_pair: &KeyPair,
     ) -> Result<(), SecureKeyStoreError> {
         let config = app_config();
-        let config = config.inner.lock().unwrap();
+        let config = config.lock();
         let extension = config.load_secure_keystore_write_sig();
 
         match extension {
@@ -257,7 +257,7 @@ impl SecureKeyStore {
         key_type: &SecureKeyStoreType,
     ) -> Result<Option<KeyPair>, SecureKeyStoreError> {
         let config = app_config();
-        let config = config.inner.lock().unwrap();
+        let config = config.lock();
         let extension = config.load_secure_keystore_read_sig();
 
         match extension {
