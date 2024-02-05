@@ -61,7 +61,7 @@ jobs:
 
       - name: Create PR
         id: create-pr
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v6
         with:
           commit-message: "chore: bump version to v${{ steps.set_crate_version.outputs.version }}"
           branch: "chore/bump-version-to-v${{ steps.set_crate_version.outputs.version }}"
@@ -73,4 +73,4 @@ jobs:
             This PR was created by the [release workflow](${{ github.event.repository.html_url }}/actions/workflows/release.yml).
 
             [release workflow]: ${{ github.event.repository.html_url }}/actions/workflows/release.yml
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
