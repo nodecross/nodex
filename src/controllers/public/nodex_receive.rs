@@ -1,7 +1,6 @@
 use crate::nodex::schema::general::GeneralVcDataModel;
 use crate::services::nodex::NodeX;
 use crate::{
-    nodex::errors::NodeXError,
     server,
     services::{hub::Hub, internal::didcomm_encrypted::DIDCommEncryptedService},
 };
@@ -9,6 +8,7 @@ use actix::prelude::*;
 use actix::{Actor, ActorContext, StreamHandler};
 use actix_web::{web, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
+use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashSet,
@@ -99,14 +99,12 @@ impl MessageReceiveUsecase {
         }
     }
 
-    pub async fn receive_message(&self) -> Result<Vec<ResponseJson>, NodeXError> {
+    pub async fn receive_message(&self) -> anyhow::Result<Vec<ResponseJson>> {
         let mut responses = Vec::new();
 
         for m in self.hub.get_message(&self.project_did).await? {
-            let json_message = serde_json::from_str(&m.raw_message).map_err(|e| {
-                log::error!("Invalid Json: {:?}", e);
-                NodeXError {}
-            })?;
+            let json_message = serde_json::from_str(&m.raw_message)
+                .map_err(|e| anyhow::anyhow!("Invalid Json: {:?}", e))?;
             log::info!("Receive message. message_id = {:?}", m.id);
             match DIDCommEncryptedService::verify(&json_message).await {
                 Ok(verified) => {
@@ -124,10 +122,9 @@ impl MessageReceiveUsecase {
                         let operation_type = container["operation"].clone();
                         match serde_json::from_value::<OperationType>(operation_type) {
                             Ok(OperationType::UpdateAgent) => {
-                                let binary_url = match container["binary_url"].as_str() {
-                                    Some(url) => url,
-                                    None => return Err(NodeXError {}),
-                                };
+                                let binary_url = container["binary_url"]
+                                    .as_str()
+                                    .ok_or(anyhow!("the container does n't have binary_url"))?;
                                 self.agent
                                     .update_version(binary_url, "/tmp/nodex-agent")
                                     .await?;
@@ -142,7 +139,7 @@ impl MessageReceiveUsecase {
                                     .await?;
                             }
                             Err(e) => {
-                                log::error!("Error: {:?}", e);
+                                log::error!("Json Parse Error: {:?}", e);
                             }
                         }
                         continue;
@@ -270,5 +267,5 @@ pub async fn polling_task(
         }
     }
 
-    log::info!("Polling task is stopped")
+    log::info!("Polling task is stopped");
 }

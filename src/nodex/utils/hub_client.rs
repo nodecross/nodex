@@ -1,5 +1,4 @@
 use crate::network_config;
-use crate::nodex::errors::NodeXError;
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use reqwest::{
@@ -24,14 +23,8 @@ pub struct HubClient {
 }
 
 impl HubClient {
-    pub fn new(_config: &HubClientConfig) -> Result<Self, NodeXError> {
-        let url = match Url::parse(&_config.base_url.to_string()) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+    pub fn new(_config: &HubClientConfig) -> anyhow::Result<Self> {
+        let url = Url::parse(&_config.base_url.to_string())?;
         let client: reqwest::Client = reqwest::Client::new();
 
         Ok(HubClient {
@@ -40,15 +33,11 @@ impl HubClient {
         })
     }
 
-    fn auth_headers(&self, payload: String) -> Result<HeaderMap, NodeXError> {
+    fn auth_headers(&self, payload: String) -> anyhow::Result<HeaderMap> {
         let config = network_config();
         let secret = config.lock().get_secret_key().unwrap();
-        let mut mac = match HmacSha256::new_from_slice(secret.as_bytes()) {
-            Ok(v) => v,
-            Err(_) => {
-                return Err(NodeXError {});
-            }
-        };
+        let mut mac = HmacSha256::new_from_slice(secret.as_bytes())?;
+
         mac.update(payload.as_bytes());
         let signature = &hex::encode(mac.finalize().into_bytes());
         let mut headers = HeaderMap::new();
@@ -64,49 +53,27 @@ impl HubClient {
     }
 
     #[allow(dead_code)]
-    pub async fn get(&self, _path: &str) -> Result<reqwest::Response, NodeXError> {
-        let url = self.base_url.join(_path);
-        let headers = self.auth_headers("".to_string());
-        if let Err(e) = headers {
-            log::error!("{:?}", e);
-            return Err(NodeXError {});
-        }
-        match self
-            .instance
-            .get(&url.unwrap().to_string())
-            .headers(headers.unwrap())
-            .send()
-            .await
-        {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+    pub async fn get(&self, _path: &str) -> anyhow::Result<reqwest::Response> {
+        let url = self.base_url.join(_path)?;
+        let headers = self.auth_headers("".to_string())?;
+
+        let response = self.instance.get(url).headers(headers).send().await?;
+        Ok(response)
     }
 
-    pub async fn post(&self, path: &str, body: &str) -> Result<reqwest::Response, NodeXError> {
-        let url = self.base_url.join(path);
-        let headers = self.auth_headers(body.to_string());
-        if let Err(e) = headers {
-            log::error!("{:?}", e);
-            return Err(NodeXError {});
-        }
-        match self
+    pub async fn post(&self, path: &str, body: &str) -> anyhow::Result<reqwest::Response> {
+        let url = self.base_url.join(path)?;
+        let headers = self.auth_headers(body.to_string())?;
+
+        let response = self
             .instance
-            .post(&url.unwrap().to_string())
-            .headers(headers.unwrap())
+            .post(url)
+            .headers(headers)
             .body(body.to_string())
             .send()
-            .await
-        {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+            .await?;
+
+        Ok(response)
     }
 
     pub async fn send_device_info(
@@ -116,42 +83,29 @@ impl HubClient {
         mac_address: &str,
         version: &str,
         os: &str,
-    ) -> Result<reqwest::Response, NodeXError> {
+    ) -> anyhow::Result<reqwest::Response> {
         let message = json!({
             "mac_address": mac_address,
             "version": version,
             "os": os,
         });
-        let payload =
-            match DIDCommEncryptedService::generate(project_did, &json!(message), None).await {
-                Ok(v) => v,
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    return Err(NodeXError {});
-                }
-            };
-        let payload = match serde_json::to_string(&payload) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
-        let url = self.base_url.join(path);
-        self.post(url.unwrap().as_ref(), &payload).await
+        let payload = DIDCommEncryptedService::generate(project_did, &json!(message), None).await?;
+        let payload = serde_json::to_string(&payload)?;
+        let url = self.base_url.join(path)?;
+        self.post(url.as_ref(), &payload).await
     }
 
     pub async fn get_message(
         &self,
         path: &str,
         project_did: &str,
-    ) -> Result<reqwest::Response, NodeXError> {
+    ) -> anyhow::Result<reqwest::Response> {
         let payload =
             DIDCommEncryptedService::generate(project_did, &serde_json::Value::Null, None)
                 .await?
                 .to_string();
-        let url = self.base_url.join(path);
-        self.post(url.unwrap().as_ref(), &payload).await
+        let url = self.base_url.join(path)?;
+        self.post(url.as_ref(), &payload).await
     }
 
     pub async fn ack_message(
@@ -160,7 +114,7 @@ impl HubClient {
         project_did: &str,
         message_id: String,
         is_verified: bool,
-    ) -> Result<reqwest::Response, NodeXError> {
+    ) -> anyhow::Result<reqwest::Response> {
         let url = self.base_url.join(path);
         let payload = json!({
             "message_id": message_id,
@@ -177,7 +131,7 @@ impl HubClient {
         path: &str,
         to_did: &str,
         message: serde_json::Value,
-    ) -> Result<reqwest::Response, NodeXError> {
+    ) -> anyhow::Result<reqwest::Response> {
         let payload = DIDCommEncryptedService::generate(to_did, &message, None)
             .await?
             .to_string();
@@ -191,7 +145,7 @@ impl HubClient {
         project_did: &str,
         is_active: bool,
         event_at: DateTime<Utc>,
-    ) -> Result<reqwest::Response, NodeXError> {
+    ) -> anyhow::Result<reqwest::Response> {
         let url = self.base_url.join(path);
         let payload = json!({
             "event_at": event_at.to_rfc3339(),
@@ -208,71 +162,29 @@ impl HubClient {
         &self,
         path: &str,
         project_did: &str,
-    ) -> Result<reqwest::Response, NodeXError> {
+    ) -> anyhow::Result<reqwest::Response> {
         let payload =
-            match DIDCommEncryptedService::generate(project_did, &serde_json::Value::Null, None)
-                .await
-            {
-                Ok(v) => v,
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    return Err(NodeXError {});
-                }
-            };
-        let payload = match serde_json::to_string(&payload) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+            DIDCommEncryptedService::generate(project_did, &serde_json::Value::Null, None).await?;
+        let payload = serde_json::to_string(&payload)?;
         self.post(path, &payload).await
     }
 
     #[allow(dead_code)]
-    pub async fn put(&self, _path: &str) -> Result<reqwest::Response, NodeXError> {
-        let url = self.base_url.join(_path);
-        let headers = self.auth_headers("".to_string());
-        if let Err(e) = headers {
-            log::error!("{:?}", e);
-            return Err(NodeXError {});
-        }
-        match self
-            .instance
-            .put(&url.unwrap().to_string())
-            .headers(headers.unwrap())
-            .send()
-            .await
-        {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+    pub async fn put(&self, _path: &str) -> anyhow::Result<reqwest::Response> {
+        let url = self.base_url.join(_path)?;
+        let headers = self.auth_headers("".to_string())?;
+        let response = self.instance.put(url).headers(headers).send().await?;
+
+        Ok(response)
     }
 
     #[allow(dead_code)]
-    pub async fn delete(&self, _path: &str) -> Result<reqwest::Response, NodeXError> {
-        let url = self.base_url.join(_path);
-        let headers = self.auth_headers("".to_string());
-        if let Err(e) = headers {
-            log::error!("{:?}", e);
-            return Err(NodeXError {});
-        }
-        match self
-            .instance
-            .delete(&url.unwrap().to_string())
-            .headers(headers.unwrap())
-            .send()
-            .await
-        {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+    pub async fn delete(&self, _path: &str) -> anyhow::Result<reqwest::Response> {
+        let url = self.base_url.join(_path)?;
+        let headers = self.auth_headers("".to_string())?;
+        let response = self.instance.delete(url).headers(headers).send().await?;
+
+        Ok(response)
     }
 }
 

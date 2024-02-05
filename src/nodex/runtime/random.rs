@@ -1,13 +1,19 @@
+use thiserror::Error;
+
 pub struct Random {}
 
+#[derive(Debug, Error)]
+pub enum RandomError {
+    #[error(transparent)]
+    GetRandomError(#[from] getrandom::Error),
+}
+
 impl Random {
-    pub fn bytes(size: &usize) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    pub fn bytes(size: &usize) -> Result<Vec<u8>, RandomError> {
         let mut bytes = vec![0u8; *size];
 
-        match getrandom::getrandom(&mut bytes) {
-            Ok(_) => Ok(bytes),
-            Err(e) => Err(Box::new(e)),
-        }
+        getrandom::getrandom(&mut bytes)?;
+        Ok(bytes)
     }
 }
 

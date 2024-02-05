@@ -1,6 +1,5 @@
 use crate::nodex::{
     cipher::credential_signer::{CredentialSigner, CredentialSignerSuite},
-    errors::NodeXError,
     keyring::{self},
     schema::general::{CredentialSubject, GeneralVcDataModel, Issuer},
 };
@@ -10,21 +9,9 @@ use serde_json::{json, Value};
 pub struct DIDVCService {}
 
 impl DIDVCService {
-    pub fn generate(message: &Value) -> Result<Value, NodeXError> {
-        let keyring = match keyring::keypair::KeyPairing::load_keyring() {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
-        let did = match keyring.get_identifier() {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+    pub fn generate(message: &Value) -> anyhow::Result<Value> {
+        let keyring = keyring::keypair::KeyPairing::load_keyring()?;
+        let did = keyring.get_identifier()?;
 
         let r#type = "VerifiableCredential".to_string();
         let context = "https://www.w3.org/2018/credentials/v1".to_string();
@@ -44,80 +31,46 @@ impl DIDVCService {
             proof: None,
         };
 
-        let signed = match CredentialSigner::sign(
+        let signed = CredentialSigner::sign(
             &model,
             &CredentialSignerSuite {
                 did: Some(did),
                 key_id: Some("signingKey".to_string()),
                 context: keyring.get_sign_key_pair(),
             },
-        ) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        };
+        )?;
 
         Ok(json!(signed))
     }
 
-    pub async fn verify(message: &Value) -> Result<Value, NodeXError> {
+    pub async fn verify(message: &Value) -> anyhow::Result<Value> {
         let service = crate::services::nodex::NodeX::new();
 
-        let model = match serde_json::from_value::<GeneralVcDataModel>(message.clone()) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        let model = serde_json::from_value::<GeneralVcDataModel>(message.clone())?;
 
-        let did_document = match service.find_identifier(&model.issuer.id).await {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
-        let public_keys = match did_document.did_document.public_key {
-            Some(v) => v,
-            None => return Err(NodeXError {}),
-        };
+        let did_document = service.find_identifier(&model.issuer.id).await?;
+        let public_keys = did_document
+            .did_document
+            .public_key
+            .ok_or(anyhow::anyhow!("public_key is not found in did_document"))?;
 
         // FIXME: workaround
-        if public_keys.len() != 1 {
-            return Err(NodeXError {});
-        }
+        anyhow::ensure!(public_keys.len() == 1, "public_keys length must be 1");
 
         let public_key = public_keys[0].clone();
 
-        let context = match keyring::secp256k1::Secp256k1::from_jwk(&public_key.public_key_jwk) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        let context = keyring::secp256k1::Secp256k1::from_jwk(&public_key.public_key_jwk)?;
 
-        let (verified_model, verified) = match CredentialSigner::verify(
+        let (verified_model, verified) = CredentialSigner::verify(
             &model,
             &CredentialSignerSuite {
                 did: None,
                 key_id: None,
                 context,
             },
-        ) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        )?;
 
-        if !verified {
-            return Err(NodeXError {});
-        }
+        anyhow::ensure!(verified, "signature is not verified");
 
         Ok(verified_model)
     }

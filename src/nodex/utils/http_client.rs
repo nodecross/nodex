@@ -1,4 +1,3 @@
-use crate::nodex::errors::NodeXError;
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     Url,
@@ -15,14 +14,8 @@ pub struct HttpClient {
 }
 
 impl HttpClient {
-    pub fn new(_config: &HttpClientConfig) -> Result<Self, NodeXError> {
-        let url = match Url::parse(&_config.base_url.to_string()) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+    pub fn new(_config: &HttpClientConfig) -> anyhow::Result<Self> {
+        let url = Url::parse(&_config.base_url.to_string())?;
         let client: reqwest::Client = reqwest::Client::new();
 
         Ok(HttpClient {
@@ -40,79 +33,59 @@ impl HttpClient {
         headers
     }
 
-    pub async fn get(&self, _path: &str) -> Result<reqwest::Response, NodeXError> {
+    pub async fn get(&self, _path: &str) -> anyhow::Result<reqwest::Response> {
         let url = self.base_url.join(_path);
 
-        match self
+        let response = self
             .instance
             .get(&url.unwrap().to_string())
             .headers(self.default_headers())
             .send()
-            .await
-        {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+            .await?;
+
+        Ok(response)
     }
 
-    pub async fn post(&self, _path: &str, body: &str) -> Result<reqwest::Response, NodeXError> {
+    pub async fn post(&self, _path: &str, body: &str) -> anyhow::Result<reqwest::Response> {
         let url = self.base_url.join(_path);
 
-        match self
+        let response = self
             .instance
             .post(&url.unwrap().to_string())
             .headers(self.default_headers())
             .body(body.to_string())
             .send()
-            .await
-        {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+            .await?;
+
+        Ok(response)
     }
 
     #[allow(dead_code)]
-    pub async fn put(&self, _path: &str) -> Result<reqwest::Response, NodeXError> {
+    pub async fn put(&self, _path: &str) -> anyhow::Result<reqwest::Response> {
         let url = self.base_url.join(_path);
 
-        match self
+        let response = self
             .instance
             .put(&url.unwrap().to_string())
             .headers(self.default_headers())
             .send()
-            .await
-        {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+            .await?;
+
+        Ok(response)
     }
 
     #[allow(dead_code)]
-    pub async fn delete(&self, _path: &str) -> Result<reqwest::Response, NodeXError> {
+    pub async fn delete(&self, _path: &str) -> anyhow::Result<reqwest::Response> {
         let url = self.base_url.join(_path);
 
-        match self
+        let response = self
             .instance
             .delete(&url.unwrap().to_string())
             .headers(self.default_headers())
             .send()
-            .await
-        {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+            .await?;
+
+        Ok(response)
     }
 }
 

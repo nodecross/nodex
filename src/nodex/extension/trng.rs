@@ -1,4 +1,8 @@
-use crate::{app_config, config::Extension, nodex::runtime::random::Random};
+use crate::{
+    app_config,
+    config::Extension,
+    nodex::runtime::random::{Random, RandomError},
+};
 use std::{ffi::CStr, num::NonZeroU32};
 
 use thiserror::Error;
@@ -14,7 +18,7 @@ pub enum TrngError {
     #[error("External function failed")]
     ExternalFunctionFailed(NonZeroU32),
     #[error("Random generation failed")]
-    RandomGenerationFailed(Box<dyn std::error::Error>),
+    RandomGenerationFailed(#[from] RandomError),
 }
 
 impl Trng {

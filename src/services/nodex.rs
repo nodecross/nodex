@@ -1,6 +1,5 @@
 use super::internal::didcomm_encrypted::DIDCommEncryptedService;
 use crate::nodex::{
-    errors::NodeXError,
     keyring,
     sidetree::payload::{
         CommitmentKeys, DIDCreateRequest, DIDResolutionResponse, OperationPayloadBuilder,
@@ -36,7 +35,7 @@ impl NodeX {
     }
 
     // NOTE: DONE
-    pub async fn create_identifier(&self) -> Result<DIDResolutionResponse, NodeXError> {
+    pub async fn create_identifier(&self) -> anyhow::Result<DIDResolutionResponse> {
         // NOTE: find did
         if let Ok(v) = keyring::keypair::KeyPairing::load_keyring() {
             if let Ok(did) = v.get_identifier() {
@@ -47,67 +46,26 @@ impl NodeX {
         }
 
         // NOTE: does not exists did key ring
-        let mut keyring = match keyring::keypair::KeyPairing::create_keyring() {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        let mut keyring = keyring::keypair::KeyPairing::create_keyring()?;
 
         // NOTE: create payload
-        let public = match keyring
+        let public = keyring
             .get_sign_key_pair()
-            .to_public_key("signingKey", &["auth", "general"])
-        {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
-        let update = match keyring.get_recovery_key_pair().to_jwk(false) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
-        let recovery = match keyring.get_update_key_pair().to_jwk(false) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
-
-        let payload = match OperationPayloadBuilder::did_create_payload(&DIDCreateRequest {
+            .to_public_key("signingKey", &["auth", "general"])?;
+        let update = keyring.get_recovery_key_pair().to_jwk(false)?;
+        let recovery = keyring.get_update_key_pair().to_jwk(false)?;
+        let payload = OperationPayloadBuilder::did_create_payload(&DIDCreateRequest {
             public_keys: vec![public],
             commitment_keys: CommitmentKeys { recovery, update },
             service_endpoints: vec![],
-        }) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        })?;
 
-        let res = match self.http_client.post("/api/v1/operations", &payload).await {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        let res = self
+            .http_client
+            .post("/api/v1/operations", &payload)
+            .await?;
 
-        let json = match res.json::<DIDResolutionResponse>().await {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        let json = res.json::<DIDResolutionResponse>().await?;
 
         // NOTE: save context
         keyring.save(&json.did_document.id);
@@ -116,26 +74,13 @@ impl NodeX {
     }
 
     // NOTE: DONE
-    pub async fn find_identifier(&self, did: &str) -> Result<DIDResolutionResponse, NodeXError> {
-        let res = match self
+    pub async fn find_identifier(&self, did: &str) -> anyhow::Result<DIDResolutionResponse> {
+        let res = self
             .http_client
             .get(&(format!("/api/v1/identifiers/{}", &did)))
-            .await
-        {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+            .await?;
 
-        match res.json::<DIDResolutionResponse>().await {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+        Ok(res.json::<DIDResolutionResponse>().await?)
     }
 
     #[allow(dead_code)]
@@ -144,44 +89,22 @@ impl NodeX {
         to_did: &str,
         messages: &Vec<Value>,
         metadata: &Value,
-    ) -> Result<Value, NodeXError> {
+    ) -> anyhow::Result<Value> {
         // NOTE: didcomm (enc)
         let container =
-            match DIDCommEncryptedService::generate(to_did, &json!(messages), Some(metadata)).await
-            {
-                Ok(v) => v,
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    return Err(NodeXError {});
-                }
-            };
+            DIDCommEncryptedService::generate(to_did, &json!(messages), Some(metadata)).await?;
 
         Ok(container)
     }
 
-    pub async fn update_version(&self, binary_url: &str, path: &str) -> Result<(), NodeXError> {
-        let response = reqwest::get(binary_url).await;
-        match response {
-            Ok(r) => {
-                let content = match r.bytes().await {
-                    Ok(c) => c,
-                    Err(_) => return Err(NodeXError {}),
-                };
-                match fs::write(path, &content) {
-                    Ok(_) => (),
-                    Err(_) => return Err(NodeXError {}),
-                };
-                match Command::new("chmod").arg("+x").arg(path).status() {
-                    Ok(_) => (),
-                    Err(_) => return Err(NodeXError {}),
-                };
-                match Command::new(path).spawn() {
-                    Ok(_) => (),
-                    Err(_) => return Err(NodeXError {}),
-                };
-                Ok(())
-            }
-            Err(_) => Err(NodeXError {}),
-        }
+    pub async fn update_version(&self, binary_url: &str, path: &str) -> anyhow::Result<()> {
+        let response = reqwest::get(binary_url).await?;
+        let content = response.bytes().await?;
+
+        fs::write(path, &content)?;
+
+        Command::new("chmod").arg("+x").arg(path).status()?;
+        Command::new(path).spawn()?;
+        Ok(())
     }
 }

@@ -81,6 +81,7 @@ shadow-rs = "0.21.0"
 dotenv = "0.15.0"
 mac_address = "1.1.5"
 
+anyhow = "1.0.79"
 thiserror = "1.0.30"
 
 [dev-dependencies]
