@@ -9,8 +9,6 @@ use std::{fs, sync::MutexGuard};
 
 use std::sync::{Arc, Mutex, Once};
 
-use crate::nodex::errors::NodeXError;
-
 #[derive(Clone)]
 pub struct SingletonNetworkConfig {
     inner: Arc<Mutex<Network>>,
@@ -99,13 +97,10 @@ impl Network {
         Network { config, root }
     }
 
-    pub fn write(&self) -> Result<(), NodeXError> {
-        match self.config.save_json(&self.root) {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
+    pub fn write(&self) {
+        if let Err(e) = self.config.save_json(&self.root) {
+            log::error!("{:?}", e);
+            panic!()
         }
     }
 
@@ -116,14 +111,7 @@ impl Network {
 
     pub fn save_secretk_key(&mut self, value: &str) {
         self.root.secret_key = Some(value.to_string());
-
-        match self.write() {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        }
+        self.write();
     }
 
     // NOTE: project_did
@@ -133,81 +121,37 @@ impl Network {
 
     pub fn save_project_did(&mut self, value: &str) {
         self.root.project_did = Some(value.to_string());
-
-        match self.write() {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        }
+        self.write();
     }
 
     // NOTE: recipient_dids
-    #[allow(dead_code)]
     pub fn get_recipient_dids(&self) -> Option<Vec<String>> {
         self.root.recipient_dids.clone()
     }
 
-    #[allow(dead_code)]
     pub fn save_recipient_dids(&mut self, value: Vec<String>) {
         self.root.recipient_dids = Some(value);
 
-        match self.write() {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        }
+        self.write();
     }
 
     // NOTE: hub_endpoint
-    #[allow(dead_code)]
     pub fn get_hub_endpoint(&self) -> Option<String> {
         self.root.hub_endpoint.clone()
     }
 
-    #[allow(dead_code)]
     pub fn save_hub_endpoint(&mut self, value: &str) {
         self.root.hub_endpoint = Some(value.to_string());
-
-        match self.write() {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        }
+        self.write();
     }
 
     // NOTE: heartbeat
-    #[allow(dead_code)]
     pub fn get_heartbeat(&self) -> Option<u64> {
         self.root.heartbeat
     }
 
-    #[allow(dead_code)]
     pub fn save_heartbeat(&mut self, value: u64) {
         self.root.heartbeat = Some(value);
-
-        match self.write() {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        }
-    }
-
-    // NOTE: write
-    pub fn save(&mut self) -> Result<(), NodeXError> {
-        match self.write() {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        }
+        self.write();
     }
 }

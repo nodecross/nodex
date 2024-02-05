@@ -1,10 +1,9 @@
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use thiserror::Error;
 
-use crate::nodex::{
-    errors::NodeXError, keyring::secp256k1::Secp256k1, schema::general::GeneralVcDataModel, utils,
-};
+use crate::nodex::{keyring::secp256k1::Secp256k1, schema::general::GeneralVcDataModel, utils};
 
 use super::jws::Jws;
 
@@ -47,6 +46,18 @@ pub struct CredentialSignerSuite {
     pub context: Secp256k1,
 }
 
+#[derive(Debug, Error)]
+pub enum CredentialSignerError {
+    #[error(transparent)]
+    JwsError(#[from] super::jws::JwsError),
+    #[error(transparent)]
+    JsonParseError(#[from] serde_json::Error),
+    #[error("did is none. please set did")]
+    DidIsNone,
+    #[error("key_id is none. please set key_id")]
+    KeyIdIsNone,
+}
+
 pub struct CredentialSigner {}
 
 impl CredentialSigner {
@@ -56,28 +67,22 @@ impl CredentialSigner {
     pub fn sign(
         object: &GeneralVcDataModel,
         suite: &CredentialSignerSuite,
-    ) -> Result<GeneralVcDataModel, NodeXError> {
+    ) -> Result<GeneralVcDataModel, CredentialSignerError> {
         // FIXME:
         // if (Object.keys(object).indexOf(this.PROOF_KEY) !== -1) {
         //     throw new Error()
         // }
 
         let created = Utc::now().to_rfc3339();
-        let jws = match Jws::encode(&json!(object), &suite.context) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        let jws = Jws::encode(&json!(object), &suite.context)?;
 
         let did = match &suite.did {
             Some(v) => v,
-            None => return Err(NodeXError {}),
+            None => return Err(CredentialSignerError::DidIsNone),
         };
         let key_id = match &suite.key_id {
             Some(v) => v,
-            None => return Err(NodeXError {}),
+            None => return Err(CredentialSignerError::KeyIdIsNone),
         };
 
         let proof: ProofContext = ProofContext {
@@ -98,19 +103,13 @@ impl CredentialSigner {
 
         utils::json::merge(&mut signed_object, json!(proof));
 
-        match serde_json::from_value::<GeneralVcDataModel>(signed_object) {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+        Ok(serde_json::from_value::<GeneralVcDataModel>(signed_object)?)
     }
 
     pub fn verify(
         object: &GeneralVcDataModel,
         suite: &CredentialSignerSuite,
-    ) -> Result<(Value, bool), NodeXError> {
+    ) -> Result<(Value, bool), CredentialSignerError> {
         // FIXME:
         // if (Object.keys(object).indexOf(this.PROOF_KEY) === -1) {
         //     throw new Error()
@@ -118,13 +117,7 @@ impl CredentialSigner {
 
         let mut serialized = json!(&object);
 
-        let proof = match serde_json::from_value::<Proof>(serialized["proof"].take()) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        let proof = serde_json::from_value::<Proof>(serialized["proof"].take())?;
 
         // FIXME:
         // if (proof === undefined) {
@@ -138,22 +131,10 @@ impl CredentialSigner {
         // }
 
         let jws = proof.jws;
-        let payload = match serde_json::from_value::<GeneralVcDataModel>(serialized) {
-            Ok(v) => json!(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        let payload = serde_json::from_value::<GeneralVcDataModel>(serialized).map(|v| json!(v))?;
 
         // NOTE: verify
-        let verified = match Jws::verify(&payload, &jws, &suite.context) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        let verified = Jws::verify(&payload, &jws, &suite.context)?;
 
         Ok((payload, verified))
     }
