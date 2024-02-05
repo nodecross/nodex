@@ -1,6 +1,5 @@
 pub mod agent;
 pub mod cipher;
-pub mod errors;
 pub mod extension;
 pub mod keyring;
 pub mod runtime;

@@ -1,7 +1,4 @@
-use crate::nodex::{
-    errors::NodeXError,
-    utils::hub_client::{HubClient, HubClientConfig},
-};
+use crate::nodex::utils::hub_client::{HubClient, HubClientConfig};
 use crate::server_config;
 
 use chrono::{DateTime, Utc};
@@ -72,38 +69,26 @@ impl Hub {
         &self,
         device_did: String,
         project_did: String,
-    ) -> Result<(), NodeXError> {
+    ) -> anyhow::Result<()> {
         let request = RegisterDeviceRequest {
             device_did,
             project_did,
         };
         let payload = serde_json::to_string(&request).expect("failed to serialize");
-        let res = match self.http_client.post("/v1/device", &payload).await {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        let res = self.http_client.post("/v1/device", &payload).await?;
         match res.status() {
-            reqwest::StatusCode::OK => match res.json::<EmptyResponse>().await {
-                Ok(_) => Ok(()),
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    Err(NodeXError {})
-                }
-            },
+            reqwest::StatusCode::OK => {
+                res.json::<EmptyResponse>().await?;
+                Ok(())
+            }
             reqwest::StatusCode::BAD_REQUEST => {
-                log::error!("StatusCode=400, bad request");
-                Err(NodeXError {})
+                anyhow::bail!("StatusCode=400, bad request")
             }
             reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
-                log::error!("StatusCode=500, internal server error");
-                Err(NodeXError {})
+                anyhow::bail!("StatusCode=500, internal server error");
             }
             other => {
-                log::error!("StatusCode={other}, unexpected response");
-                Err(NodeXError {})
+                anyhow::bail!("StatusCode={other}, unexpected response");
             }
         }
     }
@@ -114,78 +99,46 @@ impl Hub {
         mac_address: String,
         version: String,
         os: String,
-    ) -> Result<(), NodeXError> {
-        let res = match self
+    ) -> anyhow::Result<()> {
+        let res = self
             .http_client
             .send_device_info("/v1/device-info", &project_did, &mac_address, &version, &os)
-            .await
-        {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+            .await?;
         match res.status() {
-            reqwest::StatusCode::OK => match res.json::<EmptyResponse>().await {
-                Ok(_) => Ok(()),
-                Err(e) => {
-                    log::error!("StatusCode=200, but parse failed. {:?}", e);
-                    Err(NodeXError {})
-                }
-            },
+            reqwest::StatusCode::OK => {
+                res.json::<EmptyResponse>().await?;
+                Ok(())
+            }
             reqwest::StatusCode::BAD_REQUEST => match res.json::<ErrorResponse>().await {
                 Ok(v) => {
-                    log::error!("StatusCode=400, error message = {:?}", v.message);
-                    Err(NodeXError {})
+                    anyhow::bail!("StatusCode=400, error message = {:?}", v.message);
                 }
                 Err(e) => {
-                    log::error!("StatusCode=400, but parse failed. {:?}", e);
-                    Err(NodeXError {})
+                    anyhow::bail!("StatusCode=400, but parse failed. {:?}", e);
                 }
             },
             other => {
-                log::error!("StatusCode={other}, unexpected response");
-                Err(NodeXError {})
+                anyhow::bail!("StatusCode={other}, unexpected response");
             }
         }
     }
 
-    pub async fn get_message(&self, project_did: &str) -> Result<Vec<MessageResponse>, NodeXError> {
-        let res = match self
+    pub async fn get_message(&self, project_did: &str) -> anyhow::Result<Vec<MessageResponse>> {
+        let res = self
             .http_client
             .get_message("/v1/message/list", project_did)
-            .await
-        {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+            .await?;
 
         match res.status() {
             reqwest::StatusCode::OK => match res.json::<Vec<MessageResponse>>().await {
                 Ok(v) => Ok(v),
-                Err(e) => {
-                    log::error!("StatusCode=200, but parse failed. {:?}", e);
-                    Err(NodeXError {})
-                }
+                Err(e) => anyhow::bail!("StatusCode=200, but parse failed. {:?}", e),
             },
             reqwest::StatusCode::BAD_REQUEST => match res.json::<ErrorResponse>().await {
-                Ok(v) => {
-                    log::error!("StatusCode=400, error message = {:?}", v.message);
-                    Err(NodeXError {})
-                }
-                Err(e) => {
-                    log::error!("StatusCode=400, but parse failed. {:?}", e);
-                    Err(NodeXError {})
-                }
+                Ok(v) => anyhow::bail!("StatusCode=400, error message = {:?}", v.message),
+                Err(e) => anyhow::bail!("StatusCode=400, but parse failed. {:?}", e),
             },
-            other => {
-                log::error!("StatusCode={other}, unexpected response");
-                Err(NodeXError {})
-            }
+            other => anyhow::bail!("StatusCode={other}, unexpected response"),
         }
     }
 
@@ -194,64 +147,39 @@ impl Hub {
         project_did: &str,
         message_id: String,
         is_verified: bool,
-    ) -> Result<(), NodeXError> {
-        let res = match self
+    ) -> anyhow::Result<()> {
+        let res = self
             .http_client
             .ack_message("/v1/message/ack", project_did, message_id, is_verified)
-            .await
-        {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+            .await?;
 
-        match res.json::<EmptyResponse>().await {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+        res.json::<EmptyResponse>().await?;
+        Ok(())
     }
 
     pub async fn send_message(
         &self,
         to_did: &str,
         message: serde_json::Value,
-    ) -> Result<(), NodeXError> {
-        let res = match self
+    ) -> anyhow::Result<()> {
+        let res = self
             .http_client
             .send_message("/v1/message", to_did, message)
-            .await
-        {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+            .await?;
         let status = res.status();
         match status {
             reqwest::StatusCode::OK => Ok(()),
             _ => match res.json::<ErrorResponse>().await {
-                Ok(v) => {
-                    log::error!(
-                        "StatusCode={:?}, error message = {:?}",
-                        status.as_str(),
-                        v.message
-                    );
-                    Err(NodeXError {})
-                }
-                Err(e) => {
-                    log::error!(
-                        "StatusCode={:?}, but parse failed. {:?}",
-                        status.as_str(),
-                        e
-                    );
-                    Err(NodeXError {})
-                }
+                Ok(v) => anyhow::bail!(
+                    "StatusCode={:?}, error message = {:?}",
+                    status.as_str(),
+                    v.message
+                ),
+                Err(e) => anyhow::bail!(
+                    "StatusCode={:?}, but parse failed. {:?}",
+                    status.as_str(),
+                    e
+                ),
             },
         }
     }
@@ -261,58 +189,36 @@ impl Hub {
         project_did: &str,
         is_active: bool,
         event_at: DateTime<Utc>,
-    ) -> Result<(), NodeXError> {
-        let res = match self
+    ) -> anyhow::Result<()> {
+        let res = self
             .http_client
             .heartbeat("/v1/heartbeat", project_did, is_active, event_at)
-            .await
-        {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+            .await?;
 
         match res.status() {
             reqwest::StatusCode::OK => match res.json::<EmptyResponse>().await {
                 Ok(_) => Ok(()),
-                Err(e) => {
-                    log::error!("StatusCode=200, but parse failed. {:?}", e);
-                    Err(NodeXError {})
-                }
+                Err(e) => anyhow::bail!("StatusCode=200, but parse failed. {:?}", e),
             },
             reqwest::StatusCode::BAD_REQUEST => match res.json::<ErrorResponse>().await {
-                Ok(v) => {
-                    log::error!("StatusCode=400, error message = {:?}", v.message);
-                    Err(NodeXError {})
-                }
-                Err(e) => {
-                    log::error!("StatusCode=400, but parse failed. {:?}", e);
-                    Err(NodeXError {})
-                }
+                Ok(v) => anyhow::bail!("StatusCode=400, error message = {:?}", v.message),
+                Err(e) => anyhow::bail!("StatusCode=400, but parse failed. {:?}", e),
             },
-            other => {
-                log::error!("StatusCode={other}, unexpected response");
-                Err(NodeXError {})
-            }
+            other => anyhow::bail!("StatusCode={other}, unexpected response"),
         }
     }
 
-    pub async fn network(&self) -> Result<(), NodeXError> {
+    pub async fn network(&self) -> anyhow::Result<()> {
         let project_did = {
             let network = crate::network_config();
             let network = network.lock();
             network.get_project_did().expect("project_did is not set")
         };
 
-        let res = match self.http_client.network("/v1/network", &project_did).await {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        let res = self
+            .http_client
+            .network("/v1/network", &project_did)
+            .await?;
 
         match res.status() {
             reqwest::StatusCode::OK => match res.json::<NetworkResponse>().await {
@@ -326,26 +232,13 @@ impl Hub {
                     network.save_heartbeat(v.heartbeat);
                     Ok(())
                 }
-
-                Err(e) => {
-                    log::error!("StatusCode=200, but parse failed. {:?}", e);
-                    Err(NodeXError {})
-                }
+                Err(e) => anyhow::bail!("StatusCode=200, but parse failed. {:?}", e),
             },
             reqwest::StatusCode::BAD_REQUEST => match res.json::<ErrorResponse>().await {
-                Ok(v) => {
-                    log::error!("StatusCode=400, error message = {:?}", v.message);
-                    Err(NodeXError {})
-                }
-                Err(e) => {
-                    log::error!("StatusCode=400, but parse failed. {:?}", e);
-                    Err(NodeXError {})
-                }
+                Ok(v) => anyhow::bail!("StatusCode=400, error message = {:?}", v.message),
+                Err(e) => anyhow::bail!("StatusCode=400, but parse failed. {:?}", e),
             },
-            other => {
-                log::error!("StatusCode={other}, unexpected response");
-                Err(NodeXError {})
-            }
+            other => anyhow::bail!("StatusCode={other}, unexpected response"),
         }
     }
 }
