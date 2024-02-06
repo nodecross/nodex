@@ -242,9 +242,11 @@ impl SecureKeyStore {
         key_type: &SecureKeyStoreType,
         key_pair: &KeyPair,
     ) -> Result<(), SecureKeyStoreError> {
-        let config = app_config();
-        let config = config.lock();
-        let extension = config.load_secure_keystore_write_sig();
+        let extension = {
+            let config = app_config();
+            let config = config.lock();
+            config.load_secure_keystore_write_sig()
+        };
 
         match extension {
             Some(v) => self.write_external(&v, key_type, key_pair),
@@ -256,9 +258,11 @@ impl SecureKeyStore {
         &self,
         key_type: &SecureKeyStoreType,
     ) -> Result<Option<KeyPair>, SecureKeyStoreError> {
-        let config = app_config();
-        let config = config.lock();
-        let extension = config.load_secure_keystore_read_sig();
+        let extension = {
+            let config = app_config();
+            let config = config.lock();
+            config.load_secure_keystore_read_sig()
+        };
 
         match extension {
             Some(v) => self.read_external(&v, key_type),
