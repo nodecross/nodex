@@ -3,6 +3,7 @@ use crate::nodex::{
     keyring::{self},
     schema::general::GeneralVcDataModel,
 };
+use chrono::{DateTime, Utc};
 use cuid;
 use didcomm_rs::{AttachmentBuilder, AttachmentDataBuilder, Message};
 use serde_json::Value;
@@ -14,11 +15,12 @@ impl DIDCommPlaintextService {
         to_did: &str,
         message: &Value,
         metadata: Option<&Value>,
+        issuance_date: DateTime<Utc>,
     ) -> anyhow::Result<Value> {
         let keyring = keyring::keypair::KeyPairing::load_keyring()?;
         let did = keyring.get_identifier()?;
 
-        let body = DIDVCService::generate(message)?;
+        let body = DIDVCService::generate(message, issuance_date)?;
 
         let mut message = Message::new()
             .from(&did)

@@ -7,6 +7,7 @@ use crate::nodex::{
     utils::http_client::{HttpClient, HttpClientConfig},
 };
 use crate::server_config;
+use chrono::Utc;
 use serde_json::{json, Value};
 use std::{fs, process::Command};
 
@@ -92,7 +93,8 @@ impl NodeX {
     ) -> anyhow::Result<Value> {
         // NOTE: didcomm (enc)
         let container =
-            DIDCommEncryptedService::generate(to_did, &json!(messages), Some(metadata)).await?;
+            DIDCommEncryptedService::generate(to_did, &json!(messages), Some(metadata), Utc::now())
+                .await?;
 
         Ok(container)
     }

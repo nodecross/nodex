@@ -89,7 +89,9 @@ impl HubClient {
             "version": version,
             "os": os,
         });
-        let payload = DIDCommEncryptedService::generate(project_did, &json!(message), None).await?;
+        let payload =
+            DIDCommEncryptedService::generate(project_did, &json!(message), None, Utc::now())
+                .await?;
         let payload = serde_json::to_string(&payload)?;
         let url = self.base_url.join(path)?;
         self.post(url.as_ref(), &payload).await
@@ -100,10 +102,14 @@ impl HubClient {
         path: &str,
         project_did: &str,
     ) -> anyhow::Result<reqwest::Response> {
-        let payload =
-            DIDCommEncryptedService::generate(project_did, &serde_json::Value::Null, None)
-                .await?
-                .to_string();
+        let payload = DIDCommEncryptedService::generate(
+            project_did,
+            &serde_json::Value::Null,
+            None,
+            Utc::now(),
+        )
+        .await?
+        .to_string();
         let url = self.base_url.join(path)?;
         self.post(url.as_ref(), &payload).await
     }
@@ -120,7 +126,7 @@ impl HubClient {
             "message_id": message_id,
             "is_verified": is_verified,
         });
-        let payload = DIDCommEncryptedService::generate(project_did, &payload, None)
+        let payload = DIDCommEncryptedService::generate(project_did, &payload, None, Utc::now())
             .await?
             .to_string();
         self.post(url.unwrap().as_ref(), &payload).await
@@ -132,7 +138,7 @@ impl HubClient {
         to_did: &str,
         message: serde_json::Value,
     ) -> anyhow::Result<reqwest::Response> {
-        let payload = DIDCommEncryptedService::generate(to_did, &message, None)
+        let payload = DIDCommEncryptedService::generate(to_did, &message, None, Utc::now())
             .await?
             .to_string();
         let url = self.base_url.join(path);
@@ -151,7 +157,7 @@ impl HubClient {
             "event_at": event_at.to_rfc3339(),
             "is_healthy": is_active,
         });
-        let payload = DIDCommEncryptedService::generate(project_did, &payload, None)
+        let payload = DIDCommEncryptedService::generate(project_did, &payload, None, Utc::now())
             .await?
             .to_string();
 
@@ -163,8 +169,13 @@ impl HubClient {
         path: &str,
         project_did: &str,
     ) -> anyhow::Result<reqwest::Response> {
-        let payload =
-            DIDCommEncryptedService::generate(project_did, &serde_json::Value::Null, None).await?;
+        let payload = DIDCommEncryptedService::generate(
+            project_did,
+            &serde_json::Value::Null,
+            None,
+            Utc::now(),
+        )
+        .await?;
         let payload = serde_json::to_string(&payload)?;
         self.post(path, &payload).await
     }

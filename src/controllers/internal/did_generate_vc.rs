@@ -1,4 +1,5 @@
 use actix_web::{web, HttpRequest, HttpResponse};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -14,7 +15,8 @@ pub async fn handler(
     _req: HttpRequest,
     web::Json(json): web::Json<MessageContainer>,
 ) -> actix_web::Result<HttpResponse> {
-    match DIDVCService::generate(&json.message) {
+    let now = Utc::now();
+    match DIDVCService::generate(&json.message, now) {
         Ok(v) => Ok(HttpResponse::Ok().json(&v)),
         Err(e) => {
             log::error!("{:?}", e);

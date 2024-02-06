@@ -8,6 +8,7 @@ use crate::nodex::{
     schema::general::GeneralVcDataModel,
 };
 use arrayref::array_ref;
+use chrono::{DateTime, Utc};
 use cuid;
 use didcomm_rs::{
     crypto::{CryptoAlgorithm, SignatureAlgorithm},
@@ -23,6 +24,7 @@ impl DIDCommEncryptedService {
         to_did: &str,
         message: &Value,
         metadata: Option<&Value>,
+        issuance_date: DateTime<Utc>,
     ) -> anyhow::Result<Value> {
         let service = crate::services::nodex::NodeX::new();
 
@@ -54,7 +56,7 @@ impl DIDCommEncryptedService {
         let pk = PublicKey::from(&sk);
 
         // NOTE: message
-        let body = DIDVCService::generate(message)?;
+        let body = DIDVCService::generate(message, issuance_date)?;
 
         let mut message = Message::new()
             .from(&my_did)
