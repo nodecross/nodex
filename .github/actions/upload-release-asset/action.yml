@@ -28,7 +28,7 @@ runs:
       with:
         script: |
           const fs = require('fs').promises;
-          const asset = await fs.readFile("${{ inputs.content_path }}");
+          const asset = await fs.readFile("${{ inputs.asset_path }}");
           await github.rest.repos.uploadReleaseAsset({
             owner: context.repo.owner,
             repo: context.repo.repo,
