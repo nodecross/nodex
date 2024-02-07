@@ -1,1 +1,1 @@
-mod verifiable_message_usecase;
+pub mod verifiable_message_usecase;

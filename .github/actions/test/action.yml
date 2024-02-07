@@ -39,6 +39,7 @@ runs:
       env:
         NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
         NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
+        RUST_BACKTRACE: 1
 
     - name: (run) upload to coveralls
       uses: coverallsapp/github-action@v2

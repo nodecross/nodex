@@ -16,6 +16,12 @@ pub trait DidRepository {
 
 pub struct DidRepositoryImpl {}
 
+impl DidRepositoryImpl {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
 #[async_trait::async_trait]
 impl DidRepository for DidRepositoryImpl {
     async fn find_identifier(&self, did: &str) -> anyhow::Result<()> {
@@ -36,8 +42,19 @@ pub struct VerifiableMessageUseCase {
 }
 
 impl VerifiableMessageUseCase {
-    #[allow(dead_code)]
-    async fn generate(
+    pub fn new(
+        project_verifier: Box<dyn ProjectVerifier>,
+        did_repository: Box<dyn DidRepository>,
+    ) -> Self {
+        Self {
+            project_verifier,
+            did_repository,
+        }
+    }
+}
+
+impl VerifiableMessageUseCase {
+    pub async fn generate(
         &self,
         destination_did: String,
         message: String,

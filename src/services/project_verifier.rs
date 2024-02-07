@@ -11,6 +11,12 @@ pub trait ProjectVerifier {
 
 pub struct ProjectVerifierImplOnNetworkConfig {}
 
+impl ProjectVerifierImplOnNetworkConfig {
+    pub fn new() -> Self {
+        ProjectVerifierImplOnNetworkConfig {}
+    }
+}
+
 impl ProjectVerifier for ProjectVerifierImplOnNetworkConfig {
     fn create_project_hmac(&self) -> anyhow::Result<String> {
         let network = crate::network_config();

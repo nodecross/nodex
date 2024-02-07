@@ -43,6 +43,10 @@ pub fn new_server(
                 "/receive",
                 web::get().to(controllers::public::nodex_receive::handler),
             )
+            .route(
+                "/create-verifiable-message",
+                web::post().to(controllers::public::nodex_create_verifiable_message::handler),
+            )
             // NOTE: Internal (Private) Routes
             .service(
                 web::scope("/internal")
