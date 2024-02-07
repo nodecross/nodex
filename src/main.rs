@@ -1,8 +1,5 @@
 extern crate env_logger;
 
-pub use crate::config::app_config;
-pub use crate::network::network_config;
-
 use crate::{config::ServerConfig, controllers::public::nodex_receive};
 use clap::{Parser, Subcommand};
 use controllers::public::nodex_receive::ConnectionRepository;
@@ -28,12 +25,16 @@ mod network;
 mod nodex;
 mod server;
 mod services;
+mod usecase;
 
-shadow!(build);
+pub use crate::config::app_config;
+pub use crate::network::network_config;
 
 pub fn server_config() -> ServerConfig {
     ServerConfig::new()
 }
+
+shadow!(build);
 
 #[derive(Parser, Debug)]
 #[clap(name = "nodex-agent")]
