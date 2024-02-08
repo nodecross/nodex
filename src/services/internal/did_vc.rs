@@ -1,16 +1,29 @@
-use crate::nodex::{
-    cipher::credential_signer::{CredentialSigner, CredentialSignerSuite},
-    keyring::{self},
-    schema::general::{CredentialSubject, GeneralVcDataModel, Issuer},
+use crate::{
+    nodex::{
+        cipher::credential_signer::{CredentialSigner, CredentialSignerSuite},
+        keyring::{self},
+        schema::general::{CredentialSubject, GeneralVcDataModel, Issuer},
+    },
+    repository::did_repository::DidRepository,
 };
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 
-pub struct DIDVCService {}
+pub struct DIDVCService {
+    did_repository: Box<dyn DidRepository>,
+}
 
 impl DIDVCService {
-    pub fn generate(message: &Value, issuance_date: DateTime<Utc>) -> anyhow::Result<Value> {
+    pub fn new<R: DidRepository + 'static>(did_repository: R) -> Self {
+        Self {
+            did_repository: Box::new(did_repository),
+        }
+    }
+}
+
+impl DIDVCService {
+    pub fn generate(&self, message: &Value, issuance_date: DateTime<Utc>) -> anyhow::Result<Value> {
         let keyring = keyring::keypair::KeyPairing::load_keyring()?;
         let did = keyring.get_identifier()?;
 
@@ -44,12 +57,13 @@ impl DIDVCService {
         Ok(json!(signed))
     }
 
-    pub async fn verify(message: &Value) -> anyhow::Result<Value> {
-        let service = crate::services::nodex::NodeX::new();
-
+    pub async fn verify(&self, message: &Value) -> anyhow::Result<Value> {
         let model = serde_json::from_value::<GeneralVcDataModel>(message.clone())?;
 
-        let did_document = service.find_identifier(&model.issuer.id).await?;
+        let did_document = self
+            .did_repository
+            .find_identifier(&model.issuer.id)
+            .await?;
         let public_keys = did_document
             .did_document
             .public_key

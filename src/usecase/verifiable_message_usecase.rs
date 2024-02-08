@@ -1,5 +1,6 @@
-use crate::services::{
-    internal::did_vc::DIDVCService, nodex::NodeX, project_verifier::ProjectVerifier,
+use crate::{
+    repository::did_repository::DidRepository,
+    services::{internal::did_vc::DIDVCService, project_verifier::ProjectVerifier},
 };
 use anyhow::Context;
 use chrono::DateTime;
@@ -9,46 +10,22 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
-#[async_trait::async_trait]
-pub trait DidRepository {
-    async fn find_identifier(&self, did: &str) -> anyhow::Result<()>;
-}
-
-pub struct DidRepositoryImpl {}
-
-impl DidRepositoryImpl {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-#[async_trait::async_trait]
-impl DidRepository for DidRepositoryImpl {
-    async fn find_identifier(&self, did: &str) -> anyhow::Result<()> {
-        let service = NodeX::new();
-
-        service
-            .find_identifier(did)
-            .await
-            .context("destination did not found")?;
-
-        Ok(())
-    }
-}
-
 pub struct VerifiableMessageUseCase {
     project_verifier: Box<dyn ProjectVerifier>,
     did_repository: Box<dyn DidRepository>,
+    vc_service: DIDVCService,
 }
 
 impl VerifiableMessageUseCase {
     pub fn new(
         project_verifier: Box<dyn ProjectVerifier>,
         did_repository: Box<dyn DidRepository>,
+        vc_service: DIDVCService,
     ) -> Self {
         Self {
             project_verifier,
             did_repository,
+            vc_service,
         }
     }
 }
@@ -62,7 +39,8 @@ impl VerifiableMessageUseCase {
     ) -> anyhow::Result<String> {
         self.did_repository
             .find_identifier(&destination_did)
-            .await?;
+            .await
+            .context("destination did not found")?;
 
         let message = EncodedMessage {
             message_id: Uuid::new_v4().to_string(),
@@ -73,7 +51,7 @@ impl VerifiableMessageUseCase {
         };
 
         let message = serde_json::to_value(message)?;
-        let vc = DIDVCService::generate(&message, now)?;
+        let vc = DIDVCService::generate(&self.vc_service, &message, now)?;
 
         Ok(serde_json::to_string(&vc)?)
     }
@@ -82,7 +60,7 @@ impl VerifiableMessageUseCase {
     pub async fn verify(&self, message: &str) -> anyhow::Result<String> {
         let message = serde_json::from_str::<Value>(message)?;
 
-        let vc = DIDVCService::verify(&message)
+        let vc = DIDVCService::verify(&self.vc_service, &message)
             .await
             .context("verify failed")?;
 
@@ -118,7 +96,12 @@ pub struct EncodedMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::services::project_verifier::ProjectVerifier;
+    use crate::{
+        nodex::sidetree::payload::{
+            DIDDocument, DIDResolutionResponse, DidPublicKey, MethodMetadata,
+        },
+        services::{nodex::NodeX, project_verifier::ProjectVerifier},
+    };
 
     struct MockProjectVerifier {}
 
@@ -136,8 +119,33 @@ mod tests {
 
     #[async_trait::async_trait]
     impl DidRepository for MockDidRepository {
-        async fn find_identifier(&self, _did: &str) -> anyhow::Result<()> {
-            Ok(())
+        async fn create_identifier(&self) -> anyhow::Result<DIDResolutionResponse> {
+            let nodex = NodeX::new();
+            nodex.create_identifier().await
+        }
+        async fn find_identifier(&self, did: &str) -> anyhow::Result<DIDResolutionResponse> {
+            // extract from NodeX::create_identifier
+            let keyring = crate::nodex::keyring::keypair::KeyPairing::load_keyring()?;
+            let jwk = keyring.get_sign_key_pair().to_jwk(false)?;
+            Ok(DIDResolutionResponse {
+                context: "https://www.w3.org/ns/did-resolution/v1".to_string(),
+                did_document: DIDDocument {
+                    id: did.to_string(),
+                    public_key: Some(vec![DidPublicKey {
+                        id: did.to_string() + "#signingKey",
+                        controller: String::new(),
+                        r#type: "EcdsaSecp256k1VerificationKey2019".to_string(),
+                        public_key_jwk: jwk,
+                    }]),
+                    service: None,
+                    authentication: Some(vec!["signingKey".to_string()]),
+                },
+                method_metadata: MethodMetadata {
+                    published: true,
+                    recovery_commitment: None,
+                    update_commitment: None,
+                },
+            })
         }
     }
 
@@ -151,6 +159,7 @@ mod tests {
         let usecase = VerifiableMessageUseCase {
             project_verifier: Box::new(MockProjectVerifier {}),
             did_repository: Box::new(MockDidRepository {}),
+            vc_service: DIDVCService::new(MockDidRepository {}),
         };
 
         let destination_did = "did:example:123".to_string();

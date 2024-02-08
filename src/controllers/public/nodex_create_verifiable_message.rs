@@ -2,11 +2,11 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::usecase::verifiable_message_usecase::VerifiableMessageUseCase;
-use crate::{
-    services::project_verifier::ProjectVerifierImplOnNetworkConfig,
-    usecase::verifiable_message_usecase::DidRepositoryImpl,
+use crate::services::{
+    internal::did_vc::DIDVCService, nodex::NodeX,
+    project_verifier::ProjectVerifierImplOnNetworkConfig,
 };
+use crate::usecase::verifiable_message_usecase::VerifiableMessageUseCase;
 
 // NOTE: POST /create-verifiable-message
 #[derive(Deserialize, Serialize)]
@@ -23,7 +23,8 @@ pub async fn handler(
 
     let usecase = VerifiableMessageUseCase::new(
         Box::new(ProjectVerifierImplOnNetworkConfig::new()),
-        Box::new(DidRepositoryImpl::new()),
+        Box::new(NodeX::new()),
+        DIDVCService::new(NodeX::new()),
     );
 
     match usecase

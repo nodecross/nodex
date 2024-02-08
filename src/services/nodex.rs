@@ -1,14 +1,15 @@
-use super::internal::didcomm_encrypted::DIDCommEncryptedService;
-use crate::nodex::{
-    keyring,
-    sidetree::payload::{
-        CommitmentKeys, DIDCreateRequest, DIDResolutionResponse, OperationPayloadBuilder,
-    },
-    utils::http_client::{HttpClient, HttpClientConfig},
-};
 use crate::server_config;
-use chrono::Utc;
-use serde_json::{json, Value};
+use crate::{
+    nodex::{
+        keyring,
+        sidetree::payload::{
+            CommitmentKeys, DIDCreateRequest, DIDResolutionResponse, OperationPayloadBuilder,
+        },
+        utils::http_client::{HttpClient, HttpClientConfig},
+    },
+    repository::did_repository::DidRepository,
+};
+
 use std::{fs, process::Command};
 
 pub struct NodeX {
@@ -84,21 +85,6 @@ impl NodeX {
         Ok(res.json::<DIDResolutionResponse>().await?)
     }
 
-    #[allow(dead_code)]
-    pub async fn transfer(
-        &self,
-        to_did: &str,
-        messages: &Vec<Value>,
-        metadata: &Value,
-    ) -> anyhow::Result<Value> {
-        // NOTE: didcomm (enc)
-        let container =
-            DIDCommEncryptedService::generate(to_did, &json!(messages), Some(metadata), Utc::now())
-                .await?;
-
-        Ok(container)
-    }
-
     pub async fn update_version(&self, binary_url: &str, path: &str) -> anyhow::Result<()> {
         let response = reqwest::get(binary_url).await?;
         let content = response.bytes().await?;
@@ -108,5 +94,17 @@ impl NodeX {
         Command::new("chmod").arg("+x").arg(path).status()?;
         Command::new(path).spawn()?;
         Ok(())
+    }
+}
+
+// TODO: use other impl
+#[async_trait::async_trait]
+impl DidRepository for NodeX {
+    async fn create_identifier(&self) -> anyhow::Result<DIDResolutionResponse> {
+        NodeX::create_identifier(self).await
+    }
+
+    async fn find_identifier(&self, did: &str) -> anyhow::Result<DIDResolutionResponse> {
+        NodeX::find_identifier(self, did).await
     }
 }
