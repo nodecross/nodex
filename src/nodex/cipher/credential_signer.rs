@@ -48,9 +48,9 @@ pub struct CredentialSignerSuite {
 
 #[derive(Debug, Error)]
 pub enum CredentialSignerError {
-    #[error(transparent)]
+    #[error("jws error: {0:?}")]
     JwsError(#[from] super::jws::JwsError),
-    #[error(transparent)]
+    #[error("json parse error: {0:?}")]
     JsonParseError(#[from] serde_json::Error),
     #[error("did is none. please set did")]
     DidIsNone,

@@ -3,6 +3,7 @@ use crate::nodex::{
     keyring::{self},
     schema::general::{CredentialSubject, GeneralVcDataModel, Issuer},
 };
+use anyhow::Context;
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 
@@ -68,7 +69,8 @@ impl DIDVCService {
                 key_id: None,
                 context,
             },
-        )?;
+        )
+        .context("failed to verify credential")?;
 
         anyhow::ensure!(verified, "signature is not verified");
 
