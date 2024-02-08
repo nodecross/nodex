@@ -3,19 +3,19 @@ use crate::nodex::{
     keyring::{self},
     schema::general::{CredentialSubject, GeneralVcDataModel, Issuer},
 };
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 
 pub struct DIDVCService {}
 
 impl DIDVCService {
-    pub fn generate(message: &Value) -> anyhow::Result<Value> {
+    pub fn generate(message: &Value, issuance_date: DateTime<Utc>) -> anyhow::Result<Value> {
         let keyring = keyring::keypair::KeyPairing::load_keyring()?;
         let did = keyring.get_identifier()?;
 
         let r#type = "VerifiableCredential".to_string();
         let context = "https://www.w3.org/2018/credentials/v1".to_string();
-        let issuance_date = Utc::now().to_rfc3339();
+        let issuance_date = issuance_date.to_rfc3339();
 
         let model = GeneralVcDataModel {
             id: None,

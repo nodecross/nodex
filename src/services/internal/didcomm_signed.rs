@@ -3,6 +3,7 @@ use crate::nodex::{
     runtime::base64_url::{self, PaddingType},
     schema::general::GeneralVcDataModel,
 };
+use chrono::{DateTime, Utc};
 use cuid;
 use didcomm_rs::{
     crypto::{SignatureAlgorithm, Signer},
@@ -19,11 +20,12 @@ impl DIDCommSignedService {
         to_did: &str,
         message: &Value,
         metadata: Option<&Value>,
+        issuance_date: DateTime<Utc>,
     ) -> anyhow::Result<Value> {
         let keyring = keyring::keypair::KeyPairing::load_keyring()?;
         let did = keyring.get_identifier()?;
 
-        let body = DIDVCService::generate(message)?;
+        let body = DIDVCService::generate(message, issuance_date)?;
 
         let mut message = Message::new()
             .from(&did)
