@@ -63,7 +63,8 @@ impl DIDVCService {
         let did_document = self
             .did_repository
             .find_identifier(&model.issuer.id)
-            .await?;
+            .await?
+            .context(format!("did {} not found", &model.issuer.id))?;
         let public_keys = did_document
             .did_document
             .public_key

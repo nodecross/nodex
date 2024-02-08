@@ -8,6 +8,7 @@ use chrono::Utc;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use thiserror::Error;
 use uuid::Uuid;
 
 pub struct VerifiableMessageUseCase {
@@ -30,17 +31,33 @@ impl VerifiableMessageUseCase {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum CreateVerifiableMessageUseCaseError {
+    #[error("destination did not found")]
+    DestinationNotFound,
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum VerifyVerifiableMessageUseCaseError {
+    #[error("verification failed")]
+    VerificationFailed,
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
 impl VerifiableMessageUseCase {
     pub async fn generate(
         &self,
         destination_did: String,
         message: String,
         now: DateTime<Utc>,
-    ) -> anyhow::Result<String> {
+    ) -> Result<String, CreateVerifiableMessageUseCaseError> {
         self.did_repository
             .find_identifier(&destination_did)
-            .await
-            .context("destination did not found")?;
+            .await?
+            .ok_or(CreateVerifiableMessageUseCaseError::DestinationNotFound)?;
 
         let message = EncodedMessage {
             message_id: Uuid::new_v4().to_string(),
@@ -50,15 +67,18 @@ impl VerifiableMessageUseCase {
             project_hmac: self.project_verifier.create_project_hmac()?,
         };
 
-        let message = serde_json::to_value(message)?;
+        let message = serde_json::to_value(message).context("failed to convert to value")?;
         let vc = DIDVCService::generate(&self.vc_service, &message, now)?;
 
-        Ok(serde_json::to_string(&vc)?)
+        Ok(serde_json::to_string(&vc).context("failed to serialize")?)
     }
 
     #[allow(dead_code)]
-    pub async fn verify(&self, message: &str) -> anyhow::Result<String> {
-        let message = serde_json::from_str::<Value>(message)?;
+    pub async fn verify(
+        &self,
+        message: &str,
+    ) -> Result<String, VerifyVerifiableMessageUseCaseError> {
+        let message = serde_json::from_str::<Value>(message).context("failed to decode str")?;
 
         let vc = DIDVCService::verify(&self.vc_service, &message)
             .await
@@ -71,16 +91,17 @@ impl VerifiableMessageUseCase {
             .context("container not found")?
             .clone();
 
-        let message = serde_json::from_value::<EncodedMessage>(container)?;
+        let message = serde_json::from_value::<EncodedMessage>(container)
+            .context("failed to deserialize to EncodedMessage")?;
 
-        if !self
+        if self
             .project_verifier
             .verify_project_hmac(&message.project_hmac)?
         {
-            anyhow::bail!("project hmac is not valid");
+            Ok(message.payload)
+        } else {
+            Err(VerifyVerifiableMessageUseCaseError::VerificationFailed)
         }
-
-        Ok(message.payload)
     }
 }
 
@@ -127,15 +148,20 @@ mod tests {
             let mut keyring = KeyPairing::create_keyring()?;
             keyring.save(did);
 
-            self.find_identifier(&did).await
+            self.find_identifier(&did)
+                .await
+                .and_then(|x| x.context("unreachable"))
         }
-        async fn find_identifier(&self, did: &str) -> anyhow::Result<DIDResolutionResponse> {
+        async fn find_identifier(
+            &self,
+            did: &str,
+        ) -> anyhow::Result<Option<DIDResolutionResponse>> {
             // extract from NodeX::create_identifier
             let jwk = KeyPairing::load_keyring()?
                 .get_sign_key_pair()
                 .to_jwk(false)?;
 
-            Ok(DIDResolutionResponse {
+            Ok(Some(DIDResolutionResponse {
                 context: "https://www.w3.org/ns/did-resolution/v1".to_string(),
                 did_document: DIDDocument {
                     id: did.to_string(),
@@ -153,7 +179,7 @@ mod tests {
                     recovery_commitment: None,
                     update_commitment: None,
                 },
-            })
+            }))
         }
     }
 

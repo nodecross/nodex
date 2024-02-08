@@ -1,11 +1,14 @@
 use actix_web::{web, HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
 
-use crate::services::{
-    internal::did_vc::DIDVCService, nodex::NodeX,
-    project_verifier::ProjectVerifierImplOnNetworkConfig,
-};
 use crate::usecase::verifiable_message_usecase::VerifiableMessageUseCase;
+use crate::{
+    services::{
+        internal::did_vc::DIDVCService, nodex::NodeX,
+        project_verifier::ProjectVerifierImplOnNetworkConfig,
+    },
+    usecase::verifiable_message_usecase::VerifyVerifiableMessageUseCaseError,
+};
 
 // NOTE: POST /verify-verifiable-message
 #[derive(Deserialize, Serialize)]
@@ -25,9 +28,14 @@ pub async fn handler(
 
     match usecase.verify(&json.message).await {
         Ok(v) => Ok(HttpResponse::Ok().json(&v)),
-        Err(e) => {
-            log::error!("{:#?}", e);
-            Ok(HttpResponse::InternalServerError().finish())
-        }
+        Err(e) => match e {
+            VerifyVerifiableMessageUseCaseError::VerificationFailed => {
+                Ok(HttpResponse::Unauthorized().finish())
+            }
+            VerifyVerifiableMessageUseCaseError::Other(e) => {
+                log::error!("{:?}", e);
+                Ok(HttpResponse::InternalServerError().finish())
+            }
+        },
     }
 }
