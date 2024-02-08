@@ -184,7 +184,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_verifiable_message_usecase() {
+    async fn test_create_and_verify() {
         // generate local did and keys
         let repository = MockDidRepository {};
         repository.create_identifier().await.unwrap();
@@ -224,5 +224,97 @@ mod tests {
 
         let verified = usecase.verify(&generated).await.unwrap();
         assert_eq!(verified, message);
+    }
+
+    #[tokio::test]
+    async fn test_generate_did_not_found() {
+        struct NotFoundDidRepository {}
+
+        #[async_trait::async_trait]
+        impl DidRepository for NotFoundDidRepository {
+            async fn create_identifier(&self) -> anyhow::Result<DIDResolutionResponse> {
+                unreachable!()
+            }
+            async fn find_identifier(
+                &self,
+                _did: &str,
+            ) -> anyhow::Result<Option<DIDResolutionResponse>> {
+                Ok(None)
+            }
+        }
+
+        let usecase = VerifiableMessageUseCase {
+            project_verifier: Box::new(MockProjectVerifier {}),
+            did_repository: Box::new(NotFoundDidRepository {}),
+            vc_service: DIDVCService::new(MockDidRepository {}),
+        };
+
+        let destination_did = "did:example:123".to_string();
+        let message = "Hello".to_string();
+
+        let now = Utc::now();
+        let generated = usecase.generate(destination_did, message, now).await;
+
+        if let Err(CreateVerifiableMessageUseCaseError::DestinationNotFound) = generated {
+        } else {
+            panic!("unexpected result: {:?}", generated);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_verify_verify_failed() {
+        // generate local did and keys
+        let repository = MockDidRepository {};
+        repository.create_identifier().await.unwrap();
+
+        struct VerifyFailedVerifier {}
+
+        impl ProjectVerifier for VerifyFailedVerifier {
+            fn create_project_hmac(&self) -> anyhow::Result<String> {
+                Ok("mock".to_string())
+            }
+            fn verify_project_hmac(&self, _signature: &str) -> anyhow::Result<bool> {
+                Ok(false)
+            }
+        }
+
+        let usecase = VerifiableMessageUseCase {
+            project_verifier: Box::new(VerifyFailedVerifier {}),
+            did_repository: Box::new(MockDidRepository {}),
+            vc_service: DIDVCService::new(MockDidRepository {}),
+        };
+
+        let destination_did = "did:example:123".to_string();
+        let message = "Hello".to_string();
+
+        let now = Utc::now();
+        let generated = usecase
+            .generate(destination_did, message.clone(), now)
+            .await
+            .unwrap();
+
+        let result: Value = serde_json::from_str(&generated).unwrap();
+        dbg!(&result);
+
+        let message_id = result["credentialSubject"]["container"]["message_id"]
+            .as_str()
+            .unwrap();
+
+        assert_eq!(
+            result["credentialSubject"]["container"],
+            serde_json::json!({
+                "message_id": message_id,
+                "payload": "Hello",
+                "destination_did": "did:example:123",
+                "created_at": now.to_rfc3339(),
+                "project_hmac": "mock"
+            })
+        );
+        let verified = usecase.verify(&generated).await;
+
+        if let Err(VerifyVerifiableMessageUseCaseError::VerificationFailed) = verified {
+        } else {
+            panic!("unexpected result: {:?}", generated);
+        }
     }
 }
