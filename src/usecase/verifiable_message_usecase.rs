@@ -97,10 +97,11 @@ pub struct EncodedMessage {
 mod tests {
     use super::*;
     use crate::{
+        nodex::keyring::keypair::KeyPairing,
         nodex::sidetree::payload::{
             DIDDocument, DIDResolutionResponse, DidPublicKey, MethodMetadata,
         },
-        services::{nodex::NodeX, project_verifier::ProjectVerifier},
+        services::project_verifier::ProjectVerifier,
     };
 
     struct MockProjectVerifier {}
@@ -120,13 +121,20 @@ mod tests {
     #[async_trait::async_trait]
     impl DidRepository for MockDidRepository {
         async fn create_identifier(&self) -> anyhow::Result<DIDResolutionResponse> {
-            let nodex = NodeX::new();
-            nodex.create_identifier().await
+            // DID doesn't matter
+            let did = "did:example:123";
+
+            let mut keyring = KeyPairing::create_keyring()?;
+            keyring.save(did);
+
+            self.find_identifier(&did).await
         }
         async fn find_identifier(&self, did: &str) -> anyhow::Result<DIDResolutionResponse> {
             // extract from NodeX::create_identifier
-            let keyring = crate::nodex::keyring::keypair::KeyPairing::load_keyring()?;
-            let jwk = keyring.get_sign_key_pair().to_jwk(false)?;
+            let jwk = KeyPairing::load_keyring()?
+                .get_sign_key_pair()
+                .to_jwk(false)?;
+
             Ok(DIDResolutionResponse {
                 context: "https://www.w3.org/ns/did-resolution/v1".to_string(),
                 did_document: DIDDocument {
@@ -152,9 +160,8 @@ mod tests {
     #[tokio::test]
     async fn test_verifiable_message_usecase() {
         // generate local did and keys
-        // NOTE: this is integration test
-        // TODO: use mock or move to integration test
-        NodeX::new().create_identifier().await.unwrap();
+        let repository = MockDidRepository {};
+        repository.create_identifier().await.unwrap();
 
         let usecase = VerifiableMessageUseCase {
             project_verifier: Box::new(MockProjectVerifier {}),

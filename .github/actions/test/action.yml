@@ -29,17 +29,9 @@ runs:
       shell: bash
       run: cargo install cargo-llvm-cov
 
-    - name: (run) run mock server
-      shell: bash
-      run: docker compose -f test_resources/compose.yaml up -d
-
     - name: (run) tests
       shell: bash
       run: cargo llvm-cov --lcov --output-path coverage.lcov
-      env:
-        NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
-        NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
-        RUST_BACKTRACE: 1
 
     - name: (run) upload to coveralls
       uses: coverallsapp/github-action@v2
