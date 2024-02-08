@@ -239,7 +239,7 @@ fn use_cli(command: Option<Commands>, did: String) {
             Commands::Network { command } => match command {
                 NetworkSubCommands::Set { key, value } => match &*key {
                     SECRET_KEY => {
-                        network_config.save_secretk_key(&value);
+                        network_config.save_secret_key(&value);
                         print!("Network {} is set", SECRET_KEY);
                     }
                     PROJECT_DID => {

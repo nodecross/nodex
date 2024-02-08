@@ -109,7 +109,7 @@ impl Network {
         self.root.secret_key.clone()
     }
 
-    pub fn save_secretk_key(&mut self, value: &str) {
+    pub fn save_secret_key(&mut self, value: &str) {
         self.root.secret_key = Some(value.to_string());
         self.write();
     }
