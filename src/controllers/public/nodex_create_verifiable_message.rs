@@ -2,7 +2,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::usecase::verifiable_message_usecase::VerifiableMessageUseCase;
+use crate::{services::hub::Hub, usecase::verifiable_message_usecase::VerifiableMessageUseCase};
 use crate::{
     services::{
         internal::did_vc::DIDVCService, nodex::NodeX,
@@ -16,6 +16,7 @@ use crate::{
 pub struct MessageContainer {
     destination_did: String,
     message: String,
+    operation_tag: String,
 }
 
 pub async fn handler(
@@ -27,11 +28,12 @@ pub async fn handler(
     let usecase = VerifiableMessageUseCase::new(
         Box::new(ProjectVerifierImplOnNetworkConfig::new()),
         Box::new(NodeX::new()),
+        Box::new(Hub::new()),
         DIDVCService::new(NodeX::new()),
     );
 
     match usecase
-        .generate(json.destination_did, json.message, now)
+        .generate(json.destination_did, json.message, json.operation_tag, now)
         .await
     {
         Ok(v) => Ok(HttpResponse::Ok().body(v)),

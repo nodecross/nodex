@@ -35,6 +35,7 @@ async fn create_verifiable_message_scenario() -> anyhow::Result<String> {
 
     let body = json!({
         "destination_did": my_did,
+        "operation_tag": "test",
         "message": "Hello, world!"
     })
     .to_string();

@@ -1,8 +1,17 @@
-use crate::nodex::utils::hub_client::{HubClient, HubClientConfig};
 use crate::server_config;
+use crate::{
+    nodex::utils::hub_client::{HubClient, HubClientConfig},
+    repository::message_activity_repository::{
+        CreatedMessageActivityRequest, MessageActivityRepository, VerifiedMessageActivityRequest,
+    },
+};
 
+use anyhow::Context;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
+
+use super::internal::didcomm_encrypted::DIDCommEncryptedService;
 
 #[derive(Deserialize)]
 pub struct EmptyResponse {}
@@ -239,6 +248,89 @@ impl Hub {
                 Err(e) => anyhow::bail!("StatusCode=400, but parse failed. {:?}", e),
             },
             other => anyhow::bail!("StatusCode={other}, unexpected response"),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl MessageActivityRepository for Hub {
+    async fn add_create_activity(
+        &self,
+        request: CreatedMessageActivityRequest,
+    ) -> anyhow::Result<()> {
+        let project_did = {
+            let network = crate::network_config();
+            let network = network.lock();
+            network.get_project_did().expect("project_did is not set")
+        };
+        let payload = DIDCommEncryptedService::generate(
+            &project_did,
+            &json!(request),
+            None,
+            request.occurred_at,
+        )
+        .await?;
+        let payload = serde_json::to_string(&payload).context("failed to serialize")?;
+
+        let res = self
+            .http_client
+            .post("/v1/message_activity", &payload)
+            .await?;
+
+        match res.status() {
+            reqwest::StatusCode::OK => {
+                res.json::<EmptyResponse>().await?;
+                Ok(())
+            }
+            reqwest::StatusCode::BAD_REQUEST => {
+                anyhow::bail!("StatusCode=400, bad request")
+            }
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
+                anyhow::bail!("StatusCode=500, internal server error");
+            }
+            other => {
+                anyhow::bail!("StatusCode={other}, unexpected response");
+            }
+        }
+    }
+
+    async fn add_verify_activity(
+        &self,
+        request: VerifiedMessageActivityRequest,
+    ) -> anyhow::Result<()> {
+        let project_did = {
+            let network = crate::network_config();
+            let network = network.lock();
+            network.get_project_did().expect("project_did is not set")
+        };
+        let payload = DIDCommEncryptedService::generate(
+            &project_did,
+            &json!(request),
+            None,
+            request.verified_at,
+        )
+        .await?;
+        let payload = serde_json::to_string(&payload).context("failed to serialize")?;
+
+        let res = self
+            .http_client
+            .put("/v1/message_activity", &payload)
+            .await?;
+
+        match res.status() {
+            reqwest::StatusCode::OK => {
+                res.json::<EmptyResponse>().await?;
+                Ok(())
+            }
+            reqwest::StatusCode::BAD_REQUEST => {
+                anyhow::bail!("StatusCode=400, bad request")
+            }
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
+                anyhow::bail!("StatusCode=500, internal server error");
+            }
+            other => {
+                anyhow::bail!("StatusCode={other}, unexpected response");
+            }
         }
     }
 }
