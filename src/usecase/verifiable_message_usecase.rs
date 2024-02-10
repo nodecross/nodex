@@ -139,16 +139,18 @@ mod tests {
 
     struct MockDidRepository {}
 
+    const DEFAULT_DID: &str = "did:nodex:test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
     #[async_trait::async_trait]
     impl DidRepository for MockDidRepository {
         async fn create_identifier(&self) -> anyhow::Result<DIDResolutionResponse> {
-            // DID doesn't matter
-            let did = "did:example:123";
+            if KeyPairing::load_keyring().is_err() {
+                // DID doesn't matter
+                let mut keyring = KeyPairing::create_keyring()?;
+                keyring.save(DEFAULT_DID);
+            }
 
-            let mut keyring = KeyPairing::create_keyring()?;
-            keyring.save(did);
-
-            self.find_identifier(&did)
+            self.find_identifier(DEFAULT_DID)
                 .await
                 .and_then(|x| x.context("unreachable"))
         }
@@ -161,7 +163,7 @@ mod tests {
                 .get_sign_key_pair()
                 .to_jwk(false)?;
 
-            Ok(Some(DIDResolutionResponse {
+            let response = DIDResolutionResponse {
                 context: "https://www.w3.org/ns/did-resolution/v1".to_string(),
                 did_document: DIDDocument {
                     id: did.to_string(),
@@ -179,7 +181,9 @@ mod tests {
                     recovery_commitment: None,
                     update_commitment: None,
                 },
-            }))
+            };
+
+            Ok(Some(response))
         }
     }
 
@@ -187,7 +191,8 @@ mod tests {
     async fn test_create_and_verify() {
         // generate local did and keys
         let repository = MockDidRepository {};
-        repository.create_identifier().await.unwrap();
+        let _did = repository.create_identifier().await.unwrap();
+        dbg!(&_did);
 
         let usecase = VerifiableMessageUseCase {
             project_verifier: Box::new(MockProjectVerifier {}),
@@ -294,7 +299,6 @@ mod tests {
             .unwrap();
 
         let result: Value = serde_json::from_str(&generated).unwrap();
-        dbg!(&result);
 
         let message_id = result["credentialSubject"]["container"]["message_id"]
             .as_str()

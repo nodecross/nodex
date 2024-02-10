@@ -34,7 +34,7 @@ pub async fn handler(
         .generate(json.destination_did, json.message, now)
         .await
     {
-        Ok(v) => Ok(HttpResponse::Ok().json(&v)),
+        Ok(v) => Ok(HttpResponse::Ok().body(v)),
         Err(e) => match e {
             CreateVerifiableMessageUseCaseError::DestinationNotFound => {
                 Ok(HttpResponse::NotFound().finish())

@@ -13,6 +13,9 @@ keywords = ["iot", "embedded", "root-of-trust", "did"]
 categories = ["embedded", "cryptography"]
 build = "build.rs"
 
+[workspace]
+members = ["e2e"]
+
 [[bin]]
 name = "nodex-agent"
 path = "src/main.rs"
