@@ -17,6 +17,7 @@ use didcomm_rs::{
 use serde_json::Value;
 use x25519_dalek::{PublicKey, StaticSecret};
 
+// TODO: use DidRepository
 pub struct DIDCommEncryptedService {}
 
 impl DIDCommEncryptedService {
@@ -56,7 +57,7 @@ impl DIDCommEncryptedService {
         let pk = PublicKey::from(&sk);
 
         // NOTE: message
-        let body = DIDVCService::generate(message, issuance_date)?;
+        let body = DIDVCService::new(service).generate(message, issuance_date)?;
 
         let mut message = Message::new()
             .from(&my_did)
