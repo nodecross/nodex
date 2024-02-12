@@ -14,6 +14,8 @@ pub struct CreatedMessageActivityRequest {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct VerifiedMessageActivityRequest {
+    pub from: String,
+    pub to: String,
     pub message_id: Uuid,
     pub verified_at: DateTime<Utc>,
     pub status: VerifiedStatus,

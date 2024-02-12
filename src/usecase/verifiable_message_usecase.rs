@@ -1,13 +1,13 @@
 use crate::{
+    nodex::schema::general::GeneralVcDataModel,
     repository::{did_repository::DidRepository, message_activity_repository::*},
     services::{internal::did_vc::DIDVCService, project_verifier::ProjectVerifier},
 };
 use anyhow::Context;
 use chrono::DateTime;
 use chrono::Utc;
-
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::json;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -46,8 +46,16 @@ pub enum CreateVerifiableMessageUseCaseError {
 pub enum VerifyVerifiableMessageUseCaseError {
     #[error("verification failed")]
     VerificationFailed,
+    #[error("This message is not addressed to me")]
+    NotAddressedToMe,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+}
+
+fn get_my_did() -> String {
+    let config = crate::app_config();
+    let config = config.lock();
+    config.get_did().unwrap().to_string()
 }
 
 impl VerifiableMessageUseCase {
@@ -64,11 +72,7 @@ impl VerifiableMessageUseCase {
             .ok_or(CreateVerifiableMessageUseCaseError::DestinationNotFound)?;
 
         let message_id = Uuid::new_v4();
-        let my_did = {
-            let config = crate::app_config();
-            let config = config.lock();
-            config.get_did().unwrap().to_string()
-        };
+        let my_did = get_my_did();
         let message = EncodedMessage {
             message_id,
             payload: message,
@@ -102,9 +106,11 @@ impl VerifiableMessageUseCase {
         message: &str,
         now: DateTime<Utc>,
     ) -> Result<String, VerifyVerifiableMessageUseCaseError> {
-        let message = serde_json::from_str::<Value>(message).context("failed to decode str")?;
+        let message =
+            serde_json::from_str::<GeneralVcDataModel>(message).context("failed to decode str")?;
+        let from_did = message.issuer.id.clone();
 
-        let vc = DIDVCService::verify(&self.vc_service, &message)
+        let vc = DIDVCService::verify(&self.vc_service, &json!(message))
             .await
             .context("verify failed")?;
 
@@ -118,12 +124,20 @@ impl VerifiableMessageUseCase {
         let message = serde_json::from_value::<EncodedMessage>(container)
             .context("failed to deserialize to EncodedMessage")?;
 
+        let my_did = get_my_did();
+
+        if message.destination_did != my_did {
+            return Err(VerifyVerifiableMessageUseCaseError::NotAddressedToMe);
+        }
+
         if self
             .project_verifier
             .verify_project_hmac(&message.project_hmac)?
         {
             self.message_activity_repository
                 .add_verify_activity(VerifiedMessageActivityRequest {
+                    from: from_did,
+                    to: my_did,
                     message_id: message.message_id,
                     verified_at: now,
                     status: VerifiedStatus::Valid,
@@ -134,6 +148,8 @@ impl VerifiableMessageUseCase {
         } else {
             self.message_activity_repository
                 .add_verify_activity(VerifiedMessageActivityRequest {
+                    from: from_did,
+                    to: my_did,
                     message_id: message.message_id,
                     verified_at: now,
                     status: VerifiedStatus::Invalid,
@@ -164,6 +180,13 @@ mod tests {
         },
         services::project_verifier::ProjectVerifier,
     };
+    use serde_json::Value;
+
+    fn get_my_did() -> String {
+        let config = crate::app_config();
+        let config = config.lock();
+        config.get_did().unwrap().to_string()
+    }
 
     struct MockProjectVerifier {}
 
@@ -260,12 +283,17 @@ mod tests {
             vc_service: DIDVCService::new(MockDidRepository {}),
         };
 
-        let destination_did = "did:example:123".to_string();
+        let destination_did = get_my_did();
         let message = "Hello".to_string();
 
         let now = Utc::now();
         let generated = usecase
-            .generate(destination_did, message.clone(), "test".to_string(), now)
+            .generate(
+                destination_did.clone(),
+                message.clone(),
+                "test".to_string(),
+                now,
+            )
             .await
             .unwrap();
 
@@ -281,7 +309,7 @@ mod tests {
             serde_json::json!({
                 "message_id": message_id,
                 "payload": "Hello",
-                "destination_did": "did:example:123",
+                "destination_did": destination_did,
                 "created_at": now.to_rfc3339(),
                 "project_hmac": "mock"
             })
@@ -420,12 +448,17 @@ mod tests {
                 vc_service: DIDVCService::new(MockDidRepository {}),
             };
 
-            let destination_did = "did:example:123".to_string();
+            let destination_did = get_my_did();
             let message = "Hello".to_string();
 
             let now = Utc::now();
             let generated = usecase
-                .generate(destination_did, message.clone(), "test".to_string(), now)
+                .generate(
+                    destination_did.clone(),
+                    message.clone(),
+                    "test".to_string(),
+                    now,
+                )
                 .await
                 .unwrap();
 
@@ -440,13 +473,43 @@ mod tests {
                 serde_json::json!({
                     "message_id": message_id,
                     "payload": "Hello",
-                    "destination_did": "did:example:123",
+                    "destination_did": destination_did,
                     "created_at": now.to_rfc3339(),
                     "project_hmac": "mock"
                 })
             );
 
             generated
+        }
+
+        #[tokio::test]
+        async fn test_verify_not_addressed_to_me() {
+            // generate local did and keys
+            let repository = MockDidRepository {};
+            repository.create_identifier().await.unwrap();
+
+            let destination_did = "did:nodex:test:ILLEGAL".to_string();
+            let message = "Hello".to_string();
+
+            let usecase = VerifiableMessageUseCase {
+                project_verifier: Box::new(MockProjectVerifier {}),
+                did_repository: Box::new(MockDidRepository {}),
+                message_activity_repository: Box::new(MockActivityRepository {}),
+                vc_service: DIDVCService::new(MockDidRepository {}),
+            };
+
+            let now = Utc::now();
+            let generated = usecase
+                .generate(destination_did, message.clone(), "test".to_string(), now)
+                .await
+                .unwrap();
+
+            let verified = usecase.verify(&generated, Utc::now()).await;
+
+            if let Err(VerifyVerifiableMessageUseCaseError::NotAddressedToMe) = verified {
+            } else {
+                panic!("unexpected result: {:?}", verified);
+            }
         }
 
         #[tokio::test]
@@ -478,7 +541,7 @@ mod tests {
 
             if let Err(VerifyVerifiableMessageUseCaseError::VerificationFailed) = verified {
             } else {
-                panic!("unexpected result: {:?}", generated);
+                panic!("unexpected result: {:?}", verified);
             }
         }
 
@@ -515,7 +578,7 @@ mod tests {
 
             if let Err(VerifyVerifiableMessageUseCaseError::Other(_)) = verified {
             } else {
-                panic!("unexpected result: {:?}", generated);
+                panic!("unexpected result: {:?}", verified);
             }
         }
 
@@ -552,7 +615,7 @@ mod tests {
 
             if let Err(VerifyVerifiableMessageUseCaseError::Other(_)) = verified {
             } else {
-                panic!("unexpected result: {:?}", generated);
+                panic!("unexpected result: {:?}", verified);
             }
         }
     }
