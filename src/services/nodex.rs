@@ -1,18 +1,35 @@
-use super::internal::didcomm_encrypted::DIDCommEncryptedService;
-use crate::nodex::{
-    keyring,
-    sidetree::payload::{
-        CommitmentKeys, DIDCreateRequest, DIDResolutionResponse, OperationPayloadBuilder,
-    },
-    utils::http_client::{HttpClient, HttpClientConfig},
-};
 use crate::server_config;
-use chrono::Utc;
-use serde_json::{json, Value};
+use crate::{
+    nodex::{
+        keyring,
+        sidetree::payload::{
+            CommitmentKeys, DIDCreateRequest, DIDResolutionResponse, OperationPayloadBuilder,
+        },
+        utils::http_client::{HttpClient, HttpClientConfig},
+    },
+    repository::did_repository::DidRepository,
+};
+
+use reqwest::StatusCode;
+use serde::Deserialize;
 use std::{fs, process::Command};
+use thiserror::Error;
 
 pub struct NodeX {
     http_client: HttpClient,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SideTreeErrorBody {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Error)]
+#[error("SideTreeError: {status_code}")]
+pub struct SideTreeError {
+    pub status_code: StatusCode,
+    pub error: SideTreeErrorBody,
 }
 
 impl NodeX {
@@ -40,7 +57,7 @@ impl NodeX {
         // NOTE: find did
         if let Ok(v) = keyring::keypair::KeyPairing::load_keyring() {
             if let Ok(did) = v.get_identifier() {
-                if let Ok(json) = self.find_identifier(&did).await {
+                if let Some(json) = self.find_identifier(&did).await? {
                     return Ok(json);
                 }
             }
@@ -66,37 +83,46 @@ impl NodeX {
             .post("/api/v1/operations", &payload)
             .await?;
 
-        let json = res.json::<DIDResolutionResponse>().await?;
+        if res.status().is_success() {
+            let json = res.json::<DIDResolutionResponse>().await?;
 
-        // NOTE: save context
-        keyring.save(&json.did_document.id);
+            // NOTE: save context
+            keyring.save(&json.did_document.id);
 
-        Ok(json)
+            Ok(json)
+        } else {
+            let status = res.status();
+            let error = res.json::<SideTreeErrorBody>().await?;
+            Err(SideTreeError {
+                status_code: status,
+                error,
+            }
+            .into())
+        }
     }
 
     // NOTE: DONE
-    pub async fn find_identifier(&self, did: &str) -> anyhow::Result<DIDResolutionResponse> {
+    pub async fn find_identifier(
+        &self,
+        did: &str,
+    ) -> anyhow::Result<Option<DIDResolutionResponse>> {
         let res = self
             .http_client
             .get(&(format!("/api/v1/identifiers/{}", &did)))
             .await?;
 
-        Ok(res.json::<DIDResolutionResponse>().await?)
-    }
-
-    #[allow(dead_code)]
-    pub async fn transfer(
-        &self,
-        to_did: &str,
-        messages: &Vec<Value>,
-        metadata: &Value,
-    ) -> anyhow::Result<Value> {
-        // NOTE: didcomm (enc)
-        let container =
-            DIDCommEncryptedService::generate(to_did, &json!(messages), Some(metadata), Utc::now())
-                .await?;
-
-        Ok(container)
+        match res.status() {
+            StatusCode::OK => Ok(Some(res.json::<DIDResolutionResponse>().await?)),
+            StatusCode::NOT_FOUND => Ok(None),
+            other => {
+                let error = res.json::<SideTreeErrorBody>().await?;
+                Err(SideTreeError {
+                    status_code: other,
+                    error,
+                }
+                .into())
+            }
+        }
     }
 
     pub async fn update_version(&self, binary_url: &str, path: &str) -> anyhow::Result<()> {
@@ -108,5 +134,17 @@ impl NodeX {
         Command::new("chmod").arg("+x").arg(path).status()?;
         Command::new(path).spawn()?;
         Ok(())
+    }
+}
+
+// TODO: use other impl
+#[async_trait::async_trait]
+impl DidRepository for NodeX {
+    async fn create_identifier(&self) -> anyhow::Result<DIDResolutionResponse> {
+        NodeX::create_identifier(self).await
+    }
+
+    async fn find_identifier(&self, did: &str) -> anyhow::Result<Option<DIDResolutionResponse>> {
+        NodeX::find_identifier(self, did).await
     }
 }

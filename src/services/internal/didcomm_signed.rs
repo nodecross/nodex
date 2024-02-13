@@ -1,8 +1,12 @@
-use crate::nodex::{
-    keyring::{self},
-    runtime::base64_url::{self, PaddingType},
-    schema::general::GeneralVcDataModel,
+use crate::{
+    nodex::{
+        keyring::{self},
+        runtime::base64_url::{self, PaddingType},
+        schema::general::GeneralVcDataModel,
+    },
+    services::nodex::NodeX,
 };
+use anyhow::Context;
 use chrono::{DateTime, Utc};
 use cuid;
 use didcomm_rs::{
@@ -25,7 +29,7 @@ impl DIDCommSignedService {
         let keyring = keyring::keypair::KeyPairing::load_keyring()?;
         let did = keyring.get_identifier()?;
 
-        let body = DIDVCService::generate(message, issuance_date)?;
+        let body = DIDVCService::new(NodeX::new()).generate(message, issuance_date)?;
 
         let mut message = Message::new()
             .from(&did)
@@ -79,7 +83,10 @@ impl DIDCommSignedService {
             .as_str()
             .ok_or(anyhow::anyhow!("failed to convert to str"))?;
 
-        let did_document = service.find_identifier(from_did).await?;
+        let did_document = service
+            .find_identifier(from_did)
+            .await?
+            .context(format!("did {} not found", from_did))?;
 
         let public_keys = did_document
             .did_document

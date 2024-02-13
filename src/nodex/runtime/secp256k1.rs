@@ -16,7 +16,7 @@ pub struct Secp256k1 {}
 pub enum Secp256k1Error {
     #[error("SecretKeyConvertError")]
     KeyConvertError(#[from] k256::elliptic_curve::Error),
-    #[error("PublicKeyConvertError")]
+    #[error("PublicKeyConvertError : {0:?}")]
     SignatureError(#[from] k256::ecdsa::Error),
     #[error("invalid signature length: {0}")]
     InvalidSignatureLength(usize),

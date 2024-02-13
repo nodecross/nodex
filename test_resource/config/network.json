@@ -1,0 +1,7 @@
+{
+  "secret_key": "secret_key",
+  "project_did": "project_did",
+  "recipient_dids": null,
+  "hub_endpoint": null,
+  "heartbeat": null
+}

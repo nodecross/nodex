@@ -49,7 +49,7 @@ pub struct Secp256k1 {
 pub enum Secp256k1Error {
     #[error("Invalid public key size")]
     InvalidSecretKeySize,
-    #[error("Secp256k1 runtime error")]
+    #[error("Secp256k1 runtime error : {0:?}")]
     Secp256k1RuntimeError(#[from] runtime::secp256k1::Secp256k1Error),
     #[error("Invalid public key size")]
     InvalidPublicKeySize,

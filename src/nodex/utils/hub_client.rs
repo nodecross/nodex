@@ -180,11 +180,16 @@ impl HubClient {
         self.post(path, &payload).await
     }
 
-    #[allow(dead_code)]
-    pub async fn put(&self, _path: &str) -> anyhow::Result<reqwest::Response> {
-        let url = self.base_url.join(_path)?;
+    pub async fn put(&self, path: &str, body: &str) -> anyhow::Result<reqwest::Response> {
+        let url = self.base_url.join(path)?;
         let headers = self.auth_headers("".to_string())?;
-        let response = self.instance.put(url).headers(headers).send().await?;
+        let response = self
+            .instance
+            .put(url)
+            .headers(headers)
+            .body(body.to_string())
+            .send()
+            .await?;
 
         Ok(response)
     }
@@ -271,7 +276,7 @@ pub mod tests {
             Err(_) => panic!(),
         };
 
-        let res = match client.put("/put").await {
+        let res = match client.put("/put", r#"{"key":"value"}"#).await {
             Ok(v) => v,
             Err(_) => panic!(),
         };

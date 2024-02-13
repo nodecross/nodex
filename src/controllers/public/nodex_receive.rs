@@ -256,7 +256,7 @@ pub async fn polling_task(
 
     let usecase = MessageReceiveUsecase::new();
 
-    let mut interval = tokio::time::interval(Duration::from_secs(5));
+    let mut interval = tokio::time::interval(Duration::from_secs(3600));
     while !shutdown_marker.load(std::sync::atomic::Ordering::SeqCst) {
         interval.tick().await;
         match usecase.receive_message().await {

@@ -7,6 +7,7 @@ use crate::nodex::{
     },
     schema::general::GeneralVcDataModel,
 };
+use anyhow::Context;
 use arrayref::array_ref;
 use chrono::{DateTime, Utc};
 use cuid;
@@ -17,6 +18,7 @@ use didcomm_rs::{
 use serde_json::Value;
 use x25519_dalek::{PublicKey, StaticSecret};
 
+// TODO: use DidRepository
 pub struct DIDCommEncryptedService {}
 
 impl DIDCommEncryptedService {
@@ -33,7 +35,10 @@ impl DIDCommEncryptedService {
         let my_did = my_keyring.get_identifier()?;
 
         // NOTE: recipient to
-        let did_document = service.find_identifier(to_did).await?;
+        let did_document = service
+            .find_identifier(to_did)
+            .await?
+            .context(format!("did {} not found", to_did))?;
         let public_keys = did_document
             .did_document
             .public_key
@@ -56,7 +61,7 @@ impl DIDCommEncryptedService {
         let pk = PublicKey::from(&sk);
 
         // NOTE: message
-        let body = DIDVCService::generate(message, issuance_date)?;
+        let body = DIDVCService::new(service).generate(message, issuance_date)?;
 
         let mut message = Message::new()
             .from(&my_did)
@@ -117,7 +122,10 @@ impl DIDCommEncryptedService {
             .as_str()
             .ok_or(anyhow::anyhow!("failed to serialize skid"))?;
 
-        let did_document = service.find_identifier(other_did).await?;
+        let did_document = service
+            .find_identifier(other_did)
+            .await?
+            .context(format!("did {} not found", other_did))?;
 
         let public_keys = did_document
             .did_document

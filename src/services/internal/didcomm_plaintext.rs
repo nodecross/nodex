@@ -1,13 +1,17 @@
 use super::{attachment_link, did_vc::DIDVCService, types::VerifiedContainer};
-use crate::nodex::{
-    keyring::{self},
-    schema::general::GeneralVcDataModel,
+use crate::{
+    nodex::{
+        keyring::{self},
+        schema::general::GeneralVcDataModel,
+    },
+    services::nodex::NodeX,
 };
 use chrono::{DateTime, Utc};
 use cuid;
 use didcomm_rs::{AttachmentBuilder, AttachmentDataBuilder, Message};
 use serde_json::Value;
 
+// TODO: use DidRepository
 pub struct DIDCommPlaintextService {}
 
 impl DIDCommPlaintextService {
@@ -20,7 +24,7 @@ impl DIDCommPlaintextService {
         let keyring = keyring::keypair::KeyPairing::load_keyring()?;
         let did = keyring.get_identifier()?;
 
-        let body = DIDVCService::generate(message, issuance_date)?;
+        let body = DIDVCService::new(NodeX::new()).generate(message, issuance_date)?;
 
         let mut message = Message::new()
             .from(&did)
