@@ -6,6 +6,7 @@ use crate::{
     },
     services::nodex::NodeX,
 };
+use anyhow::Context;
 use chrono::{DateTime, Utc};
 use cuid;
 use didcomm_rs::{
@@ -82,7 +83,10 @@ impl DIDCommSignedService {
             .as_str()
             .ok_or(anyhow::anyhow!("failed to convert to str"))?;
 
-        let did_document = service.find_identifier(from_did).await?;
+        let did_document = service
+            .find_identifier(from_did)
+            .await?
+            .context(format!("did {} not found", from_did))?;
 
         let public_keys = did_document
             .did_document

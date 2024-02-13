@@ -225,7 +225,7 @@ impl Hub {
                 Ok(v) => {
                     let network = crate::network_config();
                     let mut network = network.lock();
-                    network.save_secretk_key(&v.secret_key);
+                    network.save_secret_key(&v.secret_key);
                     network.save_project_did(&v.project_did);
                     network.save_recipient_dids(v.recipient_dids);
                     network.save_hub_endpoint(&v.hub_endpoint);

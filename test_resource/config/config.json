@@ -1,0 +1,28 @@
+{
+  "did": "did:nodex:test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "key_pairs": {
+    "sign": {
+      "public_key": "0499d98e367a974f806655b21bfc7fd7121c5233d49c4025a79e9556da90a2822bbfb73edb21ab2da44d5d780eea7dfd4185294dc7d8763f7b782897ea5c235c44",
+      "secret_key": "85ac8afcb5fb9e184cf28d26d826d519219e7591d76aa4e7f610b98cda595e4c"
+    },
+    "update": {
+      "public_key": "0496c2cf63c382f53c85aebeb8bf74fe79ef7b8720807ce02e23e587bd69673d99a0e9111de68e0e392940bac15f525bd1b8bcbec9aa7caa1a69d2c2b087c49402",
+      "secret_key": "7847f29fc69fc3879d9a39fdbc44db496fcee8202093cf011ca4823b0690531a"
+    },
+    "recover": {
+      "public_key": "04ee117aeb34d9917055526682bf5e6dfcf2cbc7c4e041dc4bb3f9614ebd8ba3d3af2bf58023a099c89c39069ca8c574675694451b717713b6ceb62c38d0778faa",
+      "secret_key": "be0f0b0c520894cdfeb15b0a0d7eef4c34a74ced9e57a08f7026d36c3cfe135e"
+    },
+    "encrypt": {
+      "public_key": "043e1f7f6de487eafb2f70435051bd3c81e35507cf9cc0464006e4cf34e68bf7598b9584b37f7e219198d792c26edb728d05995b3a6eb154f51390971949828b1b",
+      "secret_key": "321edfadc634f8cfcc7f7ecff61504bc536ff7ecae5cfed16ef2ca9739b90468"
+    }
+  },
+  "extensions": {
+    "trng": null,
+    "secure_keystore": null,
+    "cipher": null
+  },
+  "is_initialized": true,
+  "schema_version": 1
+}

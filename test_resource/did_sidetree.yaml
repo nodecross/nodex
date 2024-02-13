@@ -1,0 +1,169 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: DID Registry API
+servers:
+  - url: https://did.nodecross.io
+paths:
+  /api/v1/identifiers/{did}:
+    get:
+      summary: Find a did
+      operationId: findDID
+      tags:
+        - did
+      parameters:
+        - name: did
+          in: path
+          required: true
+          description: The did to retrieve
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DidResolutionResponse"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/operations:
+    post:
+      summary: Create a new did
+      operationId: createDID
+      tags:
+        - did
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DidCreateRequest"
+      responses:
+        "201":
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DidResolutionResponse"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    DidResolutionResponse:
+      type: object
+      required:
+        - "@context"
+        - didDocument
+        - methodMetadata
+      properties:
+        "@context":
+          type: string
+          example: "https://www.w3.org/ns/did-resolution/v1"
+        didDocument:
+          $ref: "#/components/schemas/DidDocument"
+        methodMetadata:
+          $ref: "#/components/schemas/methodMetadata"
+
+    DidDocument:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          example: "did:nodex:test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        publicKey:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicKey"
+        authentication:
+          type: array
+          items:
+            type: string
+          example: ["#signingKey"]
+
+    PublicKey:
+      type: object
+      required:
+        - id
+        - type
+        - controller
+        - publicKeyJwk
+      properties:
+        id:
+          type: string
+          example: "did:nodex:test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA#signingKey"
+        controller:
+          type: string
+          example: ""
+        type:
+          type: string
+          example: "EcdsaSecp256k1VerificationKey2019"
+        publicKeyJwk:
+          $ref: "#/components/schemas/PublicKeyJwk"
+
+    PublicKeyJwk:
+      type: object
+      required:
+        - kty
+        - crv
+        - x
+        - y
+      properties:
+        kty:
+          type: string
+          example: "EC"
+        crv:
+          type: string
+          example: "secp256k1"
+        x:
+          type: string
+          example: "mdmONnqXT4BmVbIb_H_XEhxSM9ScQCWnnpVW2pCigis"
+        y:
+          type: string
+          example: "v7c-2yGrLaRNXXgO6n39QYUpTcfYdj97eCiX6lwjXEQ"
+
+    methodMetadata:
+      type: object
+      properties:
+        published:
+          type: boolean
+        recoveryCommitment:
+          type: string
+        updateCommitment:
+          type: string
+
+    DidCreateRequest:
+      type: object
+      required:
+        - type
+        - delta
+        - suffix_data
+      properties:
+        type:
+          type: string
+        delta:
+          type: string
+        suffix_data:
+          type: string
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string

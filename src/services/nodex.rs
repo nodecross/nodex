@@ -10,10 +10,26 @@ use crate::{
     repository::did_repository::DidRepository,
 };
 
+use reqwest::StatusCode;
+use serde::Deserialize;
 use std::{fs, process::Command};
+use thiserror::Error;
 
 pub struct NodeX {
     http_client: HttpClient,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SideTreeErrorBody {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Error)]
+#[error("SideTreeError: {status_code}")]
+pub struct SideTreeError {
+    pub status_code: StatusCode,
+    pub error: SideTreeErrorBody,
 }
 
 impl NodeX {
@@ -41,7 +57,7 @@ impl NodeX {
         // NOTE: find did
         if let Ok(v) = keyring::keypair::KeyPairing::load_keyring() {
             if let Ok(did) = v.get_identifier() {
-                if let Ok(json) = self.find_identifier(&did).await {
+                if let Some(json) = self.find_identifier(&did).await? {
                     return Ok(json);
                 }
             }
@@ -67,22 +83,46 @@ impl NodeX {
             .post("/api/v1/operations", &payload)
             .await?;
 
-        let json = res.json::<DIDResolutionResponse>().await?;
+        if res.status().is_success() {
+            let json = res.json::<DIDResolutionResponse>().await?;
 
-        // NOTE: save context
-        keyring.save(&json.did_document.id);
+            // NOTE: save context
+            keyring.save(&json.did_document.id);
 
-        Ok(json)
+            Ok(json)
+        } else {
+            let status = res.status();
+            let error = res.json::<SideTreeErrorBody>().await?;
+            Err(SideTreeError {
+                status_code: status,
+                error,
+            }
+            .into())
+        }
     }
 
     // NOTE: DONE
-    pub async fn find_identifier(&self, did: &str) -> anyhow::Result<DIDResolutionResponse> {
+    pub async fn find_identifier(
+        &self,
+        did: &str,
+    ) -> anyhow::Result<Option<DIDResolutionResponse>> {
         let res = self
             .http_client
             .get(&(format!("/api/v1/identifiers/{}", &did)))
             .await?;
 
-        Ok(res.json::<DIDResolutionResponse>().await?)
+        match res.status() {
+            StatusCode::OK => Ok(Some(res.json::<DIDResolutionResponse>().await?)),
+            StatusCode::NOT_FOUND => Ok(None),
+            other => {
+                let error = res.json::<SideTreeErrorBody>().await?;
+                Err(SideTreeError {
+                    status_code: other,
+                    error,
+                }
+                .into())
+            }
+        }
     }
 
     pub async fn update_version(&self, binary_url: &str, path: &str) -> anyhow::Result<()> {
@@ -104,7 +144,7 @@ impl DidRepository for NodeX {
         NodeX::create_identifier(self).await
     }
 
-    async fn find_identifier(&self, did: &str) -> anyhow::Result<DIDResolutionResponse> {
+    async fn find_identifier(&self, did: &str) -> anyhow::Result<Option<DIDResolutionResponse>> {
         NodeX::find_identifier(self, did).await
     }
 }
