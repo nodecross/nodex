@@ -1,6 +1,6 @@
 [package]
 name = "nodex"
-version = "1.2.3"
+version = "1.2.4"
 authors = ["NodeX Authors <>"]
 edition = "2018"
 license-file = "LICENSE"
@@ -12,6 +12,9 @@ readme = "README.md"
 keywords = ["iot", "embedded", "root-of-trust", "did"]
 categories = ["embedded", "cryptography"]
 build = "build.rs"
+
+[workspace]
+members = ["e2e"]
 
 [[bin]]
 name = "nodex-agent"
@@ -77,10 +80,19 @@ clap = { version = "4.0.18", features = ["derive", "cargo"] }
 dirs = { version = "5.0.0" }
 rumqttc = { version = "0.20.0" }
 cuid = { version = "1.3.1" }
+uuid = { version = "1.7.0", features = [
+  "v4",
+  "fast-rng",
+  "macro-diagnostics",
+  "serde",
+] }
 shadow-rs = "0.21.0"
 dotenv = "0.15.0"
 mac_address = "1.1.5"
 zip-extract = "0.1.3"
+
+anyhow = "1.0.79"
+thiserror = "1.0.30"
 
 [dev-dependencies]
 rstest = { version = "0.17.0" }

@@ -1,24 +1,47 @@
 use home_config::HomeConfig;
 use serde::Deserialize;
 use serde::Serialize;
-use std::env;
-use std::fs;
-use std::fs::OpenOptions;
 use std::io;
 use std::io::Write;
 use std::path::Path;
-
-use crate::nodex::errors::NodeXError;
+use std::{env, error::Error};
+use std::{
+    fs,
+    sync::{Arc, Mutex, Once},
+};
+use std::{fs::OpenOptions, sync::MutexGuard};
+use thiserror::Error;
 
 pub struct KeyPair {
     pub public_key: Vec<u8>,
     pub secret_key: Vec<u8>,
 }
 
+impl KeyPair {
+    fn to_keypair_config(&self) -> KeyPairConfig {
+        KeyPairConfig {
+            public_key: hex::encode(&self.public_key),
+            secret_key: hex::encode(&self.secret_key),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 struct KeyPairConfig {
     public_key: String,
     secret_key: String,
+}
+
+impl KeyPairConfig {
+    fn to_keypair(&self) -> Result<KeyPair, Box<dyn Error>> {
+        let pk = hex::decode(&self.public_key)?;
+        let sk = hex::decode(&self.secret_key)?;
+
+        Ok(KeyPair {
+            public_key: pk,
+            secret_key: sk,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -90,39 +113,69 @@ impl Default for ConfigRoot {
     }
 }
 
+#[derive(Clone)]
+pub struct SingletonAppConfig {
+    inner: Arc<Mutex<AppConfig>>,
+}
+
+impl SingletonAppConfig {
+    pub fn lock(&self) -> MutexGuard<'_, AppConfig> {
+        self.inner.lock().unwrap()
+    }
+}
+
+pub fn app_config() -> Box<SingletonAppConfig> {
+    static mut SINGLETON: Option<Box<SingletonAppConfig>> = None;
+    static ONCE: Once = Once::new();
+
+    unsafe {
+        ONCE.call_once(|| {
+            let singleton = SingletonAppConfig {
+                inner: Arc::new(Mutex::new(AppConfig::new())),
+            };
+
+            SINGLETON = Some(Box::new(singleton))
+        });
+
+        SINGLETON.clone().unwrap()
+    }
+}
+
 #[derive(Debug)]
 pub struct AppConfig {
     config: HomeConfig,
     root: ConfigRoot,
 }
 
+#[derive(Error, Debug)]
+pub enum AppConfigError {
+    #[error("key decode failed")]
+    DecodeFailed(Box<dyn std::error::Error>),
+    #[error("failed to write config file")]
+    WriteError(home_config::JsonError),
+}
+
 impl AppConfig {
     fn touch(path: &Path) -> io::Result<()> {
-        match OpenOptions::new().create(true).write(true).open(path) {
-            Ok(mut file) => match file.write_all(b"{}") {
-                Ok(_) => Ok(()),
-                Err(err) => Err(err),
-            },
-            Err(err) => Err(err),
-        }
+        let mut file = OpenOptions::new().create(true).write(true).open(path)?;
+        file.write_all(b"{}")?;
+        Ok(())
     }
 
-    pub fn new() -> Self {
-        let config = HomeConfig::with_config_dir("nodex", "config.json");
-        let config_dir = config.path().parent();
+    const APP_NAME: &'static str = "nodex";
+    const CONFIG_FILE: &'static str = "config.json";
+
+    fn new() -> Self {
+        let config = HomeConfig::with_config_dir(AppConfig::APP_NAME, AppConfig::CONFIG_FILE);
+        let config_dir = config.path().parent().expect("unreachable");
 
         if !Path::exists(config.path()) {
-            match config_dir {
-                Some(v) => {
-                    match fs::create_dir_all(v) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            log::error!("{:?}", e);
-                            panic!()
-                        }
-                    };
+            match fs::create_dir_all(config_dir) {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    panic!()
                 }
-                None => panic!(),
             };
 
             match Self::touch(config.path()) {
@@ -145,21 +198,13 @@ impl AppConfig {
         AppConfig { root, config }
     }
 
-    pub fn write(&self) -> Result<(), NodeXError> {
-        match self.config.save_json(&self.root) {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        }
+    pub fn write(&self) -> Result<(), AppConfigError> {
+        self.config
+            .save_json(&self.root)
+            .map_err(AppConfigError::WriteError)
     }
 
-    pub fn encode(&self, value: &Option<Vec<u8>>) -> Option<String> {
-        value.as_ref().map(hex::encode)
-    }
-
-    pub fn decode(&self, value: &Option<String>) -> Option<Vec<u8>> {
+    fn decode(&self, value: &Option<String>) -> Option<Vec<u8>> {
         match value {
             Some(v) => match hex::decode(v) {
                 Ok(v) => Some(v),
@@ -216,94 +261,46 @@ impl AppConfig {
 
     // NOTE: SIGN
     pub fn load_sign_key_pair(&self) -> Option<KeyPair> {
-        match self.root.key_pairs.sign.clone() {
-            Some(v) => {
-                let pk = match self.decode(&Some(v.public_key)) {
-                    Some(v) => v,
-                    None => return None,
-                };
-                let sk = match self.decode(&Some(v.secret_key)) {
-                    Some(v) => v,
-                    None => return None,
-                };
-
-                Some(KeyPair {
-                    public_key: pk,
-                    secret_key: sk,
-                })
+        if let Some(ref key) = self.root.key_pairs.sign {
+            match Self::convert_to_key(key) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    None
+                }
             }
-            None => None,
+        } else {
+            None
         }
     }
 
-    pub fn save_sign_key_pair(&mut self, value: &KeyPair) -> Result<(), NodeXError> {
-        let pk = match self.encode(&Some(value.public_key.clone())) {
-            Some(v) => v,
-            None => return Err(NodeXError {}),
-        };
-        let sk = match self.encode(&Some(value.secret_key.clone())) {
-            Some(v) => v,
-            None => return Err(NodeXError {}),
-        };
+    fn convert_to_key(config: &KeyPairConfig) -> Result<KeyPair, AppConfigError> {
+        config.to_keypair().map_err(AppConfigError::DecodeFailed)
+    }
 
-        self.root.key_pairs.sign = Some(KeyPairConfig {
-            public_key: pk,
-            secret_key: sk,
-        });
-
-        match self.write() {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        }
+    pub fn save_sign_key_pair(&mut self, value: &KeyPair) -> Result<(), AppConfigError> {
+        self.root.key_pairs.sign = Some(value.to_keypair_config());
+        self.write()
     }
 
     // NOTE: UPDATE
     pub fn load_update_key_pair(&self) -> Option<KeyPair> {
-        match self.root.key_pairs.update.clone() {
-            Some(v) => {
-                let pk = match self.decode(&Some(v.public_key)) {
-                    Some(v) => v,
-                    None => return None,
-                };
-                let sk = match self.decode(&Some(v.secret_key)) {
-                    Some(v) => v,
-                    None => return None,
-                };
-
-                Some(KeyPair {
-                    public_key: pk,
-                    secret_key: sk,
-                })
+        if let Some(ref key) = self.root.key_pairs.update {
+            match Self::convert_to_key(key) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    log::error!("{:?}", e);
+                    None
+                }
             }
-            None => None,
+        } else {
+            None
         }
     }
 
-    pub fn save_update_key_pair(&mut self, value: &KeyPair) -> Result<(), NodeXError> {
-        let pk = match self.encode(&Some(value.public_key.clone())) {
-            Some(v) => v,
-            None => return Err(NodeXError {}),
-        };
-        let sk = match self.encode(&Some(value.secret_key.clone())) {
-            Some(v) => v,
-            None => return Err(NodeXError {}),
-        };
-
-        self.root.key_pairs.update = Some(KeyPairConfig {
-            public_key: pk,
-            secret_key: sk,
-        });
-
-        match self.write() {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        }
+    pub fn save_update_key_pair(&mut self, value: &KeyPair) -> Result<(), AppConfigError> {
+        self.root.key_pairs.update = Some(value.to_keypair_config());
+        self.write()
     }
 
     // NOTE: RECOVER
@@ -328,28 +325,9 @@ impl AppConfig {
         }
     }
 
-    pub fn save_recover_key_pair(&mut self, value: &KeyPair) -> Result<(), NodeXError> {
-        let pk = match self.encode(&Some(value.public_key.clone())) {
-            Some(v) => v,
-            None => return Err(NodeXError {}),
-        };
-        let sk = match self.encode(&Some(value.secret_key.clone())) {
-            Some(v) => v,
-            None => return Err(NodeXError {}),
-        };
-
-        self.root.key_pairs.recover = Some(KeyPairConfig {
-            public_key: pk,
-            secret_key: sk,
-        });
-
-        match self.write() {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        }
+    pub fn save_recover_key_pair(&mut self, value: &KeyPair) -> Result<(), AppConfigError> {
+        self.root.key_pairs.recover = Some(value.to_keypair_config());
+        self.write()
     }
 
     // NOTE: ENCRYPT
@@ -374,28 +352,9 @@ impl AppConfig {
         }
     }
 
-    pub fn save_encrypt_key_pair(&mut self, value: &KeyPair) -> Result<(), NodeXError> {
-        let pk = match self.encode(&Some(value.public_key.clone())) {
-            Some(v) => v,
-            None => return Err(NodeXError {}),
-        };
-        let sk = match self.encode(&Some(value.secret_key.clone())) {
-            Some(v) => v,
-            None => return Err(NodeXError {}),
-        };
-
-        self.root.key_pairs.encrypt = Some(KeyPairConfig {
-            public_key: pk,
-            secret_key: sk,
-        });
-
-        match self.write() {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        }
+    pub fn save_encrypt_key_pair(&mut self, value: &KeyPair) -> Result<(), AppConfigError> {
+        self.root.key_pairs.encrypt = Some(value.to_keypair_config());
+        self.write()
     }
 
     // NOTE: DID

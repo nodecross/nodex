@@ -1,4 +1,5 @@
 use actix_web::{web, HttpRequest, HttpResponse};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -25,7 +26,7 @@ pub async fn handler(
         _ => return Ok(HttpResponse::InternalServerError().finish()),
     };
 
-    match DIDCommSignedService::generate(to_did, &json.message, None) {
+    match DIDCommSignedService::generate(to_did, &json.message, None, Utc::now()) {
         Ok(v) => Ok(HttpResponse::Ok().json(&v)),
         Err(e) => {
             log::error!("{:?}", e);

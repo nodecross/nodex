@@ -1,41 +1,49 @@
-use crate::nodex::errors::NodeXError;
 use aes_gcm_siv::aead::{Aead, NewAead};
 use aes_gcm_siv::{Aes256GcmSiv, Key, Nonce};
+use thiserror::Error;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct AesGcmSiv {}
 
+#[derive(Error, Debug)]
+pub enum AesGcmSivError {
+    #[error("encrypt failed : {0:?}")]
+    EncryptFailed(aes_gcm_siv::aead::Error),
+    #[error("decrypt failed : {0:?}")]
+    DecryptFailed(aes_gcm_siv::aead::Error),
+}
+
 impl AesGcmSiv {
     #[allow(dead_code)]
-    pub fn encrypt(_key: &[u8], _nonce: &[u8], _plain_text: &[u8]) -> Result<Vec<u8>, NodeXError> {
+    pub fn encrypt(
+        _key: &[u8],
+        _nonce: &[u8],
+        _plain_text: &[u8],
+    ) -> Result<Vec<u8>, AesGcmSivError> {
         let key = Key::from_slice(_key);
         let nonce = Nonce::from_slice(_nonce);
 
         let cipher = Aes256GcmSiv::new(key);
 
-        match cipher.encrypt(nonce, _plain_text) {
-            Ok(v) => Ok(v.to_vec()),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+        cipher
+            .encrypt(nonce, _plain_text)
+            .map_err(AesGcmSivError::EncryptFailed)
     }
 
     #[allow(dead_code)]
-    pub fn decrypt(_key: &[u8], _nonce: &[u8], _cipher_text: &[u8]) -> Result<Vec<u8>, NodeXError> {
+    pub fn decrypt(
+        _key: &[u8],
+        _nonce: &[u8],
+        _cipher_text: &[u8],
+    ) -> Result<Vec<u8>, AesGcmSivError> {
         let key = Key::from_slice(_key);
         let nonce = Nonce::from_slice(_nonce);
 
         let cipher = Aes256GcmSiv::new(key);
 
-        match cipher.decrypt(nonce, _cipher_text) {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+        cipher
+            .decrypt(nonce, _cipher_text)
+            .map_err(AesGcmSivError::DecryptFailed)
     }
 }
 

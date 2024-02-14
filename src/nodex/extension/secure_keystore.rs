@@ -1,9 +1,9 @@
-use std::ffi::CStr;
+use std::{ffi::CStr, num::NonZeroU32};
+use thiserror::Error;
 
 use crate::{
     app_config,
     config::{Extension, KeyPair},
-    nodex::errors::NodeXError,
 };
 
 #[repr(C)]
@@ -22,6 +22,18 @@ pub enum SecureKeyStoreType {
     Encrypt,
 }
 
+#[derive(Error, Debug)]
+pub enum SecureKeyStoreError {
+    #[error("Library loading error")]
+    LibraryLoadingError(#[from] libloading::Error),
+    #[error("External function failed")]
+    ExternalFunctionFailed(NonZeroU32),
+    #[error("CStr convert failed")]
+    CStrConvertFailed(#[from] std::str::Utf8Error),
+    #[error("Hex decode failed")]
+    HexDecodeFailed(#[from] hex::FromHexError),
+}
+
 pub struct SecureKeyStore {}
 
 impl SecureKeyStore {
@@ -36,7 +48,7 @@ impl SecureKeyStore {
         extension: &Extension,
         key_type: &SecureKeyStoreType,
         key_pair: &KeyPair,
-    ) -> Result<(), NodeXError> {
+    ) -> Result<(), SecureKeyStoreError> {
         log::info!("Called: write_external (type: {:?})", key_type);
 
         unsafe {
@@ -48,13 +60,7 @@ impl SecureKeyStore {
             let secret_key_ptr: *const i8 = secret_key.as_ptr().cast();
             let public_key_ptr: *const i8 = public_key.as_ptr().cast();
 
-            let lib = match libloading::Library::new(&extension.filename) {
-                Ok(v) => v,
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    return Err(NodeXError {});
-                }
-            };
+            let lib = libloading::Library::new(&extension.filename)?;
 
             let func: libloading::Symbol<
                 unsafe extern "C" fn(
@@ -64,13 +70,7 @@ impl SecureKeyStore {
                     secret_key_buffer_len: usize,
                     public_key_buffer_len: usize,
                 ) -> u32,
-            > = match lib.get(extension.symbol.as_bytes()) {
-                Ok(v) => v,
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    return Err(NodeXError {});
-                }
-            };
+            > = lib.get(extension.symbol.as_bytes())?;
 
             let result = match key_type {
                 SecureKeyStoreType::Sign => func(
@@ -103,8 +103,8 @@ impl SecureKeyStore {
                 ),
             };
 
-            if result != 0 {
-                Err(NodeXError {})
+            if let Some(exit_status) = NonZeroU32::new(result) {
+                Err(SecureKeyStoreError::ExternalFunctionFailed(exit_status))
             } else {
                 Ok(())
             }
@@ -115,36 +115,28 @@ impl SecureKeyStore {
         &self,
         key_type: &SecureKeyStoreType,
         key_pair: &KeyPair,
-    ) -> Result<(), NodeXError> {
+    ) -> Result<(), SecureKeyStoreError> {
         log::info!("Called: write_internal (type: {:?})", key_type);
 
         let config = app_config();
+        let mut config = config.lock();
 
         match key_type {
-            SecureKeyStoreType::Sign => match config.inner.lock() {
-                Ok(mut config) => config.save_sign_key_pair(key_pair),
-                _ => Err(NodeXError {}),
-            },
-            SecureKeyStoreType::Update => match config.inner.lock() {
-                Ok(mut config) => config.save_update_key_pair(key_pair),
-                _ => Err(NodeXError {}),
-            },
-            SecureKeyStoreType::Recover => match config.inner.lock() {
-                Ok(mut config) => config.save_recover_key_pair(key_pair),
-                _ => Err(NodeXError {}),
-            },
-            SecureKeyStoreType::Encrypt => match config.inner.lock() {
-                Ok(mut config) => config.save_encrypt_key_pair(key_pair),
-                _ => Err(NodeXError {}),
-            },
+            SecureKeyStoreType::Sign => config.save_sign_key_pair(key_pair),
+            SecureKeyStoreType::Update => config.save_update_key_pair(key_pair),
+            SecureKeyStoreType::Recover => config.save_recover_key_pair(key_pair),
+            SecureKeyStoreType::Encrypt => config.save_encrypt_key_pair(key_pair),
         }
+        .expect("Failed to save key pair");
+
+        Ok(())
     }
 
     fn read_external(
         &self,
         extension: &Extension,
         key_type: &SecureKeyStoreType,
-    ) -> Result<Option<KeyPair>, NodeXError> {
+    ) -> Result<Option<KeyPair>, SecureKeyStoreError> {
         log::info!("Called: read_external (type: {:?})", key_type);
 
         unsafe {
@@ -157,13 +149,7 @@ impl SecureKeyStore {
             let secret_key_len = 0;
             let public_key_len = 0;
 
-            let lib = match libloading::Library::new(&extension.filename) {
-                Ok(v) => v,
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    return Err(NodeXError {});
-                }
-            };
+            let lib = libloading::Library::new(&extension.filename)?;
 
             let func: libloading::Symbol<
                 unsafe extern "C" fn(
@@ -175,13 +161,7 @@ impl SecureKeyStore {
                     secret_key_len: *const usize,
                     public_key_len: *const usize,
                 ) -> u32,
-            > = match lib.get(extension.symbol.as_bytes()) {
-                Ok(v) => v,
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    return Err(NodeXError {});
-                }
-            };
+            > = lib.get(extension.symbol.as_bytes())?;
 
             let result = match key_type {
                 SecureKeyStoreType::Sign => func(
@@ -222,56 +202,38 @@ impl SecureKeyStore {
                 ),
             };
 
-            let secret_key =
-                match CStr::from_ptr(secret_key_buffer_ptr as *const core::ffi::c_char).to_str() {
-                    Ok(v) => match hex::decode(v) {
-                        Ok(v) => v,
-                        _ => return Err(NodeXError {}),
-                    },
-                    _ => return Err(NodeXError {}),
-                };
-            let public_key =
-                match CStr::from_ptr(public_key_buffer_ptr as *const core::ffi::c_char).to_str() {
-                    Ok(v) => match hex::decode(v) {
-                        Ok(v) => v,
-                        _ => return Err(NodeXError {}),
-                    },
-                    _ => return Err(NodeXError {}),
-                };
+            unsafe fn to_hex_string(
+                buffer_ptr: *const core::ffi::c_char,
+            ) -> Result<Vec<u8>, SecureKeyStoreError> {
+                let str = CStr::from_ptr(buffer_ptr as *const core::ffi::c_char).to_str()?;
+                Ok(hex::decode(str)?)
+            }
 
-            if result == 0 {
+            let secret_key = to_hex_string(secret_key_buffer_ptr as *const core::ffi::c_char)?;
+            let public_key = to_hex_string(public_key_buffer_ptr as *const core::ffi::c_char)?;
+
+            if let Some(exit_status) = NonZeroU32::new(result) {
+                Err(SecureKeyStoreError::ExternalFunctionFailed(exit_status))
+            } else {
                 Ok(Some(KeyPair {
                     public_key,
                     secret_key,
                 }))
-            } else {
-                Err(NodeXError {})
             }
         }
     }
 
-    fn read_internal(&self, key_type: &SecureKeyStoreType) -> Result<Option<KeyPair>, NodeXError> {
+    fn read_internal(&self, key_type: &SecureKeyStoreType) -> Option<KeyPair> {
         log::debug!("Called: read_internal (type: {:?})", key_type);
 
         let config = app_config();
+        let config = config.lock();
 
         match key_type {
-            SecureKeyStoreType::Sign => match config.inner.lock() {
-                Ok(config) => Ok(config.load_sign_key_pair()),
-                _ => Err(NodeXError {}),
-            },
-            SecureKeyStoreType::Update => match config.inner.lock() {
-                Ok(config) => Ok(config.load_update_key_pair()),
-                _ => Err(NodeXError {}),
-            },
-            SecureKeyStoreType::Recover => match config.inner.lock() {
-                Ok(config) => Ok(config.load_recovery_key_pair()),
-                _ => Err(NodeXError {}),
-            },
-            SecureKeyStoreType::Encrypt => match config.inner.lock() {
-                Ok(config) => Ok(config.load_encrypt_key_pair()),
-                _ => Err(NodeXError {}),
-            },
+            SecureKeyStoreType::Sign => config.load_sign_key_pair(),
+            SecureKeyStoreType::Update => config.load_update_key_pair(),
+            SecureKeyStoreType::Recover => config.load_recovery_key_pair(),
+            SecureKeyStoreType::Encrypt => config.load_encrypt_key_pair(),
         }
     }
 
@@ -279,11 +241,11 @@ impl SecureKeyStore {
         &self,
         key_type: &SecureKeyStoreType,
         key_pair: &KeyPair,
-    ) -> Result<(), NodeXError> {
-        let config = app_config();
-        let extension = match config.inner.lock() {
-            Ok(config) => config.load_secure_keystore_write_sig(),
-            _ => return Err(NodeXError {}),
+    ) -> Result<(), SecureKeyStoreError> {
+        let extension = {
+            let config = app_config();
+            let config = config.lock();
+            config.load_secure_keystore_write_sig()
         };
 
         match extension {
@@ -292,16 +254,19 @@ impl SecureKeyStore {
         }
     }
 
-    pub fn read(&self, key_type: &SecureKeyStoreType) -> Result<Option<KeyPair>, NodeXError> {
-        let config = app_config();
-        let extension = match config.inner.lock() {
-            Ok(config) => config.load_secure_keystore_read_sig(),
-            _ => return Err(NodeXError {}),
+    pub fn read(
+        &self,
+        key_type: &SecureKeyStoreType,
+    ) -> Result<Option<KeyPair>, SecureKeyStoreError> {
+        let extension = {
+            let config = app_config();
+            let config = config.lock();
+            config.load_secure_keystore_read_sig()
         };
 
         match extension {
             Some(v) => self.read_external(&v, key_type),
-            _ => self.read_internal(key_type),
+            _ => Ok(self.read_internal(key_type)),
         }
     }
 }

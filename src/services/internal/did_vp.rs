@@ -1,13 +1,11 @@
-use crate::nodex::errors::NodeXError;
-
 pub struct DIDVPService {}
 
 impl DIDVPService {
-    pub fn generate() -> Result<String, NodeXError> {
+    pub fn generate() -> anyhow::Result<String> {
         Ok("NotImplemented".to_string())
     }
 
-    pub fn verify() -> Result<String, NodeXError> {
+    pub fn verify() -> anyhow::Result<String> {
         Ok("NotImplemented".to_string())
     }
 }

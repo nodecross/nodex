@@ -1,7 +1,8 @@
-use sha2::{Digest, Sha256};
-
-use crate::nodex::errors::NodeXError;
 use crate::nodex::runtime::base64_url::{Base64Url, PaddingType};
+use sha2::{Digest, Sha256};
+use thiserror::Error;
+
+use super::jcs::JcsError;
 
 const MULTIHASH_SHA256_CODE: u8 = 0x12; // 0x12 = 18
 const MULTIHASH_SHA256_SIZE: u8 = 0x20; // 0x20 = 32
@@ -12,6 +13,18 @@ pub struct Multihash {}
 pub struct DecodedContainer {
     hash: Vec<u8>,
     algorithm: u64,
+}
+
+#[derive(Debug, Error)]
+pub enum MultihashError {
+    #[error(transparent)]
+    FromUtf8Error(#[from] std::string::FromUtf8Error),
+    #[error(transparent)]
+    JsonCanonicalizationError(#[from] JcsError),
+    #[error("InvalidLength: {0}")]
+    InvalidLength(usize),
+    #[error("expected length is {0}, but actual length is {1}")]
+    SizeValidationFailed(usize, usize),
 }
 
 impl Multihash {
@@ -42,21 +55,12 @@ impl Multihash {
         Base64Url::encode(&hashed, &PaddingType::NoPadding)
     }
 
-    pub fn canonicalize_then_double_hash_then_encode(message: &[u8]) -> Result<String, NodeXError> {
-        let plain = match String::from_utf8(message.to_vec()) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
-        let canonicalized = match super::jcs::Jcs::canonicalize(&plain) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+    pub fn canonicalize_then_double_hash_then_encode(
+        message: &[u8],
+    ) -> Result<String, MultihashError> {
+        let plain = String::from_utf8(message.to_vec())?;
+
+        let canonicalized = super::jcs::Jcs::canonicalize(&plain)?;
 
         let hashed = Multihash::hash_as_non_multihash_buffer(canonicalized.as_bytes());
 
@@ -64,10 +68,10 @@ impl Multihash {
     }
 
     #[allow(dead_code)]
-    pub fn decode(encoded: &[u8]) -> Result<DecodedContainer, NodeXError> {
+    pub fn decode(encoded: &[u8]) -> Result<DecodedContainer, MultihashError> {
         // check for: [ code, size, digest... ]
         if encoded.len() < 2 {
-            return Err(NodeXError {});
+            return Err(MultihashError::InvalidLength(encoded.len()));
         }
 
         let code = encoded[0];
@@ -75,7 +79,10 @@ impl Multihash {
         let digest = encoded[2..].to_vec();
 
         if digest.len() != usize::from(length) {
-            return Err(NodeXError {});
+            return Err(MultihashError::SizeValidationFailed(
+                usize::from(length),
+                digest.len(),
+            ));
         }
 
         Ok(DecodedContainer {

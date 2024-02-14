@@ -1,11 +1,11 @@
 use crate::nodex::runtime;
+use crate::nodex::runtime::base64_url::PaddingType;
 use crate::nodex::sidetree::payload::PublicKeyPayload;
-use crate::nodex::{errors::NodeXError, runtime::base64_url::PaddingType};
 use hex;
 use ibig::{ibig, IBig};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
-use std::u8;
+use thiserror::Error;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyPairSecp256K1 {
@@ -45,39 +45,49 @@ pub struct Secp256k1 {
     private: Vec<u8>,
 }
 
+#[derive(Error, Debug)]
+pub enum Secp256k1Error {
+    #[error("Invalid public key size")]
+    InvalidSecretKeySize,
+    #[error("Secp256k1 runtime error : {0:?}")]
+    Secp256k1RuntimeError(#[from] runtime::secp256k1::Secp256k1Error),
+    #[error("Invalid public key size")]
+    InvalidPublicKeySize,
+    #[error("Base64 decode error")]
+    Base64UrlError(#[from] runtime::base64_url::Base64UrlError),
+    #[error("Invalid first bytes")]
+    InvalidFirstBytes,
+    #[error("Number parsing error")]
+    NumberParsingError(#[from] ibig::error::ParseError),
+    #[error("Validation Failed")]
+    ValidationFailed,
+}
+
 impl Secp256k1 {
     const PRIVATE_KEY_SIZE: usize = 32; // Buffer(PrivateKey (32 = 256 bit))
     const COMPRESSED_PUBLIC_KEY_SIZE: usize = 33; // Buffer(0x04 + PublicKey (32 = 256 bit))
     const UNCOMPRESSED_PUBLIC_KEY_SIZE: usize = 65; // Buffer(0x04 + PublicKey (64 = 512 bit))
 
-    pub fn new(context: &Secp256k1Context) -> Result<Self, NodeXError> {
+    pub fn new(context: &Secp256k1Context) -> Result<Self, Secp256k1Error> {
         if context.secret.len() != Self::PRIVATE_KEY_SIZE {
-            return Err(NodeXError {});
+            return Err(Secp256k1Error::InvalidSecretKeySize);
         }
 
         if context.public.len() == Self::COMPRESSED_PUBLIC_KEY_SIZE {
-            let public = match Secp256k1::transform_uncompressed_public_key(&context.public) {
-                Ok(v) => v,
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    return Err(NodeXError {});
-                }
-            };
+            let public = Secp256k1::transform_uncompressed_public_key(&context.public)?;
 
-            return Ok(Secp256k1 {
+            Ok(Secp256k1 {
                 public,
                 private: context.secret.clone(),
-            });
-        }
-
-        if context.public.len() == Self::UNCOMPRESSED_PUBLIC_KEY_SIZE {
-            return Ok(Secp256k1 {
+            })
+        } else if context.public.len() == Self::UNCOMPRESSED_PUBLIC_KEY_SIZE {
+            Ok(Secp256k1 {
                 public: context.public.clone(),
                 private: context.secret.clone(),
-            });
+            })
+        } else {
+            Err(Secp256k1Error::InvalidPublicKeySize)
         }
-
-        Err(NodeXError {})
     }
 
     pub fn get_public_key(&self) -> Vec<u8> {
@@ -96,7 +106,7 @@ impl Secp256k1 {
         }
     }
 
-    pub fn from_jwk(jwk: &KeyPairSecp256K1) -> Result<Self, NodeXError> {
+    pub fn from_jwk(jwk: &KeyPairSecp256K1) -> Result<Self, Secp256k1Error> {
         let d = match jwk.d.clone() {
             Some(v) => v,
             None => {
@@ -105,67 +115,24 @@ impl Secp256k1 {
             }
         };
 
-        let x = match runtime::base64_url::Base64Url::decode_as_bytes(
-            &jwk.x,
-            &PaddingType::NoPadding,
-        ) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
-        let y = match runtime::base64_url::Base64Url::decode_as_bytes(
-            &jwk.y,
-            &PaddingType::NoPadding,
-        ) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        let x = runtime::base64_url::Base64Url::decode_as_bytes(&jwk.x, &PaddingType::NoPadding)?;
+        let y = runtime::base64_url::Base64Url::decode_as_bytes(&jwk.y, &PaddingType::NoPadding)?;
 
         let public = [&[0x04], &x[..], &y[..]].concat();
-        let private =
-            match runtime::base64_url::Base64Url::decode_as_bytes(&d, &PaddingType::NoPadding) {
-                Ok(v) => v,
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    return Err(NodeXError {});
-                }
-            };
+        let private = runtime::base64_url::Base64Url::decode_as_bytes(&d, &PaddingType::NoPadding)?;
 
         Ok(Secp256k1 { public, private })
     }
 
-    pub fn to_jwk(&self, included_private_key: bool) -> Result<KeyPairSecp256K1, NodeXError> {
-        let validated = match self.validate_point() {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+    pub fn to_jwk(&self, included_private_key: bool) -> Result<KeyPairSecp256K1, Secp256k1Error> {
+        let validated = self.validate_point()?;
 
         if !validated {
-            return Err(NodeXError {});
+            return Err(Secp256k1Error::ValidationFailed);
         }
 
-        let x = match self.get_point_x() {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
-        let y = match self.get_point_y() {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        let x = self.get_point_x()?;
+        let y = self.get_point_y()?;
 
         if included_private_key {
             Ok(KeyPairSecp256K1 {
@@ -195,26 +162,14 @@ impl Secp256k1 {
         &self,
         key_id: &str,
         purpose: &[&str],
-    ) -> Result<PublicKeyPayload, NodeXError> {
-        let validated = match self.validate_point() {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+    ) -> Result<PublicKeyPayload, Secp256k1Error> {
+        let validated = self.validate_point()?;
 
         if !validated {
-            return Err(NodeXError {});
+            return Err(Secp256k1Error::ValidationFailed);
         }
 
-        let jwk = match self.to_jwk(false) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        let jwk = self.to_jwk(false)?;
 
         Ok(PublicKeyPayload {
             id: key_id.to_string(),
@@ -228,14 +183,14 @@ impl Secp256k1 {
         })
     }
 
-    pub fn get_point_x(&self) -> Result<Vec<u8>, NodeXError> {
+    pub fn get_point_x(&self) -> Result<Vec<u8>, Secp256k1Error> {
         let public = self.get_public_key();
 
         if public.len() != Self::UNCOMPRESSED_PUBLIC_KEY_SIZE {
-            return Err(NodeXError {});
+            return Err(Secp256k1Error::InvalidPublicKeySize);
         }
         if public[0] != 0x04 {
-            return Err(NodeXError {});
+            return Err(Secp256k1Error::InvalidFirstBytes);
         }
 
         let (_, n) = public.split_at(1);
@@ -244,14 +199,14 @@ impl Secp256k1 {
         Ok(s.to_vec())
     }
 
-    pub fn get_point_y(&self) -> Result<Vec<u8>, NodeXError> {
+    pub fn get_point_y(&self) -> Result<Vec<u8>, Secp256k1Error> {
         let public = self.get_public_key();
 
         if public.len() != Self::UNCOMPRESSED_PUBLIC_KEY_SIZE {
-            return Err(NodeXError {});
+            return Err(Secp256k1Error::InvalidPublicKeySize);
         }
         if public[0] != 0x04 {
-            return Err(NodeXError {});
+            return Err(Secp256k1Error::InvalidFirstBytes);
         }
 
         let (_, n) = public.split_at(1);
@@ -260,54 +215,24 @@ impl Secp256k1 {
         Ok(s.to_vec())
     }
 
-    pub fn validate_point(&self) -> Result<bool, NodeXError> {
-        let x = match self.get_point_x() {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
-        let y = match self.get_point_y() {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+    pub fn validate_point(&self) -> Result<bool, Secp256k1Error> {
+        let x = self.get_point_x()?;
+        let y = self.get_point_y()?;
 
-        let nx = match IBig::from_str_radix(&hex::encode(x), 16) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
-        let ny = match IBig::from_str_radix(&hex::encode(y), 16) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
-        let np = match IBig::from_str_radix(
+        let nx = IBig::from_str_radix(&hex::encode(x), 16)?;
+        let ny = IBig::from_str_radix(&hex::encode(y), 16)?;
+        let np = IBig::from_str_radix(
             "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F",
             16,
-        ) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        )?;
 
         let verified: IBig = (&ny * &ny - &nx * &nx * &nx - 7) % &np;
 
         Ok(verified.cmp(&ibig!(0)) == Ordering::Equal)
     }
 
-    pub fn transform_uncompressed_public_key(compressed: &[u8]) -> Result<Vec<u8>, NodeXError> {
-        runtime::secp256k1::Secp256k1::convert_public_key(compressed, false)
+    pub fn transform_uncompressed_public_key(compressed: &[u8]) -> Result<Vec<u8>, Secp256k1Error> {
+        runtime::secp256k1::Secp256k1::convert_public_key(compressed, false).map_err(|e| e.into())
     }
 }
 

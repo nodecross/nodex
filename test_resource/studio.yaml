@@ -1,0 +1,227 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Hub API
+servers:
+  - url: http://http.hub.nodecross.io
+paths:
+  /v1/device:
+    post:
+      summary: Register a new device
+      operationId: registerDevice
+      tags:
+        - device
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterDeviceRequest"
+      responses:
+        "200":
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmptyResponse"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/device-info:
+    post:
+      summary: Send device info
+      operationId: sendDeviceInfo
+      tags:
+        - device
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceInfoRequest"
+      responses:
+        "200":
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmptyResponse"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/message/list:
+    post:
+      summary: List messages
+      operationId: listMessages
+      tags:
+        - message
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DidCommMessage"
+      responses:
+        "200":
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageListResponse"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/message_activity:
+    post:
+      summary: Send message activity
+      operationId: sendMessageActivity
+      tags:
+        - message
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DidCommMessage"
+      responses:
+        "200":
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmptyResponse"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      summary: Send message activity
+      operationId: sendMessageActivity
+      tags:
+        - message
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DidCommMessage"
+      responses:
+        "200":
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmptyResponse"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    RegisterDeviceRequest:
+      type: object
+      required:
+        - device_did
+        - project_did
+      properties:
+        device_did:
+          type: string
+        project_did:
+          type: string
+
+    DeviceInfoRequest:
+      type: object
+      properties:
+        did:
+          type: string
+
+    EmptyResponse:
+      type: object
+
+    DidCommMessage:
+      type: object
+      properties:
+        ciphertext:
+          type: string
+        iv:
+          type: string
+        protected:
+          type: string
+        recipients:
+          type: array
+          items:
+            $ref: "#/components/schemas/Recipient"
+          example: []
+
+    Recipient:
+      type: object
+      properties:
+        encrypted_key:
+          type: string
+        header:
+          $ref: "#/components/schemas/RecipientHeader"
+
+    RecipientHeader:
+      type: object
+      properties:
+        alg:
+          type: string
+        epk:
+          $ref: "#/components/schemas/Epk"
+        iv:
+          type: string
+        key_ops:
+          type: array
+          items:
+            type: string
+        kid:
+          type: string
+        tag:
+          type: string
+
+    Epk:
+      type: object
+      properties:
+        crv:
+          type: string
+        kty:
+          type: string
+        x:
+          type: string
+
+    MessageListResponse:
+      type: array
+      items:
+        $ref: "#/components/schemas/MessageResponse"
+      example: []
+
+    MessageResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        raw_message:
+          type: string
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string

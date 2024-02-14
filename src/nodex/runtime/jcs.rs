@@ -1,27 +1,23 @@
 use serde_jcs;
 use serde_json::{self, Value};
 
-use crate::nodex::errors::NodeXError;
+use thiserror::Error;
 
 pub struct Jcs {}
 
-impl Jcs {
-    pub fn canonicalize(input: &str) -> Result<String, NodeXError> {
-        let json = match serde_json::from_str::<Value>(input) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+#[derive(Debug, Error)]
+pub enum JcsError {
+    #[error("Decode failed")]
+    DecodeFailed(serde_json::Error),
+    #[error("Serialize failed")]
+    SerializeFailed(serde_json::Error),
+}
 
-        match serde_jcs::to_string(&json) {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                Err(NodeXError {})
-            }
-        }
+impl Jcs {
+    pub fn canonicalize(input: &str) -> Result<String, JcsError> {
+        let json = serde_json::from_str::<Value>(input).map_err(JcsError::DecodeFailed)?;
+
+        serde_jcs::to_string(&json).map_err(JcsError::SerializeFailed)
     }
 }
 

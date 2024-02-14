@@ -1,4 +1,3 @@
-use crate::nodex::errors::NodeXError;
 use async_trait::async_trait;
 use serde_json::Value;
 use tokio::sync::oneshot;
@@ -16,7 +15,7 @@ pub enum Command {
 
 #[async_trait]
 pub trait TransferClient: Send + Sync {
-    async fn send(&self, value: Value) -> Result<bool, NodeXError>;
+    async fn send(&self, value: Value) -> anyhow::Result<bool>;
 }
 
 pub struct MqttClient {
@@ -31,23 +30,13 @@ impl MqttClient {
 
 #[async_trait]
 impl TransferClient for MqttClient {
-    async fn send(&self, value: Value) -> Result<bool, NodeXError> {
+    async fn send(&self, value: Value) -> anyhow::Result<bool> {
         let (tx, rx) = oneshot::channel();
 
         let command = Command::Send { value, resp: tx };
 
-        self.sender.send(command).await.map_err(|e| {
-            log::error!("{:?}", e.to_string());
-            NodeXError {}
-        })?;
+        self.sender.send(command).await?;
 
-        match rx.await {
-            Ok(is_success) => Ok(is_success),
-            Err(e) => {
-                println!("error!!!!!");
-                log::error!("{:?}", e.to_string());
-                Err(NodeXError {})
-            }
-        }
+        Ok(rx.await?)
     }
 }

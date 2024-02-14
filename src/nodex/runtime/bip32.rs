@@ -1,5 +1,5 @@
-use crate::nodex::errors::NodeXError;
 use hdwallet::{ChainPath, DefaultKeyChain, ExtendedPrivKey, ExtendedPubKey, KeyChain};
+use thiserror::Error;
 
 #[derive(Debug)]
 pub struct BIP32Container {
@@ -9,26 +9,22 @@ pub struct BIP32Container {
 
 pub struct BIP32 {}
 
+#[derive(Error, Debug)]
+pub enum BIP32Error {
+    #[error("error in hdwallet")]
+    Hdwallet(hdwallet::error::Error),
+}
+
 impl BIP32 {
-    pub fn get_node(seed: &[u8], derivation_path: &str) -> Result<BIP32Container, NodeXError> {
-        let master = match ExtendedPrivKey::with_seed(seed) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+    pub fn get_node(seed: &[u8], derivation_path: &str) -> Result<BIP32Container, BIP32Error> {
+        let master = ExtendedPrivKey::with_seed(seed).map_err(BIP32Error::Hdwallet)?;
 
         let chain = DefaultKeyChain::new(master);
         let path = ChainPath::new(derivation_path);
 
-        let (private_key, _) = match chain.derive_private_key(path) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                return Err(NodeXError {});
-            }
-        };
+        let (private_key, _) = chain
+            .derive_private_key(path)
+            .map_err(BIP32Error::Hdwallet)?;
 
         let public_key = ExtendedPubKey::from_private_key(&private_key);
 
