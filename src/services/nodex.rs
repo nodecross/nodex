@@ -127,7 +127,10 @@ impl NodeX {
     }
 
     pub async fn update_version(&self, binary_url: &str, output_path: &str) -> anyhow::Result<()> {
-        anyhow::ensure!(binary_url.starts_with("https://github.com/nodecross/nodex/releases/download/"), "Invalid url");
+        anyhow::ensure!(
+            binary_url.starts_with("https://github.com/nodecross/nodex/releases/download/"),
+            "Invalid url"
+        );
 
         let output_path = if output_path.ends_with('/') {
             output_path.trim_end()
