@@ -10,7 +10,7 @@ on:
         options:
           - patch
           - minor
-          - major
+          # - major # major is not allowed in v1 branch
 
 permissions:
   contents: write
