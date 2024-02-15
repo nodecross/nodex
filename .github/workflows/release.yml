@@ -21,13 +21,13 @@ jobs:
           actor: ${{ github.actor }}
           github_token: ${{ secrets.PAT }}
 
-  build:
-    name: Build
+  build-macos:
+    name: Build / MacOS
     needs: check-user
+    runs-on: macos-latest
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+        target: [x86_64-apple-darwin]
     steps:
       - name: (checkout) source code
         uses: actions/checkout@v4
@@ -35,13 +35,31 @@ jobs:
       - name: (run) build
         uses: ./.github/actions/build
         with:
-          os: ${{ matrix.os }}
+          target: ${{ matrix.target }}
+          use-cache: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  build-linux:
+    name: Build / Linux
+    needs: check-user
+    strategy:
+      matrix:
+        target: [aarch64-unknown-linux-gnu]
+    runs-on: ubuntu-latest
+    steps:
+      - name: (checkout) source code
+        uses: actions/checkout@v4
+
+      - name: (run) build
+        uses: ./.github/actions/build-with-cross
+        with:
+          target: ${{ matrix.target }}
           use-cache: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   release:
     name: Release
-    needs: build
+    needs: [build-macos, build-linux]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

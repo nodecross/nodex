@@ -2,7 +2,7 @@ name: default-pipeline
 
 on:
   pull_request:
-    types: [ opened, synchronize, reopened ]
+    types: [opened, synchronize, reopened]
 
 env:
   CARGO_TERM_COLOR: always
@@ -16,42 +16,60 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: (checkout) source code
-      uses: actions/checkout@v3
+      - name: (checkout) source code
+        uses: actions/checkout@v3
 
-    - name: (run) lint
-      uses: ./.github/actions/lint
-      with:
-        github-token: ${{ env.GITHUB_TOKEN }}
-        use-cache: true
+      - name: (run) lint
+        uses: ./.github/actions/lint
+        with:
+          github-token: ${{ env.GITHUB_TOKEN }}
+          use-cache: true
 
   test:
     runs-on: ubuntu-latest
 
     steps:
-    - name: (checkout) source code
-      uses: actions/checkout@v3
+      - name: (checkout) source code
+        uses: actions/checkout@v3
 
-    - name: (run) test
-      uses: ./.github/actions/test
-      with:
-        github-token: ${{ env.GITHUB_TOKEN }}
-        use-cache: true
+      - name: (run) test
+        uses: ./.github/actions/test
+        with:
+          github-token: ${{ env.GITHUB_TOKEN }}
+          use-cache: true
 
-  build:
+  build-macos:
+    name: Build / MacOS
+    runs-on: macos-latest
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
-
-    runs-on: ${{ matrix.os }}
+        target: [x86_64-apple-darwin]
 
     steps:
-    - name: (checkout) source code
-      uses: actions/checkout@v3
+      - name: (checkout) source code
+        uses: actions/checkout@v3
 
-    - name: (run) build
-      uses: ./.github/actions/build
-      with:
-        os: ${{ matrix.os }}
-        use-cache: true
-        github-token: ${{ env.GITHUB_TOKEN }}
+      - name: (run) build
+        uses: ./.github/actions/build
+        with:
+          target: ${{ matrix.target }}
+          use-cache: true
+          github-token: ${{ env.GITHUB_TOKEN }}
+
+  build-linux:
+    name: Build / Linux
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-gnu]
+
+    steps:
+      - name: (checkout) source code
+        uses: actions/checkout@v3
+
+      - name: (run) build
+        uses: ./.github/actions/build
+        with:
+          target: ${{ matrix.target }}
+          use-cache: true
+          github-token: ${{ env.GITHUB_TOKEN }}
