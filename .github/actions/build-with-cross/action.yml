@@ -24,11 +24,10 @@ runs:
       if: ${{ inputs.use-cache == 'true' }}
       uses: Swatinem/rust-cache@v2
 
-    - uses: cargo-bins/cargo-binstall@main
-
-    - name: (setup) install cross
-      shell: bash
-      run: cargo binstall cross
+    - name: (install) install development tools
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-llvm-cov,cross
 
     - name: (run) build
       shell: bash
