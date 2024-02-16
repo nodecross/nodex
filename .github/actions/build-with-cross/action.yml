@@ -1,4 +1,4 @@
-name: build
+name: build with cross
 description: ""
 inputs:
   target:
@@ -24,9 +24,14 @@ runs:
       if: ${{ inputs.use-cache == 'true' }}
       uses: Swatinem/rust-cache@v2
 
+    - name: (install) install development tools
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-llvm-cov,cross
+
     - name: (run) build
       shell: bash
-      run: cargo build --release
+      run: cross build --target aarch64-unknown-linux-gnu --release
 
     - name: (run) create artifact
       uses: vimtor/action-zip@v1.1
@@ -35,7 +40,7 @@ runs:
         dest: nodex-agent-${{ inputs.target }}.zip
 
     - name: (run) upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ inputs.target }}
         path: nodex-agent-${{ inputs.target }}.zip
