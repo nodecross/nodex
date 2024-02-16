@@ -25,9 +25,10 @@ runs:
       shell: bash
       run: rustup component add llvm-tools-preview
 
-    - name: (install) cargo-llvm-cov
-      shell: bash
-      run: cargo install cargo-llvm-cov
+    - name: (install) install development tools
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-llvm-cov
 
     - name: (run) tests
       shell: bash
