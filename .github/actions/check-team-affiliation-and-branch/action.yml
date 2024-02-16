@@ -15,11 +15,11 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Stop workflow if not on main branch
-      if: ${{ inputs.ref != 'refs/heads/main' }}
+    - name: Stop workflow if not on v1 branch
+      if: ${{ inputs.ref != 'refs/heads/v1' }}
       shell: bash
       run: |
-        echo "This job is only allowed to run on the main branch."
+        echo "This job is only allowed to run on the v1 branch."
         exit 1
 
     - name: Check user for team affiliation
