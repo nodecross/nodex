@@ -2,8 +2,6 @@ use async_trait::async_trait;
 use serde_json::Value;
 use tokio::sync::oneshot;
 
-pub mod heartbeat;
-pub mod receiver;
 pub mod sender;
 
 type Responder = oneshot::Sender<bool>;

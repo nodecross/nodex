@@ -2,7 +2,6 @@ extern crate env_logger;
 
 use crate::{config::ServerConfig, controllers::public::nodex_receive};
 use clap::{Parser, Subcommand};
-use controllers::public::nodex_receive::ConnectionRepository;
 use dotenv::dotenv;
 use handlers::Command;
 use handlers::MqttClient;
@@ -157,7 +156,7 @@ async fn main() -> std::io::Result<()> {
     mqtt_options.set_clean_session(true);
     mqtt_options.set_keep_alive(Duration::from_secs(5));
 
-    let (client, eventloop) = AsyncClient::new(mqtt_options, 10);
+    let (client, _eventloop) = AsyncClient::new(mqtt_options, 10);
 
     client
         .subscribe(hub_did_topic, QoS::ExactlyOnce)
@@ -169,23 +168,15 @@ async fn main() -> std::io::Result<()> {
     let (tx, rx) = mpsc::channel::<Command>(32);
     let db = Arc::new(RwLock::new(HashMap::<String, bool>::new()));
 
-    let connection_repository = ConnectionRepository::new();
     let transfer_client = Box::new(MqttClient::new(tx));
 
-    let server = server::new_server(&sock_path, transfer_client, connection_repository.clone());
+    let server = server::new_server(&sock_path, transfer_client);
     let server_handle = server.handle();
 
     let shutdown_marker = Arc::new(AtomicBool::new(false));
 
-    let message_polling_task = tokio::spawn(nodex_receive::polling_task(
-        Arc::clone(&shutdown_marker),
-        connection_repository.clone(),
-    ));
-
-    let heartbeat_task = tokio::spawn(handlers::heartbeat::handler(
-        Arc::clone(&shutdown_marker),
-        connection_repository.clone(),
-    ));
+    let message_polling_task =
+        tokio::spawn(nodex_receive::polling_task(Arc::clone(&shutdown_marker)));
 
     let server_task = tokio::spawn(server);
     let sender_task = tokio::spawn(handlers::sender::handler(
@@ -193,11 +184,6 @@ async fn main() -> std::io::Result<()> {
         client,
         Arc::clone(&db),
         mqtt_topic,
-    ));
-    let receiver_task = tokio::spawn(handlers::receiver::handler(
-        Arc::clone(&shutdown_marker),
-        eventloop,
-        Arc::clone(&db),
     ));
 
     let shutdown = tokio::spawn(async move {
@@ -209,14 +195,7 @@ async fn main() -> std::io::Result<()> {
         server_stop.await;
     });
 
-    match tokio::try_join!(
-        server_task,
-        sender_task,
-        receiver_task,
-        message_polling_task,
-        heartbeat_task,
-        shutdown
-    ) {
+    match tokio::try_join!(server_task, sender_task, message_polling_task, shutdown) {
         Ok(_) => Ok(()),
         Err(e) => {
             log::error!("{:?}", e);

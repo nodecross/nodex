@@ -1,5 +1,5 @@
 use crate::network_config;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use hmac::{Hmac, Mac};
 use reqwest::{
     header::{HeaderMap, HeaderValue},
@@ -129,38 +129,6 @@ impl HubClient {
         let payload = DIDCommEncryptedService::generate(project_did, &payload, None, Utc::now())
             .await?
             .to_string();
-        self.post(url.unwrap().as_ref(), &payload).await
-    }
-
-    pub async fn send_message(
-        &self,
-        path: &str,
-        to_did: &str,
-        message: serde_json::Value,
-    ) -> anyhow::Result<reqwest::Response> {
-        let payload = DIDCommEncryptedService::generate(to_did, &message, None, Utc::now())
-            .await?
-            .to_string();
-        let url = self.base_url.join(path);
-        self.post(url.unwrap().as_ref(), &payload).await
-    }
-
-    pub async fn heartbeat(
-        &self,
-        path: &str,
-        project_did: &str,
-        is_active: bool,
-        event_at: DateTime<Utc>,
-    ) -> anyhow::Result<reqwest::Response> {
-        let url = self.base_url.join(path);
-        let payload = json!({
-            "event_at": event_at.to_rfc3339(),
-            "is_healthy": is_active,
-        });
-        let payload = DIDCommEncryptedService::generate(project_did, &payload, None, Utc::now())
-            .await?
-            .to_string();
-
         self.post(url.unwrap().as_ref(), &payload).await
     }
 

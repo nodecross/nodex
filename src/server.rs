@@ -3,21 +3,13 @@ use actix_web::{dev::Server, middleware, web, App, HttpServer};
 use std::path::PathBuf;
 use tokio::sync::Mutex as TokioMutex;
 
-use crate::controllers::public::nodex_receive::ConnectionRepository;
-
 pub struct Context {
     pub sender: TokioMutex<Box<dyn TransferClient>>,
-    pub connections: ConnectionRepository,
 }
 
-pub fn new_server(
-    sock_path: &PathBuf,
-    sender: Box<dyn TransferClient>,
-    ws_connections: ConnectionRepository,
-) -> Server {
+pub fn new_server(sock_path: &PathBuf, sender: Box<dyn TransferClient>) -> Server {
     let context = web::Data::new(Context {
         sender: TokioMutex::new(sender),
-        connections: ws_connections,
     });
 
     HttpServer::new(move || {
@@ -34,14 +26,6 @@ pub fn new_server(
             .route(
                 "/identifiers/{did}",
                 web::get().to(controllers::public::nodex_find_identifier::handler),
-            )
-            .route(
-                "/transfer",
-                web::post().to(controllers::public::nodex_transfer::handler),
-            )
-            .route(
-                "/receive",
-                web::get().to(controllers::public::nodex_receive::handler),
             )
             .route(
                 "/create-verifiable-message",
