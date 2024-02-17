@@ -12,8 +12,9 @@ use crate::{
 
 use reqwest::StatusCode;
 use serde::Deserialize;
-use std::{fs, process::Command};
+use std::{fs, io::Cursor, path::PathBuf, process::Command};
 use thiserror::Error;
+use zip_extract;
 
 pub struct NodeX {
     http_client: HttpClient,
@@ -125,14 +126,31 @@ impl NodeX {
         }
     }
 
-    pub async fn update_version(&self, binary_url: &str, path: &str) -> anyhow::Result<()> {
+    pub async fn update_version(&self, binary_url: &str, output_path: &str) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            binary_url.starts_with("https://github.com/nodecross/nodex/releases/download/"),
+            "Invalid url"
+        );
+
+        let output_path = if output_path.ends_with('/') {
+            output_path.trim_end()
+        } else {
+            output_path
+        };
+        let agent_path = format!("{}/nodex-agent", output_path);
+
         let response = reqwest::get(binary_url).await?;
         let content = response.bytes().await?;
 
-        fs::write(path, &content)?;
+        if PathBuf::from(&agent_path).exists() {
+            fs::remove_file(&agent_path)?;
+        }
+        let target_dir = PathBuf::from(output_path);
+        zip_extract::extract(Cursor::new(content), &target_dir, true)?;
 
-        Command::new("chmod").arg("+x").arg(path).status()?;
-        Command::new(path).spawn()?;
+        Command::new("chmod").arg("+x").arg(&agent_path).status()?;
+        Command::new(&agent_path).spawn()?;
+
         Ok(())
     }
 }
