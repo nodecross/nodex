@@ -7,7 +7,7 @@ use crate::{
 };
 
 use anyhow::Context;
-use chrono::{DateTime, Utc};
+
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -164,57 +164,6 @@ impl Hub {
 
         res.json::<EmptyResponse>().await?;
         Ok(())
-    }
-
-    pub async fn send_message(
-        &self,
-        to_did: &str,
-        message: serde_json::Value,
-    ) -> anyhow::Result<()> {
-        let res = self
-            .http_client
-            .send_message("/v1/message", to_did, message)
-            .await?;
-        let status = res.status();
-        match status {
-            reqwest::StatusCode::OK => Ok(()),
-            _ => match res.json::<ErrorResponse>().await {
-                Ok(v) => anyhow::bail!(
-                    "StatusCode={:?}, error message = {:?}",
-                    status.as_str(),
-                    v.message
-                ),
-                Err(e) => anyhow::bail!(
-                    "StatusCode={:?}, but parse failed. {:?}",
-                    status.as_str(),
-                    e
-                ),
-            },
-        }
-    }
-
-    pub async fn heartbeat(
-        &self,
-        project_did: &str,
-        is_active: bool,
-        event_at: DateTime<Utc>,
-    ) -> anyhow::Result<()> {
-        let res = self
-            .http_client
-            .heartbeat("/v1/heartbeat", project_did, is_active, event_at)
-            .await?;
-
-        match res.status() {
-            reqwest::StatusCode::OK => match res.json::<EmptyResponse>().await {
-                Ok(_) => Ok(()),
-                Err(e) => anyhow::bail!("StatusCode=200, but parse failed. {:?}", e),
-            },
-            reqwest::StatusCode::BAD_REQUEST => match res.json::<ErrorResponse>().await {
-                Ok(v) => anyhow::bail!("StatusCode=400, error message = {:?}", v.message),
-                Err(e) => anyhow::bail!("StatusCode=400, but parse failed. {:?}", e),
-            },
-            other => anyhow::bail!("StatusCode={other}, unexpected response"),
-        }
     }
 
     pub async fn network(&self) -> anyhow::Result<()> {
