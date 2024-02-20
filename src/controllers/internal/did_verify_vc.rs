@@ -1,13 +1,14 @@
+use crate::{
+    nodex::schema::general::GeneralVcDataModel,
+    services::{internal::did_vc::DIDVCService, nodex::NodeX},
+};
 use actix_web::{web, HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-
-use crate::services::{internal::did_vc::DIDVCService, nodex::NodeX};
 
 // NOTE: POST /internal/verifiable-credentials/verify
 #[derive(Deserialize, Serialize)]
 pub struct MessageContainer {
-    message: Value,
+    message: GeneralVcDataModel,
 }
 
 pub async fn handler(
@@ -16,7 +17,7 @@ pub async fn handler(
 ) -> actix_web::Result<HttpResponse> {
     let service = DIDVCService::new(NodeX::new());
 
-    match service.verify(&json.message).await {
+    match service.verify(json.message).await {
         Ok(v) => Ok(HttpResponse::Ok().json(&v)),
         Err(e) => {
             log::error!("{:?}", e);

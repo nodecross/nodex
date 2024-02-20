@@ -25,11 +25,12 @@ impl DIDCommPlaintextService {
         let did = keyring.get_identifier()?;
 
         let body = DIDVCService::new(NodeX::new()).generate(message, issuance_date)?;
+        let body = serde_json::to_string(&body)?;
 
         let mut message = Message::new()
             .from(&did)
             .to(&[to_did])
-            .body(&body.to_string())
+            .body(&body)
             .map_err(|e| anyhow::anyhow!("Failed to initialize message with error = {:?}", e))?;
 
         // NOTE: Has attachment

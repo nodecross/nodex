@@ -41,6 +41,10 @@ pub async fn handler(
             CreateVerifiableMessageUseCaseError::DestinationNotFound => {
                 Ok(HttpResponse::NotFound().finish())
             }
+            CreateVerifiableMessageUseCaseError::VCServiceFailed(e) => {
+                log::error!("{:?}", e);
+                Ok(HttpResponse::InternalServerError().finish())
+            }
             CreateVerifiableMessageUseCaseError::Other(e) => {
                 log::error!("{:?}", e);
                 Ok(HttpResponse::InternalServerError().finish())

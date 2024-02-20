@@ -1,6 +1,6 @@
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{json};
 use thiserror::Error;
 
 use crate::nodex::{keyring::secp256k1::Secp256k1, schema::general::GeneralVcDataModel, utils};
@@ -56,6 +56,8 @@ pub enum CredentialSignerError {
     DidIsNone,
     #[error("key_id is none. please set key_id")]
     KeyIdIsNone,
+    #[error("proof not found")]
+    ProofNotFound,
 }
 
 pub struct CredentialSigner {}
@@ -107,17 +109,18 @@ impl CredentialSigner {
     }
 
     pub fn verify(
-        object: &GeneralVcDataModel,
+        mut object: GeneralVcDataModel,
         suite: &CredentialSignerSuite,
-    ) -> Result<(Value, bool), CredentialSignerError> {
+    ) -> Result<(GeneralVcDataModel, bool), CredentialSignerError> {
         // FIXME:
         // if (Object.keys(object).indexOf(this.PROOF_KEY) === -1) {
         //     throw new Error()
         // }
 
-        let mut serialized = json!(&object);
-
-        let proof = serde_json::from_value::<Proof>(serialized["proof"].take())?;
+        let proof = object
+            .proof
+            .take()
+            .ok_or(CredentialSignerError::ProofNotFound)?;
 
         // FIXME:
         // if (proof === undefined) {
@@ -131,12 +134,12 @@ impl CredentialSigner {
         // }
 
         let jws = proof.jws;
-        let payload = serde_json::from_value::<GeneralVcDataModel>(serialized).map(|v| json!(v))?;
+        let payload = serde_json::to_value(&object)?;
 
         // NOTE: verify
         let verified = Jws::verify(&payload, &jws, &suite.context)?;
 
-        Ok((payload, verified))
+        Ok((object, verified))
     }
 }
 
@@ -263,19 +266,14 @@ pub mod tests {
             Err(_) => panic!(),
         };
 
-        let (result, verified) = match CredentialSigner::verify(
-            &vc,
+        let (verified_model, verified) = match CredentialSigner::verify(
+            vc,
             &CredentialSignerSuite {
                 did: None,
                 key_id: None,
                 context,
             },
         ) {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
-
-        let verified_model = match serde_json::from_value::<GeneralVcDataModel>(result) {
             Ok(v) => v,
             Err(_) => panic!(),
         };

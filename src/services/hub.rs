@@ -11,7 +11,10 @@ use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use super::internal::didcomm_encrypted::DIDCommEncryptedService;
+use super::{
+    internal::{did_vc::DIDVCService, didcomm_encrypted::DIDCommEncryptedService},
+    nodex::NodeX,
+};
 
 #[derive(Deserialize)]
 pub struct EmptyResponse {}
@@ -207,18 +210,17 @@ impl MessageActivityRepository for Hub {
         &self,
         request: CreatedMessageActivityRequest,
     ) -> anyhow::Result<()> {
+        // TODO: refactoring more simple
+        let service = DIDCommEncryptedService::new(NodeX::new(), DIDVCService::new(NodeX::new()));
+
         let project_did = {
             let network = crate::network_config();
             let network = network.lock();
             network.get_project_did().expect("project_did is not set")
         };
-        let payload = DIDCommEncryptedService::generate(
-            &project_did,
-            &json!(request),
-            None,
-            request.occurred_at,
-        )
-        .await?;
+        let payload = service
+            .generate(&project_did, &json!(request), None, request.occurred_at)
+            .await?;
         let payload = serde_json::to_string(&payload).context("failed to serialize")?;
 
         let res = self
@@ -247,18 +249,16 @@ impl MessageActivityRepository for Hub {
         &self,
         request: VerifiedMessageActivityRequest,
     ) -> anyhow::Result<()> {
+        // TODO: refactoring more simple
+        let service = DIDCommEncryptedService::new(NodeX::new(), DIDVCService::new(NodeX::new()));
         let project_did = {
             let network = crate::network_config();
             let network = network.lock();
             network.get_project_did().expect("project_did is not set")
         };
-        let payload = DIDCommEncryptedService::generate(
-            &project_did,
-            &json!(request),
-            None,
-            request.verified_at,
-        )
-        .await?;
+        let payload = service
+            .generate(&project_did, &json!(request), None, request.verified_at)
+            .await?;
         let payload = serde_json::to_string(&payload).context("failed to serialize")?;
 
         let res = self

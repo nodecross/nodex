@@ -1,11 +1,14 @@
 use super::{attachment_link, did_vc::DIDVCService, types::VerifiedContainer};
-use crate::nodex::{
-    keyring,
-    runtime::{
-        self,
-        base64_url::{self, PaddingType},
+use crate::{
+    nodex::{
+        keyring,
+        runtime::{
+            self,
+            base64_url::{self, PaddingType},
+        },
+        schema::general::GeneralVcDataModel,
     },
-    schema::general::GeneralVcDataModel,
+    repository::did_repository::DidRepository,
 };
 use anyhow::Context;
 use arrayref::array_ref;
@@ -18,31 +21,44 @@ use didcomm_rs::{
 use serde_json::Value;
 use x25519_dalek::{PublicKey, StaticSecret};
 
-// TODO: use DidRepository
-pub struct DIDCommEncryptedService {}
+pub struct DIDCommEncryptedService {
+    did_repository: Box<dyn DidRepository + Send + Sync + 'static>,
+    vc_service: DIDVCService,
+}
 
 impl DIDCommEncryptedService {
+    pub fn new<R: DidRepository + Send + Sync + 'static>(
+        did_repository: R,
+        vc_service: DIDVCService,
+    ) -> DIDCommEncryptedService {
+        DIDCommEncryptedService {
+            did_repository: Box::new(did_repository),
+            vc_service,
+        }
+    }
+
     pub async fn generate(
+        &self,
         to_did: &str,
         message: &Value,
         metadata: Option<&Value>,
         issuance_date: DateTime<Utc>,
     ) -> anyhow::Result<Value> {
-        let service = crate::services::nodex::NodeX::new();
-
         // NOTE: recipient from
         let my_keyring = keyring::keypair::KeyPairing::load_keyring()?;
         let my_did = my_keyring.get_identifier()?;
 
         // NOTE: recipient to
-        let did_document = service
+        let did_document = self
+            .did_repository
             .find_identifier(to_did)
             .await?
             .context(format!("did {} not found", to_did))?;
+
         let public_keys = did_document
             .did_document
             .public_key
-            .ok_or(anyhow::anyhow!("DidPublicKey not found"))?;
+            .context("DidPublicKey not found")?;
 
         // FIXME: workaround
         anyhow::ensure!(public_keys.len() == 1, "public_keys length must be 1");
@@ -61,12 +77,13 @@ impl DIDCommEncryptedService {
         let pk = PublicKey::from(&sk);
 
         // NOTE: message
-        let body = DIDVCService::new(service).generate(message, issuance_date)?;
+        let body = self.vc_service.generate(message, issuance_date)?;
+        let body = serde_json::to_string(&body)?;
 
         let mut message = Message::new()
             .from(&my_did)
             .to(&[to_did])
-            .body(&body.to_string())
+            .body(&body)
             .map_err(|e| anyhow::anyhow!("Failed to initialize message with error = {:?}", e))?;
 
         // NOTE: Has attachment
@@ -87,7 +104,6 @@ impl DIDCommEncryptedService {
         }
 
         let seal_signed_message = message
-            .clone()
             .as_jwe(&CryptoAlgorithm::XC20P, Some(pk.as_bytes().to_vec()))
             .seal_signed(
                 sk.to_bytes().as_ref(),
@@ -100,9 +116,7 @@ impl DIDCommEncryptedService {
         Ok(serde_json::from_str::<Value>(&seal_signed_message)?)
     }
 
-    pub async fn verify(message: &Value) -> anyhow::Result<VerifiedContainer> {
-        let service = crate::services::nodex::NodeX::new();
-
+    pub async fn verify(&self, message: &Value) -> anyhow::Result<VerifiedContainer> {
         // NOTE: recipient to
         let my_keyring = keyring::keypair::KeyPairing::load_keyring()?;
 
@@ -118,19 +132,22 @@ impl DIDCommEncryptedService {
 
         let other_did = decoded
             .get("skid")
-            .ok_or(anyhow::anyhow!("skid not found"))?
+            .context("skid not found")?
             .as_str()
-            .ok_or(anyhow::anyhow!("failed to serialize skid"))?;
+            .context("failed to serialize skid")?;
 
-        let did_document = service
+        let did_document = self
+            .did_repository
             .find_identifier(other_did)
             .await?
-            .context(format!("did {} not found", other_did))?;
+            .with_context(|| format!("did {} not found", other_did))?;
 
-        let public_keys = did_document
-            .did_document
-            .public_key
-            .ok_or(anyhow::anyhow!("public_key is not found in did_document"))?;
+        let public_keys = did_document.did_document.public_key.with_context(|| {
+            format!(
+                "public_key is not found in did_document. did = {}",
+                other_did
+            )
+        })?;
 
         // FIXME: workaround
         anyhow::ensure!(public_keys.len() == 1, "public_keys length must be 1");

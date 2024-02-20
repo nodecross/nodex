@@ -1,5 +1,5 @@
-use crate::services::nodex::NodeX;
 use crate::services::{hub::Hub, internal::didcomm_encrypted::DIDCommEncryptedService};
+use crate::services::{internal::did_vc::DIDVCService, nodex::NodeX};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -43,11 +43,14 @@ impl MessageReceiveUsecase {
     }
 
     pub async fn receive_message(&self) -> anyhow::Result<()> {
+        // TODO: refactoring more simple
+        let service = DIDCommEncryptedService::new(NodeX::new(), DIDVCService::new(NodeX::new()));
+
         for m in self.hub.get_message(&self.project_did).await? {
             let json_message = serde_json::from_str(&m.raw_message)
                 .map_err(|e| anyhow::anyhow!("Invalid Json: {:?}", e))?;
             log::info!("Receive message. message_id = {:?}", m.id);
-            match DIDCommEncryptedService::verify(&json_message).await {
+            match service.verify(&json_message).await {
                 Ok(verified) => {
                     log::info!(
                         "Verify success. message_id = {}, from = {}",
