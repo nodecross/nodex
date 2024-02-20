@@ -2,7 +2,10 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::services::{internal::{did_vc::DIDVCService, didcomm_encrypted::DIDCommEncryptedService}, nodex::NodeX};
+use crate::services::{
+    internal::{did_vc::DIDVCService, didcomm_encrypted::DIDCommEncryptedService},
+    nodex::NodeX,
+};
 
 // NOTE: POST /internal/didcomm/encrypted-messages/verify
 #[derive(Deserialize, Serialize)]

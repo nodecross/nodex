@@ -137,7 +137,8 @@ impl DIDCommEncryptedService {
             )
             .map_err(|e| anyhow::anyhow!("failed to encrypt message : {:?}", e))?;
 
-        Ok(serde_json::from_str::<Value>(&seal_signed_message).context("failed to convert to json")?)
+        Ok(serde_json::from_str::<Value>(&seal_signed_message)
+            .context("failed to convert to json")?)
     }
 
     pub async fn verify(
@@ -169,7 +170,9 @@ impl DIDCommEncryptedService {
             .did_repository
             .find_identifier(other_did)
             .await?
-            .ok_or(DIDCommEncryptedServiceError::DIDNotFound(other_did.to_string()))?;
+            .ok_or(DIDCommEncryptedServiceError::DIDNotFound(
+                other_did.to_string(),
+            ))?;
 
         let public_keys = did_document.did_document.public_key.with_context(|| {
             format!(
@@ -215,7 +218,8 @@ impl DIDCommEncryptedService {
             .clone()
             .get_body()
             .map_err(|e| anyhow::anyhow!("failed to get body : {:?}", e))?;
-        let body = serde_json::from_str::<GeneralVcDataModel>(&body).context("failed to parse body")?;
+        let body =
+            serde_json::from_str::<GeneralVcDataModel>(&body).context("failed to parse body")?;
 
         match metadata {
             Some(metadata) => {
@@ -224,7 +228,8 @@ impl DIDCommEncryptedService {
                     .json
                     .as_ref()
                     .ok_or(anyhow::anyhow!("metadata not found"))?;
-                let metadata = serde_json::from_str::<Value>(metadata).context("failed to parse metadata to json")?;
+                let metadata = serde_json::from_str::<Value>(metadata)
+                    .context("failed to parse metadata to json")?;
                 Ok(VerifiedContainer {
                     message: body,
                     metadata: Some(metadata),

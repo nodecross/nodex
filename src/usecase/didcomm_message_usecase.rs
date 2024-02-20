@@ -11,9 +11,7 @@ use crate::{
         CreatedMessageActivityRequest, MessageActivityRepository, VerifiedMessageActivityRequest,
         VerifiedStatus,
     },
-    services::{
-        internal::didcomm_encrypted::*, project_verifier::ProjectVerifier,
-    },
+    services::{internal::didcomm_encrypted::*, project_verifier::ProjectVerifier},
 };
 
 pub struct DidcommMessageUseCase {
@@ -81,13 +79,12 @@ impl DidcommMessageUseCase {
         let didcomm_message = self
             .didcomm_encrypted_service
             .generate(&destination_did, &message, None, now)
-            .await.map_err(|e| {
-                match e {
-                    DIDCommEncryptedServiceError::DIDNotFound(d) => {
-                        GenerateDidcommMessageUseCaseError::TargetDidNotFound(d)
-                    }
-                    _ => GenerateDidcommMessageUseCaseError::Other(e.into()),
+            .await
+            .map_err(|e| match e {
+                DIDCommEncryptedServiceError::DIDNotFound(d) => {
+                    GenerateDidcommMessageUseCaseError::TargetDidNotFound(d)
                 }
+                _ => GenerateDidcommMessageUseCaseError::Other(e.into()),
             })?;
 
         let result = serde_json::to_string(&didcomm_message).context("failed to serialize")?;
@@ -114,15 +111,19 @@ impl DidcommMessageUseCase {
         now: DateTime<Utc>,
     ) -> Result<String, VerifyDidcommMessageUseCaseError> {
         let message = serde_json::from_str::<Value>(message).context("failed to decode str")?;
-        let verified = self.didcomm_encrypted_service.verify(&message).await.map_err(|e| {
-            dbg!(&e);
-            match e {
-                DIDCommEncryptedServiceError::DIDNotFound(d) => {
-                    VerifyDidcommMessageUseCaseError::TargetDidNotFound(d)
+        let verified = self
+            .didcomm_encrypted_service
+            .verify(&message)
+            .await
+            .map_err(|e| {
+                dbg!(&e);
+                match e {
+                    DIDCommEncryptedServiceError::DIDNotFound(d) => {
+                        VerifyDidcommMessageUseCaseError::TargetDidNotFound(d)
+                    }
+                    _ => VerifyDidcommMessageUseCaseError::Other(e.into()),
                 }
-                _ => VerifyDidcommMessageUseCaseError::Other(e.into()),
-            }
-        })?;
+            })?;
         // metadata field is not used
         let verified = verified.message;
 
