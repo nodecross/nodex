@@ -19,20 +19,23 @@ pub struct HubClientConfig {
     pub base_url: String,
 }
 
-#[derive(Clone, Debug)]
 pub struct HubClient {
     pub base_url: Url,
     pub instance: reqwest::Client,
+    pub service: DIDCommEncryptedService,
 }
 
 impl HubClient {
     pub fn new(_config: &HubClientConfig) -> anyhow::Result<Self> {
         let url = Url::parse(&_config.base_url.to_string())?;
         let client: reqwest::Client = reqwest::Client::new();
+        let service: DIDCommEncryptedService =
+            DIDCommEncryptedService::new(NodeX::new(), DIDVCService::new(NodeX::new()));
 
         Ok(HubClient {
             instance: client,
             base_url: url,
+            service,
         })
     }
 
@@ -106,10 +109,8 @@ impl HubClient {
         path: &str,
         project_did: &str,
     ) -> anyhow::Result<reqwest::Response> {
-        // TODO: refactoring more simple
-        let service = DIDCommEncryptedService::new(NodeX::new(), DIDVCService::new(NodeX::new()));
-
-        let payload = service
+        let payload = self
+            .service
             .generate(project_did, &serde_json::Value::Null, None, Utc::now())
             .await?
             .to_string();
@@ -124,15 +125,13 @@ impl HubClient {
         message_id: String,
         is_verified: bool,
     ) -> anyhow::Result<reqwest::Response> {
-        // TODO: refactoring more simple
-        let service = DIDCommEncryptedService::new(NodeX::new(), DIDVCService::new(NodeX::new()));
-
         let url = self.base_url.join(path);
         let payload = json!({
             "message_id": message_id,
             "is_verified": is_verified,
         });
-        let payload = service
+        let payload = self
+            .service
             .generate(project_did, &payload, None, Utc::now())
             .await?
             .to_string();
@@ -144,10 +143,8 @@ impl HubClient {
         path: &str,
         project_did: &str,
     ) -> anyhow::Result<reqwest::Response> {
-        // TODO: refactoring more simple
-        let service = DIDCommEncryptedService::new(NodeX::new(), DIDVCService::new(NodeX::new()));
-
-        let payload = service
+        let payload = self
+            .service
             .generate(project_did, &serde_json::Value::Null, None, Utc::now())
             .await?;
         let payload = serde_json::to_string(&payload)?;

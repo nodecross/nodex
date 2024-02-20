@@ -12,7 +12,7 @@ use crate::{
         VerifiedStatus,
     },
     services::{
-        internal::didcomm_encrypted::DIDCommEncryptedService, project_verifier::ProjectVerifier,
+        internal::didcomm_encrypted::*, project_verifier::ProjectVerifier,
     },
 };
 
@@ -42,6 +42,8 @@ impl DidcommMessageUseCase {
 
 #[derive(Debug, Error)]
 pub enum GenerateDidcommMessageUseCaseError {
+    #[error("target did not found : {0}")]
+    TargetDidNotFound(String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -50,6 +52,8 @@ pub enum GenerateDidcommMessageUseCaseError {
 pub enum VerifyDidcommMessageUseCaseError {
     #[error("verification failed")]
     VerificationFailed,
+    #[error("target did not found : {0}")]
+    TargetDidNotFound(String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -77,7 +81,14 @@ impl DidcommMessageUseCase {
         let didcomm_message = self
             .didcomm_encrypted_service
             .generate(&destination_did, &message, None, now)
-            .await?;
+            .await.map_err(|e| {
+                match e {
+                    DIDCommEncryptedServiceError::DIDNotFound(d) => {
+                        GenerateDidcommMessageUseCaseError::TargetDidNotFound(d)
+                    }
+                    _ => GenerateDidcommMessageUseCaseError::Other(e.into()),
+                }
+            })?;
 
         let result = serde_json::to_string(&didcomm_message).context("failed to serialize")?;
 
@@ -103,7 +114,15 @@ impl DidcommMessageUseCase {
         now: DateTime<Utc>,
     ) -> Result<String, VerifyDidcommMessageUseCaseError> {
         let message = serde_json::from_str::<Value>(message).context("failed to decode str")?;
-        let verified = self.didcomm_encrypted_service.verify(&message).await?;
+        let verified = self.didcomm_encrypted_service.verify(&message).await.map_err(|e| {
+            dbg!(&e);
+            match e {
+                DIDCommEncryptedServiceError::DIDNotFound(d) => {
+                    VerifyDidcommMessageUseCaseError::TargetDidNotFound(d)
+                }
+                _ => VerifyDidcommMessageUseCaseError::Other(e.into()),
+            }
+        })?;
         // metadata field is not used
         let verified = verified.message;
 
@@ -170,7 +189,6 @@ mod tests {
             didcomm_message_usecase::DidcommMessageUseCase, verifiable_message_usecase::tests::*,
         },
     };
-    use serde_json::Value;
 
     #[tokio::test]
     async fn test_create_and_verify() {
@@ -201,9 +219,6 @@ mod tests {
             )
             .await
             .unwrap();
-
-        let result: Value = serde_json::from_str(&generated).unwrap();
-        dbg!(&result);
 
         let verified = usecase.verify(&generated, Utc::now()).await.unwrap();
         assert_eq!(verified, message);
@@ -247,7 +262,7 @@ mod tests {
                 .generate(destination_did, message, "test".to_string(), now)
                 .await;
 
-            if let Err(GenerateDidcommMessageUseCaseError::Other(_)) = generated {
+            if let Err(GenerateDidcommMessageUseCaseError::TargetDidNotFound(_)) = generated {
             } else {
                 panic!("unexpected result: {:?}", generated);
             }
@@ -398,9 +413,9 @@ mod tests {
             let generated = create_test_message_for_verify_test().await;
             let verified = usecase.verify(&generated, Utc::now()).await;
 
-            if let Err(VerifyDidcommMessageUseCaseError::Other(_)) = verified {
+            if let Err(VerifyDidcommMessageUseCaseError::TargetDidNotFound(_)) = verified {
             } else {
-                panic!("unexpected result: {:?}", verified);
+                panic!("unexpected result: {:#?}", verified);
             }
         }
 
