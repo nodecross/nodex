@@ -2,17 +2,13 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    services::{hub::Hub, internal::didcomm_encrypted::DIDCommEncryptedService},
-    usecase::{
-        didcomm_message_usecase::{DidcommMessageUseCase, VerifyDidcommMessageUseCaseError},
-    },
+use crate::services::{
+    internal::did_vc::DIDVCService, nodex::NodeX,
+    project_verifier::ProjectVerifierImplOnNetworkConfig,
 };
 use crate::{
-    services::{
-        internal::did_vc::DIDVCService, nodex::NodeX,
-        project_verifier::ProjectVerifierImplOnNetworkConfig,
-    },
+    services::{hub::Hub, internal::didcomm_encrypted::DIDCommEncryptedService},
+    usecase::didcomm_message_usecase::{DidcommMessageUseCase, VerifyDidcommMessageUseCaseError},
 };
 
 // NOTE: POST /verify-verifiable-message
