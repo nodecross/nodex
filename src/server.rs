@@ -35,6 +35,14 @@ pub fn new_server(sock_path: &PathBuf, sender: Box<dyn TransferClient>) -> Serve
                 "/verify-verifiable-message",
                 web::post().to(controllers::public::nodex_verify_verifiable_message::handler),
             )
+            .route(
+                "/create-didcomm-message",
+                web::post().to(controllers::public::nodex_create_didcomm_message::handler),
+            )
+            .route(
+                "/verify-didcomm-message",
+                web::post().to(controllers::public::nodex_verify_didcomm_message::handler),
+            )
             // NOTE: Internal (Private) Routes
             .service(
                 web::scope("/internal")
