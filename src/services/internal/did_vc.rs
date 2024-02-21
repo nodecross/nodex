@@ -1,6 +1,8 @@
 use crate::{
     nodex::{
-        cipher::credential_signer::{CredentialSigner, CredentialSignerSuite},
+        cipher::credential_signer::{
+            CredentialSigner, CredentialSignerError, CredentialSignerSuite,
+        },
         keyring::{self},
         schema::general::{CredentialSubject, GeneralVcDataModel, Issuer},
     },
@@ -8,24 +10,41 @@ use crate::{
 };
 use anyhow::Context;
 use chrono::{DateTime, Utc};
-use serde_json::{json, Value};
+use serde_json::Value;
+use thiserror::Error;
 
 pub struct DIDVCService {
-    did_repository: Box<dyn DidRepository>,
+    did_repository: Box<dyn DidRepository + Send + Sync + 'static>,
 }
 
 impl DIDVCService {
-    pub fn new<R: DidRepository + 'static>(did_repository: R) -> Self {
+    pub fn new<R: DidRepository + Send + Sync + 'static>(did_repository: R) -> Self {
         Self {
             did_repository: Box::new(did_repository),
         }
     }
 }
 
+#[derive(Debug, Error)]
+pub enum DIDVCServiceError {
+    #[error("key pairing error")]
+    KeyParingError(#[from] keyring::keypair::KeyPairingError),
+    #[error("failed to get my did")]
+    MyDIDNotSet,
+    #[error("credential signer error")]
+    CredentialSignerError(#[from] CredentialSignerError),
+}
+
 impl DIDVCService {
-    pub fn generate(&self, message: &Value, issuance_date: DateTime<Utc>) -> anyhow::Result<Value> {
+    pub fn generate(
+        &self,
+        message: &Value,
+        issuance_date: DateTime<Utc>,
+    ) -> Result<GeneralVcDataModel, DIDVCServiceError> {
         let keyring = keyring::keypair::KeyPairing::load_keyring()?;
-        let did = keyring.get_identifier()?;
+        let did = keyring
+            .get_identifier()
+            .map_err(|_| DIDVCServiceError::MyDIDNotSet)?;
 
         let r#type = "VerifiableCredential".to_string();
         let context = "https://www.w3.org/2018/credentials/v1".to_string();
@@ -45,7 +64,7 @@ impl DIDVCService {
             proof: None,
         };
 
-        let signed = CredentialSigner::sign(
+        let signed: GeneralVcDataModel = CredentialSigner::sign(
             &model,
             &CredentialSignerSuite {
                 did: Some(did),
@@ -54,17 +73,15 @@ impl DIDVCService {
             },
         )?;
 
-        Ok(json!(signed))
+        Ok(signed)
     }
 
-    pub async fn verify(&self, message: &Value) -> anyhow::Result<Value> {
-        let model = serde_json::from_value::<GeneralVcDataModel>(message.clone())?;
-
+    pub async fn verify(&self, model: GeneralVcDataModel) -> anyhow::Result<GeneralVcDataModel> {
         let did_document = self
             .did_repository
             .find_identifier(&model.issuer.id)
             .await?
-            .context(format!("did {} not found", &model.issuer.id))?;
+            .with_context(|| format!("did {} not found", &model.issuer.id))?;
         let public_keys = did_document
             .did_document
             .public_key
@@ -78,7 +95,7 @@ impl DIDVCService {
         let context = keyring::secp256k1::Secp256k1::from_jwk(&public_key.public_key_jwk)?;
 
         let (verified_model, verified) = CredentialSigner::verify(
-            &model,
+            model,
             &CredentialSignerSuite {
                 did: None,
                 key_id: None,

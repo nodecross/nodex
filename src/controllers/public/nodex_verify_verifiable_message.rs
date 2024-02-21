@@ -39,6 +39,10 @@ pub async fn handler(
             VerifyVerifiableMessageUseCaseError::NotAddressedToMe => {
                 Ok(HttpResponse::Forbidden().finish())
             }
+            VerifyVerifiableMessageUseCaseError::VCServiceFailed(e) => {
+                log::error!("{:?}", e);
+                Ok(HttpResponse::InternalServerError().finish())
+            }
             VerifyVerifiableMessageUseCaseError::Other(e) => {
                 log::error!("{:?}", e);
                 Ok(HttpResponse::InternalServerError().finish())

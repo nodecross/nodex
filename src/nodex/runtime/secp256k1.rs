@@ -57,7 +57,6 @@ impl Secp256k1 {
         Ok(signature.as_ref().to_vec())
     }
 
-    #[allow(dead_code)]
     pub fn ecdsa_verify(
         signature: &[u8],
         message: &[u8],

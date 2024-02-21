@@ -3,7 +3,10 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::services::internal::didcomm_encrypted::DIDCommEncryptedService;
+use crate::services::{
+    internal::{did_vc::DIDVCService, didcomm_encrypted::DIDCommEncryptedService},
+    nodex::NodeX,
+};
 
 // NOTE: POST /internal/didcomm/encrypted-messages
 #[derive(Deserialize, Serialize)]
@@ -26,7 +29,12 @@ pub async fn handler(
         _ => return Ok(HttpResponse::InternalServerError().finish()),
     };
 
-    match DIDCommEncryptedService::generate(to_did, &json.message, None, Utc::now()).await {
+    let service = DIDCommEncryptedService::new(NodeX::new(), DIDVCService::new(NodeX::new()));
+
+    match service
+        .generate(to_did, &json.message, None, Utc::now())
+        .await
+    {
         Ok(v) => Ok(HttpResponse::Ok().json(&v)),
         Err(e) => {
             log::error!("{:?}", e);

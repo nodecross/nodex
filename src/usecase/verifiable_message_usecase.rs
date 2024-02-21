@@ -1,13 +1,16 @@
 use crate::{
     nodex::schema::general::GeneralVcDataModel,
     repository::{did_repository::DidRepository, message_activity_repository::*},
-    services::{internal::did_vc::DIDVCService, project_verifier::ProjectVerifier},
+    services::{
+        internal::did_vc::{DIDVCService, DIDVCServiceError},
+        project_verifier::ProjectVerifier,
+    },
 };
 use anyhow::Context;
 use chrono::DateTime;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -39,6 +42,8 @@ pub enum CreateVerifiableMessageUseCaseError {
     #[error("destination did not found")]
     DestinationNotFound,
     #[error(transparent)]
+    VCServiceFailed(#[from] DIDVCServiceError),
+    #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
 
@@ -49,13 +54,9 @@ pub enum VerifyVerifiableMessageUseCaseError {
     #[error("This message is not addressed to me")]
     NotAddressedToMe,
     #[error(transparent)]
+    VCServiceFailed(#[from] DIDVCServiceError),
+    #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-fn get_my_did() -> String {
-    let config = crate::app_config();
-    let config = config.lock();
-    config.get_did().unwrap().to_string()
 }
 
 impl VerifiableMessageUseCase {
@@ -72,7 +73,7 @@ impl VerifiableMessageUseCase {
             .ok_or(CreateVerifiableMessageUseCaseError::DestinationNotFound)?;
 
         let message_id = Uuid::new_v4();
-        let my_did = get_my_did();
+        let my_did = super::get_my_did();
         let message = EncodedMessage {
             message_id,
             payload: message,
@@ -110,21 +111,18 @@ impl VerifiableMessageUseCase {
             serde_json::from_str::<GeneralVcDataModel>(message).context("failed to decode str")?;
         let from_did = message.issuer.id.clone();
 
-        let vc = DIDVCService::verify(&self.vc_service, &json!(message))
+        // TODO: return GeneralVCDataModel
+        let _ = DIDVCService::verify(&self.vc_service, message.clone())
             .await
             .context("verify failed")?;
+        let vc = message;
 
-        let container = vc
-            .get("credentialSubject")
-            .context("credentialSubject not found")?
-            .get("container")
-            .context("container not found")?
-            .clone();
+        let container = vc.credential_subject.container;
 
         let message = serde_json::from_value::<EncodedMessage>(container)
             .context("failed to deserialize to EncodedMessage")?;
 
-        let my_did = get_my_did();
+        let my_did = super::get_my_did();
 
         if message.destination_did != my_did {
             return Err(VerifyVerifiableMessageUseCaseError::NotAddressedToMe);
@@ -162,7 +160,7 @@ impl VerifiableMessageUseCase {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct EncodedMessage {
+struct EncodedMessage {
     pub message_id: Uuid,
     pub payload: String,
     pub destination_did: String,
@@ -171,8 +169,9 @@ pub struct EncodedMessage {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
+    use crate::usecase::get_my_did;
     use crate::{
         nodex::keyring::keypair::KeyPairing,
         nodex::sidetree::payload::{
@@ -182,13 +181,7 @@ mod tests {
     };
     use serde_json::Value;
 
-    fn get_my_did() -> String {
-        let config = crate::app_config();
-        let config = config.lock();
-        config.get_did().unwrap().to_string()
-    }
-
-    struct MockProjectVerifier {}
+    pub struct MockProjectVerifier {}
 
     impl ProjectVerifier for MockProjectVerifier {
         fn create_project_hmac(&self) -> anyhow::Result<String> {
@@ -200,7 +193,7 @@ mod tests {
         }
     }
 
-    struct MockDidRepository {}
+    pub struct MockDidRepository {}
 
     const DEFAULT_DID: &str = "did:nodex:test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
@@ -250,7 +243,7 @@ mod tests {
         }
     }
 
-    struct MockActivityRepository {}
+    pub struct MockActivityRepository {}
 
     #[async_trait::async_trait]
     impl MessageActivityRepository for MockActivityRepository {
