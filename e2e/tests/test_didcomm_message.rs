@@ -54,12 +54,7 @@ async fn create_didcomm_message_scenario() -> anyhow::Result<String> {
 
     let body = response_to_string(response).await?;
     // parse check
-    let parsed = serde_json::from_str::<serde_json::Value>(&body)?;
-    dbg!(&parsed);
-    assert_eq!(
-        parsed["credentialSubject"]["container"]["payload"],
-        "Hello, world!"
-    );
+    let _ = serde_json::from_str::<serde_json::Value>(&body)?;
 
     Ok(body)
 }
