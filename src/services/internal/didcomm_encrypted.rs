@@ -108,7 +108,6 @@ impl DIDCommEncryptedService {
             .to(&[to_did])
             .body(&body)
             .map_err(|e| anyhow::anyhow!("Failed to initialize message with error = {:?}", e))?;
-        dbg!(&message);
 
         // NOTE: Has attachment
         if let Some(value) = metadata {
