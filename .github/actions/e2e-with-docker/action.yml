@@ -17,10 +17,6 @@ runs:
       shell: bash
       run: cp ${{ inputs.binary-path }} ./test_resource/
 
-    - name: (setup) run chmod
-      shell: bash
-      run: chmod +x ./test_resource/nodex-agent
-
     - name: (run) run mock server
       shell: bash
       run: docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e up -d
