@@ -77,9 +77,10 @@ jobs:
   e2e-macos:
     needs: build-macos
     strategy:
+      fail-fast: false
       matrix:
         target: [x86_64-apple-darwin]
-        runner: [macos-13]
+        runner: [macos-13, macos-12, macos-11]
     name: E2E / MacOS / ${{ matrix.runner }}
     runs-on: ${{ matrix.runner }}
 
@@ -120,9 +121,18 @@ jobs:
     needs: build-linux
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         target: [x86_64-unknown-linux-gnu]
-        docker-image: [ubuntu-2004, ubuntu-2204, ubuntu-2304]
+        docker-image:
+          [
+            ubuntu-2004,
+            ubuntu-2204,
+            ubuntu-2304,
+            debian-bookworm,
+            debian-bullseye,
+            debian-buster,
+          ]
     name: E2E / Linux / ${{ matrix.docker-image }}
 
     steps:
