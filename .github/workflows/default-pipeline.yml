@@ -91,15 +91,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.target }}
-          path: ~/test_resource
+          path: .
+
+      - name: (unzip) unzip binary
+        run: unzip nodex-agent-${{ matrix.target }}.zip
 
       - name: (check) check binary
-        run: ls -la ~/test_resource
+        run: ls -la
 
       - name: (run) e2e
         uses: ./.github/actions/e2e
         with:
-          binary-path: ~/macos-latest/nodex-agent
+          binary-path: nodex-agent
           use-cache: true
           github-token: ${{ env.GITHUB_TOKEN }}
 
@@ -120,14 +123,17 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.target }}
-          path: ~/
+          path: .
+
+      - name: (unzip) unzip binary
+        run: unzip nodex-agent-${{ matrix.target }}.zip
 
       - name: (check) check binary
-        run: ls -la ~
+        run: ls -la
 
       - name: (run) e2e
         uses: ./.github/actions/e2e-with-docker
         with:
-          binary-path: ~/nodex-agent
+          binary-path: nodex-agent
           docker-image: ${{ matrix.docker-image }}
           github-token: ${{ env.GITHUB_TOKEN }}
