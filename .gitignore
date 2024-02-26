@@ -12,3 +12,4 @@ html/
 latex/
 .VERSION
 .env
+nodex-agent

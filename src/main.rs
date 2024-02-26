@@ -333,7 +333,7 @@ fn log_init() {
         writeln!(
             buf,
             "{} [{}] - {} - {} - {}:{}",
-            chrono::Local::now().to_rfc3339(),
+            chrono::Utc::now().to_rfc3339(),
             level_style.value(record.level()),
             record.target(),
             record.args(),

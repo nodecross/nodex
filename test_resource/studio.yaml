@@ -5,6 +5,16 @@ info:
 servers:
   - url: http://http.hub.nodecross.io
 paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      tags:
+        - health
+      responses:
+        "200":
+          description: Expected response to a valid request
+
   /v1/device:
     post:
       summary: Register a new device

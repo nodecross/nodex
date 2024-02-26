@@ -5,6 +5,16 @@ info:
 servers:
   - url: https://did.nodecross.io
 paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      tags:
+        - health
+      responses:
+        "200":
+          description: Expected response to a valid request
+
   /api/v1/identifiers/{did}:
     get:
       summary: Find a did

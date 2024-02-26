@@ -1,0 +1,31 @@
+name: e2e test with docker
+description: ""
+inputs:
+  binary-path:
+    required: true
+    description: ""
+  docker-image:
+    required: true
+    description: ""
+  github-token:
+    required: true
+    description: ""
+runs:
+  using: composite
+  steps:
+    - name: (checkout) copy binary for e2e tests
+      shell: bash
+      run: cp ${{ inputs.binary-path }} ./test_resource/
+
+    - name: (run) run mock server
+      shell: bash
+      run: docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e up -d
+
+    - name: (run) e2e tests
+      shell: bash
+      run: docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e run e2e_runner cargo test
+
+    - name: (run) show log of agent
+      shell: bash
+      run: docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e logs e2e_agent
+      if: ${{ always() }}

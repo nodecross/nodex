@@ -73,3 +73,61 @@ jobs:
           target: ${{ matrix.target }}
           use-cache: true
           github-token: ${{ env.GITHUB_TOKEN }}
+
+  e2e-macos:
+    needs: build-macos
+    strategy:
+      matrix:
+        target: [x86_64-apple-darwin]
+        runner: [macos-13]
+    name: E2E / MacOS / ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: (checkout) source code
+        uses: actions/checkout@v3
+
+      - name: (run) download artifacts (macos)
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: ~/test_resource
+
+      - name: (check) check binary
+        run: ls -la ~/test_resource
+
+      - name: (run) e2e
+        uses: ./.github/actions/e2e
+        with:
+          binary-path: ~/macos-latest/nodex-agent
+          use-cache: true
+          github-token: ${{ env.GITHUB_TOKEN }}
+
+  e2e-linux:
+    needs: build-linux
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-gnu]
+        docker-image: [ubuntu-2004, ubuntu-2204, ubuntu-2304]
+    name: E2E / Linux / ${{ matrix.docker-image }}
+
+    steps:
+      - name: (checkout) source code
+        uses: actions/checkout@v3
+
+      - name: (run) download artifacts (linux)
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: ~/
+
+      - name: (check) check binary
+        run: ls -la ~
+
+      - name: (run) e2e
+        uses: ./.github/actions/e2e-with-docker
+        with:
+          binary-path: ~/nodex-agent
+          docker-image: ${{ matrix.docker-image }}
+          github-token: ${{ env.GITHUB_TOKEN }}
