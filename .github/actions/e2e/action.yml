@@ -14,6 +14,10 @@ runs:
       shell: bash
       run: mkdir -p ~/.config/nodex & cp test_resource/config/* ~/.config/nodex/
 
+    - name: (setup) run chmod
+      shell: bash
+      run: chmod +x ${{ inputs.binary-path }}
+
     - name: (run) run mock server
       shell: bash
       run: docker compose -f test_resource/compose.yaml up -d

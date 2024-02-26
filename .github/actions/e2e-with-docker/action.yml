@@ -13,9 +13,13 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: (checkout) copy binary for e2e tests
+    - name: (setup) copy binary for e2e tests
       shell: bash
       run: cp ${{ inputs.binary-path }} ./test_resource/
+
+    - name: (setup) run chmod
+      shell: bash
+      run: chmod +x ./test_resource/nodex-agent
 
     - name: (run) run mock server
       shell: bash
