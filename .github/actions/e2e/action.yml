@@ -25,6 +25,11 @@ runs:
         NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
         NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
         NODEX_HUB_HTTP_ENDPOINT: http://localhost:8020
+        RUST_BACKTRACE: 1
+
+    - name: (run) show docker image status
+      shell: bash
+      run: docker compose -f test_resource/compose.yaml ps
 
     - name: (run) e2e tests
       shell: bash
