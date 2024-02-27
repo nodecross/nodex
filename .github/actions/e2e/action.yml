@@ -27,14 +27,14 @@ runs:
     - name: (run) run agent for e2e tests
       uses: nick-fields/retry@v3
       with:
-        timeout_seconds: 60
-        max_attempts: 3
+        timeout_seconds: 120
+        max_attempts: 10
         retry_on: error
         # This command failed many times on MacOS runners, so it was automatically retried.
         command: |
           ${{ inputs.binary-path }} > log.txt 2>&1 &
           sleep 3
-          test -f ~/.nodex/run/nodex.sock
+          test -e ~/.nodex/run/nodex.sock
       env:
         NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
         NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
