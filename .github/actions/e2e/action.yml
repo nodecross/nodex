@@ -16,7 +16,7 @@ runs:
 
     - name: (run) run mock server
       shell: bash
-      run: docker compose -f test_resource/compose.yaml up -d
+      run: docker compose -f test_resource/compose.yaml up -d --wait
 
     - name: (run) show docker image status
       shell: bash
