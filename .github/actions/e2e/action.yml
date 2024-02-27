@@ -18,6 +18,10 @@ runs:
       shell: bash
       run: docker compose -f test_resource/compose.yaml up -d
 
+    - name: (run) show docker image status
+      shell: bash
+      run: docker compose -f test_resource/compose.yaml ps
+
     - name: (run) run agent for e2e tests
       shell: bash
       run: ${{ inputs.binary-path }} > log.txt 2>&1 &
@@ -27,10 +31,6 @@ runs:
         NODEX_HUB_HTTP_ENDPOINT: http://localhost:8020
         RUST_BACKTRACE: 1
 
-    - name: (run) show docker image status
-      shell: bash
-      run: docker compose -f test_resource/compose.yaml ps
-
     - name: (run) e2e tests
       shell: bash
       working-directory: e2e
@@ -39,4 +39,9 @@ runs:
     - name: (run) show log of agent
       shell: bash
       run: cat log.txt
+      if: ${{ always() }}
+
+    - name: (run) show log of mock server
+      shell: bash
+      run: docker compose -f test_resource/compose.yaml logs
       if: ${{ always() }}
