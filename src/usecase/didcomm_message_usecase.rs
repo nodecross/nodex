@@ -21,7 +21,6 @@ pub struct DidcommMessageUseCase {
 }
 
 impl DidcommMessageUseCase {
-    #[allow(dead_code)]
     pub fn new<
         V: ProjectVerifier + Send + Sync + 'static,
         R: MessageActivityRepository + Send + Sync + 'static,
@@ -57,7 +56,6 @@ pub enum VerifyDidcommMessageUseCaseError {
 }
 
 impl DidcommMessageUseCase {
-    #[allow(dead_code)]
     pub async fn generate(
         &self,
         destination_did: String,
@@ -104,7 +102,6 @@ impl DidcommMessageUseCase {
         Ok(result)
     }
 
-    #[allow(dead_code)]
     pub async fn verify(
         &self,
         message: &str,
