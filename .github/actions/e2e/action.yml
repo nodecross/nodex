@@ -1,12 +1,9 @@
 name: e2e test
-description: ""
+description: "E2E test action"
 inputs:
   binary-path:
     required: true
-    description: ""
-  github-token:
-    required: true
-    description: ""
+    description: "the path of the binary to be tested"
 runs:
   using: composite
   steps:

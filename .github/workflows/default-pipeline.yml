@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: (checkout) source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: (run) lint
         uses: ./.github/actions/lint
@@ -32,7 +32,7 @@ jobs:
 
     steps:
       - name: (checkout) source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: (run) test
         uses: ./.github/actions/test
@@ -50,7 +50,7 @@ jobs:
 
     steps:
       - name: (checkout) source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: (run) build
         uses: ./.github/actions/build
@@ -69,7 +69,7 @@ jobs:
 
     steps:
       - name: (checkout) source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: (run) build
         uses: ./.github/actions/build-with-cross
@@ -91,7 +91,7 @@ jobs:
 
     steps:
       - name: (checkout) source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup docker and docker-compose (missing on MacOS)
         # ref: https://github.com/actions/runner/issues/1456
@@ -126,7 +126,6 @@ jobs:
         uses: ./.github/actions/e2e
         with:
           binary-path: ./nodex-agent
-          github-token: ${{ env.GITHUB_TOKEN }}
 
   e2e-linux:
     needs: build-linux
@@ -149,7 +148,7 @@ jobs:
 
     steps:
       - name: (checkout) source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: (run) download artifacts (linux)
         uses: actions/download-artifact@v4
@@ -172,4 +171,3 @@ jobs:
         with:
           binary-path: ./nodex-agent
           docker-image: ${{ matrix.docker-image }}
-          github-token: ${{ env.GITHUB_TOKEN }}

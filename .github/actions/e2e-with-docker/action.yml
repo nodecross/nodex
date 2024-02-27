@@ -1,15 +1,12 @@
 name: e2e test with docker
-description: ""
+description: "E2E test action with docker-compose"
 inputs:
   binary-path:
     required: true
-    description: ""
+    description: "the path of the binary to be tested"
   docker-image:
     required: true
-    description: ""
-  github-token:
-    required: true
-    description: ""
+    description: "the name of docker compose override files. check the file in test_resource/overrides/ for the available options"
 runs:
   using: composite
   steps:
