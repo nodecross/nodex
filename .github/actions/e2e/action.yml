@@ -12,16 +12,29 @@ runs:
       run: mkdir -p ~/.config/nodex & cp test_resource/config/* ~/.config/nodex/
 
     - name: (run) run mock server
-      shell: bash
-      run: docker compose -f test_resource/compose.yaml up -d --wait
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_on: error
+        # This command failed many times on MacOS runners, so it was automatically retried.
+        command: docker compose -f test_resource/compose.yaml up -d --wait
 
     - name: (run) show docker image status
       shell: bash
       run: docker compose -f test_resource/compose.yaml ps
 
     - name: (run) run agent for e2e tests
-      shell: bash
-      run: ${{ inputs.binary-path }} > log.txt 2>&1 &
+      uses: nick-fields/retry@v3
+      with:
+        timeout_seconds: 60
+        max_attempts: 3
+        retry_on: error
+        # This command failed many times on MacOS runners, so it was automatically retried.
+        command: |
+          ${{ inputs.binary-path }} > log.txt 2>&1 &
+          sleep 3
+          test -f ~/.nodex/run/nodex.sock
       env:
         NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
         NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
