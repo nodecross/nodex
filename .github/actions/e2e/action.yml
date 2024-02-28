@@ -24,6 +24,16 @@ runs:
       shell: bash
       run: docker compose -f test_resource/compose.yaml ps
 
+    - name: (check) check if mock server is running
+      uses: nick-fields/retry@v3
+      with:
+        timeout_seconds: 120
+        max_attempts: 10
+        retry_on: error
+        command: |
+          curl http://localhost:4010/api/v1/identifiers/did:nodex:test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          curl http://localhost:8020/health
+
     - name: (run) run agent for e2e tests
       uses: nick-fields/retry@v3
       with:
