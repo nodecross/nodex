@@ -14,6 +14,10 @@ runs:
       shell: bash
       run: cp ${{ inputs.binary-path }} ./test_resource/
 
+    - name: (setup) pull docker images
+      shell: bash
+      run: docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml pull -q
+
     - name: (run) run mock server
       shell: bash
       run: docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e up -d

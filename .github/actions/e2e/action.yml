@@ -11,11 +11,15 @@ runs:
       shell: bash
       run: mkdir -p ~/.config/nodex & cp test_resource/config/* ~/.config/nodex/
 
+    - name: (setup) pull docker images
+      shell: bash
+      run: docker compose -f test_resource/compose.yaml pull -q
+
     - name: (run) run mock server
       uses: nick-fields/retry@v3
       with:
         timeout_minutes: 5
-        max_attempts: 3
+        max_attempts: 10
         retry_on: error
         # This command failed many times on MacOS runners, so it was automatically retried.
         command: |
