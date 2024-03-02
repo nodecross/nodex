@@ -1,0 +1,6 @@
+services:
+  e2e_agent:
+    platform: linux/arm64
+
+  e2e_runner:
+    platform: linux/arm64

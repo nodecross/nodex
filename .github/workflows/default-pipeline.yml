@@ -14,10 +14,11 @@ permissions:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: (checkout) source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: (run) lint
         uses: ./.github/actions/lint
@@ -27,10 +28,11 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: (checkout) source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: (run) test
         uses: ./.github/actions/test
@@ -40,6 +42,7 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
+    timeout-minutes: 5
     strategy:
       matrix:
         target: [x86_64-apple-darwin]
@@ -47,7 +50,7 @@ jobs:
 
     steps:
       - name: (checkout) source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: (run) build
         uses: ./.github/actions/build
@@ -58,6 +61,7 @@ jobs:
 
   build-linux:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     strategy:
       matrix:
         target: [x86_64-unknown-linux-gnu]
@@ -65,7 +69,7 @@ jobs:
 
     steps:
       - name: (checkout) source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: (run) build
         uses: ./.github/actions/build-with-cross
@@ -73,3 +77,97 @@ jobs:
           target: ${{ matrix.target }}
           use-cache: true
           github-token: ${{ env.GITHUB_TOKEN }}
+
+  e2e-macos:
+    needs: build-macos
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [x86_64-apple-darwin]
+        runner: [macos-13, macos-12]
+    name: E2E / MacOS / ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: (checkout) source code
+        uses: actions/checkout@v4
+
+      - name: Setup docker and docker-compose (missing on MacOS)
+        # ref: https://github.com/actions/runner/issues/1456
+        run: |
+          # colima doesn't exist on MacOS 13 runner. So we need to install it manually
+          # https://github.com/actions/runner-images/issues/6216
+          brew install docker docker-compose colima
+
+          # Link the Docker Compose v2 plugin so it's understood by the docker CLI
+          mkdir -p ~/.docker/cli-plugins
+          ln -sfn /usr/local/opt/docker-compose/bin/docker-compose ~/.docker/cli-plugins/docker-compose
+
+          colima start
+
+      - name: (run) download artifacts (macos)
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: .
+
+      - name: (unzip) unzip binary
+        run: unzip nodex-agent-${{ matrix.target }}.zip
+
+      - name: (setup) run chmod
+        shell: bash
+        run: chmod +x ./nodex-agent
+
+      - name: (check) check binary
+        run: ls -la
+
+      - name: (run) e2e
+        uses: ./.github/actions/e2e
+        with:
+          binary-path: ./nodex-agent
+
+  e2e-linux:
+    needs: build-linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [x86_64-unknown-linux-gnu]
+        docker-image:
+          [
+            ubuntu-2004,
+            ubuntu-2204,
+            ubuntu-2304,
+            debian-bookworm,
+            debian-bullseye,
+            debian-buster,
+          ]
+    name: E2E / Linux / ${{ matrix.docker-image }}
+
+    steps:
+      - name: (checkout) source code
+        uses: actions/checkout@v4
+
+      - name: (run) download artifacts (linux)
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: .
+
+      - name: (unzip) unzip binary
+        run: unzip nodex-agent-${{ matrix.target }}.zip
+
+      - name: (setup) run chmod
+        shell: bash
+        run: chmod +x ./nodex-agent
+
+      - name: (check) check binary
+        run: ls -la
+
+      - name: (run) e2e
+        uses: ./.github/actions/e2e-with-docker
+        with:
+          binary-path: ./nodex-agent
+          docker-image: ${{ matrix.docker-image }}

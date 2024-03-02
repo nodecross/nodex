@@ -12,7 +12,7 @@ runs:
   steps:
     - name: (checkout) source code
       if: ${{ inputs.checkout == 'true' }}
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: (run) download artifacts (mac)
       uses: actions/download-artifact@v3

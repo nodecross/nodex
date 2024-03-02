@@ -8,6 +8,13 @@ services:
       - ./did_sidetree.yaml:/tmp/api.yaml:ro
     ports:
       - '4010:4010'
+    healthcheck:
+      # this docker image doens't have curl
+      test: wget --no-verbose --tries=1 --spider http://localhost:4010/health || exit 1
+      interval: 5s
+      timeout: 30s
+      retries: 5
+      start_period: 10s
 
   studio_prism:
     image: stoplight/prism:4
@@ -16,4 +23,59 @@ services:
       - ./studio.yaml:/tmp/api.yaml:ro
     ports:
       - '8020:4010'
+    healthcheck:
+      # this docker image doens't have curl
+      test: wget --no-verbose --tries=1 --spider http://localhost:4010/health || exit 1
+      interval: 5s
+      timeout: 30s
+      retries: 5
+      start_period: 10s
 
+  e2e_agent:
+    depends_on:
+      sidetree_prism:
+        condition: service_healthy
+      studio_prism:
+        condition: service_healthy
+    image: ubuntu:20.04
+    platform: linux/amd64
+    volumes:
+      - ./config:/root/.config/nodex/
+      - agent_socket:/root/.nodex/
+      - ./nodex-agent:/tmp/nodex-agent
+    command: /tmp/nodex-agent
+    environment:
+      NODEX_DID_HTTP_ENDPOINT: http://sidetree_prism:4010
+      NODEX_DID_ATTACHMENT_LINK: http://sidetree_prism:4010
+      NODEX_HUB_HTTP_ENDPOINT: http://studio_prism:4010
+      RUST_BACKTRACE: 1
+    profiles:
+      - e2e
+
+  e2e_runner:
+    depends_on:
+      sidetree_prism:
+        condition: service_healthy
+      studio_prism:
+        condition: service_healthy
+    image: rust:slim-buster
+    platform: linux/amd64
+    volumes:
+      - ./config:/root/.config/nodex/
+      - agent_socket:/root/.nodex/
+      - ../:/tmp
+    working_dir: /tmp/e2e
+    environment:
+      NODEX_DID_HTTP_ENDPOINT: http://sidetree_prism:4010
+      NODEX_DID_ATTACHMENT_LINK: http://sidetree_prism:4010
+      NODEX_HUB_HTTP_ENDPOINT: http://studio_prism:4010
+      RUST_BACKTRACE: 1
+    profiles:
+      - e2e
+
+networks:
+  default:
+    name: nodex-network
+
+volumes:
+  agent_socket:

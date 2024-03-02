@@ -98,6 +98,10 @@ async fn verify_verifiable_message_scenario(input: String) -> anyhow::Result<()>
 
 #[tokio::test]
 async fn test() {
-    let input = create_verifiable_message_scenario().await.unwrap();
-    verify_verifiable_message_scenario(input).await.unwrap();
+    let input = create_verifiable_message_scenario()
+        .await
+        .expect("failed to create_verifiable_message_scenario");
+    verify_verifiable_message_scenario(input)
+        .await
+        .expect("failed to verify_verifiable_message_scenario");
 }

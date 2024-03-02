@@ -1,0 +1,68 @@
+name: e2e test
+description: "E2E test action"
+inputs:
+  binary-path:
+    required: true
+    description: "the path of the binary to be tested"
+runs:
+  using: composite
+  steps:
+    - name: (setup) copy default config to home
+      shell: bash
+      run: mkdir -p ~/.config/nodex & cp test_resource/config/* ~/.config/nodex/
+
+    - name: (setup) pull docker images
+      shell: bash
+      run: docker compose -f test_resource/compose.yaml pull -q
+
+    - name: (run) run mock server
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: 5
+        max_attempts: 10
+        retry_on: error
+        # This command failed many times on MacOS runners, so it was automatically retried.
+        command: |
+          docker compose -f test_resource/compose.yaml up -d --wait
+          sleep 3
+          # check whether the mock server is running
+          curl http://localhost:4010/api/v1/identifiers/did:nodex:test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          curl http://localhost:8020/health
+        on_retry_command: |
+          docker compose -f test_resource/compose.yaml restart
+
+    - name: (run) show docker image status
+      shell: bash
+      run: docker compose -f test_resource/compose.yaml ps
+
+    - name: (run) run agent for e2e tests
+      uses: nick-fields/retry@v3
+      with:
+        timeout_seconds: 120
+        max_attempts: 10
+        retry_on: error
+        # This command failed many times on MacOS runners, so it was automatically retried.
+        command: |
+          ${{ inputs.binary-path }} > log.txt 2>&1 &
+          sleep 3
+          test -e ~/.nodex/run/nodex.sock
+      env:
+        NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
+        NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
+        NODEX_HUB_HTTP_ENDPOINT: http://localhost:8020
+        RUST_BACKTRACE: 1
+
+    - name: (run) e2e tests
+      shell: bash
+      working-directory: e2e
+      run: cargo test
+
+    - name: (run) show log of agent
+      shell: bash
+      run: cat log.txt
+      if: ${{ always() }}
+
+    - name: (run) show log of mock server
+      shell: bash
+      run: docker compose -f test_resource/compose.yaml logs
+      if: ${{ always() }}

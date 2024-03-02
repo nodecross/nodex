@@ -15,7 +15,7 @@ runs:
   steps:
     - name: (checkout) source code
       if: ${{ inputs.checkout == 'true' }}
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: (cache) rust
       if: ${{ inputs.use-cache == 'true' }}
@@ -41,28 +41,6 @@ runs:
     - name: (run) tests
       shell: bash
       run: cargo llvm-cov --lcov --output-path coverage.lcov
-
-    - name: (build) build agent for e2e tests
-      shell: bash
-      run: cargo build
-
-    - name: (run) run agent for e2e tests
-      shell: bash
-      run: ./target/debug/nodex-agent > log.txt 2>&1 &
-      env:
-        NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
-        NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
-        NODEX_HUB_HTTP_ENDPOINT: http://localhost:8020
-
-    - name: (run) e2e tests
-      shell: bash
-      working-directory: e2e
-      run: cargo test
-
-    - name: (run) show log of agent
-      shell: bash
-      run: cat log.txt
-      if: ${{ always() }}
 
     - name: (run) upload to coveralls
       uses: coverallsapp/github-action@v2
