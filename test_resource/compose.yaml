@@ -49,6 +49,18 @@ services:
       - ./config:/root/.config/nodex/
       - agent_socket:/root/.nodex/
 
+  proxy:
+    image: ubuntu/squid:5.2-22.04_beta
+    environment:
+      - TZ=UTC
+    volumes:
+      - ./squid/conf/squid.conf:/etc/squid/squid.conf
+      - ./squid/fixtures/:/fixtures/
+      - ./squid/key/:/key/
+    ports:
+      - '3128:3128'
+      - '3129:3129'
+
   e2e_agent:
     depends_on:
       sidetree_prism:
