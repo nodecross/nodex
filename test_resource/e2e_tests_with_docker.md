@@ -10,7 +10,7 @@ CROSS_CONTAINER_OPTS="--platform linux/amd64" cross build --release --target x86
 
 # aarch64
 cross build --release --target aarch64-unknown-linux-gnu
-# or 
+# or
 CROSS_CONTAINER_OPTS="--platform linux/amd64" cross build --release --target aarch64-unknown-linux-gnu
 ```
 
