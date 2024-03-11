@@ -94,17 +94,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup docker and docker-compose (missing on MacOS)
-        # ref: https://github.com/actions/runner/issues/1456
         run: |
-          # colima doesn't exist on MacOS 13 runner. So we need to install it manually
-          # https://github.com/actions/runner-images/issues/6216
-          brew install docker docker-compose colima
+          brew install docker docker-compose
 
           # Link the Docker Compose v2 plugin so it's understood by the docker CLI
           mkdir -p ~/.docker/cli-plugins
           ln -sfn /usr/local/opt/docker-compose/bin/docker-compose ~/.docker/cli-plugins/docker-compose
-
-          colima start
 
       - name: (run) download artifacts (macos)
         uses: actions/download-artifact@v4
