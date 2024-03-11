@@ -101,6 +101,8 @@ jobs:
           mkdir -p ~/.docker/cli-plugins
           ln -sfn /usr/local/opt/docker-compose/bin/docker-compose ~/.docker/cli-plugins/docker-compose
 
+          colima start
+
       - name: (run) download artifacts (macos)
         uses: actions/download-artifact@v4
         with:
