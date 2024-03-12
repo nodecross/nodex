@@ -95,6 +95,10 @@ jobs:
 
       - name: Setup docker and docker-compose (missing on MacOS)
         run: |
+          # https://github.com/Homebrew/homebrew-core/issues/165793
+          # Workaround GitHub Actions Python issues
+          brew unlink python && brew link --overwrite python
+
           brew install docker docker-compose colima
 
           # Link the Docker Compose v2 plugin so it's understood by the docker CLI
