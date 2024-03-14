@@ -87,7 +87,7 @@ uuid = { version = "1.7.0", features = [
   "serde",
 ] }
 shadow-rs = "0.27.1"
-dotenv = "0.15.0"
+dotenvy = "0.15.7"
 mac_address = "1.1.5"
 zip-extract = "0.1.3"
 

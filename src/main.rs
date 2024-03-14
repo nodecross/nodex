@@ -2,7 +2,7 @@ extern crate env_logger;
 
 use crate::{config::ServerConfig, controllers::public::nodex_receive};
 use clap::{Parser, Subcommand};
-use dotenv::dotenv;
+use dotenvy::dotenv;
 use handlers::Command;
 use handlers::MqttClient;
 use mac_address::get_mac_address;
