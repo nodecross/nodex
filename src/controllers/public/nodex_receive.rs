@@ -3,7 +3,10 @@ use crate::services::{internal::did_vc::DIDVCService, nodex::NodeX};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use std::{
-    sync::{atomic::{AtomicBool, Ordering}, Arc},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     time::Duration,
 };
 
