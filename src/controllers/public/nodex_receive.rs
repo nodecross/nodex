@@ -3,7 +3,7 @@ use crate::services::{internal::did_vc::DIDVCService, nodex::NodeX};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use std::{
-    sync::{atomic::AtomicBool, Arc},
+    sync::{atomic::{AtomicBool, Ordering}, Arc},
     time::Duration,
 };
 
@@ -101,11 +101,17 @@ pub async fn polling_task(shutdown_marker: Arc<AtomicBool>) {
     let usecase = MessageReceiveUsecase::new();
 
     let mut interval = tokio::time::interval(Duration::from_secs(3600));
-    while !shutdown_marker.load(std::sync::atomic::Ordering::SeqCst) {
-        interval.tick().await;
-        match usecase.receive_message().await {
-            Ok(_) => {}
-            Err(e) => log::error!("Error: {:?}", e),
+    while !shutdown_marker.load(Ordering::SeqCst) {
+        tokio::select! {
+            _ = interval.tick() => {
+                match usecase.receive_message().await {
+                    Ok(_) => {},
+                    Err(e) => log::error!("Error: {:?}", e),
+                }
+            }
+            _ = tokio::signal::ctrl_c(), if !shutdown_marker.load(Ordering::SeqCst) => {
+                shutdown_marker.store(true, Ordering::SeqCst);
+            },
         }
     }
 
