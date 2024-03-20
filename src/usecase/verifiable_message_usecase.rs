@@ -256,7 +256,7 @@ pub mod tests {
         async fn add_verify_activity(
             &self,
             _request: VerifiedMessageActivityRequest,
-        ) -> anyhow::Result<()> {
+        ) -> Result<(), MessageActivityHttpError> {
             Ok(())
         }
     }
@@ -407,7 +407,7 @@ pub mod tests {
                 async fn add_verify_activity(
                     &self,
                     _request: VerifiedMessageActivityRequest,
-                ) -> anyhow::Result<()> {
+                ) -> Result<(), MessageActivityHttpError> {
                     unreachable!()
                 }
             }
@@ -595,8 +595,10 @@ pub mod tests {
                 async fn add_verify_activity(
                     &self,
                     _request: VerifiedMessageActivityRequest,
-                ) -> anyhow::Result<()> {
-                    Err(anyhow::anyhow!("verify activity failed"))
+                ) -> Result<(), MessageActivityHttpError> {
+                    Err(MessageActivityHttpError::Other(anyhow::anyhow!(
+                        "add verify activity failed"
+                    )))
                 }
             }
 

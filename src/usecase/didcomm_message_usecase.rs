@@ -62,6 +62,16 @@ pub enum VerifyDidcommMessageUseCaseError {
     VerificationFailed,
     #[error("target did not found : {0}")]
     TargetDidNotFound(String),
+    #[error("bad request: {0}")]
+    BadRequest(String),
+    #[error("unauthorized: {0}")]
+    Unauthorized(String),
+    #[error("forbidden: {0}")]
+    Forbidden(String),
+    #[error("not found: {0}")]
+    NotFound(String),
+    #[error("conflict: {0}")]
+    Conflict(String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -177,7 +187,24 @@ impl DidcommMessageUseCase {
                     status: VerifiedStatus::Valid,
                 })
                 .await
-                .context("failed to add verify activity")?;
+                .map_err(|e| match e {
+                    MessageActivityHttpError::BadRequest(message) => {
+                        VerifyDidcommMessageUseCaseError::BadRequest(message)
+                    }
+                    MessageActivityHttpError::Unauthorized(message) => {
+                        VerifyDidcommMessageUseCaseError::Unauthorized(message)
+                    }
+                    MessageActivityHttpError::Forbidden(message) => {
+                        VerifyDidcommMessageUseCaseError::Forbidden(message)
+                    }
+                    MessageActivityHttpError::NotFound(message) => {
+                        VerifyDidcommMessageUseCaseError::NotFound(message)
+                    }
+                    MessageActivityHttpError::Conflict(message) => {
+                        VerifyDidcommMessageUseCaseError::Conflict(message)
+                    }
+                    _ => VerifyDidcommMessageUseCaseError::Other(e.into()),
+                })?;
             Ok(verified)
         } else {
             self.message_activity_repository
@@ -189,7 +216,24 @@ impl DidcommMessageUseCase {
                     status: VerifiedStatus::Invalid,
                 })
                 .await
-                .context("failed to add verify activity")?;
+                .map_err(|e| match e {
+                    MessageActivityHttpError::BadRequest(message) => {
+                        VerifyDidcommMessageUseCaseError::BadRequest(message)
+                    }
+                    MessageActivityHttpError::Unauthorized(message) => {
+                        VerifyDidcommMessageUseCaseError::Unauthorized(message)
+                    }
+                    MessageActivityHttpError::Forbidden(message) => {
+                        VerifyDidcommMessageUseCaseError::Forbidden(message)
+                    }
+                    MessageActivityHttpError::NotFound(message) => {
+                        VerifyDidcommMessageUseCaseError::NotFound(message)
+                    }
+                    MessageActivityHttpError::Conflict(message) => {
+                        VerifyDidcommMessageUseCaseError::Conflict(message)
+                    }
+                    _ => VerifyDidcommMessageUseCaseError::Other(e.into()),
+                })?;
             Err(VerifyDidcommMessageUseCaseError::VerificationFailed)
         }
     }
@@ -355,7 +399,7 @@ mod tests {
                 async fn add_verify_activity(
                     &self,
                     _request: VerifiedMessageActivityRequest,
-                ) -> anyhow::Result<()> {
+                ) -> Result<(), MessageActivityHttpError> {
                     unreachable!()
                 }
             }
@@ -470,8 +514,10 @@ mod tests {
                 async fn add_verify_activity(
                     &self,
                     _request: VerifiedMessageActivityRequest,
-                ) -> anyhow::Result<()> {
-                    Err(anyhow::anyhow!("verify activity failed"))
+                ) -> Result<(), MessageActivityHttpError> {
+                    Err(MessageActivityHttpError::Other(anyhow::anyhow!(
+                        "verify activity failed"
+                    )))
                 }
             }
 

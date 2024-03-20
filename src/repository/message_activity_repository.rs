@@ -55,5 +55,5 @@ pub trait MessageActivityRepository {
     async fn add_verify_activity(
         &self,
         request: VerifiedMessageActivityRequest,
-    ) -> anyhow::Result<()>;
+    ) -> Result<(), MessageActivityHttpError>;
 }
