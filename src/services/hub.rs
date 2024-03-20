@@ -225,7 +225,7 @@ impl MessageActivityRepository for Hub {
 
         let res = self
             .http_client
-            .post("/v1/message_activity", &payload)
+            .post("/v1/message-activity", &payload)
             .await?;
 
         match res.status() {
@@ -263,7 +263,7 @@ impl MessageActivityRepository for Hub {
 
         let res = self
             .http_client
-            .put("/v1/message_activity", &payload)
+            .put("/v1/message-activity", &payload)
             .await?;
 
         match res.status() {
