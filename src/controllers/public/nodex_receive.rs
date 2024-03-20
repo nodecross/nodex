@@ -2,13 +2,8 @@ use crate::services::{hub::Hub, internal::didcomm_encrypted::DIDCommEncryptedSer
 use crate::services::{internal::did_vc::DIDVCService, nodex::NodeX};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
-use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
+use tokio::sync::Notify;
 
 #[derive(Deserialize)]
 enum OperationType {
@@ -98,13 +93,13 @@ impl MessageReceiveUsecase {
     }
 }
 
-pub async fn polling_task(shutdown_marker: Arc<AtomicBool>) {
+pub async fn polling_task(shutdown_notify: Arc<Notify>) {
     log::info!("Polling task is started");
 
     let usecase = MessageReceiveUsecase::new();
 
     let mut interval = tokio::time::interval(Duration::from_secs(3600));
-    while !shutdown_marker.load(Ordering::SeqCst) {
+    loop {
         tokio::select! {
             _ = interval.tick() => {
                 match usecase.receive_message().await {
@@ -112,8 +107,8 @@ pub async fn polling_task(shutdown_marker: Arc<AtomicBool>) {
                     Err(e) => log::error!("Error: {:?}", e),
                 }
             }
-            _ = tokio::signal::ctrl_c(), if !shutdown_marker.load(Ordering::SeqCst) => {
-                shutdown_marker.store(true, Ordering::SeqCst);
+            _ = shutdown_notify.notified() => {
+                break;
             },
         }
     }
