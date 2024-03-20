@@ -2,7 +2,6 @@ import os
 import requests_unixsocket
 import json
 import urllib.parse
-import traceback
 
 # Create a session that can make requests to Unix sockets
 session = requests_unixsocket.Session()
@@ -14,7 +13,10 @@ base = f'http+unix://{urllib.parse.quote(
 
 def call(method, path, payload):
     url = f"{base}:{path}"
-    print(f"calling {method} {url}")
+    print("Now Requesting...")
+    print(f"- Method: {method.upper()}")
+    print(f"- URL: {urllib.parse.unquote(url)}\n")
+
     try:
         if method == "get":
             response = session.get(url)
@@ -22,11 +24,15 @@ def call(method, path, payload):
             response = session.post(url, json=payload)
         else:
             raise ValueError(f"Unsupported method: {method}")
-        response.raise_for_status()  # Raises stored HTTPError, if one occurred.
+        # Raises stored HTTPError, if one occurred.
+        response.raise_for_status()
         return json.dumps(response.json(), indent=4)
-    except Exception:
-        traceback.print_exc()
-        return None
+    except Exception as e:
+        return (
+            f"{e.response.status_code} "
+            f"{e.response.reason} "
+            f"{e.response.text}"
+        )
 
 
 def get(path):
