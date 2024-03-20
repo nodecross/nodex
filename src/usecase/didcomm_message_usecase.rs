@@ -346,8 +346,10 @@ mod tests {
                 async fn add_create_activity(
                     &self,
                     _request: CreatedMessageActivityRequest,
-                ) -> anyhow::Result<()> {
-                    Err(anyhow::anyhow!("create activity failed"))
+                ) -> Result<(), MessageActivityHttpError> {
+                    Err(MessageActivityHttpError::Other(anyhow::anyhow!(
+                        "create activity failed"
+                    )))
                 }
 
                 async fn add_verify_activity(
@@ -461,7 +463,7 @@ mod tests {
                 async fn add_create_activity(
                     &self,
                     _request: CreatedMessageActivityRequest,
-                ) -> anyhow::Result<()> {
+                ) -> Result<(), MessageActivityHttpError> {
                     unreachable!()
                 }
 
