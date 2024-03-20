@@ -9,8 +9,8 @@ use uuid::Uuid;
 use crate::{
     nodex::schema::general::GeneralVcDataModel,
     repository::message_activity_repository::{
-        CreatedMessageActivityRequest, MessageActivityRepository, VerifiedMessageActivityRequest,
-        VerifiedStatus,
+        CreatedMessageActivityRequest, MessageActivityHttpError, MessageActivityRepository,
+        VerifiedMessageActivityRequest, VerifiedStatus,
     },
     services::{internal::didcomm_encrypted::*, project_verifier::ProjectVerifier},
 };
@@ -42,6 +42,16 @@ impl DidcommMessageUseCase {
 pub enum GenerateDidcommMessageUseCaseError {
     #[error("target did not found : {0}")]
     TargetDidNotFound(String),
+    #[error("bad request: {0}")]
+    BadRequest(String),
+    #[error("unauthorized: {0}")]
+    Unauthorized(String),
+    #[error("forbidden: {0}")]
+    Forbidden(String),
+    #[error("not found: {0}")]
+    NotFound(String),
+    #[error("conflict: {0}")]
+    Conflict(String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -98,7 +108,27 @@ impl DidcommMessageUseCase {
                 occurred_at: now,
             })
             .await
-            .context("failed to add create activity")?;
+            .map_err(|e| match e {
+                MessageActivityHttpError::BadRequest(message) => {
+                    GenerateDidcommMessageUseCaseError::BadRequest(message)
+                }
+                MessageActivityHttpError::Unauthorized(message) => {
+                    GenerateDidcommMessageUseCaseError::Unauthorized(message)
+                }
+                MessageActivityHttpError::Forbidden(message) => {
+                    GenerateDidcommMessageUseCaseError::Forbidden(message)
+                }
+                MessageActivityHttpError::NotFound(message) => {
+                    GenerateDidcommMessageUseCaseError::NotFound(message)
+                }
+                MessageActivityHttpError::Conflict(message) => {
+                    GenerateDidcommMessageUseCaseError::Conflict(message)
+                }
+                _ => GenerateDidcommMessageUseCaseError::Other(e.into()),
+            })?;
+
+        // Discard the unused result
+        let _ = result;
 
         Ok(result)
     }
