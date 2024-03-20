@@ -11,9 +11,9 @@ use services::hub::Hub;
 use services::nodex::NodeX;
 use shadow_rs::shadow;
 use std::env;
-use std::sync::atomic::AtomicBool;
 use std::{collections::HashMap, fs, sync::Arc};
 use tokio::sync::mpsc;
+use tokio::sync::Notify;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
 
@@ -173,10 +173,10 @@ async fn main() -> std::io::Result<()> {
     let server = server::new_server(&sock_path, transfer_client);
     let server_handle = server.handle();
 
-    let shutdown_marker = Arc::new(AtomicBool::new(false));
+    let shutdown_notify = Arc::new(Notify::new());
 
     let message_polling_task =
-        tokio::spawn(nodex_receive::polling_task(Arc::clone(&shutdown_marker)));
+        tokio::spawn(nodex_receive::polling_task(Arc::clone(&shutdown_notify)));
 
     let server_task = tokio::spawn(server);
     let sender_task = tokio::spawn(handlers::sender::handler(
@@ -190,7 +190,8 @@ async fn main() -> std::io::Result<()> {
         tokio::signal::ctrl_c().await.unwrap();
 
         let server_stop = server_handle.stop(true);
-        shutdown_marker.store(true, std::sync::atomic::Ordering::SeqCst);
+
+        shutdown_notify.notify_waiters();
 
         server_stop.await;
     });
