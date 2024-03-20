@@ -24,7 +24,7 @@ def call(method, path, payload):
             raise ValueError(f"Unsupported method: {method}")
         response.raise_for_status()  # Raises stored HTTPError, if one occurred.
         return json.dumps(response.json(), indent=4)
-    except:
+    except Exception:
         traceback.print_exc()
         return None
 
