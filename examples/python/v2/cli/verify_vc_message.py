@@ -1,5 +1,6 @@
 from sock import post
 
+
 def main():
     # The endpoint and payload you want to send
     endpoint = "/verify-verifiable-message"
@@ -11,6 +12,6 @@ def main():
     json_response = post(endpoint, payload)
     print(json_response)
 
+
 if __name__ == "__main__":
     main()
-
