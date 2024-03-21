@@ -90,7 +90,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v1/message_activity:
+  /v1/message-activity:
     post:
       summary: Send message activity
       operationId: sendMessageActivity
