@@ -1,18 +1,37 @@
 from sock import post
+import json
+import pprint
+
+# PLEASE WRITE destination_did, message, AND operation_tag.
+destination_did = (
+    "did:nodex:test:DummyDummyDummyDummyDummyDummyDummyDummyDummyD"
+)
+message = {
+    "message": {
+        "string": "value",
+        "number": 1,
+        "boolean": True,
+        "array": ["foo", "bar", "baz"],
+        "map": {"key": "value"},
+    }
+}
+operation_tag = "test-operation-tag"
 
 
 def main():
-    # The endpoint and payload you want to send
-    endpoint = "/create-verifiable-message"
     payload = {
-        "destination_did": "did:nodex:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA",
-        "message": """{"string": "value","number": 1,"boolean": True,"array": [],"map": {}}""",
-        "operation_tag": "test-operation-tag",
+        "destination_did": destination_did,
+        "message": json.dumps(message),
+        "operation_tag": operation_tag,
     }
 
-    # Send the POST request and print the response
-    json_response = post(endpoint, payload)
+    json_response = post("/create-verifiable-message", payload)
+
+    print("The response is as follows.\n")
     print(json_response)
+
+    print('\nPlease paste below to "verify_vc_message.py".\n')
+    pprint.pprint(json.loads(json_response), sort_dicts=False)
 
 
 if __name__ == "__main__":
