@@ -1,39 +1,40 @@
 from sock import post
+import json
+
+# PLEASE PASTE BELOW THE RESPONSE FROM "generate_vc_message.py".
+message = {
+    "ciphertext": "4odtWoPMVVRPojKklt5Is1F_zhVX5PgQvuIsYs67FjrCN8YMNa37JuWjeZllh_Y5wh8Zfh_pQ_b-W31AimIbn_PV_EtGug8NWVWhRGqFdXGS221yg1dZjyunje-y6v-PH4tOvzG-QJqxMh_1vvHRMOYwyekG1rsSPHoZEuzYouRwiIVoTllBMZxN0Aiqmi4AnLeJ5yezJGhEkueqV_7zxTdbkdPhAkf6r6jgAtazGRRQAT4-j__PMOSsL7QGUm1M2T7imxsTln7i25YtnnAVPIhjUfH5RgpeHFU3SYx4QyxK4HvDAmvTcXIa3OBNGrP1sXaEXFo8nLEFyFHJXJOa6nZOW-4c98Hl5pCYcQMP87hjfGrnPjlpKlybjQb69vS-WeERKUdblasAm2ItXseQpW3FThmtnmP7dHs6iW_442hCyAMOAa1iXSS97pp6rbslOr2yjAQ1NyvwgJxCVDoDb5wd8em_69-vV3H-VatuxRZZpEmRtrkHs5p_F199xjVlwJtM6r0W0T4KCNz89zapMcjtj2L_HF_FXFK-n-cjfoky6Qtc9kNCtHHz1xOZ3lt-dKowzDtlqdmNwroGtYdv3tZruPF2r6FpBPq6KpDpmznu8OdapNFZtdXb37v7RBKZBko6nnVx3y5_3tifHSRMXD-VLxqCzA2RDknHEXptfenpbmxt842CeLeC07pzNCUjviljI7mU2ocrRRgcsRZ7wdqhTWLKt46Pn_MSFKwn7EdnAxUvw-CnU0C2bEdWc9v-0_sSufETFUmAth6ThgxXwcNyBwdpgi3UOkZULeMMBORCgTqYRYPgd9o6wHWVCZJTURbq9PQINTWtsZniJjFk-MunNQy8qVQ87y9gxaF2nPJ9I0QYAUZCZwpB3F3vK1XIt6L160wWqMWnLM1RbMuv1OfyJd5PgGbfWeJmbcaI-06D9rf33tjUcuU_HRYCpWqRFGJyM8QE7gNDtDNHkmKCXeXt6QQeeKj-vQlDpc-dRbV2WVb-kxmoWHrtRRMZw7ekfi19hwxgOrzueIY_wehvMF5hTWkKlbXbnDPs-PhCbnHCiFZuWyM9ozR2xK5orIVLjwaenZbFKx-cFZxWBgvgJ3YlUKXlwqESbvGzBsljK_gYIOiHhXpewxmLiTT0c9988kn4xwLVukH4Y7IfjlVEVMFtr9weIFEh9hGjm25pjJrWFwm8eqSErq9bA7-eam-ZqcAGgvfk6n2sKMCa7APgT0cJJPJ8dtNT4UZiSi9skKfk4xDnJI9bvgg2mlseRPz6FpfXSr9EelMpIkoukexoCzjHUZCdBUEDCfukBFOO5mYIgQM0gMRggg5jP6eCsGazqxlBMZFEzHQX2R5wGfKqO2x4Yrj6lvIrYQIZMxl_cRT8_e_L3q-ybfyjJ9H3766wUowXjEl7ymb4J-OCbj0vFBHSQj0ITFb0cd_ofau6Bbq0vIYDlAbVal-JK8NJk5x-t_CPnP8hFy84NycQ0Hv0lmUq-DlMYn2tgfxVOJSNoiP1N5Qc3P0H7jUtoT2Z4sKO49e5f-F7IvgWOclUSf7F2dBMfFMjhZ8xCmlGB4sfwFRZks1tKthB7Mnk5r89H7pYWhhq6wPkx2z006DGeSjOPsTNLl1pIFOEeG3kUj_V4ha855FkD6u_cc4WXJGEQ_uT4d2EfoQ4-PxwoMzAhJH4yQRHdFWFnmnJ7tx1vM0qw0kqZM5vTjXZIh82DvrG9of3u41EfroPuxYHwdBQZxAvrDiDGofWc_uIXd7I01RGFHnR5VPtpIZAHECrPO48--DH3Tcux6e_3FGz1VFDHQfOlvt8ifIb1M38TJQFE1xkNBmq2nj0ya8444accNoPjXYOAhbTFeyv-WJfOPfnZasSjTBg0cBG5Dxlj1dr717R_3_BqCDJeX7i7PG-MehQ-u7XFdIvk4TNNOW5Bb_vOFgwycFEOCA2199qkODbdkOwqgMlxZLrFke011evsHA4eBx0-jYAY8N9uWOGKaPtWH-ScpZFcjQEJPV7iT4Xhby5xZDCn7b2PWJiSHzU3cjE0NezA6bV7tNMkNehfchD4MHfe3mOw2A4Tmls_5CLB4pnqLGJX7cCTdNzd2Y5oAEc0VsrcsX1XbmpQtRYRhFx-HbZ-88Do94XGrOR2c1IplKnB2xT88HSS_GBGqDqtDS-LdOeLXZnd1ytK85w6NUDpP7KvLpc9fQKASmq-oFqnVh2FXPQf8l9R3rf-0J7FogYyHMtkmRCbXIKHEDSx7bwFQgnL6mq0YLO7MLGrkhS1SnHre4m5LqWOPHgOCzp-pmUe89_D3jyt0MM8vxk9Y1MK4TrzZwqU0w8Mhz4fU_hUrznFZwWHOi9fBxIlNpaR-Dr6o2rAO7yra2QxtBQ0Hc4ImxsSgI3uD5GqFXqZTgTFxzNaondhDjZYSPdK7qeSqaDAs9wIjJCQhpEKWQabUqlZ2K-sg_ohLJqNtwQ7WD_wU_nApBxsj7fS2tnmPRTV57VoImwpLGQOFF3IJpIq6SNgtvXWuefDnCD-s00zT0qpPJlUX5_8U9kxFqJZYwbfyF2NEZFpIsGBZ-HZjTnkL2mx398CNW6SphTsA_1zjuWgxEXlqI--8iePPDzSqr5S8zaZUmSVmx4K53ZCPsU8oKz5Ud6GBMmcpXkW1r84MwRs0GsnQS70lBUtw9DLwacKyQNM5nfepSas6X-JbG4EeNp_EC2g4IYiLqEcuNLkW_pVFMAuofVQFpwZv41_QhshJ2BH8jjA48Fde49e7XRaedeutpqp-r2hTn68J3GmCA68HlU6ZbCGUTjyskWBebr9N6Qvm5QY2J0lAXIUcI7KApDgiYQs3teFpQ5vCGmMBOP93YFMGOBH649OnvQvmBy0jP3RBPJ30tOnSw5-K0fndMpSY1GXh8MtwJD62kxyKqniCfTbBnFRXV8N4WcvA6mk6MNMs14eeCTr8w7H9rDwUofG3QFLjaNonSLIv69DZJGCV7M6v6pME7WiSNJeaGEnFNJcdFLQZyb67kn4LdayoYHyRgELw9VCs-U13UoBvyOv_Sl7xjLtyLUegJWh7Ius0fT-xe8ekLHDKxr2REJaT8sAAyXzmSSyrav5LIrr4RPGBrYbuzY-HL5sabj8o_-jRnXpbxJ5EAZLL0-UMdklsgy7Ks_G8lhv-AzROjKLdtza2cd9QG9HEFT3whlpbgmDyqu1ERRETzAvsd0VkS3hvKCgPk87SIm96U6UogsCHY-nc3KcH7THhf4TDq5GdZl0Bx178LKkbLc3Ffksjbei4IVfibito3C_ug6vtsWDoK1TkfXMTWO4HPQ5L7bDeJ-6g7wwEMVYNdjPO7HU-Cd2IaO4wXcpAeacJ-McA_i-zBFl9j7qHXMjcp_AkUZRM52COmE__35-B_neEaG7DeHE-caufpiEatCYtTIU7OAFfvw5Oo05LxKLEPVeDsCKQsfl5DLsEw-khNOE2KG0PAZqb85ELgHv2rkX1Tv5Iwr-ETH-tGow01E4QVjQpqNr2RzQ1PgyBIN896FtnT_Y42bdJNELI8_LsquKUjACBq_0fDdqMqyoHhzF8zpv6E-YqNW08HwKg",
+    "iv": "8Yx4LzZPQxGMtkzK6SsdCQG57n_FT0Rj",
+    "protected": "eyJ0eXAiOiJhcHBsaWNhdGlvbi9kaWRjb21tLWVuY3J5cHRlZCtqc29uIiwiZW5jIjoiWEMyMFAiLCJraWQiOiJmc04tdDNqYW1DM2FobkpGNkpBb1p4V0ZXQi1ZaGtxTVVDeGlnak1TVndZIiwic2tpZCI6ImRpZDpub2RleDp0ZXN0OkVpRDlhUVlOVUpNZGdqZVFldERqNTZMTnpSNlNkd2h1WEdGYWx2STNndWdQSFEiLCJhbGciOiJFQ0RILTFQVStYQzIwUEtXIn0",
+    "recipients": [
+        {
+            "encrypted_key": "S-W4UEGIyMrbBddIjkKdjf1W7ggReOBNN0GUmPmxF0Y",
+            "header": {
+                "alg": "ECDH-1PU+XC20PKW",
+                "epk": {
+                    "crv": "X25519",
+                    "kty": "OKP",
+                    "x": "lOWaS4Pr0CgdzjWlZp6MABJPOraolO4qg6DB_IuP_kA",
+                },
+                "iv": "ZJkeAxXYJ2TCagOWUK4nl5vCOOuxKzK2",
+                "key_ops": [],
+                "kid": "did:nodex:test:DummyDummyDummyDummyDummyDummyDummyDummyDummyD",
+                "tag": "mqkx9V8kKAvT-OvwGoJS6Q",
+            },
+        }
+    ],
+    "tag": "LI_BTLTvId9bYwsF_XJmDA",
+}
 
 
 def main():
-    # The endpoint and payload you want to send
-    endpoint = "/verify-didcomm-message"
     payload = {
-        "message": """
-            {
-              "ciphertext": "ycha9AtTBdFTXjP9zPm0cv85EP89uzBF05hvyKJ08lQ8npw6MES9htmLjyyiFl-rXxIW1lFf2FVGD28Gg0jv65tXWyQX7c0MoDmjF9FgIVwTzzgJ_4aR67U7ncX8T03Ib20cXakJWsrOJp1hzJdFEwkoDRJSszbuA4cCkYzeW2ia9jXsZNig90Q2b_m3kFzXCw20tV_JU68xrfs9OtQHwiAUB9_nuskBvdV-lJeoblT8yV3H1Jz5FjLN7JUOV5NBdBk0aDsO0kQ1eFiqZtj5HlZKDB-uKp52ISf80JTJNCb9uB1c-DnCkJw6-D0kk3f83-3y7GN3LfQYSYpxlrpMDnQVtXll0nCTvakiQOUCqQl0eAFMEXeROe-a4dOz3MRdgENnI1fh2N7GMsuh3pax6PI_ssAH51Ya85h_VtJDc6ZqzHkoLhxGALPBJ1-lONXjXdkdPeq5iiGmvkHXwwq4Spe6KyuLiVwbbSVsCQ-qd2yVTuU01EjEo4YVP3L64bA1alwvbZwPfQTBAFAH3J31_50nYmPb4-DdwlFkivQD3CB_1VWUaTQ_7LYlqY_x05UAcb8pYC2sD3rWfV-U18RmRzThfJ9WiycZHaOCn-sKqfYt2UFH8iFBDxYSjy-0dJ0ZvJ_0j9fdPV5vsVchpF8x5ZLXx9jYyucvW9KtIR2c8kp6BWjG-_2Ht87tBMla1dHFjrXfLuNVw9NBpuLcQHkQ-YCAuR5L-PxrLSI51Tg5xBDwnyhZpH4n0RxOWFfXECWduNCJhpFvBtxjSjaqegrk4AW2QJtaPouKHJ24QtlXlJpIHo5n5iS7kV7CQKl7twXIG8OOaL6dlaqx2nuAb6HZpo2xHkLpG3VlMXGl4Lky9PDTk_LTVyUwLxRa7Y-9dBQfrwr3TaGzERol7e1D-Add2zSSOpVYCnIdnw7aRQvXliyF29E0dSlMlMU5lvhjBBa1ya4tbnwHruWd_ZpXWEQzlbBj1pOA3yKblzJyNTLhdqqv5OERIccg3DNLYx3LpVBzxS1ya7vU3GsaRON6qYvOtcaNw74qo1iHiRTDD_dhal4MQ2AEoyU3Tzx0Okgukel9oLPQ_yM5xYQZxEcuXAXWq6twAWYSZBQ0mmJf1C-P2VcQFvLnSufD88pY9xmpc5cb8salBYr21evRF8fvWxL8-KDMRIBdYh9_gUFhadlzz2Qh_Oqhsorvxrv6TtsES0q8ggsIrDmDwQTiG1A6NMkJv4Y4lEYvFT4TJbMK8opvY3H59hVZbsZcdzRc2Hi8GTw2XB08PdGrvtVZhK97oIbnNv8CmLR-9bcDDwny2mE9FcCHSYwwXQ_yCEMiXyImKzxNvNovm8isnDaqva2uP6ERzB_AEAZboiOIKVfrW0kddR1_xCYg1a0TwazFrgXO-8wekBmAzVdhvcIkSPnZblu8LovR9AN9YPOqLkZonYRaj6eeDS4ww5kb_IVXzumcbIiNOEoqHwZoNGASxnO7HktiWncfpnridPY4nhH9fFhTITZsypCoZY5wGEbtlwZEDs8dcFq1-vB70m5ukvQN9Cr3IcqSUYBGI4jSr1NBESVELKyzbu-yasRjD_C60IlSB9VmNrw232Wno-jYWp0nmAcU43kxM2RY9pkjfQaDEXtDUKrTD2fRXlqrAUnOBPest3xeiK1ztUae8mpU9AyRH8KKLI3seY3Un_25deYCZjMJi3FgQ1gsTdTab5oANgd60vvND7NAZadCLDjkgsxUXykQOF5p4W_sd64DQeFyBVlPmK9mnxPo7vqMrs_rpywm7sRSbB49R1UsopDcZxv2cZmVPyzXSGxbV4T9e65k1XBSSeUaf3FI_itOOcDDIS-ms_D81__Ubs5YO4VyN6oR2KvkJGXHUFaNZybvu2hZhaAoqLqAZDlx6p9jGM_OUOwS-0ttWe2HC4BeMb53zrrg8T6dmizgwqQV0C0AU-q7cdPb0uhOl4nHXcTnQDA2PHUmhhEBGZMeZezzZ-Dnseox5ucit5tsTkV8zSVnYWYKgM3cgJTJhLJ1kLaS_oYFmSIuL3KnPjRgUMWAkS7HCU6b1XALusCWACwo6FC7iUspc6UBMrtbLLE70C2n17DnHWxSyVnZoo2OIUeQsvBivmnGT8SnD77V83jVMgYC6m1lEKTrMQki8y4BtVYtL1CfdHHFYZqhXdNegFMOf_3d4uWpHqxZbQnAQu3mz4LAJzcg3gLKRv1bVGhbajGc4IowCFV4hknRKx4WZanIQrtQ-3Q4_OjbHgxTSQ01uImaS-rPpIWH7HBKFw6PVfmumBZgYiAu8O4IhJFY-_py3MXdVQR-bDw2cqjXiF93Pf7-O8PzMeK6T5XMnoy5eK2LbT0a0QSqOHR9PvpM9xYlLoSUeJ03TfxUUxTekyOarF2ACrAOV41_D4gbBklcYmKhdJ69YXNl6wiuiLuxKLQFy4QWxkEC-jEZe5GOGkFgTN1udA4BrOE03Bt3QSNfglxKmF3HBUyAByoU2Sd2h8fr5aUmSSoA0-u4qSvl_E8ODhqEyKK_9THfj4N8QuhLyyQn2tW0Om0x0d0CTNv_OJI9Y8lvWWuDHQ7jOanujqN5xpDucM_dJJnDGGMylsYAazviLusf4gzR3B49qbV-owmGQS_2gWaXV0N8ubTnD1cYjAbto8TQdLXYO3KwQwLwu5Nsr4UskH7MkQI5eupHXyBPxIkyJRkQqbNJUdwcZj_KRYzqzvyWdnnlyCPQBTOE8TneCFeIrBtcYrYHL8eL12c0HIcZG4O4nCa8chTHzd5te4D8TQdUUFE60nlCVHg6n_lT7fo9kgRfl85Ly1QooXVKZCJUh4TQYE5TPJLQeHNszNnhDuMJ7qTR51xsnmvBrKWuWAei0JwfdFfFTqtSU1TLfxmxmTxYhPT-5bR76GWru1v0MDS4vDjzso3hNcpvM5tJIEpYoM17NLCHlrUkKBaXcKrNVlkrZhAW5hb_yczmNVoHQxodTasFyqDFvmSPTQpvnRm0ynTPyqbTj8rbeCqXobmuFLgHybHVd5lz7JtQ6ooAv2JZaTXA21rq6hT5G63BmCaagMpLziNieH0EILjftQ",
-              "iv": "UzE5VwKyQB_7sVgDPcPezLgRY87P2g3d",
-              "protected": "eyJ0eXAiOiJhcHBsaWNhdGlvbi9kaWRjb21tLWVuY3J5cHRlZCtqc29uIiwiZW5jIjoiWEMyMFAiLCJraWQiOiJsYUJEZl9PeENFLTF6aVdMLWJUT093RFZVMUYyNGluTk1kWkhOd1ZxUEFBIiwic2tpZCI6ImRpZDp1bmlkOnRlc3Q6RWlCcHJYcmVNaWJhNGxveWwzcHNYbTBSc0VDZHRsQ2lRSWpNOEc5QnRkUXBsQSIsImFsZyI6IkVDREgtMVBVK1hDMjBQS1cifQ",
-              "recipients": [
-                {
-                  "encrypted_key": "ytXSszSTNkVbZw5PZ_7iHQ1waV4yT27idrAuODWO7IY",
-                  "header": {
-                    "alg": "ECDH-1PU+XC20PKW",
-                    "epk": {
-                      "crv": "X25519",
-                      "kty": "OKP",
-                      "x": "XFRApJksjGAcFGzALqYd5mAE1W5Ja3GHDzU_Cy2jd0Y"
-                    },
-                    "iv": "qWBwU5xflciNmEZ3SYCJ5ulwKJo9M4hW",
-                    "key_ops": [],
-                    "kid": "did:nodex:test:EiBprXreMiba4loyl3psXm0RsECdtlCiQIjM8G9BtdQplA",
-                    "tag": "zdt-fMYmk_9IDhRuwWqWXw"
-                  }
-                }
-              ],
-              "tag": "cp7atcUAXtPgLFRogRxRcA"
-            }
-        """
+        "message": json.dumps(message),
     }
 
-    # Send the POST request and print the response
-    json_response = post(endpoint, payload)
+    json_response = post("/verify-didcomm-message", payload)
+
+    print("The response is as follows.\n")
     print(json_response)
 
 
