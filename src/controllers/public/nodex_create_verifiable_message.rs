@@ -41,6 +41,26 @@ pub async fn handler(
             CreateVerifiableMessageUseCaseError::DestinationNotFound => {
                 Ok(HttpResponse::NotFound().finish())
             }
+            CreateVerifiableMessageUseCaseError::BadRequest(message) => {
+                log::warn!("Bad Request: {}", message);
+                Ok(HttpResponse::BadRequest().body(message))
+            }
+            CreateVerifiableMessageUseCaseError::Unauthorized(message) => {
+                log::warn!("Unauthorized: {}", message);
+                Ok(HttpResponse::Unauthorized().body(message))
+            }
+            CreateVerifiableMessageUseCaseError::Forbidden(message) => {
+                log::warn!("Forbidden: {}", message);
+                Ok(HttpResponse::Forbidden().body(message))
+            }
+            CreateVerifiableMessageUseCaseError::NotFound(message) => {
+                log::warn!("NotFound: {}", message);
+                Ok(HttpResponse::NotFound().body(message))
+            }
+            CreateVerifiableMessageUseCaseError::Conflict(message) => {
+                log::warn!("Conflict: {}", message);
+                Ok(HttpResponse::Conflict().body(message))
+            }
             CreateVerifiableMessageUseCaseError::VCServiceFailed(e) => {
                 log::error!("{:?}", e);
                 Ok(HttpResponse::InternalServerError().finish())
