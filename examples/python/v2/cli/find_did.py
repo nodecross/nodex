@@ -6,8 +6,7 @@ destination_did = (
     "did:nodex:test:DummyDummyDummyDummyDummyDummyDummyDummyDummyD"
 )
 
-endpoint = "/identifiers/" + destination_did
-json_response = get(endpoint)
+json_response = get(f"/identifiers/{destination_did}")
 
 print("The response is as follows.\n")
 print(json_response)
