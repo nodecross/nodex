@@ -62,6 +62,10 @@ runs:
       run: cat log.txt
       if: ${{ always() }}
 
+    - name: (run) install procps in agent container_id
+      shell: bash
+      run: docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e exec e2e_agent bash -c "apt-get update && apt-get install -y procps"
+
     - name: (run) shutdown agent
       shell: bash
       run: |
