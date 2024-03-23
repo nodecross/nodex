@@ -194,6 +194,8 @@ async fn main() -> std::io::Result<()> {
         shutdown_notify.notify_waiters();
 
         server_stop.await;
+
+        log::info!("agent have been successfully stopped.");
     });
 
     match tokio::try_join!(server_task, sender_task, message_polling_task, shutdown) {
