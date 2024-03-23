@@ -61,8 +61,6 @@ runs:
       shell: bash
       run: docker compose -f test_resource/compose.yaml --profile e2e exec e2e_agent bash -c "apt-get update && apt-get install -y procps"
 
-# TODO macではnodexをhostで実行している
-
     - name: (run) shutdown agent
       shell: bash
       run: |
@@ -80,7 +78,7 @@ runs:
           echo "::set-output name=stopped_found::false"
         fi
 
-    - name: (run)  Verify process is not running in e2e_agent
+    - name: (run) Verify process is not running in e2e_agent
       shell: bash
       if: steps.check_logs.outputs.stopped_found == 'true'
       run: |
