@@ -2,8 +2,9 @@ from sock import post
 
 
 def main():
-    endpoint = "/identifiers"
-    json_response = post(endpoint, {})
+    json_response = post("/identifiers")
+
+    print("The response is as follows.\n")
     print(json_response)
 
 

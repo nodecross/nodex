@@ -39,5 +39,5 @@ def get(path):
     return call("get", path, None)
 
 
-def post(path, payload):
+def post(path, payload={}):
     return call("post", path, payload)
