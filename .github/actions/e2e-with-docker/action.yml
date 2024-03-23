@@ -39,9 +39,20 @@ runs:
       id: check_logs
       run: |
         if docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e logs e2e_agent | grep -q "stopped"; then
-          echo "Agent Stopped, as expected."
+          echo "::set-output name=stopped_found::true"
         else
-          echo "Agent is still running, which is not expected."
+          echo "::set-output name=stopped_found::false"
+        fi
+
+    - name: (run)  Verify process is not running in e2e_agent
+      shell: bash
+      if: steps.check_logs.outputs.stopped_found == 'true'
+      run: |
+        container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
+        if ! docker exec $container_id pgrep -f /tmp/nodex-agent; then
+          echo "Process not found, as expected."
+        else
+          echo "Process is still running, which is not expected."
           exit 1
         fi
 
@@ -49,25 +60,3 @@ runs:
       shell: bash
       run: docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e logs e2e_agent
       if: ${{ always() }}
-
-    # - name: (run) Check for 'stopped' log message
-    #   shell: bash
-    #   id: check_logs
-    #   run: |
-    #     if docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e logs e2e_agent | grep -q "stopped"; then
-    #       echo "::set-output name=stopped_found::true"
-    #     else
-    #       echo "::set-output name=stopped_found::false"
-    #     fi
-
-    # - name: (run)  Verify process is not running in e2e_agent
-    #   shell: bash
-    #   if: steps.check_logs.outputs.stopped_found == 'true'
-    #   run: |
-    #     container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
-    #     if ! docker exec $container_id pgrep -f /tmp/nodex-agent; then
-    #       echo "Process not found, as expected."
-    #     else
-    #       echo "Process is still running, which is not expected."
-    #       exit 1
-    #     fi
