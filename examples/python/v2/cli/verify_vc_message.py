@@ -1,6 +1,7 @@
 from sock import post
 import json
 
+
 # PLEASE PASTE BELOW THE RESPONSE FROM "generate_vc_message.py".
 message = {
     "issuer": {
@@ -35,16 +36,11 @@ message = {
 }
 
 
-def main():
-    payload = {
-        "message": json.dumps(message),
-    }
+payload = {
+    "message": json.dumps(message),
+}
 
-    json_response = post("/verify-verifiable-message", payload)
+json_response = post("/verify-verifiable-message", payload)
 
-    print("The response is as follows.\n")
-    print(json_response)
-
-
-if __name__ == "__main__":
-    main()
+print("The response is as follows.\n")
+print(json_response)

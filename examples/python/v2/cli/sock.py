@@ -3,6 +3,7 @@ import requests_unixsocket
 import json
 import urllib.parse
 
+
 # Create a session that can make requests to Unix sockets
 session = requests_unixsocket.Session()
 
@@ -39,5 +40,5 @@ def get(path):
     return call("get", path, None)
 
 
-def post(path, payload):
+def post(path, payload={}):
     return call("post", path, payload)

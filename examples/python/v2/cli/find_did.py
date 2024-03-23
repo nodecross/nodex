@@ -1,11 +1,12 @@
 from sock import get
 
 
-def main():
-    endpoint = "/identifiers/did:nodex:test:EiD_ZSrS4E4FZruAIJnMt1KjvH1HvwCRYdnIzYpQr4vsuQ"
-    json_response = get(endpoint)
-    print(json_response)
+# PLEASE WRITE destination_did
+destination_did = (
+    "did:nodex:test:DummyDummyDummyDummyDummyDummyDummyDummyDummyD"
+)
 
+json_response = get(f"/identifiers/{destination_did}")
 
-if __name__ == "__main__":
-    main()
+print("The response is as follows.\n")
+print(json_response)

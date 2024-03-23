@@ -1,11 +1,7 @@
 from sock import post
 
 
-def main():
-    endpoint = "/identifiers"
-    json_response = post(endpoint, {})
-    print(json_response)
+json_response = post("/identifiers")
 
-
-if __name__ == "__main__":
-    main()
+print("The response is as follows.\n")
+print(json_response)
