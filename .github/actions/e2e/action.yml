@@ -68,6 +68,7 @@ runs:
         container_id=$(docker compose -f test_resource/compose.yaml --profile e2e ps -q e2e_agent)
         pid=$(docker exec $container_id pgrep -f nodex-agent)
         docker exec $container_id kill -SIGINT $pid
+        sleep 3
       if: ${{ always() }}
 
     - name: (run) Check for 'stopped' log message
