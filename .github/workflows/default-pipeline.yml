@@ -164,10 +164,6 @@ jobs:
           name: ${{ matrix.target }}
           path: .
 
-      - name: Install pgrep in ${{ matrix.docker-image }}
-        run: |
-          docker run --rm ${{ matrix.docker-image }} sh -c "apt-get update && apt-get install -y pgrep"
-
       - name: (unzip) unzip binary
         run: unzip nodex-agent-${{ matrix.target }}.zip
 
