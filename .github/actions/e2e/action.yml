@@ -57,21 +57,16 @@ runs:
       working-directory: e2e
       run: cargo test
 
-    - name: (run) show log of agent
-      shell: bash
-      run: cat log.txt
-      if: ${{ always() }}
-
     - name: (run) install procps in agent container
       shell: bash
       run: docker compose -f test_resource/compose.yaml --profile e2e exec e2e_agent bash -c "apt-get update && apt-get install -y procps"
 
+# TODO macではnodexをhostで実行している
+
     - name: (run) shutdown agent
       shell: bash
       run: |
-        container_id=$(docker compose -f test_resource/compose.yaml --profile e2e ps -q e2e_agent)
-        pid=$(docker exec $container_id pgrep -f nodex-agent)
-        docker exec $container_id kill -SIGINT $pid
+        pgrep -f nodex-agent | xargs kill -SIGINT
         sleep 3
       if: ${{ always() }}
 
@@ -79,7 +74,7 @@ runs:
       shell: bash
       id: check_logs
       run: |
-        if docker compose -f test_resource/compose.yaml logs e2e_agent | grep -q "stopped"; then
+        if cat log.txt | grep -q "stopped"; then
           echo "::set-output name=stopped_found::true"
         else
           echo "::set-output name=stopped_found::false"
@@ -89,15 +84,15 @@ runs:
       shell: bash
       if: steps.check_logs.outputs.stopped_found == 'true'
       run: |
-        container_id=$(docker compose -f test_resource/compose.yaml ps -q e2e_agent)
-        if ! docker exec $container_id pgrep -f /tmp/nodex-agent; then
+        pids=$(pgrep -f nodex-agent)
+        if [ -z "$pids" ]; then
           echo "Process not found, as expected."
         else
           echo "Process is still running, which is not expected."
           exit 1
         fi
 
-    - name: (run) show log of mock server
+    - name: (run) show log of agent
       shell: bash
-      run: docker compose -f test_resource/compose.yaml --profile e2e logs e2e_agent
+      run: cat log.txt
       if: ${{ always() }}
