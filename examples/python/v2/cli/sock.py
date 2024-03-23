@@ -3,6 +3,7 @@ import requests_unixsocket
 import json
 import urllib.parse
 
+
 # Create a session that can make requests to Unix sockets
 session = requests_unixsocket.Session()
 

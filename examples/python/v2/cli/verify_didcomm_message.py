@@ -27,16 +27,11 @@ message = {
 }
 
 
-def main():
-    payload = {
-        "message": json.dumps(message),
-    }
+payload = {
+    "message": json.dumps(message),
+}
 
-    json_response = post("/verify-didcomm-message", payload)
+json_response = post("/verify-didcomm-message", payload)
 
-    print("The response is as follows.\n")
-    print(json_response)
-
-
-if __name__ == "__main__":
-    main()
+print("The response is as follows.\n")
+print(json_response)

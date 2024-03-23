@@ -19,21 +19,16 @@ message = {
 operation_tag = "test-operation-tag"
 
 
-def main():
-    payload = {
-        "destination_did": destination_did,
-        "message": json.dumps(message),
-        "operation_tag": operation_tag,
-    }
+payload = {
+    "destination_did": destination_did,
+    "message": json.dumps(message),
+    "operation_tag": operation_tag,
+}
 
-    json_response = post("/create-didcomm-message", payload)
+json_response = post("/create-didcomm-message", payload)
 
-    print("The response is as follows.\n")
-    print(json_response)
+print("The response is as follows.\n")
+print(json_response)
 
-    print('\nPlease paste below to "verify_vc_message.py".\n')
-    pprint.pprint(json.loads(json_response), sort_dicts=False)
-
-
-if __name__ == "__main__":
-    main()
+print('\nPlease paste below to "verify_vc_message.py".\n')
+pprint.pprint(json.loads(json_response), sort_dicts=False)
