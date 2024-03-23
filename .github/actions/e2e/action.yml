@@ -57,10 +57,6 @@ runs:
       working-directory: e2e
       run: cargo test
 
-    - name: (run) install procps in agent container
-      shell: bash
-      run: docker compose -f test_resource/compose.yaml --profile e2e exec e2e_agent bash -c "apt-get update && apt-get install -y procps"
-
     - name: (run) shutdown agent
       shell: bash
       run: |
