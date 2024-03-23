@@ -39,6 +39,26 @@ pub async fn handler(
                 log::warn!("Target DID not found. did = {}", target);
                 Ok(HttpResponse::NotFound().finish())
             }
+            VerifyDidcommMessageUseCaseError::BadRequest(message) => {
+                log::warn!("Bad Request: {}", message);
+                Ok(HttpResponse::BadRequest().body(message))
+            }
+            VerifyDidcommMessageUseCaseError::Unauthorized(message) => {
+                log::warn!("Unauthorized: {}", message);
+                Ok(HttpResponse::Unauthorized().body(message))
+            }
+            VerifyDidcommMessageUseCaseError::Forbidden(message) => {
+                log::warn!("Forbidden: {}", message);
+                Ok(HttpResponse::Forbidden().body(message))
+            }
+            VerifyDidcommMessageUseCaseError::NotFound(message) => {
+                log::warn!("Not Found: {}", message);
+                Ok(HttpResponse::NotFound().body(message))
+            }
+            VerifyDidcommMessageUseCaseError::Conflict(message) => {
+                log::warn!("Conflict: {}", message);
+                Ok(HttpResponse::Conflict().body(message))
+            }
             VerifyDidcommMessageUseCaseError::Other(e) => {
                 log::error!("{:?}", e);
                 Ok(HttpResponse::InternalServerError().finish())

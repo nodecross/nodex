@@ -1,3 +1,4 @@
+use crate::repository::message_activity_repository::MessageActivityHttpError;
 use crate::server_config;
 use crate::{
     nodex::utils::hub_client::{HubClient, HubClientConfig},
@@ -9,7 +10,7 @@ use crate::{
 use anyhow::Context;
 
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 
 use super::{
     internal::{did_vc::DIDVCService, didcomm_encrypted::DIDCommEncryptedService},
@@ -209,7 +210,7 @@ impl MessageActivityRepository for Hub {
     async fn add_create_activity(
         &self,
         request: CreatedMessageActivityRequest,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), MessageActivityHttpError> {
         // TODO: refactoring more simple
         let service = DIDCommEncryptedService::new(NodeX::new(), DIDVCService::new(NodeX::new()));
 
@@ -220,7 +221,8 @@ impl MessageActivityRepository for Hub {
         };
         let payload = service
             .generate(&project_did, &json!(request), None, request.occurred_at)
-            .await?;
+            .await
+            .context("failed to generate payload")?;
         let payload = serde_json::to_string(&payload).context("failed to serialize")?;
 
         let res = self
@@ -228,27 +230,37 @@ impl MessageActivityRepository for Hub {
             .post("/v1/message-activity", &payload)
             .await?;
 
-        match res.status() {
-            reqwest::StatusCode::OK => {
-                res.json::<EmptyResponse>().await?;
-                Ok(())
+        let status = res.status();
+        let json: Value = res.json().await.context("Failed to read response body")?;
+        let message = if let Some(message) = json.get("message").map(|v| v.to_string()) {
+            message
+        } else {
+            "".to_string()
+        };
+
+        match status {
+            reqwest::StatusCode::OK => Ok(()),
+            reqwest::StatusCode::BAD_REQUEST => Err(MessageActivityHttpError::BadRequest(message)),
+            reqwest::StatusCode::UNAUTHORIZED => {
+                Err(MessageActivityHttpError::Unauthorized(message))
             }
-            reqwest::StatusCode::BAD_REQUEST => {
-                anyhow::bail!("StatusCode=400, bad request")
-            }
+            reqwest::StatusCode::FORBIDDEN => Err(MessageActivityHttpError::Forbidden(message)),
+            reqwest::StatusCode::NOT_FOUND => Err(MessageActivityHttpError::NotFound(message)),
+            reqwest::StatusCode::CONFLICT => Err(MessageActivityHttpError::Conflict(message)),
             reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
-                anyhow::bail!("StatusCode=500, internal server error");
+                Err(MessageActivityHttpError::InternalServerError(message))
             }
-            other => {
-                anyhow::bail!("StatusCode={other}, unexpected response");
-            }
+            other => Err(MessageActivityHttpError::Other(anyhow::anyhow!(
+                "StatusCode={}, unexpected response",
+                other
+            ))),
         }
     }
 
     async fn add_verify_activity(
         &self,
         request: VerifiedMessageActivityRequest,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), MessageActivityHttpError> {
         // TODO: refactoring more simple
         let service = DIDCommEncryptedService::new(NodeX::new(), DIDVCService::new(NodeX::new()));
         let project_did = {
@@ -258,7 +270,8 @@ impl MessageActivityRepository for Hub {
         };
         let payload = service
             .generate(&project_did, &json!(request), None, request.verified_at)
-            .await?;
+            .await
+            .context("failed to generate payload")?;
         let payload = serde_json::to_string(&payload).context("failed to serialize")?;
 
         let res = self
@@ -266,20 +279,30 @@ impl MessageActivityRepository for Hub {
             .put("/v1/message-activity", &payload)
             .await?;
 
-        match res.status() {
-            reqwest::StatusCode::OK => {
-                res.json::<EmptyResponse>().await?;
-                Ok(())
+        let status = res.status();
+        let json: Value = res.json().await.context("Failed to read response body")?;
+        let message = if let Some(message) = json.get("message").map(|v| v.to_string()) {
+            message
+        } else {
+            "".to_string()
+        };
+
+        match status {
+            reqwest::StatusCode::OK => Ok(()),
+            reqwest::StatusCode::BAD_REQUEST => Err(MessageActivityHttpError::BadRequest(message)),
+            reqwest::StatusCode::UNAUTHORIZED => {
+                Err(MessageActivityHttpError::Unauthorized(message))
             }
-            reqwest::StatusCode::BAD_REQUEST => {
-                anyhow::bail!("StatusCode=400, bad request")
-            }
+            reqwest::StatusCode::FORBIDDEN => Err(MessageActivityHttpError::Forbidden(message)),
+            reqwest::StatusCode::NOT_FOUND => Err(MessageActivityHttpError::NotFound(message)),
+            reqwest::StatusCode::CONFLICT => Err(MessageActivityHttpError::Conflict(message)),
             reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
-                anyhow::bail!("StatusCode=500, internal server error");
+                Err(MessageActivityHttpError::InternalServerError(message))
             }
-            other => {
-                anyhow::bail!("StatusCode={other}, unexpected response");
-            }
+            other => Err(MessageActivityHttpError::Other(anyhow::anyhow!(
+                "StatusCode={}, unexpected response",
+                other
+            ))),
         }
     }
 }

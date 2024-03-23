@@ -249,14 +249,14 @@ pub mod tests {
         async fn add_create_activity(
             &self,
             _request: CreatedMessageActivityRequest,
-        ) -> anyhow::Result<()> {
+        ) -> Result<(), MessageActivityHttpError> {
             Ok(())
         }
 
         async fn add_verify_activity(
             &self,
             _request: VerifiedMessageActivityRequest,
-        ) -> anyhow::Result<()> {
+        ) -> Result<(), MessageActivityHttpError> {
             Ok(())
         }
     }
@@ -398,14 +398,16 @@ pub mod tests {
                 async fn add_create_activity(
                     &self,
                     _request: CreatedMessageActivityRequest,
-                ) -> anyhow::Result<()> {
-                    Err(anyhow::anyhow!("create activity failed"))
+                ) -> Result<(), MessageActivityHttpError> {
+                    Err(MessageActivityHttpError::BadRequest(
+                        "create activity failed".to_string(),
+                    ))
                 }
 
                 async fn add_verify_activity(
                     &self,
                     _request: VerifiedMessageActivityRequest,
-                ) -> anyhow::Result<()> {
+                ) -> Result<(), MessageActivityHttpError> {
                     unreachable!()
                 }
             }
@@ -586,15 +588,17 @@ pub mod tests {
                 async fn add_create_activity(
                     &self,
                     _request: CreatedMessageActivityRequest,
-                ) -> anyhow::Result<()> {
+                ) -> Result<(), MessageActivityHttpError> {
                     unreachable!()
                 }
 
                 async fn add_verify_activity(
                     &self,
                     _request: VerifiedMessageActivityRequest,
-                ) -> anyhow::Result<()> {
-                    Err(anyhow::anyhow!("verify activity failed"))
+                ) -> Result<(), MessageActivityHttpError> {
+                    Err(MessageActivityHttpError::Other(anyhow::anyhow!(
+                        "add verify activity failed"
+                    )))
                 }
             }
 
