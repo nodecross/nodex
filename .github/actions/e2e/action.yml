@@ -78,11 +78,12 @@ runs:
       shell: bash
       if: steps.check_logs.outputs.stopped_found == 'true'
       run: |
-        pids=$(pgrep -f nodex-agent)
+        pids=$(pgrep -f nodex-agent || true)
         if [ -z "$pids" ]; then
           echo "Process not found, as expected."
         else
           echo "Process is still running, which is not expected."
+          exit 1
         fi
 
     - name: (run) show log of agent
