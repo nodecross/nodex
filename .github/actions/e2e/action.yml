@@ -56,6 +56,10 @@ runs:
       shell: bash
       working-directory: e2e
       run: cargo test
+    
+    - name: (run) ps list
+      shell: bash
+      run: ps aux
 
     - name: (run) shutdown agent
       shell: bash
