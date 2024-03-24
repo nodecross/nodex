@@ -79,6 +79,7 @@ runs:
       if: steps.check_logs.outputs.stopped_found == 'true'
       run: |
         pids=$(pgrep -f nodex-agent || true)
+        # When executing pgrep, if the process does not exist, it exits; therefore, a solution for that is needed.
         if [ -z "$pids" ]; then
           echo "Process not found, as expected."
         else
@@ -89,4 +90,9 @@ runs:
     - name: (run) show log of agent
       shell: bash
       run: cat log.txt
+      if: ${{ always() }}
+
+    - name: (run) show log of mock server
+      shell: bash
+      run: docker compose -f test_resource/compose.yaml logs
       if: ${{ always() }}
