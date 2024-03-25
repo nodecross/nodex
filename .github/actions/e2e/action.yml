@@ -87,6 +87,11 @@ runs:
           exit 1
         fi
 
+    - name: (run) show log of agent
+      shell: bash
+      run: cat log.txt
+      if: ${{ always() }}
+
     - name: (run) run agent for e2e tests
       uses: nick-fields/retry@v3
       with:
@@ -133,11 +138,6 @@ runs:
           echo "Process is still running, which is not expected."
           exit 1
         fi
-
-    - name: (run) show log of agent
-      shell: bash
-      run: cat log.txt
-      if: ${{ always() }}
 
     - name: (run) show log of mock server
       shell: bash
