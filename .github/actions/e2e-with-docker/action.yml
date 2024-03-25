@@ -80,7 +80,7 @@ runs:
           echo "::set-output name=stopped_found::false"
         fi
 
-    - name: (run)  Verify process is not running in e2e_agent by SIGTERM
+    - name: (run) Verify process is not running in e2e_agent by SIGTERM
       shell: bash
       if: steps.check_logs.outputs.stopped_found == 'true'
       run: |
