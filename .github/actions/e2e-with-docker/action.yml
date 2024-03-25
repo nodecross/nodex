@@ -61,6 +61,11 @@ runs:
           exit 1
         fi
 
+    - name: (run) rerun mock server
+      shell: bash
+      run: |
+        docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e restart nodex-agent
+
     - name: (run) shutdown agent by SIGTERM
       shell: bash
       run: |
