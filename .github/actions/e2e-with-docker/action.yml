@@ -72,7 +72,7 @@ runs:
       run: |
         container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
         pid=$(docker exec $container_id pgrep -f nodex-agent)
-        docker exec $container_id kill -SIGINT $pid
+        docker exec $container_id kill -SIGTERM $pid
         sleep 3
       if: ${{ always() }}
 
