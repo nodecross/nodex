@@ -41,7 +41,7 @@ runs:
 
     - name: (run) Check for 'SIGINT' log message
       shell: bash
-      id: check_logs
+      id: check_logs_for_sigint
       run: |
         if docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e logs e2e_agent | grep -q "SIGINT"; then
           echo "::set-output name=stopped_found::true"
@@ -51,7 +51,7 @@ runs:
 
     - name: (run)  Verify process is not running in e2e_agent by SIGINT
       shell: bash
-      if: steps.check_logs.outputs.stopped_found == 'true'
+      if: steps.check_logs_for_sigint.outputs.stopped_found == 'true'
       run: |
         container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
         if ! docker exec $container_id pgrep -f /tmp/nodex-agent; then
@@ -72,7 +72,7 @@ runs:
 
     - name: (run) Check for 'SIGTERM' log message
       shell: bash
-      id: check_logs
+      id: check_logs_for_sigterm
       run: |
         if docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e logs e2e_agent | grep -q "SIGTERM"; then
           echo "::set-output name=stopped_found::true"
@@ -82,7 +82,7 @@ runs:
 
     - name: (run) Verify process is not running in e2e_agent by SIGTERM
       shell: bash
-      if: steps.check_logs.outputs.stopped_found == 'true'
+      if: steps.check_logs_for_sigterm.outputs.stopped_found == 'true'
       run: |
         container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
         if ! docker exec $container_id pgrep -f /tmp/nodex-agent; then

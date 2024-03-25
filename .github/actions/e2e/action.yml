@@ -66,7 +66,7 @@ runs:
 
     - name: (run) Check for 'SIGINT' log message
       shell: bash
-      id: check_logs
+      id: check_logs_for_sigint
       run: |
         if cat log.txt | grep -q "SIGINT"; then
           echo "::set-output name=stopped_found::true"
@@ -76,7 +76,7 @@ runs:
 
     - name: (run) Verify process is not running in e2e_agent by SIGINT
       shell: bash
-      if: steps.check_logs.outputs.stopped_found == 'true'
+      if: steps.check_logs_for_sigint.outputs.stopped_found == 'true'
       run: |
         pids=$(pgrep -f nodex-agent || true)
         # When executing pgrep, if the process does not exist, it exits; therefore, a solution for that is needed.
@@ -113,7 +113,7 @@ runs:
 
     - name: (run) Check for 'SIGTERM' log message
       shell: bash
-      id: check_logs
+      id: check_logs_for_sigterm
       run: |
         if cat log.txt | grep -q "SIGTERM"; then
           echo "::set-output name=stopped_found::true"
@@ -123,7 +123,7 @@ runs:
 
     - name: (run) Verify process is not running in e2e_agent by SIGTERM
       shell: bash
-      if: steps.check_logs.outputs.stopped_found == 'true'
+      if: steps.check_logs_for_sigterm.outputs.stopped_found == 'true'
       run: |
         pids=$(pgrep -f nodex-agent || true)
         # When executing pgrep, if the process does not exist, it exits; therefore, a solution for that is needed.
