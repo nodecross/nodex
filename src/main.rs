@@ -224,7 +224,9 @@ async fn handle_signals() {
 
 #[cfg(not(unix))]
 async fn handle_signals() {
-    tokio::signal::ctrl_c().await.expect("Failed to listen for Ctrl+C");
+    tokio::signal::ctrl_c()
+        .await
+        .expect("Failed to listen for Ctrl+C");
     log::info!("Received Ctrl+C");
 }
 
