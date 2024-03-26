@@ -43,6 +43,26 @@ pub async fn handler(
                 log::error!("{:?}", e);
                 Ok(HttpResponse::InternalServerError().finish())
             }
+            VerifyVerifiableMessageUseCaseError::BadRequest(message) => {
+                log::warn!("Bad Request: {}", message);
+                Ok(HttpResponse::BadRequest().body(message))
+            }
+            VerifyVerifiableMessageUseCaseError::Unauthorized(message) => {
+                log::warn!("Unauthorized: {}", message);
+                Ok(HttpResponse::Unauthorized().body(message))
+            }
+            VerifyVerifiableMessageUseCaseError::Forbidden(message) => {
+                log::warn!("Forbidden: {}", message);
+                Ok(HttpResponse::Forbidden().body(message))
+            }
+            VerifyVerifiableMessageUseCaseError::NotFound(message) => {
+                log::warn!("NotFound: {}", message);
+                Ok(HttpResponse::NotFound().body(message))
+            }
+            VerifyVerifiableMessageUseCaseError::Conflict(message) => {
+                log::warn!("Conflict: {}", message);
+                Ok(HttpResponse::Conflict().body(message))
+            }
             VerifyVerifiableMessageUseCaseError::Other(e) => {
                 log::error!("{:?}", e);
                 Ok(HttpResponse::InternalServerError().finish())

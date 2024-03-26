@@ -43,6 +43,16 @@ pub enum CreateVerifiableMessageUseCaseError {
     DestinationNotFound,
     #[error(transparent)]
     VCServiceFailed(#[from] DIDVCServiceError),
+    #[error("bad request: {0}")]
+    BadRequest(String),
+    #[error("unauthorized: {0}")]
+    Unauthorized(String),
+    #[error("forbidden: {0}")]
+    Forbidden(String),
+    #[error("not found: {0}")]
+    NotFound(String),
+    #[error("conflict: {0}")]
+    Conflict(String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -55,6 +65,16 @@ pub enum VerifyVerifiableMessageUseCaseError {
     NotAddressedToMe,
     #[error(transparent)]
     VCServiceFailed(#[from] DIDVCServiceError),
+    #[error("bad request: {0}")]
+    BadRequest(String),
+    #[error("unauthorized: {0}")]
+    Unauthorized(String),
+    #[error("forbidden: {0}")]
+    Forbidden(String),
+    #[error("not found: {0}")]
+    NotFound(String),
+    #[error("conflict: {0}")]
+    Conflict(String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -97,7 +117,27 @@ impl VerifiableMessageUseCase {
                 occurred_at: now,
             })
             .await
-            .context("failed to add create activity")?;
+            .map_err(|e| match e {
+                MessageActivityHttpError::BadRequest(message) => {
+                    CreateVerifiableMessageUseCaseError::BadRequest(message)
+                }
+                MessageActivityHttpError::Unauthorized(message) => {
+                    CreateVerifiableMessageUseCaseError::Unauthorized(message)
+                }
+                MessageActivityHttpError::Forbidden(message) => {
+                    CreateVerifiableMessageUseCaseError::Forbidden(message)
+                }
+                MessageActivityHttpError::NotFound(message) => {
+                    CreateVerifiableMessageUseCaseError::NotFound(message)
+                }
+                MessageActivityHttpError::Conflict(message) => {
+                    CreateVerifiableMessageUseCaseError::Conflict(message)
+                }
+                _ => CreateVerifiableMessageUseCaseError::Other(e.into()),
+            })?;
+
+        // Discard the unused result
+        let _ = result;
 
         Ok(result)
     }
@@ -140,7 +180,24 @@ impl VerifiableMessageUseCase {
                     status: VerifiedStatus::Valid,
                 })
                 .await
-                .context("failed to add verify activity")?;
+                .map_err(|e| match e {
+                    MessageActivityHttpError::BadRequest(message) => {
+                        VerifyVerifiableMessageUseCaseError::BadRequest(message)
+                    }
+                    MessageActivityHttpError::Unauthorized(message) => {
+                        VerifyVerifiableMessageUseCaseError::Unauthorized(message)
+                    }
+                    MessageActivityHttpError::Forbidden(message) => {
+                        VerifyVerifiableMessageUseCaseError::Forbidden(message)
+                    }
+                    MessageActivityHttpError::NotFound(message) => {
+                        VerifyVerifiableMessageUseCaseError::NotFound(message)
+                    }
+                    MessageActivityHttpError::Conflict(message) => {
+                        VerifyVerifiableMessageUseCaseError::Conflict(message)
+                    }
+                    _ => VerifyVerifiableMessageUseCaseError::Other(e.into()),
+                })?;
             Ok(vc)
         } else {
             self.message_activity_repository
@@ -152,7 +209,24 @@ impl VerifiableMessageUseCase {
                     status: VerifiedStatus::Invalid,
                 })
                 .await
-                .context("failed to add verify activity")?;
+                .map_err(|e| match e {
+                    MessageActivityHttpError::BadRequest(message) => {
+                        VerifyVerifiableMessageUseCaseError::BadRequest(message)
+                    }
+                    MessageActivityHttpError::Unauthorized(message) => {
+                        VerifyVerifiableMessageUseCaseError::Unauthorized(message)
+                    }
+                    MessageActivityHttpError::Forbidden(message) => {
+                        VerifyVerifiableMessageUseCaseError::Forbidden(message)
+                    }
+                    MessageActivityHttpError::NotFound(message) => {
+                        VerifyVerifiableMessageUseCaseError::NotFound(message)
+                    }
+                    MessageActivityHttpError::Conflict(message) => {
+                        VerifyVerifiableMessageUseCaseError::Conflict(message)
+                    }
+                    _ => VerifyVerifiableMessageUseCaseError::Other(e.into()),
+                })?;
             Err(VerifyVerifiableMessageUseCaseError::VerificationFailed)
         }
     }
@@ -249,14 +323,14 @@ pub mod tests {
         async fn add_create_activity(
             &self,
             _request: CreatedMessageActivityRequest,
-        ) -> anyhow::Result<()> {
+        ) -> Result<(), MessageActivityHttpError> {
             Ok(())
         }
 
         async fn add_verify_activity(
             &self,
             _request: VerifiedMessageActivityRequest,
-        ) -> anyhow::Result<()> {
+        ) -> Result<(), MessageActivityHttpError> {
             Ok(())
         }
     }
@@ -398,14 +472,16 @@ pub mod tests {
                 async fn add_create_activity(
                     &self,
                     _request: CreatedMessageActivityRequest,
-                ) -> anyhow::Result<()> {
-                    Err(anyhow::anyhow!("create activity failed"))
+                ) -> Result<(), MessageActivityHttpError> {
+                    Err(MessageActivityHttpError::BadRequest(
+                        "create activity failed".to_string(),
+                    ))
                 }
 
                 async fn add_verify_activity(
                     &self,
                     _request: VerifiedMessageActivityRequest,
-                ) -> anyhow::Result<()> {
+                ) -> Result<(), MessageActivityHttpError> {
                     unreachable!()
                 }
             }
@@ -425,7 +501,7 @@ pub mod tests {
                 .generate(destination_did, message, "test".to_string(), now)
                 .await;
 
-            if let Err(CreateVerifiableMessageUseCaseError::Other(_)) = generated {
+            if let Err(CreateVerifiableMessageUseCaseError::BadRequest(_)) = generated {
             } else {
                 panic!("unexpected result: {:?}", generated);
             }
@@ -586,15 +662,17 @@ pub mod tests {
                 async fn add_create_activity(
                     &self,
                     _request: CreatedMessageActivityRequest,
-                ) -> anyhow::Result<()> {
+                ) -> Result<(), MessageActivityHttpError> {
                     unreachable!()
                 }
 
                 async fn add_verify_activity(
                     &self,
                     _request: VerifiedMessageActivityRequest,
-                ) -> anyhow::Result<()> {
-                    Err(anyhow::anyhow!("verify activity failed"))
+                ) -> Result<(), MessageActivityHttpError> {
+                    Err(MessageActivityHttpError::Other(anyhow::anyhow!(
+                        "add verify activity failed"
+                    )))
                 }
             }
 
