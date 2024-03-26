@@ -139,7 +139,7 @@ async fn main() -> std::io::Result<()> {
     }
 
     // NOTE: hub initilize
-    hub_initilize(device_did.did_document.id.clone()).await;
+    hub_initialize(device_did.did_document.id.clone()).await;
     send_device_info().await;
 
     let sock_path = runtime_dir.clone().join("nodex.sock");
@@ -253,7 +253,7 @@ fn use_cli(command: Option<Commands>, did: String) {
     }
 }
 
-async fn hub_initilize(my_did: String) {
+async fn hub_initialize(my_did: String) {
     let project_did = {
         let network = network_config();
         let network_config = network.lock();
