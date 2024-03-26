@@ -97,6 +97,12 @@ impl Hub {
             reqwest::StatusCode::BAD_REQUEST => {
                 anyhow::bail!("StatusCode=400, bad request")
             }
+            reqwest::StatusCode::UNAUTHORIZED => {
+                anyhow::bail!("StatusCode=401, unauthorized")
+            }
+            reqwest::StatusCode::NOT_FOUND => {
+                anyhow::bail!("StatusCode=404, not found")
+            }
             reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
                 anyhow::bail!("StatusCode=500, internal server error");
             }
