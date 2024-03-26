@@ -133,7 +133,15 @@ impl Hub {
                     anyhow::bail!("StatusCode=400, error message = {:?}", v.message);
                 }
                 Err(e) => {
-                    anyhow::bail!("StatusCode=400, but parse failed. {:?}", e);
+                    anyhow::bail!("StatusCode=400, failed to parse error message. {:?}", e);
+                }
+            },
+            reqwest::StatusCode::NOT_FOUND => match res.json::<ErrorResponse>().await {
+                Ok(v) => {
+                    anyhow::bail!("StatusCode=404, error message = {:?}", v.message);
+                }
+                Err(e) => {
+                    anyhow::bail!("StatusCode=404, failed to parse error message. {:?}", e);
                 }
             },
             other => {
