@@ -64,8 +64,8 @@ runs:
     - name: (run) restart agent container
       shell: bash
       run: |
-        docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e stop nodex-agent
-        docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e up nodex-agent -d
+        docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e stop e2e_agent
+        docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e up e2e_agent -d
 
     - name: (run) shutdown agent by SIGTERM
       shell: bash
