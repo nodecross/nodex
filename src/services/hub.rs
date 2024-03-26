@@ -89,25 +89,31 @@ impl Hub {
         };
         let payload = serde_json::to_string(&request).expect("failed to serialize");
         let res = self.http_client.post("/v1/device", &payload).await?;
-        match res.status() {
-            reqwest::StatusCode::OK => {
-                res.json::<EmptyResponse>().await?;
-                Ok(())
-            }
+
+        let status = res.status();
+
+        let json: Value = res.json().await.context("Failed to read response body")?;
+        let message = json
+            .get("message")
+            .map(|v| v.to_string())
+            .unwrap_or_default();
+
+        match status {
+            reqwest::StatusCode::OK => Ok(()),
             reqwest::StatusCode::BAD_REQUEST => {
-                anyhow::bail!("StatusCode=400, bad request")
+                anyhow::bail!("StatusCode=400, {}", message)
             }
             reqwest::StatusCode::UNAUTHORIZED => {
-                anyhow::bail!("StatusCode=401, unauthorized")
+                anyhow::bail!("StatusCode=401, {}", message)
             }
             reqwest::StatusCode::NOT_FOUND => {
-                anyhow::bail!("StatusCode=404, not found")
+                anyhow::bail!("StatusCode=404, {}", message)
             }
             reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
-                anyhow::bail!("StatusCode=500, internal server error");
+                anyhow::bail!("StatusCode=500, {}", message);
             }
             other => {
-                anyhow::bail!("StatusCode={other}, unexpected response");
+                anyhow::bail!("StatusCode={other}, {}", message);
             }
         }
     }
@@ -123,29 +129,25 @@ impl Hub {
             .http_client
             .send_device_info("/v1/device-info", &project_did, &mac_address, &version, &os)
             .await?;
-        match res.status() {
-            reqwest::StatusCode::OK => {
-                res.json::<EmptyResponse>().await?;
-                Ok(())
+
+        let status = res.status();
+
+        let json: Value = res.json().await.context("Failed to read response body")?;
+        let message = json
+            .get("message")
+            .map(|v| v.to_string())
+            .unwrap_or_default();
+
+        match status {
+            reqwest::StatusCode::OK => Ok(()),
+            reqwest::StatusCode::BAD_REQUEST => {
+                anyhow::bail!("StatusCode=400, {}", message)
             }
-            reqwest::StatusCode::BAD_REQUEST => match res.json::<ErrorResponse>().await {
-                Ok(v) => {
-                    anyhow::bail!("StatusCode=400, error message = {:?}", v.message);
-                }
-                Err(e) => {
-                    anyhow::bail!("StatusCode=400, failed to parse error message. {:?}", e);
-                }
-            },
-            reqwest::StatusCode::NOT_FOUND => match res.json::<ErrorResponse>().await {
-                Ok(v) => {
-                    anyhow::bail!("StatusCode=404, error message = {:?}", v.message);
-                }
-                Err(e) => {
-                    anyhow::bail!("StatusCode=404, failed to parse error message. {:?}", e);
-                }
-            },
+            reqwest::StatusCode::NOT_FOUND => {
+                anyhow::bail!("StatusCode=404, {}", message)
+            }
             other => {
-                anyhow::bail!("StatusCode={other}, unexpected response");
+                anyhow::bail!("StatusCode={other}, {}", message);
             }
         }
     }
