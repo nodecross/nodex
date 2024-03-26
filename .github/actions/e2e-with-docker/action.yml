@@ -30,7 +30,7 @@ runs:
       shell: bash
       run: |
         container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
-        docker stop $container_id --stop-signal SIGINT
+        docker run $container_id --stop-signal SIGINT
         sleep 3
       if: ${{ always() }}
 
@@ -66,7 +66,7 @@ runs:
       shell: bash
       run: |
         container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
-        docker stop $container_id --stop-signal SIGTERM
+        docker run $container_id --stop-signal SIGTERM
         sleep 3
       if: ${{ always() }}
 
