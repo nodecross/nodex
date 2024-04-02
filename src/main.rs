@@ -13,6 +13,7 @@ use shadow_rs::shadow;
 use std::env;
 use std::sync::atomic::AtomicBool;
 use std::{collections::HashMap, fs, sync::Arc};
+use sysinfo::{get_current_pid, System};
 use tokio::sync::mpsc;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
@@ -87,6 +88,7 @@ async fn main() -> std::io::Result<()> {
 
     std::env::set_var("RUST_LOG", "info");
     log_init();
+    kill_other_self_process();
 
     let hub_did_topic = "nodex/did:nodex:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
 
@@ -329,4 +331,28 @@ fn log_init() {
         )
     });
     builder.init();
+}
+
+fn kill_other_self_process() {
+    match get_current_pid() {
+        Ok(current_pid) => {
+            let mut system = System::new_all();
+            system.refresh_all();
+
+            for process in system.processes_by_exact_name("nodex-agent") {
+                if current_pid != process.pid() {
+                    continue;
+                }
+                if process.kill() {
+                    log::info!("Process with PID: {} killed successfully.", process.pid());
+                } else {
+                    log::error!("Failed to kill process with PID: {}.", process.pid());
+                }
+            }
+        }
+        Err(e) => {
+            log::error!("{:?}", e);
+            panic!()
+        }
+    }
 }
