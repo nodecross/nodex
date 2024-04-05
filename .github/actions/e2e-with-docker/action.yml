@@ -33,7 +33,7 @@ runs:
     - name: (run) only one process test
       shell: bash
       run: |
-        docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e bash -c "/tmp/nodex-agent"
+        docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e exec e2e_agent bash -c "/tmp/nodex-agent"
         sleep 3
         if [ "$(pgrep -x nodex-agent | wc -l)" -ne 1 ]; then
             exit 1
