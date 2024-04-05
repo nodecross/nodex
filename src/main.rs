@@ -11,10 +11,10 @@ use services::hub::Hub;
 use services::nodex::NodeX;
 use shadow_rs::shadow;
 use std::env;
-use std::sync::atomic::AtomicBool;
 use std::{collections::HashMap, fs, sync::Arc};
 use sysinfo::{get_current_pid, System};
 use tokio::sync::mpsc;
+use tokio::sync::Notify;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
 
@@ -140,7 +140,7 @@ async fn main() -> std::io::Result<()> {
     }
 
     // NOTE: hub initilize
-    hub_initilize(device_did.did_document.id.clone()).await;
+    hub_initialize(device_did.did_document.id.clone()).await;
     send_device_info().await;
 
     let sock_path = runtime_dir.clone().join("nodex.sock");
@@ -174,10 +174,10 @@ async fn main() -> std::io::Result<()> {
     let server = server::new_server(&sock_path, transfer_client);
     let server_handle = server.handle();
 
-    let shutdown_marker = Arc::new(AtomicBool::new(false));
+    let shutdown_notify = Arc::new(Notify::new());
 
     let message_polling_task =
-        tokio::spawn(nodex_receive::polling_task(Arc::clone(&shutdown_marker)));
+        tokio::spawn(nodex_receive::polling_task(Arc::clone(&shutdown_notify)));
 
     let server_task = tokio::spawn(server);
     let sender_task = tokio::spawn(handlers::sender::handler(
@@ -188,12 +188,13 @@ async fn main() -> std::io::Result<()> {
     ));
 
     let shutdown = tokio::spawn(async move {
-        tokio::signal::ctrl_c().await.unwrap();
+        handle_signals().await;
 
         let server_stop = server_handle.stop(true);
-        shutdown_marker.store(true, std::sync::atomic::Ordering::SeqCst);
-
+        shutdown_notify.notify_waiters();
         server_stop.await;
+
+        log::info!("Agent has been successfully stopped.");
     });
 
     kill_other_self_process();
@@ -205,6 +206,31 @@ async fn main() -> std::io::Result<()> {
             panic!()
         }
     }
+}
+
+#[cfg(unix)]
+async fn handle_signals() {
+    use tokio::signal::unix::{signal, SignalKind};
+
+    let ctrl_c = tokio::signal::ctrl_c();
+    let mut sigterm = signal(SignalKind::terminate()).expect("Failed to bind to SIGTERM");
+
+    tokio::select! {
+        _ = ctrl_c => {
+            log::info!("Received SIGINT");
+        },
+        _ = sigterm.recv() => {
+            log::info!("Received SIGTERM");
+        },
+    }
+}
+
+#[cfg(not(unix))]
+async fn handle_signals() {
+    tokio::signal::ctrl_c()
+        .await
+        .expect("Failed to listen for Ctrl+C");
+    log::info!("Received Ctrl+C");
 }
 
 fn use_cli(command: Option<Commands>, did: String) {
@@ -256,7 +282,7 @@ fn use_cli(command: Option<Commands>, did: String) {
     }
 }
 
-async fn hub_initilize(my_did: String) {
+async fn hub_initialize(my_did: String) {
     let project_did = {
         let network = network_config();
         let network_config = network.lock();
