@@ -148,11 +148,16 @@ impl NodeX {
         let target_dir = PathBuf::from(output_path);
         zip_extract::extract(Cursor::new(content), &target_dir, true)?;
 
-        #[cfg(target_os = "linux")]
+        #[cfg(target_os = "unix")]
         {
-            Command::new("chmod").arg("+x").arg(agent_path).status()?;
+            Command::new("chmod").arg("+x").arg(&agent_path).status()?;
+            Command::new(&agent_path).spawn()?;
         }
-        Command::new(agent_path).spawn()?;
+
+        #[cfg(target_os = "windows")]
+        {
+            Command::new(&agent_path).spawn()?;
+        }
 
         Ok(())
     }
