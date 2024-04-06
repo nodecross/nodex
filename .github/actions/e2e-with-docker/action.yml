@@ -33,13 +33,17 @@ runs:
     - name: (run) only one process test
       shell: bash
       run: |
-        docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e exec e2e_agent bash -c "/tmp/nodex-agent"
-        sleep 3
         container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
-        process_count=$(docker exec $container_id pgrep -f nodex-agent | wc -l)
-        if [ "$process_count" -ne 1 ]; then
+        docker exec $container_id /tmp/nodex-agent
+        sleep 3
+        echo pgrep -f nodex-agent
+        processes=$(docker exec $container_id pgrep -f nodex-agent)
+        echo "$processes"
+        echo "$processes | wc -l"
+        if [ "$processes | wc -l" -ne 1 ]; then
             exit 1
         fi
+
     - name: (run) shutdown agent by SIGINT
       shell: bash
       run: |
@@ -47,7 +51,6 @@ runs:
         pid=$(docker exec $container_id pgrep -f nodex-agent)
         docker exec $container_id kill -SIGINT $pid
         sleep 3
-      if: ${{ always() }}
 
     - name: (run) Check for 'SIGINT' log message
       shell: bash
@@ -84,7 +87,6 @@ runs:
         pid=$(docker exec $container_id pgrep -f nodex-agent)
         docker exec $container_id kill -SIGTERM $pid
         sleep 3
-      if: ${{ always() }}
 
     - name: (run) Check for 'SIGTERM' log message
       shell: bash
