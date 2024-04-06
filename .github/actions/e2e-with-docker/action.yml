@@ -30,19 +30,20 @@ runs:
       shell: bash
       run: docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e exec e2e_agent bash -c "apt-get update && apt-get install -y procps"
 
-    - name: (run) only one process test
+    - name: (run) add nodex-agent process
       shell: bash
       run: |
         container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
         docker exec $container_id /tmp/nodex-agent
         sleep 3
+
+    - name: (run) only one process test
+      shell: bash
+      run: |
         echo pgrep -f nodex-agent
         processes=$(docker exec $container_id pgrep -f nodex-agent)
         echo "$processes"
         echo "$processes | wc -l"
-        # if [ "$processes | wc -l" -ne 1 ]; then
-        #     exit 1
-        # fi
 
     - name: (run) shutdown agent by SIGINT
       shell: bash
