@@ -35,7 +35,8 @@ runs:
       run: |
         docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e exec e2e_agent bash -c "/tmp/nodex-agent"
         sleep 3
-        process_count=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e exec e2e_agent bash -c "pgrep -x nodex-agent" | wc -l)
+        container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
+        process_count=$(docker exec $container_id pgrep -f nodex-agent | wc -l)
         if [ "$process_count" -ne 1 ]; then
             exit 1
         fi
