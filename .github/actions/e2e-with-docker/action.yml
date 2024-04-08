@@ -37,7 +37,8 @@ runs:
         docker exec -d $container_id /tmp/nodex-agent
         sleep 3
         processes=$(docker exec $container_id pgrep -f nodex-agent)
-        if [ "$processes | wc -l" -ne 1 ]; then
+        process_count=$(echo "$processes" | wc -l)
+        if [ "$process_count" -ne 1 ]; then
             exit 1
         fi
 
