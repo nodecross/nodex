@@ -39,6 +39,7 @@ runs:
         processes=$(docker exec $container_id pgrep -f nodex-agent)
         process_count=$(echo "$processes" | wc -l)
         if [ "$process_count" -ne 1 ]; then
+            echo "Error: Expected 1 nodex-agent process, but found $process_count."
             exit 1
         fi
 
