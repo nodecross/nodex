@@ -34,7 +34,7 @@ runs:
       shell: bash
       run: |
         container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
-        docker exec $container_id /tmp/nodex-agent
+        docker exec $container_id /tmp/nodex-agent -d
         sleep 3
 
     - name: (run) only one process test
