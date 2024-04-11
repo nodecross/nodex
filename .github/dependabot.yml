@@ -4,6 +4,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "sunday"
     ignore:
       - dependency-name: "*"
         update-types: [ "version-update:semver-major" ]
