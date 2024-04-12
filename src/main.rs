@@ -364,8 +364,6 @@ fn kill_other_self_process() {
     match get_current_pid() {
         Ok(current_pid) => {
             let mut system = System::new_all();
-            system.refresh_all();
-
             for process in system.processes_by_exact_name("nodex-agent") {
                 if current_pid == process.pid() {
                     continue;
