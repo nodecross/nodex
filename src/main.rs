@@ -93,6 +93,8 @@ async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "info");
     log_init();
 
+    kill_other_self_process();
+
     let hub_did_topic = "nodex/did:nodex:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
 
     {
@@ -200,8 +202,6 @@ async fn main() -> std::io::Result<()> {
 
         log::info!("Agent has been successfully stopped.");
     });
-
-    kill_other_self_process();
 
     match tokio::try_join!(server_task, sender_task, message_polling_task, shutdown) {
         Ok(_) => Ok(()),
