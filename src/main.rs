@@ -374,7 +374,7 @@ fn kill_other_self_process() {
                 }
                 let pid_as_i32 = process.pid().as_u32() as i32;
                 let pid = Pid::from_raw(pid_as_i32);
-                match kill(pid, Signal::SIGKILL) {
+                match kill(pid, Signal::SIGTERM) {
                     Ok(_) => log::info!("Process with PID: {} killed successfully.", pid),
                     Err(e) => log::error!("Failed to kill process with PID: {}. Error: {}", pid, e),
                 };
