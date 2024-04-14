@@ -1,4 +1,5 @@
-use crate::repository::metric_repository::{DiskMetrics, MetricWatchRepository, NetworkMetrics};
+use crate::repository::metric_repository::{Metric, MetricType, MetricsWatchRepository};
+use chrono::Utc;
 use sysinfo::{Networks, System};
 
 pub struct MetricsWatchService {
@@ -15,89 +16,156 @@ impl MetricsWatchService {
     }
 }
 
-impl MetricWatchRepository for MetricsWatchService {
-    fn watch_cpu_usage(&mut self) -> f32 {
+impl MetricsWatchService {
+    fn cpu_usage(&mut self) -> Metric {
         self.system.refresh_cpu_usage();
-        self.system.global_cpu_info().cpu_usage()
+        Metric {
+            metric_type: MetricType::CpuUsage,
+            value: self.system.global_cpu_info().cpu_usage() as f32,
+            timestamp: Utc::now(),
+        }
     }
 
-    fn watch_memory_usage(&mut self) -> f32 {
+    fn memory_usage(&mut self) -> Metric {
         self.system.refresh_memory();
-        self.system.used_memory() as f32
+        Metric {
+            metric_type: MetricType::MemoryUsage,
+            value: self.system.used_memory() as f32,
+            timestamp: Utc::now(),
+        }
     }
 
-    fn watch_network_info(&mut self) -> NetworkMetrics {
+    fn network_info(&mut self) -> Vec<Metric> {
         let mut received_bytes = 0;
         let mut transmitted_bytes = 0;
         let mut recceived_packets = 0;
         let mut transmitted_packets = 0;
 
         self.networks.refresh_list();
-        for (_, network) in self.networks.list() {
+        for network in self.networks.list().values() {
             received_bytes += network.received();
             transmitted_bytes += network.transmitted();
             recceived_packets += network.packets_received();
             transmitted_packets += network.packets_transmitted();
         }
-        NetworkMetrics {
-            received_bytes: received_bytes as f32,
-            transmitted_bytes: transmitted_bytes as f32,
-            recceived_packets: recceived_packets as f32,
-            transmitted_packets: transmitted_packets as f32,
-        }
+
+        let timestamp = Utc::now();
+        let mut network_metrics = Vec::new();
+        network_metrics.push(Metric {
+            metric_type: MetricType::NetworkReceivedBytes,
+            value: received_bytes as f32,
+            timestamp,
+        });
+        network_metrics.push(Metric {
+            metric_type: MetricType::NetworkTransmittedBytes,
+            value: transmitted_bytes as f32,
+            timestamp,
+        });
+        network_metrics.push(Metric {
+            metric_type: MetricType::NetworkReceivedPackets,
+            value: recceived_packets as f32,
+            timestamp,
+        });
+        network_metrics.push(Metric {
+            metric_type: MetricType::NetworkTransmittedPackets,
+            value: transmitted_packets as f32,
+            timestamp,
+        });
+        network_metrics
     }
 
-    fn watch_disk_info(&mut self) -> DiskMetrics {
+    fn disk_info(&mut self) -> Vec<Metric> {
         let mut read_bytes = 0;
         let mut written_bytes = 0;
 
         self.system.refresh_processes();
-        for (_, process) in self.system.processes() {
+        for process in self.system.processes().values() {
             let disk_usage = process.disk_usage();
             read_bytes += disk_usage.read_bytes;
             written_bytes += disk_usage.written_bytes;
         }
-        DiskMetrics {
-            read_bytes: read_bytes as f32,
-            written_bytes: written_bytes as f32,
-        }
+
+        let timestamp = Utc::now();
+        let mut disk_metrics = Vec::new();
+        disk_metrics.push(Metric {
+            metric_type: MetricType::DiskReadBytes,
+            value: read_bytes as f32,
+            timestamp,
+        });
+        disk_metrics.push(Metric {
+            metric_type: MetricType::DiskWrittenBytes,
+            value: written_bytes as f32,
+            timestamp,
+        });
+        disk_metrics
+    }
+}
+
+impl MetricsWatchRepository for MetricsWatchService {
+    fn watch_metrics(&mut self) -> Vec<Metric> {
+        let mut metrics = Vec::new();
+
+        metrics.push(self.cpu_usage());
+        metrics.push(self.memory_usage());
+        metrics.append(&mut self.network_info());
+        metrics.append(&mut self.disk_info());
+
+        metrics
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::repository::metric_repository::MetricWatchRepository;
 
     #[test]
-    fn test_watch_cpu_usage() {
+    fn test_cpu_usage() {
         let mut service = MetricsWatchService::new();
-        let cpu_usage = service.watch_cpu_usage();
-        assert!(cpu_usage >= 0.0);
+        let cpu_usage = service.cpu_usage();
+        assert!(cpu_usage.value >= 0.0);
+        assert!(cpu_usage.metric_type == MetricType::CpuUsage);
     }
 
     #[test]
-    fn test_watch_memory_usage() {
+    fn test_memory_usage() {
         let mut service = MetricsWatchService::new();
-        let memory_usage = service.watch_memory_usage();
-        assert!(memory_usage >= 0.0);
+        let memory_usage = service.memory_usage();
+        assert!(memory_usage.value >= 0.0);
+        assert!(memory_usage.metric_type == MetricType::MemoryUsage);
     }
 
     #[test]
-    fn test_watch_network_info() {
+    fn test_network_info() {
         let mut service = MetricsWatchService::new();
-        let network_info = service.watch_network_info();
-        assert!(network_info.received_bytes >= 0.0);
-        assert!(network_info.transmitted_bytes >= 0.0);
-        assert!(network_info.recceived_packets >= 0.0);
-        assert!(network_info.transmitted_packets >= 0.0);
+        let network_metrics = service.network_info();
+        for network_metric in network_metrics {
+            assert!(network_metric.value >= 0.0);
+            assert!(
+                network_metric.metric_type == MetricType::NetworkReceivedBytes
+                    || network_metric.metric_type == MetricType::NetworkTransmittedBytes
+                    || network_metric.metric_type == MetricType::NetworkReceivedPackets
+                    || network_metric.metric_type == MetricType::NetworkTransmittedPackets
+            );
+        }
     }
 
     #[test]
-    fn test_watch_disk_info() {
+    fn test_disk_info() {
         let mut service = MetricsWatchService::new();
-        let disk_info = service.watch_disk_info();
-        assert!(disk_info.read_bytes >= 0.0);
-        assert!(disk_info.written_bytes >= 0.0);
+        let disk_metrics = service.disk_info();
+        for disk_metric in disk_metrics {
+            assert!(disk_metric.value >= 0.0);
+            assert!(
+                disk_metric.metric_type == MetricType::DiskReadBytes
+                    || disk_metric.metric_type == MetricType::DiskWrittenBytes
+            );
+        }
+    }
+
+    #[test]
+    fn test_watch_metrics() {
+        let mut service = MetricsWatchService::new();
+        let metrics = service.watch_metrics();
+        assert!(metrics.len() == 8);
     }
 }
