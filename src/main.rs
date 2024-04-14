@@ -364,11 +364,6 @@ fn log_init() {
 }
 
 fn kill_other_self_process() {
-    let environment = env::var("ENVIRONMENT").unwrap_or("".to_string());
-    if environment.as_str() == "test" {
-        return;
-    }
-
     match get_current_pid() {
         Ok(current_pid) => {
             let system = System::new_all();
