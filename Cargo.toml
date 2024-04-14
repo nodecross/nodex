@@ -80,7 +80,7 @@ clap = { version = "4.5.2", features = ["derive", "cargo"] }
 dirs = { version = "5.0.1" }
 rumqttc = { version = "0.24.0" }
 cuid = { version = "1.3.2" }
-uuid = { version = "1.7.0", features = [
+uuid = { version = "1.8.0", features = [
   "v4",
   "fast-rng",
   "macro-diagnostics",
