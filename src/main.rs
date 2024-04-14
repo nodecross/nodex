@@ -6,6 +6,8 @@ use dotenvy::dotenv;
 use handlers::Command;
 use handlers::MqttClient;
 use mac_address::get_mac_address;
+use nix::sys::signal::{kill, Signal};
+use nix::unistd::Pid;
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use services::hub::Hub;
 use services::nodex::NodeX;
@@ -17,8 +19,6 @@ use tokio::sync::mpsc;
 use tokio::sync::Notify;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
-use nix::sys::signal::{kill, Signal};
-use nix::unistd::Pid;
 
 mod config;
 mod controllers;
