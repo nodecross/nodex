@@ -6,8 +6,10 @@ use dotenvy::dotenv;
 use handlers::Command;
 use handlers::MqttClient;
 use mac_address::get_mac_address;
-use nix::sys::signal::{kill, Signal};
-use nix::unistd::Pid;
+use nix::{
+    sys::signal::{kill, Signal},
+    unistd::Pid,
+};
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use services::hub::Hub;
 use services::nodex::NodeX;
@@ -365,15 +367,14 @@ fn log_init() {
 fn kill_other_self_process() {
     match get_current_pid() {
         Ok(current_pid) => {
-            log::info!("Current PID: {}", current_pid);
             let system = System::new_all();
             for process in system.processes_by_exact_name("nodex-agent") {
                 if current_pid == process.pid() {
                     continue;
                 }
                 let pid_as_i32 = process.pid().as_u32() as i32;
-                let pid: Pid = Pid::from_raw(pid_as_i32);
-                match kill(pid, Signal::SIGINT) {
+                let pid = Pid::from_raw(pid_as_i32);
+                match kill(pid, Signal::SIGTERM) {
                     Ok(_) => log::info!("Process with PID: {} killed successfully.", pid),
                     Err(e) => log::error!("Failed to kill process with PID: {}. Error: {}", pid, e),
                 };
