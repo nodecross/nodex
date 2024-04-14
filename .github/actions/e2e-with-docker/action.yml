@@ -35,7 +35,7 @@ runs:
       run: |
         container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
         docker exec -d $container_id /tmp/nodex-agent
-        sleep 5
+        sleep 3
         processes=$(docker exec $container_id pgrep -f nodex-agent)
         process_count=$(echo "$processes" | wc -l)
         if [ "$process_count" -ne 1 ]; then
@@ -49,7 +49,7 @@ runs:
         container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
         pid=$(docker exec $container_id pgrep -f nodex-agent)
         docker exec $container_id kill -SIGINT $pid
-        sleep 5
+        sleep 3
 
     - name: (run) Check for 'SIGINT' log message
       shell: bash
@@ -85,7 +85,7 @@ runs:
         container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
         pid=$(docker exec $container_id pgrep -f nodex-agent)
         docker exec $container_id kill -SIGTERM $pid
-        sleep 5
+        sleep 3
 
     - name: (run) Check for 'SIGTERM' log message
       shell: bash

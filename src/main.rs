@@ -92,7 +92,6 @@ async fn main() -> std::io::Result<()> {
 
     std::env::set_var("RUST_LOG", "info");
     log_init();
-
     kill_other_self_process();
 
     let hub_did_topic = "nodex/did:nodex:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
@@ -365,6 +364,11 @@ fn log_init() {
 }
 
 fn kill_other_self_process() {
+    let environment = env::var("ENVIRONMENT").unwrap_or("".to_string());
+    if environment.as_str() == "test" {
+        return;
+    }
+
     match get_current_pid() {
         Ok(current_pid) => {
             let system = System::new_all();
