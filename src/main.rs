@@ -362,7 +362,7 @@ fn log_init() {
     builder.init();
 }
 
-// fn kill_other_self_process() {
+fn kill_other_self_process() {
     match get_current_pid() {
         Ok(current_pid) => {
             let system = System::new_all();
