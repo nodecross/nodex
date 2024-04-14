@@ -365,6 +365,7 @@ fn log_init() {
 fn kill_other_self_process() {
     match get_current_pid() {
         Ok(current_pid) => {
+            log::info!("Current PID: {}", current_pid);
             let system = System::new_all();
             for process in system.processes_by_exact_name("nodex-agent") {
                 if current_pid == process.pid() {
