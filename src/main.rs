@@ -17,6 +17,8 @@ use tokio::sync::mpsc;
 use tokio::sync::Notify;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
+use nix::sys::signal::{kill, Signal};
+use nix::unistd::Pid;
 
 mod config;
 mod controllers;
@@ -368,11 +370,12 @@ fn kill_other_self_process() {
                 if current_pid == process.pid() {
                     continue;
                 }
-                if process.kill() {
-                    log::info!("Process with PID: {} killed successfully.", process.pid());
-                } else {
-                    log::error!("Failed to kill process with PID: {}.", process.pid());
-                }
+                let pid_as_i32 = process.pid().as_u32() as i32;
+                let pid: Pid = Pid::from_raw(pid_as_i32);
+                match kill(pid, Signal::SIGINT) {
+                    Ok(_) => log::info!("Process with PID: {} killed successfully.", pid),
+                    Err(e) => log::error!("Failed to kill process with PID: {}. Error: {}", pid, e),
+                };
             }
         }
         Err(e) => {
