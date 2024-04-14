@@ -199,7 +199,7 @@ async fn main() -> std::io::Result<()> {
         log::info!("Agent has been successfully stopped.");
     });
 
-    kill_other_self_process();
+    // kill_other_self_process();
 
     match tokio::try_join!(server_task, sender_task, message_polling_task, shutdown) {
         Ok(_) => Ok(()),
