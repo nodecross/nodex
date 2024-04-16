@@ -55,7 +55,7 @@ runs:
     - name: (run) e2e tests
       shell: bash
       working-directory: e2e
-      run: cargo test -- --test-threads=1
+      run: cargo test
 
     - name: (run) only one process test
       uses: nick-fields/retry@v3
