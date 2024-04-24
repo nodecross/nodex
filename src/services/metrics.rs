@@ -21,7 +21,7 @@ impl MetricsWatchService {
         self.system.refresh_cpu_usage();
         Metric {
             metric_type: MetricType::CpuUsage,
-            value: self.system.global_cpu_info().cpu_usage() as f32,
+            value: self.system.global_cpu_info().cpu_usage(),
             timestamp: Utc::now(),
         }
     }
@@ -50,28 +50,28 @@ impl MetricsWatchService {
         }
 
         let timestamp = Utc::now();
-        let mut network_metrics = Vec::new();
-        network_metrics.push(Metric {
-            metric_type: MetricType::NetworkReceivedBytes,
-            value: received_bytes as f32,
-            timestamp,
-        });
-        network_metrics.push(Metric {
-            metric_type: MetricType::NetworkTransmittedBytes,
-            value: transmitted_bytes as f32,
-            timestamp,
-        });
-        network_metrics.push(Metric {
-            metric_type: MetricType::NetworkReceivedPackets,
-            value: recceived_packets as f32,
-            timestamp,
-        });
-        network_metrics.push(Metric {
-            metric_type: MetricType::NetworkTransmittedPackets,
-            value: transmitted_packets as f32,
-            timestamp,
-        });
-        network_metrics
+        vec![
+            Metric {
+                metric_type: MetricType::NetworkReceivedBytes,
+                value: received_bytes as f32,
+                timestamp,
+            },
+            Metric {
+                metric_type: MetricType::NetworkTransmittedBytes,
+                value: transmitted_bytes as f32,
+                timestamp,
+            },
+            Metric {
+                metric_type: MetricType::NetworkReceivedPackets,
+                value: recceived_packets as f32,
+                timestamp,
+            },
+            Metric {
+                metric_type: MetricType::NetworkTransmittedPackets,
+                value: transmitted_packets as f32,
+                timestamp,
+            },
+        ]
     }
 
     fn disk_info(&mut self) -> Vec<Metric> {
@@ -86,18 +86,18 @@ impl MetricsWatchService {
         }
 
         let timestamp = Utc::now();
-        let mut disk_metrics = Vec::new();
-        disk_metrics.push(Metric {
-            metric_type: MetricType::DiskReadBytes,
-            value: read_bytes as f32,
-            timestamp,
-        });
-        disk_metrics.push(Metric {
-            metric_type: MetricType::DiskWrittenBytes,
-            value: written_bytes as f32,
-            timestamp,
-        });
-        disk_metrics
+        vec![
+            Metric {
+                metric_type: MetricType::DiskReadBytes,
+                value: read_bytes as f32,
+                timestamp,
+            },
+            Metric {
+                metric_type: MetricType::DiskWrittenBytes,
+                value: written_bytes as f32,
+                timestamp,
+            },
+        ]
     }
 }
 
