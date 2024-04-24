@@ -27,7 +27,7 @@ pub async fn handler_update(
         None => return Ok(HttpResponse::BadRequest().json("path is required")),
     };
     let nodex = NodeX::new();
-    match nodex.update_version(binary_url, path).await {
+    match nodex.update_version(binary_url).await {
         Ok(_) => Ok(HttpResponse::Ok().json("ok")),
         Err(_) => Ok(HttpResponse::InternalServerError().finish()),
     }

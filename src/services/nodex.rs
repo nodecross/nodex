@@ -10,11 +10,15 @@ use crate::{
     repository::did_repository::DidRepository,
 };
 
+use anyhow;
+use bytes::Bytes;
 use reqwest::StatusCode;
 use serde::Deserialize;
+use std::fs::File;
+use std::path::Path;
 use std::{fs, io::Cursor, path::PathBuf, process::Command};
 use thiserror::Error;
-use zip_extract;
+use zip::ZipArchive;
 
 pub struct NodeX {
     http_client: HttpClient,
@@ -126,18 +130,25 @@ impl NodeX {
         }
     }
 
-    pub async fn update_version(&self, binary_url: &str, output_path: &str) -> anyhow::Result<()> {
+    pub async fn update_version(&self, binary_url: &str) -> anyhow::Result<()> {
         anyhow::ensure!(
             binary_url.starts_with("https://github.com/nodecross/nodex/releases/download/"),
             "Invalid url"
         );
 
-        let output_path = if output_path.ends_with('/') {
-            output_path.trim_end()
+        let output_path: PathBuf = if cfg!(target_os = "windows") {
+            std::env::var("TEMP")
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| PathBuf::from("C:\\Temp\\nodex-agent"))
         } else {
-            output_path
+            PathBuf::from("/tmp/nodex-agent")
         };
-        let agent_path = format!("{}/nodex-agent", output_path);
+        let agent_filename = if cfg!(target_os = "windows") {
+            "nodex-agent.exe"
+        } else {
+            "nodex-agent"
+        };
+        let agent_path = output_path.join(agent_filename);
 
         let response = reqwest::get(binary_url).await?;
         let content = response.bytes().await?;
@@ -145,11 +156,32 @@ impl NodeX {
         if PathBuf::from(&agent_path).exists() {
             fs::remove_file(&agent_path)?;
         }
-        let target_dir = PathBuf::from(output_path);
-        zip_extract::extract(Cursor::new(content), &target_dir, true)?;
+        self.extract_zip(content, &output_path)?;
 
         Command::new("chmod").arg("+x").arg(&agent_path).status()?;
         Command::new(&agent_path).spawn()?;
+
+        Ok(())
+    }
+
+    fn extract_zip(&self, archive_data: Bytes, output_path: &Path) -> anyhow::Result<()> {
+        let cursor = Cursor::new(archive_data);
+        let mut archive = ZipArchive::new(cursor)?;
+
+        for i in 0..archive.len() {
+            let mut file = archive.by_index(i)?;
+            let file_path = output_path.join(file.sanitized_name());
+
+            if file.is_file() {
+                if let Some(parent) = file_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                let mut output_file = File::create(&file_path)?;
+                std::io::copy(&mut file, &mut output_file)?;
+            } else if file.is_dir() {
+                std::fs::create_dir_all(&file_path)?;
+            }
+        }
 
         Ok(())
     }

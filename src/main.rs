@@ -142,8 +142,6 @@ async fn main() -> std::io::Result<()> {
     hub_initialize(device_did.did_document.id.clone()).await;
     send_device_info().await;
 
-    let sock_path = runtime_dir.clone().join("nodex.sock");
-
     // NOTE: connect mqtt server
     let mqtt_host = "demo-mqtt.getnodex.io";
     let mqtt_port = 1883;
@@ -170,7 +168,18 @@ async fn main() -> std::io::Result<()> {
 
     let transfer_client = Box::new(MqttClient::new(tx));
 
-    let server = server::new_server(&sock_path, transfer_client);
+    #[cfg(unix)]
+    let server = {
+        let sock_path = runtime_dir.clone().join("nodex.sock");
+        server::new_uds_server(&sock_path, transfer_client)
+    };
+
+    #[cfg(not(unix))]
+    let server = {
+        let port = 8080;
+        server::new_web_server(port, sender)
+    };
+
     let server_handle = server.handle();
 
     let shutdown_notify = Arc::new(Notify::new());

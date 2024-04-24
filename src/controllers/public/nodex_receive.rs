@@ -63,9 +63,7 @@ impl MessageReceiveUsecase {
                                 let binary_url = container["binary_url"]
                                     .as_str()
                                     .ok_or(anyhow!("the container does n't have binary_url"))?;
-                                self.agent
-                                    .update_version(binary_url, "/tmp/nodex-agent")
-                                    .await?;
+                                self.agent.update_version(binary_url).await?;
                                 self.hub.ack_message(&self.project_did, m.id, true).await?;
                             }
                             Ok(OperationType::UpdateNetworkJson) => {
