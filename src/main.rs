@@ -176,7 +176,7 @@ async fn main() -> std::io::Result<()> {
 
     #[cfg(not(unix))]
     let server = {
-        let port = 8080;
+        let port = env::var("NODEX_SERVER_PORT").expect("NODEX_SERVER_PORT must be set and valid.");
         server::new_web_server(port, sender)
     };
 
