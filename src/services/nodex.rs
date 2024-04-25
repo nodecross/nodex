@@ -14,9 +14,12 @@ use anyhow;
 use bytes::Bytes;
 use reqwest::StatusCode;
 use serde::Deserialize;
-use std::fs::File;
-use std::path::Path;
-use std::{fs, io::Cursor, path::PathBuf, process::Command};
+use std::{
+    fs,
+    io::Cursor,
+    path::{Path, PathBuf},
+    process::Command,
+};
 use thiserror::Error;
 use zip::ZipArchive;
 
@@ -130,24 +133,25 @@ impl NodeX {
         }
     }
 
-    pub async fn update_version(&self, binary_url: &str) -> anyhow::Result<()> {
+    pub async fn update_version(
+        &self,
+        binary_url: &str,
+        output_path: PathBuf,
+    ) -> anyhow::Result<()> {
         anyhow::ensure!(
             binary_url.starts_with("https://github.com/nodecross/nodex/releases/download/"),
             "Invalid url"
         );
 
-        let output_path: PathBuf = if cfg!(target_os = "windows") {
-            std::env::var("TEMP")
-                .map(PathBuf::from)
-                .unwrap_or_else(|_| PathBuf::from("C:\\Temp\\nodex-agent"))
-        } else {
-            PathBuf::from("/tmp/nodex-agent")
-        };
-        let agent_filename = if cfg!(target_os = "windows") {
-            "nodex-agent.exe"
-        } else {
+        #[cfg(not(windows))]
+        let agent_filename = {
             "nodex-agent"
         };
+        #[cfg(windows)]
+        let agent_filename = {
+            "nodex-agent.exe"
+        };
+
         let agent_path = output_path.join(agent_filename);
 
         let response = reqwest::get(binary_url).await?;
@@ -158,8 +162,7 @@ impl NodeX {
         }
         self.extract_zip(content, &output_path)?;
 
-        Command::new("chmod").arg("+x").arg(&agent_path).status()?;
-        Command::new(&agent_path).spawn()?;
+        self.execute_agent(&agent_path)?;
 
         Ok(())
     }
@@ -176,13 +179,26 @@ impl NodeX {
                 if let Some(parent) = file_path.parent() {
                     std::fs::create_dir_all(parent)?;
                 }
-                let mut output_file = File::create(&file_path)?;
+                let mut output_file = fs::File::create(&file_path)?;
                 std::io::copy(&mut file, &mut output_file)?;
             } else if file.is_dir() {
                 std::fs::create_dir_all(&file_path)?;
             }
         }
 
+        Ok(())
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    fn execute_agent(&self, agent_path: &Path) -> anyhow::Result<()> {
+        Command::new("chmod").arg("+x").arg(agent_path).status()?;
+        Command::new(agent_path).spawn()?;
+        Ok(())
+    }
+
+    #[cfg(target_os = "windows")]
+    fn execute_agent(&self, agent_path: &Path) -> anyhow::Result<()> {
+        Command::new(agent_path).spawn()?;
         Ok(())
     }
 }

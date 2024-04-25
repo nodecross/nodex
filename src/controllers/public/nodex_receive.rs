@@ -2,7 +2,7 @@ use crate::services::{hub::Hub, internal::didcomm_encrypted::DIDCommEncryptedSer
 use crate::services::{internal::did_vc::DIDVCService, nodex::NodeX};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
-use std::{sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::Notify;
 
 #[derive(Deserialize)]
@@ -63,7 +63,17 @@ impl MessageReceiveUsecase {
                                 let binary_url = container["binary_url"]
                                     .as_str()
                                     .ok_or(anyhow!("the container does n't have binary_url"))?;
-                                self.agent.update_version(binary_url).await?;
+
+                                #[cfg(not(windows))]
+                                let output_path = {
+                                    PathBuf::from("/tmp/nodex-agent")
+                                };
+                                #[cfg(windows)]
+                                let output_path = {
+                                    PathBuf::from("C:\\Temp\\nodex-agent")
+                                };
+
+                                self.agent.update_version(binary_url, output_path).await?;
                                 self.hub.ack_message(&self.project_did, m.id, true).await?;
                             }
                             Ok(OperationType::UpdateNetworkJson) => {
