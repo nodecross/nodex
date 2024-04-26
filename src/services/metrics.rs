@@ -63,7 +63,7 @@ impl MetricsWatchService {
             },
             Metric {
                 metric_type: MetricType::NetworkReceivedPackets,
-                value: recceived_packets as f32,
+                value: received_packets as f32,
                 timestamp,
             },
             Metric {
