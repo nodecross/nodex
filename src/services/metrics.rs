@@ -38,14 +38,14 @@ impl MetricsWatchService {
     fn network_info(&mut self) -> Vec<Metric> {
         let mut received_bytes = 0;
         let mut transmitted_bytes = 0;
-        let mut recceived_packets = 0;
+        let mut received_packets = 0;
         let mut transmitted_packets = 0;
 
         self.networks.refresh_list();
         for network in self.networks.list().values() {
             received_bytes += network.received();
             transmitted_bytes += network.transmitted();
-            recceived_packets += network.packets_received();
+            received_packets += network.packets_received();
             transmitted_packets += network.packets_transmitted();
         }
 
