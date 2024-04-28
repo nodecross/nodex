@@ -39,7 +39,7 @@ pub fn new_web_server(port: u16, sender: Box<dyn TransferClient>) -> Server {
             .wrap(middleware::Logger::default())
             .configure(config_app(context.clone()))
     })
-    .bind("127.0.0.1", port)
+    .bind(format!("127.0.0.1:{}", port))
     .unwrap()
     .workers(1)
     .run()

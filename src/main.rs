@@ -176,8 +176,11 @@ async fn main() -> std::io::Result<()> {
 
     #[cfg(not(unix))]
     let server = {
-        let port = env::var("NODEX_SERVER_PORT").expect("NODEX_SERVER_PORT must be set and valid.");
-        server::new_web_server(port, sender)
+        let port_str  = env::var("NODEX_SERVER_PORT")
+            .expect("NODEX_SERVER_PORT must be set and valid.");
+        let port = validate_port(&port_str)
+            .expect("Invalid port number.");
+        server::new_web_server(port, transfer_client)
     };
 
     let server_handle = server.handle();
@@ -211,6 +214,13 @@ async fn main() -> std::io::Result<()> {
             log::error!("{:?}", e);
             panic!()
         }
+    }
+}
+
+fn validate_port(port_str: &str) -> Result<u16, String> {
+    match port_str.parse::<u16>() {
+        Ok(port) if (1024..=65535).contains(&port) => Ok(port),
+        _ => Err("Port number must be an integer between 1024 and 65535.".to_string()),
     }
 }
 
