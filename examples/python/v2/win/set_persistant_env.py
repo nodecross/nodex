@@ -2,7 +2,7 @@ import subprocess
 import os
 
 def set_persistent_env_var(name, value):
-    subprocess.run(['setx', name, f'"{value}"'], check=True)
+    subprocess.run(['setx', name, value], check=True)
 
 def update_env_var(name, value):
     os.environ[name] = value
