@@ -216,6 +216,7 @@ async fn main() -> std::io::Result<()> {
     }
 }
 
+#[cfg(not(unix))]
 fn validate_port(port_str: &str) -> Result<u16, String> {
     match port_str.parse::<u16>() {
         Ok(port) if (1024..=65535).contains(&port) => Ok(port),

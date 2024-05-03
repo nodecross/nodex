@@ -169,7 +169,7 @@ impl NodeX {
 
         for i in 0..archive.len() {
             let mut file = archive.by_index(i)?;
-            let file_path = output_path.join(file.sanitized_name());
+            let file_path = output_path.join(file.mangled_name());
 
             if file.is_file() {
                 if let Some(parent) = file_path.parent() {
