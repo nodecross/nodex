@@ -69,9 +69,7 @@ impl MessageReceiveUsecase {
                                 #[cfg(windows)]
                                 let output_path = { PathBuf::from("C:\\Temp\\nodex-agent") };
 
-                                self.agent
-                                    .update_version(binary_url, output_path)
-                                    .await?;
+                                self.agent.update_version(binary_url, output_path).await?;
                                 self.studio
                                     .ack_message(&self.project_did, m.id, true)
                                     .await?;
