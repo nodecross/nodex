@@ -2,8 +2,10 @@ from sock import post
 
 
 payload = {
-    "binary_url": "https://example.com/nodex-agent-1.0.0.zip",
-    "path": "/tmp",
+    "message": {
+        "binary_url": "https://example.com/nodex-agent-1.0.0.zip",
+        "path": "/tmp",
+    }
 }
 
 json_response = post("/internal/version/update", payload)
