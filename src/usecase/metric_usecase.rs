@@ -1,8 +1,8 @@
 use crate::repository::metric_repository::{
     MetricStoreRepository, MetricStoreRequest, MetricsWatchRepository,
 };
-use crate::services::hub::Hub;
 use crate::services::metrics::MetricsWatchService;
+use crate::services::studio::Studio;
 use chrono::{DateTime, Utc};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -16,7 +16,7 @@ pub struct MetricUsecase {
 impl MetricUsecase {
     pub fn new(should_stop: Arc<AtomicBool>) -> Self {
         MetricUsecase {
-            store_repository: Box::new(Hub::new()),
+            store_repository: Box::new(Studio::new()),
             repository: Box::new(MetricsWatchService::new()),
             should_stop,
         }
