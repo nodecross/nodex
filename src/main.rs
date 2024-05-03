@@ -174,7 +174,7 @@ async fn main() -> std::io::Result<()> {
         server::new_uds_server(&sock_path, transfer_client)
     };
 
-    #[cfg(not(unix))]
+    #[cfg(windows)]
     let server = {
         let port_str =
             env::var("NODEX_SERVER_PORT").expect("NODEX_SERVER_PORT must be set and valid.");
@@ -216,7 +216,7 @@ async fn main() -> std::io::Result<()> {
     }
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
 fn validate_port(port_str: &str) -> Result<u16, String> {
     match port_str.parse::<u16>() {
         Ok(port) if (1024..=65535).contains(&port) => Ok(port),
@@ -241,7 +241,7 @@ async fn handle_signals() {
     }
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
 async fn handle_signals() {
     tokio::signal::ctrl_c()
         .await

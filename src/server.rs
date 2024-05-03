@@ -26,7 +26,7 @@ pub fn new_uds_server(sock_path: &PathBuf, sender: Box<dyn TransferClient>) -> S
     .run()
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
 pub fn new_web_server(port: u16, sender: Box<dyn TransferClient>) -> Server {
     let context = web::Data::new(Context {
         sender: TokioMutex::new(sender),

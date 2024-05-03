@@ -64,7 +64,7 @@ impl MessageReceiveUsecase {
                                     .as_str()
                                     .ok_or(anyhow!("the container does n't have binary_url"))?;
 
-                                #[cfg(not(windows))]
+                                #[cfg(unix)]
                                 let output_path = { PathBuf::from("/tmp/nodex-agent") };
                                 #[cfg(windows)]
                                 let output_path = { PathBuf::from("C:\\Temp\\nodex-agent") };

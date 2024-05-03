@@ -143,7 +143,7 @@ impl NodeX {
             "Invalid url"
         );
 
-        #[cfg(not(windows))]
+        #[cfg(unix)]
         let agent_filename = { "nodex-agent" };
         #[cfg(windows)]
         let agent_filename = { "nodex-agent.exe" };
@@ -185,14 +185,14 @@ impl NodeX {
         Ok(())
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(unix)]
     fn execute_agent(&self, agent_path: &Path) -> anyhow::Result<()> {
         Command::new("chmod").arg("+x").arg(agent_path).status()?;
         Command::new(agent_path).spawn()?;
         Ok(())
     }
 
-    #[cfg(target_os = "windows")]
+    #[cfg(windows)]
     fn execute_agent(&self, agent_path: &Path) -> anyhow::Result<()> {
         Command::new(agent_path).spawn()?;
         Ok(())
