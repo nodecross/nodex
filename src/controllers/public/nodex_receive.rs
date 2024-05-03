@@ -65,13 +65,9 @@ impl MessageReceiveUsecase {
                                     .ok_or(anyhow!("the container does n't have binary_url"))?;
 
                                 #[cfg(not(windows))]
-                                let output_path = {
-                                    PathBuf::from("/tmp/nodex-agent")
-                                };
+                                let output_path = { PathBuf::from("/tmp/nodex-agent") };
                                 #[cfg(windows)]
-                                let output_path = {
-                                    PathBuf::from("C:\\Temp\\nodex-agent")
-                                };
+                                let output_path = { PathBuf::from("C:\\Temp\\nodex-agent") };
 
                                 self.agent.update_version(binary_url, output_path).await?;
                                 self.hub.ack_message(&self.project_did, m.id, true).await?;

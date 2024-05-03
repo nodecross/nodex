@@ -144,13 +144,9 @@ impl NodeX {
         );
 
         #[cfg(not(windows))]
-        let agent_filename = {
-            "nodex-agent"
-        };
+        let agent_filename = { "nodex-agent" };
         #[cfg(windows)]
-        let agent_filename = {
-            "nodex-agent.exe"
-        };
+        let agent_filename = { "nodex-agent.exe" };
 
         let agent_path = output_path.join(agent_filename);
 

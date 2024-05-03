@@ -176,10 +176,9 @@ async fn main() -> std::io::Result<()> {
 
     #[cfg(not(unix))]
     let server = {
-        let port_str  = env::var("NODEX_SERVER_PORT")
-            .expect("NODEX_SERVER_PORT must be set and valid.");
-        let port = validate_port(&port_str)
-            .expect("Invalid port number.");
+        let port_str =
+            env::var("NODEX_SERVER_PORT").expect("NODEX_SERVER_PORT must be set and valid.");
+        let port = validate_port(&port_str).expect("Invalid port number.");
         server::new_web_server(port, transfer_client)
     };
 
