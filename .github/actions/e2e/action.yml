@@ -57,7 +57,7 @@ runs:
       working-directory: e2e
       run: cargo test
 
-    - name: (run) only one process test
+    - name: (run) run agent for SIGINT
       uses: nick-fields/retry@v3
       with:
         timeout_seconds: 120
@@ -67,14 +67,19 @@ runs:
         command: |
           ${{ inputs.binary-path }} > log.txt 2>&1 &
           sleep 3
-          if [ "$(pgrep -x nodex-agent | wc -l)" -ne 1 ]; then
-            exit 1
-          fi
+          test -e ~/.nodex/run/nodex.sock
       env:
         NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
         NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
         NODEX_HUB_HTTP_ENDPOINT: http://localhost:8020
         RUST_BACKTRACE: 1
+  
+    - name: (run) only one process test
+      shell: bash
+      run: |
+        if [ "$(pgrep -x nodex-agent | wc -l)" -ne 1 ]; then
+          exit 1
+        fi
 
     - name: (run) shutdown agent by SIGINT
       shell: bash
@@ -110,7 +115,7 @@ runs:
       run: cat log.txt
       if: ${{ always() }}
 
-    - name: (run) run agent for e2e tests
+    - name: (run) run agent for SIGTERM
       uses: nick-fields/retry@v3
       with:
         timeout_seconds: 120

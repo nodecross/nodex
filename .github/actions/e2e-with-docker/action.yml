@@ -30,6 +30,10 @@ runs:
       shell: bash
       run: docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e exec e2e_agent bash -c "apt-get update && apt-get install -y procps"
 
+    - name: (run) show docker pc
+      shell: bash
+      run: docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps
+
     - name: (run) only one process test
       shell: bash
       run: |
