@@ -38,9 +38,8 @@ runs:
       id: extract_container_id
       shell: bash
       run: |
-        container_ids=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
-        container_id=$(docker ps --quiet --filter 'id=$container_ids' --filter 'status=running')
-        echo "::set-output name=container_id::$container_id"
+        container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
+        echo "container_id=$container_id" >> $GITHUB_OUTPUT
 
     - name: (run) start new agent process
       shell: bash
