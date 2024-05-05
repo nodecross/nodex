@@ -33,15 +33,25 @@ runs:
     - name: (run) show docker pc
       shell: bash
       run: docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps
+    
+    - name: (run) extract e2e_agent container_id
+      id: extract_container_id
+      shell: bash
+      run: |
+        container_ids=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
+        container_id=$(docker ps --quiet --filter 'id=$container_ids' --filter 'status=running')
+        echo "::set-output name=container_id::$container_id"
+
+    - name: (run) start new agent process
+      shell: bash
+      run: |
+        docker exec -d ${{ steps.extract_container_id.outputs.container_id }} /tmp/nodex-agent
+        sleep 3
 
     - name: (run) only one process test
       shell: bash
       run: |
-        container_ids=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
-        container_id=$(docker ps --quiet --filter "id=$container_ids" --filter "status=running")
-        docker exec -d $container_id /tmp/nodex-agent
-        sleep 3
-        processes=$(docker exec $container_id pgrep -f nodex-agent)
+        processes=$(docker exec ${{ steps.extract_container_id.outputs.container_id }} pgrep -f nodex-agent)
         process_count=$(echo "$processes" | wc -l)
         if [ "$process_count" -ne 1 ]; then
             echo "Error: Expected 1 nodex-agent process, but found $process_count."
@@ -51,10 +61,8 @@ runs:
     - name: (run) shutdown agent by SIGINT
       shell: bash
       run: |
-        container_ids=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
-        container_id=$(docker ps --quiet --filter "id=$container_ids" --filter "status=running")
-        pid=$(docker exec $container_id pgrep -f nodex-agent)
-        docker exec $container_id kill -SIGINT $pid
+        pid=$(docker exec ${{ steps.extract_container_id.outputs.container_id }} pgrep -f nodex-agent)
+        docker exec ${{ steps.extract_container_id.outputs.container_id }} kill -SIGINT $pid
         sleep 3
 
     - name: (run) Check for 'SIGINT' log message
@@ -71,9 +79,7 @@ runs:
       shell: bash
       if: steps.check_logs_for_sigint.outputs.stopped_found == 'true'
       run: |
-        container_ids=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
-        container_id=$(docker ps --quiet --filter "id=$container_ids" --filter "status=running")
-        if ! docker exec $container_id pgrep -f /tmp/nodex-agent; then
+        if ! docker exec ${{ steps.extract_container_id.outputs.container_id }} pgrep -f /tmp/nodex-agent; then
           echo "Process not found, as expected."
         else
           echo "Process is still running, which is not expected."
@@ -89,10 +95,8 @@ runs:
     - name: (run) shutdown agent by SIGTERM
       shell: bash
       run: |
-        container_ids=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
-        container_id=$(docker ps --quiet --filter "id=$container_ids" --filter "status=running")
-        pid=$(docker exec $container_id pgrep -f nodex-agent)
-        docker exec $container_id kill -SIGTERM $pid
+        pid=$(docker exec ${{ steps.extract_container_id.outputs.container_id }} pgrep -f nodex-agent)
+        docker exec ${{ steps.extract_container_id.outputs.container_id }} kill -SIGTERM $pid
         sleep 3
 
     - name: (run) Check for 'SIGTERM' log message
@@ -109,9 +113,7 @@ runs:
       shell: bash
       if: steps.check_logs_for_sigterm.outputs.stopped_found == 'true'
       run: |
-        container_ids=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
-        container_id=$(docker ps --quiet --filter "id=$container_ids" --filter "status=running")
-        if ! docker exec $container_id pgrep -f /tmp/nodex-agent; then
+        if ! docker exec ${{ steps.extract_container_id.outputs.container_id }} pgrep -f /tmp/nodex-agent; then
           echo "Process not found, as expected."
         else
           echo "Process is still running, which is not expected."
