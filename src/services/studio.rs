@@ -54,7 +54,7 @@ pub struct NetworkResponse {
     pub secret_key: String,
     pub project_did: String,
     pub recipient_dids: Vec<String>,
-    pub hub_endpoint: String,
+    pub studio_endpoint: String,
     pub heartbeat: u64,
 }
 
@@ -62,7 +62,7 @@ impl Studio {
     pub fn new() -> Self {
         let server_config = server_config();
         let client_config: StudioClientConfig = StudioClientConfig {
-            base_url: server_config.hub_http_endpoint(),
+            base_url: server_config.studio_http_endpoint(),
         };
 
         let client = match StudioClient::new(&client_config) {
@@ -206,7 +206,7 @@ impl Studio {
                     network.save_secret_key(&v.secret_key);
                     network.save_project_did(&v.project_did);
                     network.save_recipient_dids(v.recipient_dids);
-                    network.save_hub_endpoint(&v.hub_endpoint);
+                    network.save_studio_endpoint(&v.studio_endpoint);
                     network.save_heartbeat(v.heartbeat);
                     Ok(())
                 }
