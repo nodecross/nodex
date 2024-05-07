@@ -150,7 +150,7 @@ jobs:
         run: ls -la
 
       - name: (run) e2e
-        uses: ./.github/actions/e2e
+        uses: ./.github/actions/e2e-mac
         with:
           binary-path: ./nodex-agent
 
