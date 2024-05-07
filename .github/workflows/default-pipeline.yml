@@ -169,10 +169,6 @@ jobs:
       - name: (checkout) source code
         uses: actions/checkout@v4
 
-      # - name: Setup Docker and Docker Compose on Windows
-      #   run: |
-      #     choco install docker-desktop -y
-
       - name: Download Docker Desktop Installer
         run: |
           $url = "https://desktop.docker.com/win/stable/Docker%20Desktop%20Installer.exe"
