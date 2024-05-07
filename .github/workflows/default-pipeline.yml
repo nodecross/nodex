@@ -169,18 +169,20 @@ jobs:
       - name: (checkout) source code
         uses: actions/checkout@v4
 
-      - name: Setup Docker and Docker Compose on Windows
-        run: |
-          choco install docker-desktop -y
+      # - name: Setup Docker and Docker Compose on Windows
+      #   run: |
+      #     choco install docker-desktop -y
 
-      - name: Check Chocolatey logs
-        id: log-check
+      - name: Download Docker Desktop Installer
         run: |
-          $logContent = Get-Content C:\ProgramData\chocolatey\logs\chocolatey.log
-          Write-Output "Log content:"
-          Write-Output $logContent
-          echo "::set-output name=logcontent::$logContent"
-        if: ${{ always() }}
+          $url = "https://desktop.docker.com/win/stable/Docker%20Desktop%20Installer.exe"
+          $output = "docker_installer.exe"
+          Invoke-WebRequest -Uri $url -OutFile $output
+
+      - name: Install Docker Desktop
+        run: |
+          $installer = ".\docker_installer.exe"
+          Start-Process $installer -ArgumentList '/Install', '/Quiet', '/NoRestart' -NoNewWindow -Wait
 
       - name: (run) download artifacts (windows)
         uses: actions/download-artifact@v4
