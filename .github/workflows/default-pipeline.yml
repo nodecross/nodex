@@ -184,6 +184,10 @@ jobs:
           $installer = ".\docker_installer.exe"
           Start-Process $installer -ArgumentList '/Install', '/Quiet', '/NoRestart' -NoNewWindow -Wait
 
+      - name: Check Docker Version
+        run: |
+          docker --version
+
       - name: (run) download artifacts (windows)
         uses: actions/download-artifact@v4
         with:
