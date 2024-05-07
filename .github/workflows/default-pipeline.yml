@@ -154,6 +154,42 @@ jobs:
         with:
           binary-path: ./nodex-agent
 
+  e2e-windows:
+    needs: build-windows
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [x86_64-pc-windows-msvc]
+        runner: [windows-2022, windows-2019]
+    name: E2E / Windows / ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: (checkout) source code
+        uses: actions/checkout@v4
+
+      - name: Setup Docker and Docker Compose on Windows
+        run: |
+          choco install docker-desktop -y
+
+      - name: (run) download artifacts (windows)
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: .
+
+      - name: (unzip) unzip binary
+        run: Expand-Archive -Path nodex-agent-${{ matrix.target }}.zip -DestinationPath .
+
+      - name: (setup) adjust permissions
+        shell: powershell
+        run: Get-ChildItem -Path ./nodex-agent | Unblock-File
+
+      - name: (check) check binary
+        run: dir
+
+
   e2e-linux:
     needs: build-linux
     runs-on: ubuntu-latest
