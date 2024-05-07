@@ -179,12 +179,16 @@ jobs:
           name: ${{ matrix.target }}
           path: .
 
+      - name: (check) downloaded artifacts
+        run: dir
+
       - name: (unzip) unzip binary
         run: Expand-Archive -Path nodex-agent-${{ matrix.target }}.zip -DestinationPath .
 
       - name: (setup) adjust permissions
         shell: powershell
-        run: Get-ChildItem -Path ./nodex-agent | Unblock-File
+        run: |
+          Get-ChildItem -Path ./nodex-agent* | Unblock-File
 
       - name: (check) check binary
         run: dir
