@@ -59,6 +59,25 @@ jobs:
           use-cache: true
           github-token: ${{ env.GITHUB_TOKEN }}
 
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        target: [x86_64-pc-windows-msvc]
+    name: Build / Windows / ${{ matrix.target }}
+
+    steps:
+      - name: (checkout) source code
+        uses: actions/checkout@v4
+
+      - name: (run) build
+        uses: ./.github/actions/build
+        with:
+          target: ${{ matrix.target }}
+          use-cache: true
+          github-token: ${{ env.GITHUB_TOKEN }}
+
   build-linux:
     runs-on: ubuntu-latest
     timeout-minutes: 10
