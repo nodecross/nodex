@@ -173,14 +173,19 @@ jobs:
         run: |
           choco install docker-desktop -y
 
+      - name: Check Chocolatey logs
+        id: log-check
+        run: |
+          $logContent = Get-Content C:\ProgramData\chocolatey\logs\chocolatey.log
+          Write-Output "Log content:"
+          Write-Output $logContent
+          echo "::set-output name=logcontent::$logContent"
+
       - name: (run) download artifacts (windows)
         uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.target }}
           path: .
-
-      - name: (check) downloaded artifacts
-        run: dir
 
       - name: (unzip) unzip binary
         run: Expand-Archive -Path nodex-agent-${{ matrix.target }}.zip -DestinationPath .
