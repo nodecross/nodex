@@ -212,8 +212,11 @@ async fn main() -> std::io::Result<()> {
     );
 
     let shutdown_notify_clone = Arc::clone(&shutdown_notify);
-    let metric_collector_task =
-        tokio::spawn(async move { metric_collector_usecase.start_collect().await });
+    let metric_collector_task = tokio::spawn(async move {
+        metric_collector_usecase
+            .start_collect(shutdown_notify_clone)
+            .await
+    });
 
     let shutdown_notify_clone = Arc::clone(&shutdown_notify);
     let metric_sender_task = tokio::spawn(async move {

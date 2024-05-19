@@ -1,7 +1,7 @@
-use crate::repository::metric_repository::{
-    Metric, MetricCollectRepository, MetricCollectRepositoryImpl,
-};
-use tokio::sync::mpsc;
+use std::sync::Arc;
+
+use crate::repository::metric_repository::{Metric, MetricCollectRepository};
+use tokio::sync::{mpsc, Notify};
 
 pub struct MetricCollectorUsecase {
     repository: Box<dyn MetricCollectRepository + Send + 'static>,
@@ -22,14 +22,19 @@ impl MetricCollectorUsecase {
         }
     }
 
-    pub async fn start_collect(&mut self) {
+    pub async fn start_collect(&mut self, shutdown_notify: Arc<Notify>) {
         loop {
-            let metrics = self.repository.collect();
-            for metric in metrics {
-                let _ = self.sender.send(metric).await;
+            tokio::select! {
+                _ = shutdown_notify.notified() => {
+                    break;
+                },
+                _ = tokio::time::sleep(tokio::time::Duration::from_secs(self.interval)) => {
+                    let metrics = self.repository.collect();
+                    for metric in metrics {
+                        let _ = self.sender.send(metric).await;
+                    }
+                }
             }
-
-            tokio::time::sleep(tokio::time::Duration::from_secs(self.interval)).await;
         }
     }
 }
