@@ -211,15 +211,24 @@ async fn main() -> std::io::Result<()> {
         60,
     );
 
-    let metric_collector_task = tokio::spawn(metric_collector_usecase.start_collect());
-    let metric_sender_task =
-        tokio::spawn(metric_sender_usecase.start_send(Arc::clone(&shutdown_notify)));
+    let shutdown_notify_clone = Arc::clone(&shutdown_notify);
+    let metric_collector_task =
+        tokio::spawn(async move { metric_collector_usecase.start_collect().await });
+
+    let shutdown_notify_clone = Arc::clone(&shutdown_notify);
+    let metric_sender_task = tokio::spawn(async move {
+        metric_sender_usecase
+            .start_send(shutdown_notify_clone)
+            .await
+    });
 
     let shutdown = tokio::spawn(async move {
         handle_signals().await;
 
         let server_stop = server_handle.stop(true);
-        shutdown_notify.notify_waiters();
+
+        let shutdown_notify_clone = Arc::clone(&shutdown_notify);
+        shutdown_notify_clone.notify_waiters();
         server_stop.await;
 
         log::info!("Agent has been successfully stopped.");
