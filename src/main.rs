@@ -15,6 +15,7 @@ use services::nodex::NodeX;
 use services::studio::Studio;
 use shadow_rs::shadow;
 use std::env;
+use std::sync::Mutex;
 use std::{collections::HashMap, fs, sync::Arc};
 use tokio::sync::mpsc;
 use tokio::sync::Notify;
@@ -133,19 +134,23 @@ async fn main() -> std::io::Result<()> {
 
     // NOTE: generate Key Chain
     let node_x = NodeX::new();
-    let device_did = node_x.create_identifier().await.unwrap();
+    // let device_did = node_x.create_identifier().await.unwrap();
 
     // NOTE: CLI
     match cli.config {
         true => {
-            use_cli(cli.command, device_did.did_document.id.clone());
+            use_cli(
+                cli.command,
+                "did:nodex:test:EiD9aQYNUJMdgjeQetDj56LNzR6SdwhuXGFalvI3gugPHQ".to_string(),
+            );
             return Ok(());
         }
         false => (),
     }
 
     // NOTE: studio initilize
-    studio_initialize(device_did.did_document.id.clone()).await;
+    studio_initialize("did:nodex:test:EiD9aQYNUJMdgjeQetDj56LNzR6SdwhuXGFalvI3gugPHQ".to_string())
+        .await;
     send_device_info().await;
 
     let sock_path = runtime_dir.clone().join("nodex.sock");
@@ -155,7 +160,7 @@ async fn main() -> std::io::Result<()> {
     let mqtt_port = 1883;
     let mqtt_client_id = cuid::cuid2();
 
-    let did_id = device_did.did_document.id;
+    let did_id = "did:nodex:test:EiD9aQYNUJMdgjeQetDj56LNzR6SdwhuXGFalvI3gugPHQ".to_string();
     let mqtt_topic = format!("nodex/{}", did_id);
 
     let mut mqtt_options = MqttOptions::new(&mqtt_client_id, mqtt_host, mqtt_port);
@@ -181,8 +186,8 @@ async fn main() -> std::io::Result<()> {
 
     let shutdown_notify = Arc::new(Notify::new());
 
-    let message_polling_task =
-        tokio::spawn(nodex_receive::polling_task(Arc::clone(&shutdown_notify)));
+    // let message_polling_task =
+    //     tokio::spawn(nodex_receive::polling_task(Arc::clone(&shutdown_notify)));
 
     let server_task = tokio::spawn(server);
     let sender_task = tokio::spawn(handlers::sender::handler(
@@ -197,18 +202,20 @@ async fn main() -> std::io::Result<()> {
         Box::new(MetricCollectRepositoryImpl::new()),
         metric_sender,
         // TODO: get interval from config
-        15,
+        5,
     );
     let mut metric_sender_usecase = MetricSenderUsecase::new(
-        Box::new(MetricInmemoryStoreRepository::new()),
+        // Box::new(MetricInmemoryStoreRepository::new()),
+        Arc::new(Mutex::new(MetricInmemoryStoreRepository::new())),
         Box::new(MetricFileStoreRepository::new(
             // TODO: get file path from config
             logs_dir.join("metrics.json").to_str().unwrap().to_string(),
         )),
         Box::new(MetricSendRepositoryImpl::new()),
-        metric_receiver,
+        Arc::new(Mutex::new(metric_receiver)),
+        // metric_receiver,
         // TODO: get interval from config
-        60,
+        15,
     );
 
     let shutdown_notify_clone = Arc::clone(&shutdown_notify);
@@ -240,7 +247,7 @@ async fn main() -> std::io::Result<()> {
     match tokio::try_join!(
         server_task,
         sender_task,
-        message_polling_task,
+        // message_polling_task,
         metric_collector_task,
         metric_sender_task,
         shutdown
@@ -369,22 +376,22 @@ async fn send_device_info() {
         .get_project_did()
         .expect("Failed to get project_did");
 
-    let studio = Studio::new();
-    match studio
-        .send_device_info(
-            project_did,
-            mac_address,
-            VERSION.to_string(),
-            OS.to_string(),
-        )
-        .await
-    {
-        Ok(()) => (),
-        Err(e) => {
-            log::error!("{:?}", e);
-            panic!()
-        }
-    };
+    // let studio = Studio::new();
+    // match studio
+    //     .send_device_info(
+    //         project_did,
+    //         mac_address,
+    //         VERSION.to_string(),
+    //         OS.to_string(),
+    //     )
+    //     .await
+    // {
+    //     Ok(()) => (),
+    //     Err(e) => {
+    //         log::error!("{:?}", e);
+    //         panic!()
+    //     }
+    // };
 }
 
 fn log_init() {

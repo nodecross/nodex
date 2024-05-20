@@ -30,6 +30,7 @@ impl MetricCollectorUsecase {
                 },
                 _ = tokio::time::sleep(tokio::time::Duration::from_secs(self.interval)) => {
                     let metrics = self.repository.collect();
+                    println!("Collected metrics: {:?}", metrics);
                     for metric in metrics {
                         let _ = self.sender.send(metric).await;
                     }

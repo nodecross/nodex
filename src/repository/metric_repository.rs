@@ -234,6 +234,7 @@ impl MetricSendRepositoryImpl {
 impl MetricSendRepository for MetricSendRepositoryImpl {
     async fn send(&self, metrics: Vec<Metric>) -> anyhow::Result<()> {
         for metric in metrics {
+            println!("-----------------------------------------------------------------------");
             println!("{:?}", metric);
         }
         Ok(())
