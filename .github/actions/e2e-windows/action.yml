@@ -1,0 +1,79 @@
+name: e2e test
+description: "E2E test action"
+inputs:
+  binary-path:
+    required: true
+    description: "the path of the binary to be tested"
+runs:
+  using: composite
+  steps:
+    - name: (setup) copy default config to home
+      shell: powershell
+      run: New-Item -ItemType Directory -Force -Path $env:USERPROFILE\.config\nodex; Copy-Item test_resource\config\* $env:USERPROFILE\.config\nodex\
+
+    - name: (setup) pull docker images
+      shell: powershell
+      run: docker compose -f test_resource\compose.yaml pull -q
+
+    - name: (run) run mock server
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: 5
+        max_attempts: 10
+        retry_on: error
+        command: |
+          docker compose -f test_resource\compose.yaml up -d --wait
+          Start-Sleep -Seconds 3
+          # check whether the mock server is running
+          curl http://localhost:4010/api/v1/identifiers/did:nodex:test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          curl http://localhost:8020/health
+        on_retry_command: |
+          docker compose -f test_resource\compose.yaml restart
+
+    - name: (run) show docker image status
+      shell: powershell
+      run: docker compose -f test_resource\compose.yaml ps
+
+    - name: (run) run agent for e2e tests
+      uses: nick-fields/retry@v3
+      with:
+        timeout_seconds: 120
+        max_attempts: 10
+        retry_on: error
+        command: |
+          Start-Process powershell -ArgumentList "${{ inputs.binary-path }} > log.txt 2>&1 &"
+          Start-Sleep -Seconds 3
+          Test-Path $env:USERPROFILE\.nodex\run\nodex.sock
+      env:
+        NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
+        NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
+        NODEX_STUDIO_HTTP_ENDPOINT: http://localhost:8020
+        RUST_BACKTRACE: 1
+
+    - name: (run) e2e tests
+      shell: powershell
+      working-directory: e2e
+      run: cargo test
+
+    - name: (run) shutdown agent by SIGINT
+      shell: powershell
+      run: |
+        Get-Process nodex-agent | Stop-Process -Force
+        Start-Sleep -Seconds 3
+      if: ${{ always() }}
+
+    - name: (run) Check for 'SIGINT' log message
+      shell: powershell
+      id: check_logs_for_sigint
+      run: |
+        if (Select-String -Path log.txt -Pattern "SIGINT") {
+          echo "::set-output name=stopped_found::true"
+        } else {
+          echo "::set-output name=stopped_found::false"
+        }
+
+    - name: (run) Verify process is not running in e2e_agent by SIGINT
+      shell: powershell
+      if: steps.check_logs_for_sigint.outputs.stopped_found == 'true'
+      run: |
+        $pids = (Get-Process -Name nodex-agent -ErrorAction Sil
