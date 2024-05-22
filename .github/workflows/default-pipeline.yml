@@ -190,6 +190,14 @@ jobs:
           name: ${{ matrix.target }}
           path: .
 
+      - name: (run) List contents of ZIP file
+        run: |
+          $zipPath = "nodex-agent-x86_64-pc-windows-msvc.zip"
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+          $zip.Entries | ForEach-Object { Write-Output $_.FullName }
+        shell: powershell
+
+
       - name: (unzip) unzip binary
         run: |
           try {
