@@ -191,7 +191,15 @@ jobs:
           path: .
 
       - name: (unzip) unzip binary
-        run: Expand-Archive -Path nodex-agent-${{ matrix.target }}.zip -DestinationPath .
+        run: |
+          try {
+            Expand-Archive -Path nodex-agent-x86_64-pc-windows-msvc.zip -DestinationPath .
+            Write-Output "Unzipped successfully."
+          } catch {
+            Write-Output "Error unzipping file: $_"
+            exit 1
+          }
+        shell: powershell
 
       - name: (setup) adjust permissions
         shell: powershell
@@ -201,6 +209,10 @@ jobs:
       - name: (check) check binary
         run: dir
 
+      # - name: (run) e2e
+      #   uses: ./.github/actions/e2e-windows
+      #   with:
+      #     binary-path: ./nodex-agent
 
   e2e-linux:
     needs: build-linux
