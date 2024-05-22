@@ -32,6 +32,10 @@ runs:
       shell: bash
       run: cargo build --release --target ${{ inputs.target }}
 
+    - name: (run) ls releases
+      shell: bash
+      run: ls releases
+
     - name: (run) create artifact
       uses: vimtor/action-zip@v1.1
       with:

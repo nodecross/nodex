@@ -197,10 +197,6 @@ jobs:
         run: Expand-Archive -Path nodex-agent-${{ matrix.target }}.zip -DestinationPath .
         shell: powershell
 
-      - name: List files in directory
-        run: Get-ChildItem -Recurse | Select-Object FullName
-        shell: powershell
-
       - name: (setup) adjust permissions
         run: |
           Get-ChildItem -Path ./nodex-agent* | Unblock-File
