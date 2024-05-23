@@ -62,7 +62,6 @@ runs:
       run: |
         pgrep -f nodex-agent | xargs kill -SIGINT
         sleep 3
-      if: ${{ always() }}
 
     - name: (run) Check for 'SIGINT' log message
       shell: bash
@@ -92,7 +91,7 @@ runs:
       run: cat log.txt
       if: ${{ always() }}
 
-    - name: (run) run agent for e2e tests
+    - name: (run) run agent for SIGTERM
       uses: nick-fields/retry@v3
       with:
         timeout_seconds: 120
@@ -114,7 +113,6 @@ runs:
       run: |
         pgrep -f nodex-agent | xargs kill -SIGTERM
         sleep 3
-      if: ${{ always() }}
 
     - name: (run) Check for 'SIGTERM' log message
       shell: bash
