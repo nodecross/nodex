@@ -28,7 +28,7 @@ runs:
         max_attempts: 10
         retry_on: error
         command: |
-          Start-Process prism -ArgumentList "mock -h 0.0.0.0 -p 4010 ${github.workspace}/did_sidetree.yaml"
+          Start-Process prism -ArgumentList "mock -h 0.0.0.0 -p 4010 ${github.workspace}/did_sidetree.yaml" > "prism_output.log" 2>&1
           Start-Sleep -Seconds 5
           Invoke-WebRequest -Uri http://localhost:4010/health -UseBasicParsing
 
@@ -39,7 +39,7 @@ runs:
         max_attempts: 10
         retry_on: error
         command: |
-          Start-Process prism -ArgumentList "mock -h 0.0.0.0 -p 8020 ${github.workspace}/studio.yaml"
+          Start-Process prism -ArgumentList "mock -h 0.0.0.0 -p 8020 ${github.workspace}/studio.yaml" > "prism_output.log" 2>&1
           Start-Sleep -Seconds 5
           Invoke-WebRequest -Uri http://localhost:8020/health -UseBasicParsing
 
@@ -50,12 +50,9 @@ runs:
         max_attempts: 10
         retry_on: error
         command: |
-          Start-Process powershell -ArgumentList "${{ inputs.binary-path }} > log.txt 2>&1 &"
+          Start-Process powershell -ArgumentList "${{ inputs.binary-path }} > agent.log 2>&1 &"
           Start-Sleep -Seconds 10
-          $response = Invoke-WebRequest -Uri http://localhost:3000/health -UseBasicParsing
-          if ($response.StatusCode -ne 200) {
-            throw "Health check for Studio Prism failed"
-          }
+          Invoke-WebRequest -Uri http://localhost:3000/health -UseBasicParsing
       env:
         NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
         NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
@@ -73,7 +70,6 @@ runs:
       run: |
         Get-Process nodex-agent | Stop-Process -Force
         Start-Sleep -Seconds 3
-      if: ${{ always() }}
 
     - name: (run) Check for 'SIGINT' log message
       shell: powershell
@@ -90,3 +86,12 @@ runs:
       if: steps.check_logs_for_sigint.outputs.stopped_found == 'true'
       run: $pids = (Get-Process -Name nodex-agent -ErrorAction SilentlyContinue)
 
+    - name: (run) show log of mock server
+      shell: bash
+      run: Get-Content "prism_output.log"
+      if: ${{ always() }}
+
+    - name: (run) show log of agent
+      shell: bash
+      run: Get-Content "agent.log"
+      if: ${{ always() }}
