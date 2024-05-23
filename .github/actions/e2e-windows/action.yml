@@ -28,7 +28,7 @@ runs:
         max_attempts: 10
         retry_on: error
         command: |
-          Start-Process prism -ArgumentList "mock -h 0.0.0.0 -p 4010 ${github.workspace}/did_sidetree.yaml" > "prism_output.log" 2>&1
+          Start-Process prism -ArgumentList "mock -h localhost -p 4010 ${github.workspace}/did_sidetree.yaml" > "prism_output.log" 2>&1
           Start-Sleep -Seconds 5
           Invoke-WebRequest -Uri http://localhost:4010/health -UseBasicParsing
 
@@ -39,7 +39,7 @@ runs:
         max_attempts: 10
         retry_on: error
         command: |
-          Start-Process prism -ArgumentList "mock -h 0.0.0.0 -p 8020 ${github.workspace}/studio.yaml" > "prism_output.log" 2>&1
+          Start-Process prism -ArgumentList "mock -h localhost -p 8020 ${github.workspace}/studio.yaml" > "prism_output.log" 2>&1
           Start-Sleep -Seconds 5
           Invoke-WebRequest -Uri http://localhost:8020/health -UseBasicParsing
 
