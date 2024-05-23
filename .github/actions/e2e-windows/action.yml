@@ -7,32 +7,39 @@ inputs:
 runs:
   using: composite
   steps:
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '14'
+
     - name: (setup) copy default config to home
       shell: powershell
       run: New-Item -ItemType Directory -Force -Path $env:USERPROFILE\.config\nodex; Copy-Item test_resource\config\* $env:USERPROFILE\.config\nodex\
 
-    - name: (setup) pull docker images
+    - name: Install Prism CLI
+      run: npm install -g @stoplight/prism-cli
       shell: powershell
-      run: docker compose -f test_resource\compose.yaml pull -q
 
-    - name: (run) run mock server
-      uses: nick-fields/retry@v3
-      with:
-        timeout_minutes: 5
-        max_attempts: 10
-        retry_on: error
-        command: |
-          docker compose -f test_resource\compose.yaml up -d --wait
-          Start-Sleep -Seconds 3
-          # check whether the mock server is running
-          curl http://localhost:4010/api/v1/identifiers/did:nodex:test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-          curl http://localhost:8020/health
-        on_retry_command: |
-          docker compose -f test_resource\compose.yaml restart
-
-    - name: (run) show docker image status
+    - name: Start Sidetree Prism Mock Server
+      run: |
+        Start-Process prism -ArgumentList "mock -h 0.0.0.0 -p 4010 ${github.workspace}/did_sidetree.yaml"
+        Start-Sleep -Seconds 5
+        $response = Invoke-WebRequest -Uri http://localhost:4010/health -UseBasicParsing
+        if ($response.StatusCode -ne 200) {
+          throw "Health check failed"
+        }
       shell: powershell
-      run: docker compose -f test_resource\compose.yaml ps
+
+    - name: Start Studio Prism Mock Server
+      run: |
+        Start-Process prism -ArgumentList "mock -h 0.0.0.0 -p 8020 ${github.workspace}/studio.yaml"
+        Start-Sleep -Seconds 5
+        $response = Invoke-WebRequest -Uri http://localhost:8020/health -UseBasicParsing
+        if ($response.StatusCode -ne 200) {
+          throw "Health check for Sidetree Prism failed"
+        }
+      shell: powershell
 
     - name: (run) run agent for e2e tests
       uses: nick-fields/retry@v3
@@ -43,11 +50,15 @@ runs:
         command: |
           Start-Process powershell -ArgumentList "${{ inputs.binary-path }} > log.txt 2>&1 &"
           Start-Sleep -Seconds 3
-          Test-Path $env:USERPROFILE\.nodex\run\nodex.sock
+          $response = Invoke-WebRequest -Uri http://localhost:8020/health -UseBasicParsing
+          if ($response.StatusCode -ne 200) {
+            throw "Health check for Studio Prism failed"
+          }
       env:
         NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
         NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
         NODEX_STUDIO_HTTP_ENDPOINT: http://localhost:8020
+        NODEX_SERVER_PORT: 3000
         RUST_BACKTRACE: 1
 
     - name: (run) e2e tests
