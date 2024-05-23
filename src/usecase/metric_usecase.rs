@@ -1,56 +1,69 @@
 use crate::repository::metric_repository::{
-    MetricStoreRepository, MetricStoreRequest, MetricsWatchRepository,
+    MetricStoreRepository, MetricStoreRequest, MetricsCacheRepository, MetricsWatchRepository,
 };
-use crate::services::metrics::MetricsWatchService;
+use crate::services::metrics::{MetricsInMemoryCacheService, MetricsWatchService};
 use crate::services::studio::Studio;
-use chrono::{DateTime, Utc};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use tokio::sync::Mutex as TokioMutex;
 
 pub struct MetricUsecase {
-    store_repository: Box<dyn MetricStoreRepository + Send + Sync + 'static>,
-    repository: Box<dyn MetricsWatchRepository + Send + Sync + 'static>,
-    should_stop: Arc<AtomicBool>,
+    store_repository: Arc<TokioMutex<dyn MetricStoreRepository + Send + Sync + 'static>>,
+    watch_repository: Arc<Mutex<dyn MetricsWatchRepository + Send + Sync + 'static>>,
+    cache_repository: Arc<Mutex<MetricsInMemoryCacheService>>,
 }
 
 impl MetricUsecase {
-    pub fn new(should_stop: Arc<AtomicBool>) -> Self {
+    pub fn new() -> Self {
         MetricUsecase {
-            store_repository: Box::new(Studio::new()),
-            repository: Box::new(MetricsWatchService::new()),
-            should_stop,
-        }
-    }
-
-    async fn send_request(&self, metric_name: &str, metric_value: f32, timestamp: DateTime<Utc>) {
-        let request = MetricStoreRequest {
-            device_did: super::get_my_did(),
-            timestamp,
-            metric_name: metric_name.to_string(),
-            metric_value,
-        };
-
-        match self.store_repository.save(request).await {
-            Ok(_) => log::info!("save {}", metric_name),
-            Err(e) => log::error!("{:?}", e),
+            store_repository: Arc::new(TokioMutex::new(Studio::new())),
+            watch_repository: Arc::new(Mutex::new(MetricsWatchService::new())),
+            cache_repository: Arc::new(Mutex::new(MetricsInMemoryCacheService::new())),
         }
     }
 
     pub async fn start_collect_metric(&mut self) {
-        while !self.should_stop.load(Ordering::Relaxed) {
-            let metrics = self.repository.watch_metrics();
+        let watch_repository_clone = Arc::clone(&self.watch_repository);
+        let cache_repository_clone = Arc::clone(&self.cache_repository);
 
-            for metric in metrics {
-                self.send_request(
-                    metric.metric_type.to_string().as_str(),
-                    metric.value,
-                    metric.timestamp,
-                )
-                .await;
+        let watch_task = tokio::spawn(async move {
+            loop {
+                let metrics = watch_repository_clone.lock().unwrap().watch_metrics();
+                for metric in metrics {
+                    cache_repository_clone.lock().unwrap().push(vec![metric]);
+                }
+
+                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
             }
+        });
 
-            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-        }
+        let store_repository_clone = Arc::clone(&self.store_repository);
+        let cache_repository_clone2 = Arc::clone(&self.cache_repository);
+
+        let send_task = tokio::spawn(async move {
+            loop {
+                let metrics = cache_repository_clone2.lock().unwrap().get();
+                for metric in metrics {
+                    let request = MetricStoreRequest {
+                        device_did: super::get_my_did(),
+                        timestamp: metric.timestamp,
+                        metric_name: metric.metric_type.to_string(),
+                        metric_value: metric.value,
+                    };
+
+                    store_repository_clone
+                        .lock()
+                        .await
+                        .save(request)
+                        .await
+                        .unwrap();
+                    cache_repository_clone2.lock().unwrap().clear();
+                }
+
+                tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
+            }
+        });
+
+        tokio::try_join!(watch_task, send_task).unwrap();
     }
 }
 
@@ -94,12 +107,10 @@ mod tests {
     #[tokio::test]
     async fn test_start_collect_metric() {
         let mut usecase = MetricUsecase {
-            store_repository: Box::new(MockMetricStoreRepository {}),
-            repository: Box::new(MockMetricWatchRepository {}),
-            should_stop: Arc::new(AtomicBool::new(false)),
+            store_repository: Arc::new(TokioMutex::new(MockMetricStoreRepository {})),
+            watch_repository: Arc::new(Mutex::new(MockMetricWatchRepository {})),
+            cache_repository: Arc::new(Mutex::new(MetricsInMemoryCacheService::new())),
         };
-
-        usecase.should_stop.store(true, Ordering::Relaxed);
         usecase.start_collect_metric().await;
     }
 }

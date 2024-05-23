@@ -1,10 +1,18 @@
-use crate::repository::metric_repository::{Metric, MetricType, MetricsWatchRepository};
+use std::sync::{Arc, Mutex};
+
+use crate::repository::metric_repository::{
+    Metric, MetricType, MetricsCacheRepository, MetricsWatchRepository,
+};
 use chrono::Utc;
 use sysinfo::{Networks, System};
 
 pub struct MetricsWatchService {
     system: System,
     networks: Networks,
+}
+
+pub struct MetricsInMemoryCacheService {
+    cache: std::sync::Arc<std::sync::Mutex<Vec<Metric>>>,
 }
 
 impl MetricsWatchService {
@@ -14,9 +22,7 @@ impl MetricsWatchService {
             networks: Networks::new(),
         }
     }
-}
 
-impl MetricsWatchService {
     fn cpu_usage(&mut self) -> Metric {
         self.system.refresh_cpu_usage();
         Metric {
@@ -111,6 +117,29 @@ impl MetricsWatchRepository for MetricsWatchService {
         metrics.append(&mut self.disk_info());
 
         metrics
+    }
+}
+
+impl MetricsCacheRepository for MetricsInMemoryCacheService {
+    fn new() -> Self {
+        Self {
+            cache: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    fn push(&mut self, metrics: Vec<Metric>) {
+        let mut cache = self.cache.lock().unwrap();
+        cache.extend(metrics);
+    }
+
+    fn clear(&mut self) {
+        let mut cache = self.cache.lock().unwrap();
+        cache.clear();
+    }
+
+    fn get(&mut self) -> Vec<Metric> {
+        let cache = self.cache.lock().unwrap();
+        cache.clone()
     }
 }
 

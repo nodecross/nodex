@@ -13,6 +13,13 @@ pub trait MetricsWatchRepository {
     fn watch_metrics(&mut self) -> Vec<Metric>;
 }
 
+pub trait MetricsCacheRepository {
+    fn new() -> Self;
+    fn push(&mut self, metrics: Vec<Metric>);
+    fn clear(&mut self);
+    fn get(&mut self) -> Vec<Metric>;
+}
+
 #[derive(Debug, Serialize, Clone)]
 pub struct MetricStoreRequest {
     pub device_did: String,

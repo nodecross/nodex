@@ -168,11 +168,8 @@ async fn main() -> std::io::Result<()> {
 
     let should_stop = Arc::new(AtomicBool::new(false));
 
-    let mut metric_usecase = MetricUsecase::new(should_stop.clone());
-    tokio::spawn(async move {
-        metric_usecase.start_collect_metric().await;
-        log::info!("Metric usecase has been successfully stopped.");
-    });
+    let mut metric_usecase = MetricUsecase::new();
+    metric_usecase.start_collect_metric().await;
 
     // NOTE: booting...
     let (tx, rx) = mpsc::channel::<Command>(32);
