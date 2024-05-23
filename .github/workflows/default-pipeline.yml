@@ -169,24 +169,6 @@ jobs:
       - name: (checkout) source code
         uses: actions/checkout@v4
 
-      - name: Download Docker Desktop Installer
-        run: |
-          $url = "https://desktop.docker.com/win/stable/Docker%20Desktop%20Installer.exe"
-          $output = "docker_installer.exe"
-          Invoke-WebRequest -Uri $url -OutFile $output
-        shell: powershell
-
-      - name: Install Docker Desktop
-        run: |
-          $installer = ".\docker_installer.exe"
-          Start-Process $installer -ArgumentList '/Install', '/Quiet', '/NoRestart' -NoNewWindow -Wait
-        shell: powershell
-
-      - name: Check Docker Version
-        run: |
-          docker --version
-        shell: powershell
-
       - name: (run) download artifacts (windows)
         uses: actions/download-artifact@v4
         with:
