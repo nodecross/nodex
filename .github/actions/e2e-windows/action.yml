@@ -28,7 +28,7 @@ runs:
         max_attempts: 10
         retry_on: error
         command: |
-          Start-Process prism -ArgumentList "mock -h localhost -p 4010 ${github.workspace}/did_sidetree.yaml" > "prism_output.log" 2>&1
+          Start-Process prism -ArgumentList "mock -h localhost -p 4010 ${github.workspace}/did_sidetree.yaml" -NoNewWindow -RedirectStandardOutput "prism_output.log" -RedirectStandardError "prism_output.log"
           Start-Sleep -Seconds 5
           Invoke-WebRequest -Uri http://localhost:4010/health -UseBasicParsing
 
@@ -39,7 +39,8 @@ runs:
         max_attempts: 10
         retry_on: error
         command: |
-          Start-Process prism -ArgumentList "mock -h localhost -p 8020 ${github.workspace}/studio.yaml" > "prism_output.log" 2>&1
+          Start-Process prism -ArgumentList "mock -h localhost -p 8020 ${github.workspace}/did_sidetree.yaml" -NoNewWindow -RedirectStandardOutput "prism_output.log" -RedirectStandardError "prism_output.log"
+
           Start-Sleep -Seconds 5
           Invoke-WebRequest -Uri http://localhost:8020/health -UseBasicParsing
 
@@ -50,7 +51,7 @@ runs:
         max_attempts: 10
         retry_on: error
         command: |
-          Start-Process powershell -ArgumentList "${{ inputs.binary-path }} > agent.log 2>&1 &"
+          Start-Process powershell -ArgumentList "${{ inputs.binary-path }}  -NoNewWindow -RedirectStandardOutput "agent.log" -RedirectStandardError "agent.log"
           Start-Sleep -Seconds 10
           Invoke-WebRequest -Uri http://localhost:3000/health -UseBasicParsing
       env:
