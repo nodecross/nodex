@@ -21,25 +21,27 @@ runs:
       run: npm install -g @stoplight/prism-cli
       shell: powershell
 
-    - name: Start Sidetree Prism Mock Server
-      run: |
-        Start-Process prism -ArgumentList "mock -h 0.0.0.0 -p 4010 ${github.workspace}/did_sidetree.yaml"
-        Start-Sleep -Seconds 5
-        $response = Invoke-WebRequest -Uri http://localhost:4010/health -UseBasicParsing
-        if ($response.StatusCode -ne 200) {
-          throw "Health check failed"
-        }
-      shell: powershell
+    - name: (run) Start Sidetree Prism Mock Server
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: 5
+        max_attempts: 10
+        retry_on: error
+        command: |
+          Start-Process prism -ArgumentList "mock -h 0.0.0.0 -p 4010 ${github.workspace}/did_sidetree.yaml"
+          Start-Sleep -Seconds 5
+          Invoke-WebRequest -Uri http://localhost:4010/health -UseBasicParsing
 
-    - name: Start Studio Prism Mock Server
-      run: |
-        Start-Process prism -ArgumentList "mock -h 0.0.0.0 -p 8020 ${github.workspace}/studio.yaml"
-        Start-Sleep -Seconds 5
-        $response = Invoke-WebRequest -Uri http://localhost:8020/health -UseBasicParsing
-        if ($response.StatusCode -ne 200) {
-          throw "Health check for Sidetree Prism failed"
-        }
-      shell: powershell
+    - name: (run) Start Studio Prism Mock Server
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: 5
+        max_attempts: 10
+        retry_on: error
+        command: |
+          Start-Process prism -ArgumentList "mock -h 0.0.0.0 -p 8020 ${github.workspace}/studio.yaml"
+          Start-Sleep -Seconds 5
+          Invoke-WebRequest -Uri http://localhost:8020/health -UseBasicParsing
 
     - name: (run) run agent for e2e tests
       uses: nick-fields/retry@v3
@@ -49,8 +51,8 @@ runs:
         retry_on: error
         command: |
           Start-Process powershell -ArgumentList "${{ inputs.binary-path }} > log.txt 2>&1 &"
-          Start-Sleep -Seconds 3
-          $response = Invoke-WebRequest -Uri http://localhost:8020/health -UseBasicParsing
+          Start-Sleep -Seconds 10
+          $response = Invoke-WebRequest -Uri http://localhost:3000/health -UseBasicParsing
           if ($response.StatusCode -ne 200) {
             throw "Health check for Studio Prism failed"
           }
@@ -86,5 +88,5 @@ runs:
     - name: (run) Verify process is not running in e2e_agent by SIGINT
       shell: powershell
       if: steps.check_logs_for_sigint.outputs.stopped_found == 'true'
-      run: |
-        $pids = (Get-Process -Name nodex-agent -ErrorAction Sil
+      run: $pids = (Get-Process -Name nodex-agent -ErrorAction SilentlyContinue)
+
