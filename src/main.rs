@@ -15,12 +15,14 @@ use services::nodex::NodeX;
 use services::studio::Studio;
 use shadow_rs::shadow;
 use std::env;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{collections::HashMap, fs, sync::Arc};
 use sysinfo::{get_current_pid, System};
 use tokio::sync::mpsc;
 use tokio::sync::Notify;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
+use usecase::metric_usecase::MetricUsecase;
 
 mod config;
 mod controllers;
@@ -170,6 +172,14 @@ async fn main() -> std::io::Result<()> {
         .unwrap();
     log::info!("subscribed: {}", studio_did_topic);
 
+    let should_stop = Arc::new(AtomicBool::new(false));
+
+    let mut metric_usecase = MetricUsecase::new(should_stop.clone());
+    tokio::spawn(async move {
+        metric_usecase.start_collect_metric().await;
+        log::info!("Metric usecase has been successfully stopped.");
+    });
+
     // NOTE: booting...
     let (tx, rx) = mpsc::channel::<Command>(32);
     let db = Arc::new(RwLock::new(HashMap::<String, bool>::new()));
@@ -193,7 +203,7 @@ async fn main() -> std::io::Result<()> {
     ));
 
     let shutdown = tokio::spawn(async move {
-        handle_signals().await;
+        handle_signals(should_stop.clone()).await;
 
         let server_stop = server_handle.stop(true);
         shutdown_notify.notify_waiters();
@@ -212,7 +222,7 @@ async fn main() -> std::io::Result<()> {
 }
 
 #[cfg(unix)]
-async fn handle_signals() {
+async fn handle_signals(should_stop: Arc<AtomicBool>) {
     use tokio::signal::unix::{signal, SignalKind};
 
     let ctrl_c = tokio::signal::ctrl_c();
@@ -221,9 +231,11 @@ async fn handle_signals() {
     tokio::select! {
         _ = ctrl_c => {
             log::info!("Received SIGINT");
+            should_stop.store(true, Ordering::Relaxed);
         },
         _ = sigterm.recv() => {
             log::info!("Received SIGTERM");
+            should_stop.store(true, Ordering::Relaxed);
         },
     }
 }
