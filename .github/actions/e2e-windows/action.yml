@@ -20,6 +20,10 @@ runs:
     - name: Install Prism CLI
       run: npm install -g @stoplight/prism-cli
       shell: powershell
+  
+    - name: Confirm prism
+      run: prism --version
+      shell: powershell
 
     - name: (run) Start Sidetree Prism Mock Server
       uses: nick-fields/retry@v3
