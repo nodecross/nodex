@@ -20,10 +20,6 @@ runs:
     - name: Install Prism CLI
       run: npm install -g @stoplight/prism-cli
       shell: powershell
-  
-    - name: Confirm prism
-      run: prism --version
-      shell: powershell
 
     - name: (run) Start Sidetree Prism Mock Server
       uses: nick-fields/retry@v3
@@ -32,9 +28,13 @@ runs:
         max_attempts: 10
         retry_on: error
         command: |
-          Start-Process prism -ArgumentList "mock -h localhost -p 4010 ${github.workspace}/did_sidetree.yaml" -NoNewWindow -RedirectStandardOutput "prism_output.log" -RedirectStandardError "prism_error.log"
+          prism mock -h localhost -p 4010 ${github.workspace}/did_sidetree.yaml
           Start-Sleep -Seconds 5
-          Invoke-WebRequest -Uri http://localhost:4010/health -UseBasicParsing
+          $response = curl -s -o response.txt -w "%{http_code}" http://localhost:4010/health
+          if ($response -ne '200') {
+            Write-Host "Health check failed"
+            exit 1
+          }
 
     - name: (run) Start Studio Prism Mock Server
       uses: nick-fields/retry@v3
@@ -43,9 +43,13 @@ runs:
         max_attempts: 10
         retry_on: error
         command: |
-          Start-Process prism -ArgumentList "mock -h localhost -p 8020 ${github.workspace}/did_sidetree.yaml" -NoNewWindow -RedirectStandardOutput "prism_output.log" -RedirectStandardError "prism_error.log"
+          prism mock -h localhost -p 8020 ${github.workspace}/studio.yaml
           Start-Sleep -Seconds 5
-          Invoke-WebRequest -Uri http://localhost:8020/health -UseBasicParsing
+          $response = curl -s -o response.txt -w "%{http_code}" http://localhost:8020/health
+          if ($response -ne '200') {
+            Write-Host "Health check failed"
+            exit 1
+          }
 
     - name: (run) run agent for e2e tests
       uses: nick-fields/retry@v3
@@ -56,7 +60,11 @@ runs:
         command: |
           Start-Process powershell -ArgumentList "${{ inputs.binary-path }}  -NoNewWindow -RedirectStandardOutput "agent.log"
           Start-Sleep -Seconds 10
-          Invoke-WebRequest -Uri http://localhost:3000/health -UseBasicParsing
+          $response = curl -s -o response.txt -w "%{http_code}" http://localhost:3000
+          if ($response -ne '200') {
+            Write-Host "Health check failed"
+            exit 1
+          }
       env:
         NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
         NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
@@ -89,16 +97,6 @@ runs:
       shell: powershell
       if: steps.check_logs_for_sigint.outputs.stopped_found == 'true'
       run: $pids = (Get-Process -Name nodex-agent -ErrorAction SilentlyContinue)
-
-    - name: (run) show log of mock server
-      shell: bash
-      run: Get-Content "prism_output.log"
-      if: ${{ always() }}
-
-    - name: (run) show log of mock server
-      shell: bash
-      run: Get-Content "prism_error.log"
-      if: ${{ always() }}
 
     - name: (run) show log of agent
       shell: bash
