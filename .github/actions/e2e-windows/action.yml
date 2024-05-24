@@ -28,9 +28,9 @@ runs:
         max_attempts: 10
         retry_on: error
         command: |
-          prism mock -h localhost -p 4010 ${github.workspace}/did_sidetree.yaml
+          prism mock -h localhost -p 4010 test_resource/did_sidetree.yaml
           Start-Sleep -Seconds 5
-          $response = curl -s -o response.txt -w "%{http_code}" http://localhost:4010/health
+          $response = curl.exe -s -o response.txt -w "%{http_code}" http://localhost:4010/health
           if ($response -ne '200') {
             Write-Host "Health check failed"
             exit 1
@@ -43,9 +43,9 @@ runs:
         max_attempts: 10
         retry_on: error
         command: |
-          prism mock -h localhost -p 8020 ${github.workspace}/studio.yaml
+          prism mock -h localhost -p 8020 test_resource/studio.yaml
           Start-Sleep -Seconds 5
-          $response = curl -s -o response.txt -w "%{http_code}" http://localhost:8020/health
+          $response = curl.exe -s -o response.txt -w "%{http_code}" http://localhost:8020/health
           if ($response -ne '200') {
             Write-Host "Health check failed"
             exit 1
@@ -60,7 +60,7 @@ runs:
         command: |
           Start-Process powershell -ArgumentList "${{ inputs.binary-path }}  -NoNewWindow -RedirectStandardOutput "agent.log"
           Start-Sleep -Seconds 10
-          $response = curl -s -o response.txt -w "%{http_code}" http://localhost:3000
+          $response = curl.exe -s -o response.txt -w "%{http_code}" http://localhost:3000
           if ($response -ne '200') {
             Write-Host "Health check failed"
             exit 1
