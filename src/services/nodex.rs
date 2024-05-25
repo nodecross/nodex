@@ -10,6 +10,7 @@ use crate::{
     repository::did_repository::DidRepository,
 };
 
+use daemonize::Daemonize;
 use reqwest::StatusCode;
 use serde::Deserialize;
 use std::{fs, io::Cursor, path::PathBuf, process::Command};
@@ -149,7 +150,12 @@ impl NodeX {
         zip_extract::extract(Cursor::new(content), &target_dir, true)?;
 
         Command::new("chmod").arg("+x").arg(&agent_path).status()?;
-        Command::new(&agent_path).spawn()?;
+
+        let daemonize = Daemonize::new();
+        daemonize.start().expect("Failed to update nodex process");
+        let child = std::process::Command::new(&agent_path)
+            .spawn()
+            .expect("Failed to execute command");
 
         Ok(())
     }
