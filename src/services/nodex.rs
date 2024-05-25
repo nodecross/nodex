@@ -153,7 +153,7 @@ impl NodeX {
 
         let daemonize = Daemonize::new();
         daemonize.start().expect("Failed to update nodex process");
-        let child = std::process::Command::new(&agent_path)
+        std::process::Command::new(&agent_path)
             .spawn()
             .expect("Failed to execute command");
 
