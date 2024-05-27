@@ -6,6 +6,10 @@ use dotenvy::dotenv;
 use handlers::Command;
 use handlers::MqttClient;
 use mac_address::get_mac_address;
+use nix::{
+    sys::signal::{kill, Signal},
+    unistd::Pid,
+};
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use services::nodex::NodeX;
 use services::studio::Studio;
@@ -13,6 +17,7 @@ use shadow_rs::shadow;
 use std::env;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{collections::HashMap, fs, sync::Arc};
+use sysinfo::{get_current_pid, System};
 use tokio::sync::mpsc;
 use tokio::sync::Notify;
 use tokio::sync::RwLock;
