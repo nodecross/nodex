@@ -383,19 +383,17 @@ fn kill_other_self_process() {
 
             for process in system.processes_by_exact_name("nodex-agent") {
                 if current_pid == process.pid() {
-                    log::info!("Skipping current process with PID: {:?}", process.pid());
                     continue;
                 }
                 if process.parent() == Some(current_pid) {
-                    log::info!("Skipping child process with PID: {:?}", process.pid());
                     continue;
                 }
 
                 let pid_as_i32 = process.pid().as_u32() as i32;
                 match kill(Pid::from_raw(pid_as_i32), Signal::SIGTERM) {
-                    Ok(_) => log::info!("Process with PID: {} killed successfully.", pid_as_i32),
+                    Ok(_) => log::info!("nodex Process with PID: {} killed successfully.", pid_as_i32),
                     Err(e) => log::error!(
-                        "Failed to kill process with PID: {}. Error: {}",
+                        "Failed to kill nodex process with PID: {}. Error: {}",
                         pid_as_i32,
                         e
                     ),
