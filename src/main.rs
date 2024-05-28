@@ -6,16 +6,23 @@ use dotenvy::dotenv;
 use handlers::Command;
 use handlers::MqttClient;
 use mac_address::get_mac_address;
+use nix::{
+    sys::signal::{kill, Signal},
+    unistd::Pid,
+};
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use services::nodex::NodeX;
 use services::studio::Studio;
 use shadow_rs::shadow;
 use std::env;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{collections::HashMap, fs, sync::Arc};
+use sysinfo::{get_current_pid, System};
 use tokio::sync::mpsc;
 use tokio::sync::Notify;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
+use usecase::metric_usecase::MetricUsecase;
 
 mod config;
 mod controllers;
@@ -87,6 +94,7 @@ async fn main() -> std::io::Result<()> {
 
     std::env::set_var("RUST_LOG", "info");
     log_init();
+    kill_other_self_process();
 
     let studio_did_topic = "nodex/did:nodex:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
 
@@ -162,6 +170,14 @@ async fn main() -> std::io::Result<()> {
         .unwrap();
     log::info!("subscribed: {}", studio_did_topic);
 
+    let should_stop = Arc::new(AtomicBool::new(false));
+
+    let mut metric_usecase = MetricUsecase::new(should_stop.clone());
+    tokio::spawn(async move {
+        metric_usecase.start_collect_metric().await;
+        log::info!("Metric usecase has been successfully stopped.");
+    });
+
     // NOTE: booting...
     let (tx, rx) = mpsc::channel::<Command>(32);
     let db = Arc::new(RwLock::new(HashMap::<String, bool>::new()));
@@ -198,7 +214,7 @@ async fn main() -> std::io::Result<()> {
     ));
 
     let shutdown = tokio::spawn(async move {
-        handle_signals().await;
+        handle_signals(should_stop.clone()).await;
 
         let server_stop = server_handle.stop(true);
         shutdown_notify.notify_waiters();
@@ -225,7 +241,7 @@ fn validate_port(port_str: &str) -> Result<u16, String> {
 }
 
 #[cfg(unix)]
-async fn handle_signals() {
+async fn handle_signals(should_stop: Arc<AtomicBool>) {
     use tokio::signal::unix::{signal, SignalKind};
 
     let ctrl_c = tokio::signal::ctrl_c();
@@ -234,9 +250,11 @@ async fn handle_signals() {
     tokio::select! {
         _ = ctrl_c => {
             log::info!("Received SIGINT");
+            should_stop.store(true, Ordering::Relaxed);
         },
         _ = sigterm.recv() => {
             log::info!("Received SIGTERM");
+            should_stop.store(true, Ordering::Relaxed);
         },
     }
 }
@@ -374,4 +392,39 @@ fn log_init() {
         )
     });
     builder.init();
+}
+
+fn kill_other_self_process() {
+    match get_current_pid() {
+        Ok(current_pid) => {
+            let mut system = System::new_all();
+            system.refresh_all();
+
+            for process in system.processes_by_exact_name("nodex-agent") {
+                if current_pid == process.pid() {
+                    continue;
+                }
+                if process.parent() == Some(current_pid) {
+                    continue;
+                }
+
+                let pid_as_i32 = process.pid().as_u32() as i32;
+                match kill(Pid::from_raw(pid_as_i32), Signal::SIGTERM) {
+                    Ok(_) => log::info!(
+                        "nodex Process with PID: {} killed successfully.",
+                        pid_as_i32
+                    ),
+                    Err(e) => log::error!(
+                        "Failed to kill nodex process with PID: {}. Error: {}",
+                        pid_as_i32,
+                        e
+                    ),
+                };
+            }
+        }
+        Err(e) => {
+            log::error!("Failed to get current PID: {:?}", e);
+            panic!()
+        }
+    }
 }

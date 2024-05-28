@@ -1,4 +1,5 @@
 use crate::repository::message_activity_repository::MessageActivityHttpError;
+use crate::repository::metric_repository::{MetricStoreRepository, MetricStoreRequest};
 use crate::server_config;
 use crate::{
     nodex::utils::studio_client::{StudioClient, StudioClientConfig},
@@ -54,7 +55,7 @@ pub struct NetworkResponse {
     pub secret_key: String,
     pub project_did: String,
     pub recipient_dids: Vec<String>,
-    pub hub_endpoint: String,
+    pub studio_endpoint: String,
     pub heartbeat: u64,
 }
 
@@ -62,7 +63,7 @@ impl Studio {
     pub fn new() -> Self {
         let server_config = server_config();
         let client_config: StudioClientConfig = StudioClientConfig {
-            base_url: server_config.hub_http_endpoint(),
+            base_url: server_config.studio_http_endpoint(),
         };
 
         let client = match StudioClient::new(&client_config) {
@@ -206,7 +207,7 @@ impl Studio {
                     network.save_secret_key(&v.secret_key);
                     network.save_project_did(&v.project_did);
                     network.save_recipient_dids(v.recipient_dids);
-                    network.save_hub_endpoint(&v.hub_endpoint);
+                    network.save_studio_endpoint(&v.studio_endpoint);
                     network.save_heartbeat(v.heartbeat);
                     Ok(())
                 }
@@ -319,6 +320,31 @@ impl MessageActivityRepository for Studio {
                 "StatusCode={}, unexpected response",
                 other
             ))),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl MetricStoreRepository for Studio {
+    async fn save(&self, request: MetricStoreRequest) -> anyhow::Result<()> {
+        let payload = serde_json::to_string(&request).expect("failed to serialize");
+        let res = self.http_client.post("/v1/metric", &payload).await?;
+
+        let status = res.status();
+        let json: Value = res.json().await.context("Failed to read response body")?;
+        let message = if let Some(message) = json.get("message").map(|v| v.to_string()) {
+            message
+        } else {
+            "".to_string()
+        };
+
+        match status {
+            reqwest::StatusCode::OK => Ok(()),
+            reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
+                anyhow::bail!("StatusCode=500, {}", message);
+            }
+            other => anyhow::bail!("StatusCode={other}, {}", message),
         }
     }
 }
