@@ -88,6 +88,7 @@ pub struct ConfigRoot {
     did: Option<String>,
     key_pairs: KeyPairsConfig,
     extensions: ExtensionsConfig,
+    metrics: MetricsConfig,
     is_initialized: bool,
     schema_version: u8,
 }
@@ -106,6 +107,10 @@ impl Default for ConfigRoot {
                 trng: None,
                 secure_keystore: None,
                 cipher: None,
+            },
+            metrics: MetricsConfig {
+                collect_interval: 5,
+                send_interval: 15,
             },
             is_initialized: false,
             schema_version: 1,
@@ -374,6 +379,14 @@ impl AppConfig {
         }
     }
 
+    pub fn get_metric_collect_interval(&self) -> u64 {
+        self.root.metrics.clone().collect_interval
+    }
+
+    pub fn get_metric_send_interval(&self) -> u64 {
+        self.root.metrics.clone().send_interval
+    }
+
     // NOTE: Is Initialized
     #[allow(dead_code)]
     pub fn get_is_initialized(&self) -> bool {
@@ -429,4 +442,10 @@ impl ServerConfig {
     pub fn studio_http_endpoint(&self) -> String {
         self.studio_http_endpoint.clone()
     }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct MetricsConfig {
+    collect_interval: u64,
+    send_interval: u64,
 }

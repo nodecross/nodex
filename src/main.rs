@@ -169,7 +169,7 @@ async fn main() -> std::io::Result<()> {
     let should_stop = Arc::new(AtomicBool::new(false));
 
     let mut metric_usecase = MetricUsecase::new();
-    metric_usecase.start_collect_metric().await;
+    metric_usecase.start_send_metric().await;
 
     // NOTE: booting...
     let (tx, rx) = mpsc::channel::<Command>(32);
