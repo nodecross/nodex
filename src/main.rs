@@ -168,7 +168,7 @@ async fn main() -> std::io::Result<()> {
 
     let should_stop = Arc::new(AtomicBool::new(false));
 
-    let mut metric_usecase = MetricUsecase::new();
+    let mut metric_usecase = MetricUsecase::new(should_stop.clone());
     metric_usecase.start_send_metric().await;
 
     // NOTE: booting...

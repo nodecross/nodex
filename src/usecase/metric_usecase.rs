@@ -5,6 +5,7 @@ use crate::repository::metric_repository::{
 };
 use crate::services::metrics::{MetricsInMemoryCacheService, MetricsWatchService};
 use crate::services::studio::Studio;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::sync::Mutex as TokioMutex;
 
@@ -13,15 +14,17 @@ pub struct MetricUsecase {
     watch_repository: Arc<Mutex<dyn MetricsWatchRepository + Send + Sync + 'static>>,
     cache_repository: Arc<Mutex<MetricsInMemoryCacheService>>,
     config: Box<SingletonAppConfig>,
+    should_stop: Arc<AtomicBool>,
 }
 
 impl MetricUsecase {
-    pub fn new() -> Self {
+    pub fn new(should_stop: Arc<AtomicBool>) -> Self {
         MetricUsecase {
             store_repository: Arc::new(TokioMutex::new(Studio::new())),
             watch_repository: Arc::new(Mutex::new(MetricsWatchService::new())),
             cache_repository: Arc::new(Mutex::new(MetricsInMemoryCacheService::new())),
             config: app_config(),
+            should_stop,
         }
     }
 
@@ -30,8 +33,9 @@ impl MetricUsecase {
         let cache_repository_clone = Arc::clone(&self.cache_repository);
         let interval: u64 = self.config.lock().get_metric_collect_interval();
 
+        let should_stop_clone = self.should_stop.clone();
         let watch_task = tokio::spawn(async move {
-            loop {
+            while !should_stop_clone.load(Ordering::Relaxed) {
                 let metrics = watch_repository_clone.lock().unwrap().watch_metrics();
                 for metric in metrics {
                     cache_repository_clone.lock().unwrap().push(vec![metric]);
@@ -43,12 +47,13 @@ impl MetricUsecase {
         });
 
         let store_repository_clone = Arc::clone(&self.store_repository);
-        let cache_repository_clone2 = Arc::clone(&self.cache_repository);
+        let cache_repository_clone = Arc::clone(&self.cache_repository);
         let interval: u64 = self.config.lock().get_metric_send_interval();
 
+        let should_stop_clone = self.should_stop.clone();
         let send_task = tokio::spawn(async move {
-            loop {
-                let metrics = cache_repository_clone2.lock().unwrap().get();
+            while !should_stop_clone.load(Ordering::Relaxed) {
+                let metrics = cache_repository_clone.lock().unwrap().get();
                 for metric in metrics {
                     let request = MetricStoreRequest {
                         device_did: super::get_my_did(),
@@ -63,7 +68,7 @@ impl MetricUsecase {
                         .save(request)
                         .await
                         .unwrap();
-                    cache_repository_clone2.lock().unwrap().clear();
+                    cache_repository_clone.lock().unwrap().clear();
                 }
                 log::info!("sended metrics");
 
