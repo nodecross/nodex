@@ -14,9 +14,11 @@ use std::env;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{collections::HashMap, fs, sync::Arc};
 use tokio::sync::mpsc;
+use tokio::sync::Mutex;
 use tokio::sync::Notify;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
+use usecase::metric_usecase;
 use usecase::metric_usecase::MetricUsecase;
 
 mod config;
@@ -168,8 +170,12 @@ async fn main() -> std::io::Result<()> {
 
     let should_stop = Arc::new(AtomicBool::new(false));
 
-    let mut metric_usecase = MetricUsecase::new(should_stop.clone());
-    metric_usecase.start_send_metric().await;
+    let metric_usecase = Arc::new(Mutex::new(MetricUsecase::new(should_stop.clone())));
+    let metric_usecase_clone = Arc::clone(&metric_usecase);
+    let collect_task =
+        tokio::spawn(async move { metric_usecase.lock().await.collect_task().await });
+    let send_task =
+        tokio::spawn(async move { metric_usecase_clone.lock().await.send_task().await });
 
     // NOTE: booting...
     let (tx, rx) = mpsc::channel::<Command>(32);
@@ -203,7 +209,14 @@ async fn main() -> std::io::Result<()> {
         log::info!("Agent has been successfully stopped.");
     });
 
-    match tokio::try_join!(server_task, sender_task, message_polling_task, shutdown) {
+    match tokio::try_join!(
+        server_task,
+        sender_task,
+        message_polling_task,
+        collect_task,
+        send_task,
+        shutdown
+    ) {
         Ok(_) => Ok(()),
         Err(e) => {
             log::error!("{:?}", e);

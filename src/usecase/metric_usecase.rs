@@ -27,6 +27,61 @@ impl MetricUsecase {
             should_stop,
         }
     }
+    pub async fn collect_metrics_task(&mut self) {
+        let watch_repository_clone = Arc::clone(&self.watch_repository);
+        let cache_repository_clone = Arc::clone(&self.cache_repository);
+        let interval: u64 = self.config.lock().get_metric_collect_interval();
+
+        let should_stop_clone = self.should_stop.clone();
+        while !should_stop_clone.load(Ordering::Relaxed) {
+            let metrics = watch_repository_clone.lock().unwrap().watch_metrics();
+            for metric in metrics {
+                cache_repository_clone.lock().unwrap().push(vec![metric]);
+            }
+            log::info!("collected metrics");
+
+            tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
+        }
+    }
+
+    pub async fn collect_task(&mut self) {
+        println!("collect_task!!");
+        let interval: u64 = self.config.lock().get_metric_collect_interval();
+        while !self.should_stop.load(Ordering::Relaxed) {
+            let metrics = self.watch_repository.lock().unwrap().watch_metrics();
+            for metric in metrics {
+                self.cache_repository.lock().unwrap().push(vec![metric]);
+            }
+            log::info!("collected metrics");
+
+            tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
+        }
+    }
+    pub async fn send_task(&mut self) {
+        println!("send_task!!");
+        let interval: u64 = self.config.lock().get_metric_send_interval();
+        while !self.should_stop.load(Ordering::Relaxed) {
+            let metrics = self.cache_repository.lock().unwrap().get();
+            for metric in metrics {
+                let request = MetricStoreRequest {
+                    device_did: super::get_my_did(),
+                    timestamp: metric.timestamp,
+                    metric_name: metric.metric_type.to_string(),
+                    metric_value: metric.value,
+                };
+
+                match self.store_repository.lock().await.save(request).await {
+                    Ok(_) => log::info!("sended metric"),
+                    Err(e) => log::error!("{:?}", e),
+                }
+
+                self.cache_repository.lock().unwrap().clear();
+            }
+            log::info!("sended metrics");
+
+            tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
+        }
+    }
 
     pub async fn start_send_metric(&mut self) {
         let watch_repository_clone = Arc::clone(&self.watch_repository);
@@ -74,8 +129,6 @@ impl MetricUsecase {
                 tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
             }
         });
-
-        tokio::try_join!(watch_task, send_task).unwrap();
     }
 }
 
