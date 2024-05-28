@@ -62,12 +62,11 @@ impl MetricUsecase {
                         metric_value: metric.value,
                     };
 
-                    store_repository_clone
-                        .lock()
-                        .await
-                        .save(request)
-                        .await
-                        .unwrap();
+                    match store_repository_clone.lock().await.save(request).await {
+                        Ok(_) => log::info!("sended metric"),
+                        Err(e) => log::error!("{:?}", e),
+                    }
+
                     cache_repository_clone.lock().unwrap().clear();
                 }
                 log::info!("sended metrics");
@@ -124,6 +123,7 @@ mod tests {
             watch_repository: Arc::new(Mutex::new(MockMetricWatchRepository {})),
             cache_repository: Arc::new(Mutex::new(MetricsInMemoryCacheService::new())),
             config: app_config(),
+            should_stop: Arc::new(AtomicBool::new(true)),
         };
         usecase.start_send_metric().await;
     }
