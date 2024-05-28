@@ -6,10 +6,6 @@ use dotenvy::dotenv;
 use handlers::Command;
 use handlers::MqttClient;
 use mac_address::get_mac_address;
-use nix::{
-    sys::signal::{kill, Signal},
-    unistd::Pid,
-};
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use services::nodex::NodeX;
 use services::studio::Studio;
@@ -22,6 +18,20 @@ use tokio::sync::mpsc;
 use tokio::sync::Notify;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
+use anyhow::anyhow;
+#[cfg(unix)]
+use nix::{
+    sys::signal::{kill, Signal},
+    unistd::Pid
+};
+
+#[cfg(windows)]
+use windows::Win32::{
+    Foundation::{CloseHandle, GetLastError, HANDLE},
+    System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE}
+};
+
+
 use usecase::metric_usecase::MetricUsecase;
 
 mod config;
@@ -260,11 +270,12 @@ async fn handle_signals(should_stop: Arc<AtomicBool>) {
 }
 
 #[cfg(windows)]
-async fn handle_signals() {
+async fn handle_signals(should_stop: Arc<AtomicBool>) {
     tokio::signal::ctrl_c()
         .await
         .expect("Failed to listen for Ctrl+C");
     log::info!("Received Ctrl+C");
+    should_stop.store(true, Ordering::Relaxed);
 }
 
 fn use_cli(command: Option<Commands>, did: String) {
@@ -408,18 +419,10 @@ fn kill_other_self_process() {
                     continue;
                 }
 
-                let pid_as_i32 = process.pid().as_u32() as i32;
-                match kill(Pid::from_raw(pid_as_i32), Signal::SIGTERM) {
-                    Ok(_) => log::info!(
-                        "nodex Process with PID: {} killed successfully.",
-                        pid_as_i32
-                    ),
-                    Err(e) => log::error!(
-                        "Failed to kill nodex process with PID: {}. Error: {}",
-                        pid_as_i32,
-                        e
-                    ),
-                };
+                let pid = process.pid().as_u32();
+                if let Err(e) = kill_process(pid) {
+                    log::error!("Failed to kill process with PID: {}. Error: {:?}", pid, e);
+                }
             }
         }
         Err(e) => {
@@ -427,4 +430,33 @@ fn kill_other_self_process() {
             panic!()
         }
     }
+}
+#[cfg(unix)]
+fn kill_process(pid: u32) -> Result<(), anyhow::Error> {
+    kill(Pid::from_raw(pid as i32), Signal::SIGTERM).map_err(|e| anyhow!("Failed to kill nodex process with PID: {}. Error: {}", pid, e))?;
+    log::info!("nodex Process with PID: {} killed successfully.", pid);
+    Ok(())
+}
+
+#[cfg(windows)]
+fn kill_process(pid: u32) -> Result<(), anyhow::Error> {
+    unsafe {
+        let handle = OpenProcess(PROCESS_TERMINATE, false, pid)?;
+        if handle.is_invalid() {
+            return Err(anyhow!("Failed to open process with PID: {}. Invalid handle.", pid));
+        }
+
+        match TerminateProcess(handle, 1) {
+            Ok(_) => {
+                log::info!("nodex Process with PID: {} killed successfully.", pid);
+            }
+            Err(e) => {
+                CloseHandle(handle);
+                return Err(anyhow!("Failed to terminate process with PID: {}. Error: {:?}", pid, GetLastError()));
+            }
+        };
+        CloseHandle(handle);
+    }
+
+    Ok(())
 }

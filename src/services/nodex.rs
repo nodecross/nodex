@@ -190,11 +190,11 @@ impl NodeX {
 
     #[cfg(unix)]
     fn execute_agent(&self, agent_path: &Path) -> anyhow::Result<()> {
-        Command::new("chmod").arg("+x").arg(&agent_path).status()?;
+        Command::new("chmod").arg("+x").arg(agent_path).status()?;
 
         let daemonize = Daemonize::new();
         daemonize.start().expect("Failed to update nodex process");
-        std::process::Command::new(&agent_path)
+        std::process::Command::new(agent_path)
             .spawn()
             .expect("Failed to execute command");
         Ok(())
@@ -202,8 +202,12 @@ impl NodeX {
 
     #[cfg(windows)]
     fn execute_agent(&self, agent_path: &Path) -> anyhow::Result<()> {
+        let agent_path_str = agent_path.to_str().ok_or_else(|| {
+            anyhow::anyhow!("Failed to convert agent_path to string")
+        })?;
+
         let status = Command::new("cmd")
-        .args(&["/C", "start", &agent_path])
+        .args(&["/C", "start", agent_path_str])
         .status()?;
 
         if !status.success() {
