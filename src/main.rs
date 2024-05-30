@@ -9,6 +9,8 @@ use mac_address::get_mac_address;
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use services::nodex::NodeX;
 use services::studio::Studio;
+use services::metrics::{MetricsInMemoryCacheService, MetricsWatchService};
+use repository::metric_repository::MetricsCacheRepository;
 use shadow_rs::shadow;
 use std::env;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -170,12 +172,28 @@ async fn main() -> std::io::Result<()> {
 
     let should_stop = Arc::new(AtomicBool::new(false));
 
-    let metric_usecase = Arc::new(Mutex::new(MetricUsecase::new(should_stop.clone())));
-    let metric_usecase_clone = Arc::clone(&metric_usecase);
-    let collect_task =
-        tokio::spawn(async move { metric_usecase.lock().await.collect_task().await });
-    let send_task =
-        tokio::spawn(async move { metric_usecase_clone.lock().await.send_task().await });
+    let cache_repository = Arc::new(Mutex::new(MetricsInMemoryCacheService::new()));
+    let collect_task = {
+        let mut metric_usecase = MetricUsecase::new(
+            Box::new(Studio::new()),
+            Box::new(MetricsWatchService::new()),
+            app_config(),
+            Arc::clone(&cache_repository),
+            Arc::clone(&should_stop),
+        );
+        tokio::spawn(async move { metric_usecase.collect_task().await })
+    };
+
+    let send_task = {
+        let mut metric_usecase = MetricUsecase::new(
+            Box::new(Studio::new()),
+            Box::new(MetricsWatchService::new()),
+            app_config(),
+            Arc::clone(&cache_repository),
+            Arc::clone(&should_stop),
+        );
+        tokio::spawn(async move { metric_usecase.send_task().await })
+    };
 
     // NOTE: booting...
     let (tx, rx) = mpsc::channel::<Command>(32);
