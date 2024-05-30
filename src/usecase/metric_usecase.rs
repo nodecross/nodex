@@ -125,25 +125,31 @@ mod tests {
 
     #[tokio::test]
     async fn test_collect_task() {
+        let notify = Arc::new(Notify::new());
+        let notify_clone = notify.clone();
         let mut usecase = MetricUsecase {
             store_repository: Box::new(MockMetricStoreRepository {}),
             watch_repository: Box::new(MockMetricWatchRepository {}),
             config: app_config(),
             cache_repository: Arc::new(TokioMutex::new(MetricsInMemoryCacheService::new())),
-            shutdown_notify: Arc::new(Notify::new()),
+            shutdown_notify: notify_clone,
         };
+        notify.notify_one();
         usecase.collect_task().await;
     }
 
     #[tokio::test]
     async fn test_send_task() {
+        let notify = Arc::new(Notify::new());
+        let notify_clone = notify.clone();
         let mut usecase = MetricUsecase {
             store_repository: Box::new(MockMetricStoreRepository {}),
             watch_repository: Box::new(MockMetricWatchRepository {}),
             config: app_config(),
             cache_repository: Arc::new(TokioMutex::new(MetricsInMemoryCacheService::new())),
-            shutdown_notify: Arc::new(Notify::new()),
+            shutdown_notify: notify_clone,
         };
+        notify.notify_one();
         usecase.send_task().await;
     }
 }
