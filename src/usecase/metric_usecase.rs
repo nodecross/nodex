@@ -6,15 +6,16 @@ use crate::repository::metric_repository::{
 use crate::services::metrics::{MetricsInMemoryCacheService, MetricsWatchService};
 use crate::services::studio::Studio;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex as TokioMutex;
+use tokio::sync::Notify;
 
 pub struct MetricUsecase {
     store_repository: Box<dyn MetricStoreRepository + Send + Sync + 'static>,
     watch_repository: Box<dyn MetricsWatchRepository + Send + Sync + 'static>,
     config: Box<SingletonAppConfig>,
     cache_repository: Arc<TokioMutex<MetricsInMemoryCacheService>>,
-    should_stop: Arc<AtomicBool>,
+    shutdown_notify: Arc<Notify>,
 }
 
 impl MetricUsecase {
@@ -23,14 +24,14 @@ impl MetricUsecase {
         watch_repository: Box<dyn MetricsWatchRepository + Send + Sync>,
         config: Box<SingletonAppConfig>,
         cache_repository: Arc<TokioMutex<MetricsInMemoryCacheService>>,
-        should_stop: Arc<AtomicBool>
+        shutdown_notify: Arc<Notify>
     ) -> Self {
         MetricUsecase {
             store_repository,
             watch_repository,
             config,
             cache_repository,
-            should_stop,
+            shutdown_notify,
         }
     }
     // pub async fn collect_metrics_task(&mut self) {
@@ -52,41 +53,55 @@ impl MetricUsecase {
 
     pub async fn collect_task(&mut self) {
         println!("collect_task!!");
-        let interval: u64 = self.config.lock().get_metric_collect_interval();
-        while !self.should_stop.load(Ordering::Relaxed) {
-            let metrics = self.watch_repository.watch_metrics();
-            for metric in metrics {
-                self.cache_repository.lock().await.push(vec![metric]);
-            }
-            log::info!("collected metrics");
+        let interval_time: u64 = self.config.lock().get_metric_collect_interval();
+        let mut interval = tokio::time::interval(Duration::from_secs(interval_time));
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    let metrics = self.watch_repository.watch_metrics();
+                    for metric in metrics {
+                        self.cache_repository.lock().await.push(vec![metric]);
+                    }
+                    log::info!("collected metrics");
 
-            tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
+                    // tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
+                }
+                _ = self.shutdown_notify.notified() => {
+                    break;
+                },
+            }
         }
     }
 
     pub async fn send_task(&mut self) {
         println!("send_task!!");
-        let interval: u64 = self.config.lock().get_metric_send_interval();
-        while !self.should_stop.load(Ordering::Relaxed) {
-            let metrics = self.cache_repository.lock().await.get();
-            for metric in metrics {
-                let request = MetricStoreRequest {
-                    device_did: super::get_my_did(),
-                    timestamp: metric.timestamp,
-                    metric_name: metric.metric_type.to_string(),
-                    metric_value: metric.value,
-                };
+        let interval_time: u64 = self.config.lock().get_metric_send_interval();
+        let mut interval = tokio::time::interval(Duration::from_secs(interval_time));
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    let metrics = self.cache_repository.lock().await.get();
+                    for metric in metrics {
+                        let request = MetricStoreRequest {
+                            device_did: super::get_my_did(),
+                            timestamp: metric.timestamp,
+                            metric_name: metric.metric_type.to_string(),
+                            metric_value: metric.value,
+                        };
 
-                match self.store_repository.save(request).await {
-                    Ok(_) => log::info!("sended metric"),
-                    Err(e) => log::error!("{:?}", e),
+                        match self.store_repository.save(request).await {
+                            Ok(_) => log::info!("sended metric"),
+                            Err(e) => log::error!("{:?}", e),
+                        }
+
+                        self.cache_repository.lock().await.clear();
+                    }
+                    log::info!("sended metrics");
                 }
-
-                self.cache_repository.lock().await.clear();
+                _ = self.shutdown_notify.notified() => {
+                    break;
+                },
             }
-            log::info!("sended metrics");
-
-            tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
         }
     }
 

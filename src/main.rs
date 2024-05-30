@@ -171,6 +171,7 @@ async fn main() -> std::io::Result<()> {
     log::info!("subscribed: {}", studio_did_topic);
 
     let should_stop = Arc::new(AtomicBool::new(false));
+    let shutdown_notify = Arc::new(Notify::new());
 
     let cache_repository = Arc::new(Mutex::new(MetricsInMemoryCacheService::new()));
     let collect_task = {
@@ -179,7 +180,7 @@ async fn main() -> std::io::Result<()> {
             Box::new(MetricsWatchService::new()),
             app_config(),
             Arc::clone(&cache_repository),
-            Arc::clone(&should_stop),
+            Arc::clone(&shutdown_notify),
         );
         tokio::spawn(async move { metric_usecase.collect_task().await })
     };
@@ -190,7 +191,7 @@ async fn main() -> std::io::Result<()> {
             Box::new(MetricsWatchService::new()),
             app_config(),
             Arc::clone(&cache_repository),
-            Arc::clone(&should_stop),
+            Arc::clone(&shutdown_notify),
         );
         tokio::spawn(async move { metric_usecase.send_task().await })
     };
@@ -203,8 +204,6 @@ async fn main() -> std::io::Result<()> {
 
     let server = server::new_server(&sock_path, transfer_client);
     let server_handle = server.handle();
-
-    let shutdown_notify = Arc::new(Notify::new());
 
     let message_polling_task =
         tokio::spawn(nodex_receive::polling_task(Arc::clone(&shutdown_notify)));
