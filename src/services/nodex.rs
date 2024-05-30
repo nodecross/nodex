@@ -23,6 +23,9 @@ use std::{
 use thiserror::Error;
 use zip::ZipArchive;
 
+#[cfg(unix)]
+use daemonize::Daemonize;
+
 pub struct NodeX {
     http_client: HttpClient,
 }
@@ -188,13 +191,31 @@ impl NodeX {
     #[cfg(unix)]
     fn execute_agent(&self, agent_path: &Path) -> anyhow::Result<()> {
         Command::new("chmod").arg("+x").arg(agent_path).status()?;
-        Command::new(agent_path).spawn()?;
+
+        let daemonize = Daemonize::new();
+        daemonize.start().expect("Failed to update nodex process");
+        std::process::Command::new(agent_path)
+            .spawn()
+            .expect("Failed to execute command");
         Ok(())
     }
 
     #[cfg(windows)]
     fn execute_agent(&self, agent_path: &Path) -> anyhow::Result<()> {
-        Command::new(agent_path).spawn()?;
+        let agent_path_str = agent_path
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("Failed to convert agent_path to string"))?;
+
+        let status = Command::new("cmd")
+            .args(&["/C", "start", agent_path_str])
+            .status()?;
+
+        if !status.success() {
+            eprintln!("Command execution failed with status: {}", status);
+        } else {
+            println!("Started child process");
+        }
+
         Ok(())
     }
 }
