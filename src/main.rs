@@ -6,11 +6,11 @@ use dotenvy::dotenv;
 use handlers::Command;
 use handlers::MqttClient;
 use mac_address::get_mac_address;
+use repository::metric_repository::MetricsCacheRepository;
 use rumqttc::{AsyncClient, MqttOptions, QoS};
+use services::metrics::{MetricsInMemoryCacheService, MetricsWatchService};
 use services::nodex::NodeX;
 use services::studio::Studio;
-use services::metrics::{MetricsInMemoryCacheService, MetricsWatchService};
-use repository::metric_repository::MetricsCacheRepository;
 use shadow_rs::shadow;
 use std::env;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -20,7 +20,6 @@ use tokio::sync::Mutex;
 use tokio::sync::Notify;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
-use usecase::metric_usecase;
 use usecase::metric_usecase::MetricUsecase;
 
 mod config;
@@ -170,7 +169,6 @@ async fn main() -> std::io::Result<()> {
         .unwrap();
     log::info!("subscribed: {}", studio_did_topic);
 
-    let should_stop = Arc::new(AtomicBool::new(false));
     let shutdown_notify = Arc::new(Notify::new());
 
     let cache_repository = Arc::new(Mutex::new(MetricsInMemoryCacheService::new()));
@@ -216,6 +214,7 @@ async fn main() -> std::io::Result<()> {
         mqtt_topic,
     ));
 
+    let should_stop = Arc::new(AtomicBool::new(false));
     let shutdown = tokio::spawn(async move {
         handle_signals(should_stop.clone()).await;
 
