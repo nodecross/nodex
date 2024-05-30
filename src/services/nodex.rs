@@ -202,13 +202,13 @@ impl NodeX {
 
     #[cfg(windows)]
     fn execute_agent(&self, agent_path: &Path) -> anyhow::Result<()> {
-        let agent_path_str = agent_path.to_str().ok_or_else(|| {
-            anyhow::anyhow!("Failed to convert agent_path to string")
-        })?;
+        let agent_path_str = agent_path
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("Failed to convert agent_path to string"))?;
 
         let status = Command::new("cmd")
-        .args(&["/C", "start", agent_path_str])
-        .status()?;
+            .args(&["/C", "start", agent_path_str])
+            .status()?;
 
         if !status.success() {
             eprintln!("Command execution failed with status: {}", status);

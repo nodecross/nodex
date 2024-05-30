@@ -1,11 +1,17 @@
 extern crate env_logger;
 
 use crate::{config::ServerConfig, controllers::public::nodex_receive};
+use anyhow::anyhow;
 use clap::{Parser, Subcommand};
 use dotenvy::dotenv;
 use handlers::Command;
 use handlers::MqttClient;
 use mac_address::get_mac_address;
+#[cfg(unix)]
+use nix::{
+    sys::signal::{kill, Signal},
+    unistd::Pid,
+};
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use services::nodex::NodeX;
 use services::studio::Studio;
@@ -18,19 +24,12 @@ use tokio::sync::mpsc;
 use tokio::sync::Notify;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
-use anyhow::anyhow;
-#[cfg(unix)]
-use nix::{
-    sys::signal::{kill, Signal},
-    unistd::Pid
-};
 
 #[cfg(windows)]
 use windows::Win32::{
     Foundation::{CloseHandle, GetLastError, HANDLE},
-    System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE}
+    System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE},
 };
-
 
 use usecase::metric_usecase::MetricUsecase;
 
@@ -433,7 +432,13 @@ fn kill_other_self_process() {
 }
 #[cfg(unix)]
 fn kill_process(pid: u32) -> Result<(), anyhow::Error> {
-    kill(Pid::from_raw(pid as i32), Signal::SIGTERM).map_err(|e| anyhow!("Failed to kill nodex process with PID: {}. Error: {}", pid, e))?;
+    kill(Pid::from_raw(pid as i32), Signal::SIGTERM).map_err(|e| {
+        anyhow!(
+            "Failed to kill nodex process with PID: {}. Error: {}",
+            pid,
+            e
+        )
+    })?;
     log::info!("nodex Process with PID: {} killed successfully.", pid);
     Ok(())
 }
@@ -443,7 +448,10 @@ fn kill_process(pid: u32) -> Result<(), anyhow::Error> {
     unsafe {
         let handle = OpenProcess(PROCESS_TERMINATE, false, pid)?;
         if handle.is_invalid() {
-            return Err(anyhow!("Failed to open process with PID: {}. Invalid handle.", pid));
+            return Err(anyhow!(
+                "Failed to open process with PID: {}. Invalid handle.",
+                pid
+            ));
         }
 
         match TerminateProcess(handle, 1) {
@@ -452,7 +460,11 @@ fn kill_process(pid: u32) -> Result<(), anyhow::Error> {
             }
             Err(e) => {
                 CloseHandle(handle);
-                return Err(anyhow!("Failed to terminate process with PID: {}. Error: {:?}", pid, GetLastError()));
+                return Err(anyhow!(
+                    "Failed to terminate process with PID: {}. Error: {:?}",
+                    pid,
+                    GetLastError()
+                ));
             }
         };
         CloseHandle(handle);
