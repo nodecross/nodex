@@ -67,8 +67,8 @@ impl MetricUsecase {
                         };
 
                         match self.store_repository.save(request).await {
-                            Ok(_) => log::info!("sended metric"),
-                            Err(e) => log::error!("{:?}", e),
+                            Ok(_) => {},
+                            Err(e) => log::error!("failed to send metric{:?}", e),
                         }
 
                         self.cache_repository.lock().await.clear();
