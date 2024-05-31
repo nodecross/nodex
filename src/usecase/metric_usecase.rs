@@ -58,21 +58,18 @@ impl MetricUsecase {
             tokio::select! {
                 _ = interval.tick() => {
                     let metrics = self.cache_repository.lock().await.get();
-                    for metric in metrics {
-                        let request = MetricStoreRequest {
-                            device_did: super::get_my_did(),
-                            timestamp: metric.timestamp,
-                            metric_name: metric.metric_type.to_string(),
-                            metric_value: metric.value,
-                        };
 
-                        match self.store_repository.save(request).await {
-                            Ok(_) => {},
-                            Err(e) => log::error!("failed to send metric{:?}", e),
-                        }
-
-                        self.cache_repository.lock().await.clear();
+                    let request = MetricStoreRequest {
+                        timestamp: chrono::Utc::now(),
+                        metrics,
+                    };
+                    match self.store_repository.save(request).await {
+                        Ok(_) => {},
+                        Err(e) => log::error!("failed to send metric{:?}", e),
                     }
+
+                    self.cache_repository.lock().await.clear();
+
                     log::info!("sended metrics");
                 }
                 _ = self.shutdown_notify.notified() => {
@@ -85,8 +82,6 @@ impl MetricUsecase {
 
 #[cfg(test)]
 mod tests {
-    use chrono::Utc;
-
     use super::*;
     use crate::{
         app_config,
@@ -112,12 +107,10 @@ mod tests {
                 Metric {
                     metric_type: MetricType::CpuUsage,
                     value: 0.0,
-                    timestamp: Utc::now(),
                 },
                 Metric {
                     metric_type: MetricType::MemoryUsage,
                     value: 0.0,
-                    timestamp: Utc::now(),
                 },
             ]
         }

@@ -324,6 +324,12 @@ impl MessageActivityRepository for Studio {
     }
 }
 
+#[derive(Serialize)]
+struct MetricStr {
+    metric_type: String,
+    value: f32,
+}
+
 #[async_trait::async_trait]
 impl MetricStoreRepository for Studio {
     async fn save(&self, request: MetricStoreRequest) -> anyhow::Result<()> {
@@ -333,13 +339,30 @@ impl MetricStoreRepository for Studio {
             let network = network.lock();
             network.get_project_did().expect("project_did is not set")
         };
+        let metrics_str = request
+            .metrics
+            .into_iter()
+            .map(|m| MetricStr {
+                metric_type: m.metric_type.to_string(),
+                value: m.value,
+            })
+            .collect::<Vec<MetricStr>>();
+
         let payload = service
-            .generate(&project_did, &json!(request), None, chrono::Utc::now())
+            .generate(
+                &project_did,
+                &json!({
+                    "timestamp": request.timestamp,
+                    "metrics": metrics_str
+                }),
+                None,
+                chrono::Utc::now(),
+            )
             .await
             .context("failed to generate payload")?;
         let payload = serde_json::to_string(&payload).context("failed to serialize")?;
 
-        let res = self.http_client.post("/v1/metric", &payload).await?;
+        let res = self.http_client.post("/v1/metrics", &payload).await?;
 
         let status = res.status();
         let json: Value = res.json().await.context("Failed to read response body")?;

@@ -3,7 +3,6 @@ use std::sync::{Arc, Mutex};
 use crate::repository::metric_repository::{
     Metric, MetricType, MetricsCacheRepository, MetricsWatchRepository,
 };
-use chrono::Utc;
 use sysinfo::{Networks, System};
 
 pub struct MetricsWatchService {
@@ -28,7 +27,6 @@ impl MetricsWatchService {
         Metric {
             metric_type: MetricType::CpuUsage,
             value: self.system.global_cpu_info().cpu_usage(),
-            timestamp: Utc::now(),
         }
     }
 
@@ -37,7 +35,6 @@ impl MetricsWatchService {
         Metric {
             metric_type: MetricType::MemoryUsage,
             value: self.system.used_memory() as f32,
-            timestamp: Utc::now(),
         }
     }
 
@@ -55,27 +52,22 @@ impl MetricsWatchService {
             transmitted_packets += network.packets_transmitted();
         }
 
-        let timestamp = Utc::now();
         vec![
             Metric {
                 metric_type: MetricType::NetworkReceivedBytes,
                 value: received_bytes as f32,
-                timestamp,
             },
             Metric {
                 metric_type: MetricType::NetworkTransmittedBytes,
                 value: transmitted_bytes as f32,
-                timestamp,
             },
             Metric {
                 metric_type: MetricType::NetworkReceivedPackets,
                 value: received_packets as f32,
-                timestamp,
             },
             Metric {
                 metric_type: MetricType::NetworkTransmittedPackets,
                 value: transmitted_packets as f32,
-                timestamp,
             },
         ]
     }
@@ -91,17 +83,14 @@ impl MetricsWatchService {
             written_bytes += disk_usage.written_bytes;
         }
 
-        let timestamp = Utc::now();
         vec![
             Metric {
                 metric_type: MetricType::DiskReadBytes,
                 value: read_bytes as f32,
-                timestamp,
             },
             Metric {
                 metric_type: MetricType::DiskWrittenBytes,
                 value: written_bytes as f32,
-                timestamp,
             },
         ]
     }

@@ -6,7 +6,6 @@ use std::fmt::{Display, Formatter, Result};
 pub struct Metric {
     pub metric_type: MetricType,
     pub value: f32,
-    pub timestamp: DateTime<Utc>,
 }
 
 pub trait MetricsWatchRepository {
@@ -22,10 +21,8 @@ pub trait MetricsCacheRepository {
 
 #[derive(Debug, Serialize, Clone)]
 pub struct MetricStoreRequest {
-    pub device_did: String,
     pub timestamp: DateTime<Utc>,
-    pub metric_name: String,
-    pub metric_value: f32,
+    pub metrics: Vec<Metric>,
 }
 
 #[async_trait::async_trait]
