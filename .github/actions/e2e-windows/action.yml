@@ -22,12 +22,8 @@ runs:
       shell: powershell
 
     - name: (run) Start Sidetree Prism Mock Server
-      uses: nick-fields/retry@v3
-      with:
-        timeout_minutes: 5
-        max_attempts: 10
-        retry_on: error
-        command: |
+      shell: powershell 
+      run: |
           prism mock -h localhost -p 4010 test_resource/did_sidetree.yaml
           Start-Sleep -Seconds 5
           $response = curl.exe -s -o response.txt -w "%{http_code}" http://127.0.0.1:4010/health
@@ -37,12 +33,8 @@ runs:
           }
 
     - name: (run) Start Studio Prism Mock Server
-      uses: nick-fields/retry@v3
-      with:
-        timeout_minutes: 5
-        max_attempts: 10
-        retry_on: error
-        command: |
+      shell: powershell 
+      run: |
           prism mock -h localhost -p 8020 test_resource/studio.yaml
           Start-Sleep -Seconds 5
           $response = curl.exe -s -o response.txt -w "%{http_code}" http://127.0.0.1:8020/health
@@ -52,12 +44,8 @@ runs:
           }
 
     - name: (run) run agent for e2e tests
-      uses: nick-fields/retry@v3
-      with:
-        timeout_seconds: 120
-        max_attempts: 10
-        retry_on: error
-        command: |
+      shell: powershell 
+      run: |
           Start-Process powershell -ArgumentList "${{ inputs.binary-path }}  -NoNewWindow -RedirectStandardOutput "agent.log"
           Start-Sleep -Seconds 10
           $response = curl.exe -s -o response.txt -w "%{http_code}" http://127.0.0.1:3000
