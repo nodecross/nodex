@@ -327,7 +327,18 @@ impl MessageActivityRepository for Studio {
 #[async_trait::async_trait]
 impl MetricStoreRepository for Studio {
     async fn save(&self, request: MetricStoreRequest) -> anyhow::Result<()> {
-        let payload = serde_json::to_string(&request).expect("failed to serialize");
+        let service = DIDCommEncryptedService::new(NodeX::new(), DIDVCService::new(NodeX::new()));
+        let project_did = {
+            let network = crate::network_config();
+            let network = network.lock();
+            network.get_project_did().expect("project_did is not set")
+        };
+        let payload = service
+            .generate(&project_did, &json!(request), None, chrono::Utc::now())
+            .await
+            .context("failed to generate payload")?;
+        let payload = serde_json::to_string(&payload).context("failed to serialize")?;
+
         let res = self.http_client.post("/v1/metric", &payload).await?;
 
         let status = res.status();
@@ -337,7 +348,6 @@ impl MetricStoreRepository for Studio {
         } else {
             "".to_string()
         };
-
         match status {
             reqwest::StatusCode::OK => Ok(()),
             reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
