@@ -98,6 +98,11 @@ runs:
       if: steps.check_logs_for_sigint.outputs.stopped_found == 'true'
       run: $pids = (Get-Process -Name nodex-agent -ErrorAction SilentlyContinue)
 
+    - name: (run) show log of response
+      shell: bash
+      run: Get-Content "response.txt"
+      if: ${{ always() }}
+
     - name: (run) show log of agent
       shell: bash
       run: Get-Content "agent.log"
