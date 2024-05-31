@@ -99,11 +99,11 @@ runs:
       run: $pids = (Get-Process -Name nodex-agent -ErrorAction SilentlyContinue)
 
     - name: (run) show log of response
-      shell: bash
+      shell: powershell
       run: Get-Content "response.txt"
       if: ${{ always() }}
 
     - name: (run) show log of agent
-      shell: bash
+      shell: powershell
       run: Get-Content "agent.log"
       if: ${{ always() }}
