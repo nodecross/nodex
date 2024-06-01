@@ -333,12 +333,6 @@ struct MetricStr {
 #[async_trait::async_trait]
 impl MetricStoreRepository for Studio {
     async fn save(&self, request: MetricStoreRequest) -> anyhow::Result<()> {
-        let service = DIDCommEncryptedService::new(NodeX::new(), DIDVCService::new(NodeX::new()));
-        let project_did = {
-            let network = crate::network_config();
-            let network = network.lock();
-            network.get_project_did().expect("project_did is not set")
-        };
         let metrics_str = request
             .metrics
             .into_iter()
@@ -348,19 +342,15 @@ impl MetricStoreRepository for Studio {
             })
             .collect::<Vec<MetricStr>>();
 
-        let payload = service
-            .generate(
-                &project_did,
-                &json!({
-                    "timestamp": request.timestamp,
-                    "metrics": metrics_str
-                }),
-                None,
-                chrono::Utc::now(),
-            )
-            .await
-            .context("failed to generate payload")?;
-        let payload = serde_json::to_string(&payload).context("failed to serialize")?;
+        let vc = DIDVCService::new(NodeX::new()).generate(
+            &json!({
+                "timestamp": request.timestamp,
+                "metrics": metrics_str
+            }),
+            chrono::Utc::now(),
+        )?;
+
+        let payload = serde_json::to_string(&vc).context("failed to serialize")?;
 
         let res = self.http_client.post("/v1/metrics", &payload).await?;
 
