@@ -1,8 +1,9 @@
 use std::sync::{Arc, Mutex};
 
 use crate::repository::metric_repository::{
-    Metric, MetricType, MetricsCacheRepository, MetricsWatchRepository,
+    Metric, MetricType, MetricsCacheRepository, MetricsWatchRepository, MetricsWithTimestamp,
 };
+use chrono::{DateTime, Utc};
 use sysinfo::{Networks, System};
 
 pub struct MetricsWatchService {
@@ -11,7 +12,7 @@ pub struct MetricsWatchService {
 }
 
 pub struct MetricsInMemoryCacheService {
-    cache: std::sync::Arc<std::sync::Mutex<Vec<Metric>>>,
+    cache: std::sync::Arc<std::sync::Mutex<Vec<MetricsWithTimestamp>>>,
 }
 
 impl MetricsWatchService {
@@ -116,9 +117,9 @@ impl MetricsCacheRepository for MetricsInMemoryCacheService {
         }
     }
 
-    fn push(&mut self, metrics: Vec<Metric>) {
+    fn push(&mut self, timestamp: DateTime<Utc>, metrics: Vec<Metric>) {
         let mut cache = self.cache.lock().unwrap();
-        cache.extend(metrics);
+        cache.push(MetricsWithTimestamp { timestamp, metrics });
     }
 
     fn clear(&mut self) {
@@ -126,7 +127,7 @@ impl MetricsCacheRepository for MetricsInMemoryCacheService {
         cache.clear();
     }
 
-    fn get(&mut self) -> Vec<Metric> {
+    fn get(&mut self) -> Vec<MetricsWithTimestamp> {
         let cache = self.cache.lock().unwrap();
         cache.clone()
     }

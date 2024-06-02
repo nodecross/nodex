@@ -1,5 +1,5 @@
 use crate::repository::message_activity_repository::MessageActivityHttpError;
-use crate::repository::metric_repository::{MetricStoreRepository, MetricStoreRequest};
+use crate::repository::metric_repository::{MetricStoreRepository, MetricsWithTimestamp};
 use crate::server_config;
 use crate::{
     nodex::utils::studio_client::{StudioClient, StudioClientConfig},
@@ -330,25 +330,32 @@ struct MetricStr {
     value: f32,
 }
 
+#[derive(Serialize)]
+struct MetricsWithTimestampStr {
+    timestamp: chrono::DateTime<chrono::Utc>,
+    metrics: Vec<MetricStr>,
+}
+
 #[async_trait::async_trait]
 impl MetricStoreRepository for Studio {
-    async fn save(&self, request: MetricStoreRequest) -> anyhow::Result<()> {
+    async fn save(&self, request: Vec<MetricsWithTimestamp>) -> anyhow::Result<()> {
         let metrics_str = request
-            .metrics
             .into_iter()
-            .map(|m| MetricStr {
-                metric_type: m.metric_type.to_string(),
-                value: m.value,
+            .map(|m| MetricsWithTimestampStr {
+                timestamp: m.timestamp,
+                metrics: m
+                    .metrics
+                    .into_iter()
+                    .map(|metric| MetricStr {
+                        metric_type: metric.metric_type.to_string(),
+                        value: metric.value,
+                    })
+                    .collect::<Vec<MetricStr>>(),
             })
-            .collect::<Vec<MetricStr>>();
+            .collect::<Vec<MetricsWithTimestampStr>>();
 
-        let vc = DIDVCService::new(NodeX::new()).generate(
-            &json!({
-                "timestamp": request.timestamp,
-                "metrics": metrics_str
-            }),
-            chrono::Utc::now(),
-        )?;
+        let vc =
+            DIDVCService::new(NodeX::new()).generate(&json!(metrics_str), chrono::Utc::now())?;
 
         let payload = serde_json::to_string(&vc).context("failed to serialize")?;
 

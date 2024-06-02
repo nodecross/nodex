@@ -1,6 +1,6 @@
 use crate::config::SingletonAppConfig;
 use crate::repository::metric_repository::{
-    MetricStoreRepository, MetricStoreRequest, MetricsCacheRepository, MetricsWatchRepository,
+    MetricStoreRepository, MetricsCacheRepository, MetricsWatchRepository,
 };
 use crate::services::metrics::MetricsInMemoryCacheService;
 use std::{sync::Arc, time::Duration};
@@ -40,7 +40,7 @@ impl MetricUsecase {
                 _ = interval.tick() => {
                     let metrics = self.watch_repository.watch_metrics();
                     for metric in metrics {
-                        self.cache_repository.lock().await.push(vec![metric]);
+                        self.cache_repository.lock().await.push(chrono::Utc::now(), vec![metric]);
                     }
                     log::info!("collected metrics");
                 }
@@ -57,13 +57,9 @@ impl MetricUsecase {
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    let metrics = self.cache_repository.lock().await.get();
+                    let metrics_with_timestamp_list = self.cache_repository.lock().await.get();
 
-                    let request = MetricStoreRequest {
-                        timestamp: chrono::Utc::now(),
-                        metrics,
-                    };
-                    match self.store_repository.save(request).await {
+                    match self.store_repository.save(metrics_with_timestamp_list).await {
                         Ok(_) => {},
                         Err(e) => log::error!("failed to send metric{:?}", e),
                     }
@@ -86,7 +82,7 @@ mod tests {
     use crate::{
         app_config,
         repository::metric_repository::{
-            Metric, MetricStoreRepository, MetricType, MetricsWatchRepository,
+            Metric, MetricStoreRepository, MetricType, MetricsWatchRepository, MetricsWithTimestamp,
         },
     };
 
@@ -94,7 +90,7 @@ mod tests {
 
     #[async_trait::async_trait]
     impl MetricStoreRepository for MockMetricStoreRepository {
-        async fn save(&self, _: MetricStoreRequest) -> anyhow::Result<()> {
+        async fn save(&self, _: Vec<MetricsWithTimestamp>) -> anyhow::Result<()> {
             Ok(())
         }
     }
