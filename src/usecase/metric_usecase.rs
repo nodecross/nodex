@@ -60,13 +60,12 @@ impl MetricUsecase {
                     let metrics_with_timestamp_list = self.cache_repository.lock().await.get();
 
                     match self.store_repository.save(metrics_with_timestamp_list).await {
-                        Ok(_) => {},
+                        Ok(_) => {
+                            self.cache_repository.lock().await.clear();
+                            log::info!("sended metrics");
+                        },
                         Err(e) => log::error!("failed to send metric{:?}", e),
                     }
-
-                    self.cache_repository.lock().await.clear();
-
-                    log::info!("sended metrics");
                 }
                 _ = self.shutdown_notify.notified() => {
                     break;
@@ -85,7 +84,6 @@ mod tests {
             Metric, MetricStoreRepository, MetricType, MetricsWatchRepository, MetricsWithTimestamp,
         },
     };
-
     pub struct MockMetricStoreRepository {}
 
     #[async_trait::async_trait]
