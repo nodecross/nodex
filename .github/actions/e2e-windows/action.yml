@@ -31,9 +31,9 @@ runs:
     - name: (run) Start Sidetree Prism Mock Server
       shell: powershell 
       run: |
-          Start-Process -NoNewWindow -FilePath "powershell" -ArgumentList "-File ${{ steps.get-prism-path.outputs.prismPath }} mock -h localhost -p 4010 test_resource/did_sidetree.yaml"
+          Start-Process -NoNewWindow -FilePath "powershell" -ArgumentList "-File ${{ steps.get-prism-path.outputs.prismPath }} mock -h 127.0.0.1 -p 4010 test_resource/did_sidetree.yaml"
           Start-Sleep -Seconds 5
-          $response = curl.exe -s -w "%{http_code}" http://[::1]:4010/health
+          $response = curl.exe -s -w "%{http_code}" http://127.0.0.1:4010/health
           Write-Host $response
           if ($response -ne '200') {
             Write-Host "Health check failed"
@@ -43,9 +43,9 @@ runs:
     - name: (run) Start Studio Prism Mock Server
       shell: powershell 
       run: |
-          Start-Process -NoNewWindow -FilePath "powershell" -ArgumentList "-File ${{ steps.get-prism-path.outputs.prismPath }} mock -h localhost -p 8020 test_resource/studio.yaml"
+          Start-Process -NoNewWindow -FilePath "powershell" -ArgumentList "-File ${{ steps.get-prism-path.outputs.prismPath }} mock -h 127.0.0.1 -p 8020 test_resource/studio.yaml"
           Start-Sleep -Seconds 5
-          $response = curl.exe -s -w "%{http_code}" http://[::1]:8020/health
+          $response = curl.exe -s -w "%{http_code}" http://127.0.0.1:8020/health
           if ($response -ne '200') {
             Write-Host "Health check failed"
             exit 1
