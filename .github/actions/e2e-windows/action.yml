@@ -54,6 +54,12 @@ runs:
     - name: (run) run agent for e2e tests
       shell: powershell 
       run: |
+          $response = curl.exe -s -w "%{http_code}" http://127.0.0.1:4010/health
+          Write-Host $response
+          if ($response -ne '200') {
+            Write-Host "Health check failed"
+            exit 1
+          }
           Start-Process -NoNewWindow -FilePath "powershell" -ArgumentList "${{ inputs.binary-path }}" -RedirectStandardOutput "agent.log"
           Start-Sleep -Seconds 10
           $response = curl.exe -s -w "%{http_code}" http://127.0.0.1:3000
