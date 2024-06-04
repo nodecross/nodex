@@ -1,0 +1,12 @@
+{
+  "name": "nodex",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "find_did.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "got": "^14.4.0"
+  }
+}
