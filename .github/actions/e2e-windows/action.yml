@@ -32,8 +32,8 @@ runs:
       shell: powershell
       run: |
         Start-Job -ScriptBlock {
-          param($path, $host, $port, $resource)
-          & powershell -File $path mock -h $host -p $port $resource
+          param($path, $hostAddress, $port, $resource)
+          & powershell -File $path mock -h $hostAddress -p $port $resource
         } -ArgumentList "${{ steps.get-prism-path.outputs.prismPath }}", "127.0.0.1", "4010", "test_resource/did_sidetree.yaml"
         Start-Sleep -Seconds 5
         $response = Invoke-RestMethod -Uri "http://127.0.0.1:4010/health" -Method Get -UseBasicParsing
@@ -47,8 +47,8 @@ runs:
       shell: powershell
       run: |
         Start-Job -ScriptBlock {
-          param($path, $host, $port, $resource)
-          & powershell -File $path mock -h $host -p $port $resource
+          param($path, $hostAddress, $port, $resource)
+          & powershell -File $path mock -h $hostAddress -p $port $resource
         } -ArgumentList "${{ steps.get-prism-path.outputs.prismPath }}", "127.0.0.1", "8020", "test_resource/studio.yaml"
         Start-Sleep -Seconds 5
         $response = Invoke-RestMethod -Uri "http://127.0.0.1:8020/health" -Method Get -UseBasicParsing
