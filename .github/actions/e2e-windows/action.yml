@@ -43,7 +43,7 @@ runs:
     - name: (run) Start Studio Prism Mock Server
       shell: powershell 
       run: |
-          Start-Process -NoNewWindow -FilePath "powershell" -ArgumentList -File "${{ steps.get-prism-path.outputs.prismPath }} mock -h localhost -p 8020 test_resource/studio.yaml"
+          Start-Process -NoNewWindow -FilePath "powershell" -ArgumentList "-File ${{ steps.get-prism-path.outputs.prismPath }} mock -h localhost -p 8020 test_resource/studio.yaml"
           Start-Sleep -Seconds 5
           $response = curl.exe -s -w "%{http_code}" http://[::1]:8020/health
           if ($response -ne '200') {
@@ -54,9 +54,9 @@ runs:
     - name: (run) run agent for e2e tests
       shell: powershell 
       run: |
-          Start-Process powershell -ArgumentList "${{ inputs.binary-path }}  -NoNewWindow -RedirectStandardOutput "agent.log"
+          Start-Process -NoNewWindow -FilePath "powershell" -ArgumentList "${{ inputs.binary-path }}" -RedirectStandardOutput "agent.log"
           Start-Sleep -Seconds 10
-          $response = curl.exe -s -o response.txt -w "%{http_code}" http://127.0.0.1:3000
+          $response = curl.exe -s -w "%{http_code}" http://127.0.0.1:3000
           if ($response -ne '200') {
             Write-Host "Health check failed"
             exit 1
@@ -93,11 +93,6 @@ runs:
       shell: powershell
       if: steps.check_logs_for_sigint.outputs.stopped_found == 'true'
       run: $pids = (Get-Process -Name nodex-agent -ErrorAction SilentlyContinue)
-
-    - name: (run) show log of response
-      shell: powershell
-      run: Get-Content "response.txt"
-      if: ${{ always() }}
 
     - name: (run) show log of agent
       shell: powershell
