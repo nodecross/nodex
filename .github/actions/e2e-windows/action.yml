@@ -34,6 +34,7 @@ runs:
           Start-Process -NoNewWindow -FilePath "powershell" -ArgumentList "-File ${{ steps.get-prism-path.outputs.prismPath }} mock -h localhost -p 4010 test_resource/did_sidetree.yaml"
           Start-Sleep -Seconds 5
           $response = curl.exe -s -o response.txt -w "%{http_code}" http://127.0.0.1:4010/health
+          Write-Host $response
           if ($response -ne '200') {
             Write-Host "Health check failed"
             exit 1
