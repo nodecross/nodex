@@ -31,10 +31,12 @@ runs:
     - name: (run) Start Sidetree Prism Mock Server
       shell: powershell
       run: |
-        $path = "${{ steps.get-prism-path.outputs.prismPath }}"
+        $prismPath = "${{ steps.get-prism-path.outputs.prismPath }}"
+        $resourcePath = Join-Path -Path $PWD -ChildPath "test_resource/did_sidetree.yaml"
         $job = Start-Job -ScriptBlock {
-          & "$using:path" mock -h 127.0.0.1 -p 4010 test_resource/did_sidetree.yaml
-        }
+          param($prismPath, $resourcePath)
+          & "$using:prismPath" mock -h 127.0.0.1 -p 4010 $resourcePath
+        } -ArgumentList $prismPath, $resourcePath
         Start-Sleep -Seconds 5
         $jobState = Get-Job -Id $job.Id
         Write-Host "Job State: $($jobState.State)"
@@ -57,10 +59,12 @@ runs:
     - name: (run) Start Studio Prism Mock Server
       shell: powershell
       run: |
-        $path = "${{ steps.get-prism-path.outputs.prismPath }}"
+        $prismPath = "${{ steps.get-prism-path.outputs.prismPath }}"
+        $resourcePath = Join-Path -Path $PWD -ChildPath "test_resource/studio.yaml"
         $job = Start-Job -ScriptBlock {
-            & "$using:path" mock -h 127.0.0.1 -p 8020 test_resource/studio.yaml
-          }
+          param($prismPath, $resourcePath)
+          & "$using:prismPath" mock -h 127.0.0.1 -p 8020 $resourcePath
+        } -ArgumentList $prismPath, $resourcePath
         Start-Sleep -Seconds 5
         $jobState = Get-Job -Id $job.Id
         Write-Host "Job State: $($jobState.State)"
