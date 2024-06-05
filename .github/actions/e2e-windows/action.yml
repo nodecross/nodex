@@ -34,8 +34,8 @@ runs:
         $path = "${{ steps.get-prism-path.outputs.prismPath }}"
         $arguments = @("mock", "-h", "127.0.0.1", "-p", "4010", "test_resource/did_sidetree.yaml")
         $job = Start-Job -ScriptBlock {
-          param($path, $arguments)
-          & powershell -File $path $arguments
+          param($path, $args)
+          & powershell -File $path @args
         } -ArgumentList $path, $arguments
         Start-Sleep -Seconds 5
         $jobState = Get-Job -Id $job.Id
@@ -62,8 +62,8 @@ runs:
         $path = "${{ steps.get-prism-path.outputs.prismPath }}"
         $arguments = @("mock", "-h", "127.0.0.1", "-p", "8020", "test_resource/studio.yaml")
         $job = Start-Job -ScriptBlock {
-          param($path, $arguments)
-          & powershell -File $path $arguments
+          param($path, $args)
+          & powershell -File $path @args
         } -ArgumentList $path, $arguments
         Start-Sleep -Seconds 5
         $jobState = Get-Job -Id $job.Id
