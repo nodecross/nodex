@@ -40,6 +40,10 @@ runs:
         Start-Sleep -Seconds 5
         $jobState = Get-Job -Id $job.Id
         Write-Host "Job State: $($jobState.State)"
+        if ($job.State -eq 'Completed') {
+            $output = Receive-Job -Job $job
+            Write-Host "Job Output: $output"
+        }
         if ($jobState.State -eq 'Running') {
           $response = Invoke-RestMethod -Uri "http://127.0.0.1:4010/health" -Method Get -UseBasicParsing
           Write-Host "HTTP Status Code: $($response.StatusCode)"
@@ -64,6 +68,10 @@ runs:
         Start-Sleep -Seconds 5
         $jobState = Get-Job -Id $job.Id
         Write-Host "Job State: $($jobState.State)"
+        if ($job.State -eq 'Completed') {
+            $output = Receive-Job -Job $job
+            Write-Host "Job Output: $output"
+        }
         if ($jobState.State -eq 'Running') {
           $response = Invoke-RestMethod -Uri "http://127.0.0.1:8020/health" -Method Get -UseBasicParsing
           Write-Host "HTTP Status Code: $($response.StatusCode)"
@@ -92,6 +100,10 @@ runs:
         Start-Sleep -Seconds 10
         $jobState = Get-Job -Id $job.Id
         Write-Host "Job State: $($jobState.State)"
+        if ($job.State -eq 'Completed') {
+            $output = Receive-Job -Job $job
+            Write-Host "Job Output: $output"
+        }
         if ($jobState.State -eq 'Running') {
           $response = Invoke-RestMethod -Uri "http://127.0.0.1:3000" -Method Get -UseBasicParsing
           Write-Host "HTTP Status Code: $($response.StatusCode)"
