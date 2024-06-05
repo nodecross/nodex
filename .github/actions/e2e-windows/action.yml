@@ -32,7 +32,7 @@ runs:
       shell: powershell
       run: |
         $path = "${{ steps.get-prism-path.outputs.prismPath }}"
-        Start-Job -ScriptBlock {
+        $job = Start-Job -ScriptBlock {
           & "$using:path" mock -h 127.0.0.1 -p 4010 test_resource/did_sidetree.yaml
         }
         Start-Sleep -Seconds 5
@@ -58,7 +58,7 @@ runs:
       shell: powershell
       run: |
         $path = "${{ steps.get-prism-path.outputs.prismPath }}"
-          Start-Job -ScriptBlock {
+        $job = Start-Job -ScriptBlock {
             & "$using:path" mock -h 127.0.0.1 -p 8020 test_resource/studio.yaml
           }
         Start-Sleep -Seconds 5
