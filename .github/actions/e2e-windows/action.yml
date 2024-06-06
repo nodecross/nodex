@@ -46,8 +46,7 @@ runs:
         }
         if ($jobState.State -eq 'Running') {
           $response = Invoke-RestMethod -Uri "http://127.0.0.1:4010/health" -Method Get -UseBasicParsing
-          Write-Host "HTTP Status Code: $($response.StatusCode)"
-          if ($response.StatusCode -ne 200) {
+          if ($response.status -ne 'ok') {
             Write-Host "Health check failed"
             exit 1
           }
@@ -74,8 +73,7 @@ runs:
         }
         if ($jobState.State -eq 'Running') {
           $response = Invoke-RestMethod -Uri "http://127.0.0.1:8020/health" -Method Get -UseBasicParsing
-          Write-Host "HTTP Status Code: $($response.StatusCode)"
-          if ($response.StatusCode -ne 200) {
+          if ($response.status -ne 'ok') {
             Write-Host "Health check failed"
             exit 1
           }
@@ -88,8 +86,7 @@ runs:
       shell: powershell
       run: |
         $response = Invoke-RestMethod -Uri "http://127.0.0.1:4010/health" -Method Get -UseBasicParsing
-        Write-Host "HTTP Status Code: $($response.StatusCode)"
-        if ($response.StatusCode -ne 200) {
+        if ($response.status -ne 'ok') {
           Write-Host "Health check failed"
           exit 1
         }
@@ -106,7 +103,7 @@ runs:
         }
         if ($jobState.State -eq 'Running') {
           $response = Invoke-RestMethod -Uri "http://127.0.0.1:3000" -Method Get -UseBasicParsing
-          Write-Host "HTTP Status Code: $($response.StatusCode)"
+          Write-Host "response: $($response)"
           if ($response.StatusCode -ne 200) {
             Write-Host "Health check failed"
             exit 1
