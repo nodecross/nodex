@@ -190,7 +190,7 @@ jobs:
       - name: (run) e2e
         uses: ./.github/actions/e2e-windows
         with:
-          binary-path: ./nodex-agent
+          binary-path: ./nodex-agent.exe
 
   e2e-linux:
     needs: build-linux
