@@ -69,10 +69,11 @@ runs:
     - name: (run) run agent for e2e tests
       shell: powershell
       run: |
+        $agentPath = Join-Path -Path $PWD -ChildPath ${{ inputs.binary-path }}
         $job = Start-Job -ScriptBlock {
           param($path)
           & powershell -File $path
-        } -ArgumentList "${{ inputs.binary-path }}"
+        } -ArgumentList $agentPath
         Start-Sleep -Seconds 10
         $jobState = Get-Job -Id $job.Id
         Write-Host "Job State: $($jobState.State)"
