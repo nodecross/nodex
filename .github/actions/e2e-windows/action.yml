@@ -46,6 +46,7 @@ runs:
         }
         if ($jobState.State -eq 'Running') {
           $response = Invoke-RestMethod -Uri "http://127.0.0.1:4010/health" -Method Get -UseBasicParsing
+          Write-Host "response: $($response)"
           if ($response.status -ne 'ok') {
             Write-Host "Health check failed"
             exit 1
