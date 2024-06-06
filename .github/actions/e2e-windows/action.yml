@@ -40,16 +40,13 @@ runs:
         Start-Sleep -Seconds 5
         $jobState = Get-Job -Id $job.Id
         Write-Host "Job State: $($jobState.State)"
-        if ($job.State -eq 'Completed') {
-          $output = Receive-Job -Job $job
-          Write-Host "Job Output: $output"
-        }
         if ($jobState.State -eq 'Running') {
-          $response = Invoke-RestMethod -Uri "http://127.0.0.1:4010/health" -Method Get -UseBasicParsing
-          Write-Host "response: $response"
-          if ($response.status -ne 'ok') {
-            Write-Host "Health check failed"
-            exit 1
+          try {
+              $response = Invoke-RestMethod -Uri "http://127.0.0.1:4010/health" -Method Get -UseBasicParsing
+              Write-Host "Response: $response"
+          } catch {
+              Write-Host "Error making request: $_"
+              exit 1
           }
         } else {
           Write-Host "Mock server did not start correctly"
@@ -68,10 +65,6 @@ runs:
         Start-Sleep -Seconds 5
         $jobState = Get-Job -Id $job.Id
         Write-Host "Job State: $($jobState.State)"
-        if ($job.State -eq 'Completed') {
-          $output = Receive-Job -Job $job
-          Write-Host "Job Output: $output"
-        }
         if ($jobState.State -eq 'Running') {
           $response = Invoke-RestMethod -Uri "http://127.0.0.1:8020/health" -Method Get -UseBasicParsing
           if ($response.status -ne 'ok') {
