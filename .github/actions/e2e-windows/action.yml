@@ -42,6 +42,7 @@ runs:
         Write-Host "Job State: $($jobState.State)"
         if ($jobState.State -eq 'Running') {
           Write-Host "Mock server running"
+          $output = Receive-Job -Job $job
           Write-Host "Job Output: $output"
         } else {
           Write-Host "Mock server did not start correctly"
@@ -62,6 +63,7 @@ runs:
         Write-Host "Job State: $($jobState.State)"
         if ($jobState.State -eq 'Running') {
           Write-Host "Mock server running"
+          $output = Receive-Job -Job $job
           Write-Host "Job Output: $output"
         } else {
           Write-Host "Mock server did not start correctly"
