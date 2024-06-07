@@ -88,6 +88,15 @@ runs:
                 Write-Host "Port $port is not listening."
             }
         }
+        $urls = @("http://127.0.0.1:4010/health", "http://127.0.0.1:8020/health", "http://127.0.0.1:3000/health")
+        foreach ($url in $urls) {
+            try {
+                $response = Invoke-RestMethod -Uri $url -Method Get -UseBasicParsing
+                Write-Host "$url response: $($response.StatusCode)"
+            } catch {
+                Write-Host "$url failed to respond."
+            }
+        }
         $jobState = Get-Job -Id $job.Id
         Write-Host "Job State: $($jobState.State)"
         if ($job.State -eq 'Completed') {
