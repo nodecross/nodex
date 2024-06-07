@@ -75,6 +75,15 @@ runs:
             & $path
         } -ArgumentList $agentPath
         Start-Sleep -Seconds 10
+        $ports = 4010, 8020, 3000
+        foreach ($port in $ports) {
+            $connections = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
+            if ($connections) {
+                Write-Host "Port $port is listening."
+            } else {
+                Write-Host "Port $port is not listening."
+            }
+        }
         $jobState = Get-Job -Id $job.Id
         Write-Host "Job State: $($jobState.State)"
         if ($job.State -eq 'Completed') {
