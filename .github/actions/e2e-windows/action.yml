@@ -71,9 +71,9 @@ runs:
       run: |
         $agentPath = Join-Path -Path $PWD -ChildPath ${{ inputs.binary-path }}
         $job = Start-Job -ScriptBlock {
-          param($path)
-          & powershell -File $path
-        } -ArgumentList $agentPath
+            param($path)
+            & $path
+        } -ArgumentList $exePath
         Start-Sleep -Seconds 10
         $jobState = Get-Job -Id $job.Id
         Write-Host "Job State: $($jobState.State)"
