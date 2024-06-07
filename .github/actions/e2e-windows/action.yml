@@ -29,6 +29,7 @@ runs:
         echo "::set-output name=prismPath::$prismPath"
 
     - name: (run) Start Sidetree Prism Mock Server
+      id: run-sidetree
       shell: powershell
       run: |
         $prismPath = "${{ steps.get-prism-path.outputs.prismPath }}"
@@ -42,14 +43,14 @@ runs:
         Write-Host "Job State: $($jobState.State)"
         if ($jobState.State -eq 'Running') {
           Write-Host "Mock server running"
-          $output = Receive-Job -Job $job
-          Write-Host "Job Output: $output"
+          echo "::set-output name=job_output::$job"
         } else {
           Write-Host "Mock server did not start correctly"
           exit 1
         }
 
     - name: (run) Start Studio Prism Mock Server
+      id: run-studio
       shell: powershell
       run: |
         $prismPath = "${{ steps.get-prism-path.outputs.prismPath }}"
@@ -63,8 +64,7 @@ runs:
         Write-Host "Job State: $($jobState.State)"
         if ($jobState.State -eq 'Running') {
           Write-Host "Mock server running"
-          $output = Receive-Job -Job $job
-          Write-Host "Job Output: $output"
+          echo "::set-output name=job_output::$job"
         } else {
           Write-Host "Mock server did not start correctly"
           exit 1
@@ -79,6 +79,8 @@ runs:
             & $path
         } -ArgumentList $agentPath
         Start-Sleep -Seconds 10
+        Write-Host "Output from previous job: ${{ steps.job_step.outputs.run-sidetree }}"
+        Write-Host "Output from previous job: ${{ steps.job_step.outputs.run-studio }}"
         $ports = 4010, 8020, 3000
         foreach ($port in $ports) {
             $connections = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
