@@ -73,7 +73,7 @@ runs:
         $job = Start-Job -ScriptBlock {
             param($path)
             & $path
-        } -ArgumentList $exePath
+        } -ArgumentList $agentPath
         Start-Sleep -Seconds 10
         $jobState = Get-Job -Id $job.Id
         Write-Host "Job State: $($jobState.State)"
