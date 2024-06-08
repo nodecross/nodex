@@ -28,7 +28,7 @@ async fn create_didcomm_message_scenario() -> anyhow::Result<String> {
         (client, create_url)
     };
 
-    #[cfg((windows))]
+    #[cfg(windows)]
     let (client, create_url) = {
         let client = Client::new();
         let create_url = Uri::from_static("http://127.0.0.1:3000/create-didcomm-message");
@@ -76,7 +76,7 @@ async fn verify_didcomm_message_scenario(input: String) -> anyhow::Result<()> {
         (client, verify_url)
     };
 
-    #[cfg((windows))]
+    #[cfg(windows)]
     let (client, verify_url) = {
         let client = Client::new();
         let verify_url = Uri::from_static("http://127.0.0.1:3000/verify-didcomm-message");

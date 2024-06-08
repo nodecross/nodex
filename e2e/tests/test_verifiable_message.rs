@@ -31,7 +31,7 @@ async fn create_verifiable_message_scenario() -> anyhow::Result<String> {
         (client, create_url)
     };
 
-    #[cfg(not(unix))]
+    #[cfg(windows)]
     let (client, create_url) = {
         let client = Client::new();
         let create_url = Uri::from_static("http://127.0.0.1:3000/create-verifiable-message");
