@@ -1,31 +1,39 @@
+use hyper::{Client, Method, Request, Response, StatusCode, Uri};
 use http_body_util::BodyExt;
-use hyper::{body::Incoming, Method, Request, StatusCode};
-use hyper_util::client::legacy::Client;
-use hyperlocal::{UnixClientExt, UnixConnector, Uri as HyperLocalUri};
 use serde_json::json;
 use std::fs::read;
 use tokio::io::AsyncWriteExt as _;
 
-async fn response_to_string(mut response: hyper::Response<Incoming>) -> anyhow::Result<String> {
+#[cfg(unix)]
+use hyperlocal::{UnixClientExt, UnixConnector, Uri as HyperLocalUri};
+
+async fn response_to_string(mut response: Response<hyper::Body>) -> anyhow::Result<String> {
     let mut body: Vec<u8> = Vec::with_capacity(2048);
 
-    while let Some(frame_result) = response.frame().await {
+    while let Some(frame_result) = hyper::body::HttpBody::data(&mut response).await {
         let frame = frame_result?;
-
-        if let Some(segment) = frame.data_ref() {
-            body.write_all(segment.iter().as_slice()).await?;
-        }
+        body.extend_from_slice(&frame);
     }
 
     Ok(String::from_utf8(body)?)
 }
 
 async fn create_didcomm_message_scenario() -> anyhow::Result<String> {
-    let homedir = dirs::home_dir().unwrap();
-    let socket_path = homedir.join(".nodex/run/nodex.sock");
-    let client: Client<UnixConnector, _> = Client::unix();
+    #[cfg(unix)]
+    let (client, create_url) = {
+        let homedir = dirs::home_dir().unwrap();
+        let socket_path = homedir.join(".nodex/run/nodex.sock");
+        let client: Client<UnixConnector, _> = Client::unix();
+        let create_url = HyperLocalUri::new(&socket_path, "/create-didcomm-message");
+        (client, create_url)
+    };
 
-    let create_url = HyperLocalUri::new(&socket_path, "/create-didcomm-message");
+    #[cfg((windows))]
+    let (client, create_url) = {
+        let client = Client::new();
+        let create_url = Uri::from_static("http://127.0.0.1:3000/create-didcomm-message");
+        (client, create_url)
+    };
 
     let my_did = {
         let config = read(homedir.join(".config/nodex/config.json"))?;
@@ -37,14 +45,13 @@ async fn create_didcomm_message_scenario() -> anyhow::Result<String> {
         "destination_did": my_did,
         "operation_tag": "test",
         "message": "Hello, world!"
-    })
-    .to_string();
+    }).to_string();
 
     let request = Request::builder()
         .method(Method::POST)
         .uri(create_url)
         .header("Content-Type", "application/json")
-        .body(body)?;
+        .body(hyper::Body::from(body))?;
     dbg!(&request);
 
     let response = client.request(request).await?;
@@ -53,30 +60,37 @@ async fn create_didcomm_message_scenario() -> anyhow::Result<String> {
     assert_eq!(response.status(), StatusCode::OK);
 
     let body = response_to_string(response).await?;
-    // parse check
     let _ = serde_json::from_str::<serde_json::Value>(&body)?;
 
     Ok(body)
 }
 
 async fn verify_didcomm_message_scenario(input: String) -> anyhow::Result<()> {
-    let homedir = dirs::home_dir().unwrap();
-    let socket_path = homedir.join(".nodex/run/nodex.sock");
-    let client: Client<UnixConnector, _> = Client::unix();
+    #[cfg(unix)]
+    let (client, verify_url) = {
+        let homedir = dirs::home_dir().unwrap();
+        let socket_path = homedir.join(".nodex/run/nodex.sock");
+        let client: Client<UnixConnector, _> = Client::unix();
+        let verify_url = HyperLocalUri::new(&socket_path, "/verify-didcomm-message");
+        (client, verify_url)
+    };
 
-    let verify_url = HyperLocalUri::new(&socket_path, "/verify-didcomm-message");
+    #[cfg((windows))]
+    let (client, verify_url) = {
+        let client = Client::new();
+        let verify_url = Uri::from_static("http://127.0.0.1:3000/verify-didcomm-message");
+        (client, verify_url)
+    };
 
     let body = json!({
         "message": input
-    })
-    .to_string();
+    }).to_string();
 
     let request = Request::builder()
         .method(Method::POST)
         .uri(verify_url)
         .header("Content-Type", "application/json")
-        .body(body)?;
-
+        .body(hyper::Body::from(body))?;
     dbg!(&request);
 
     let response = client.request(request).await?;

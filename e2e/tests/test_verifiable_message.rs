@@ -21,11 +21,21 @@ async fn response_to_string(mut response: hyper::Response<Incoming>) -> anyhow::
 }
 
 async fn create_verifiable_message_scenario() -> anyhow::Result<String> {
-    let homedir = dirs::home_dir().unwrap();
-    let socket_path = homedir.join(".nodex/run/nodex.sock");
-    let client: Client<UnixConnector, _> = Client::unix();
+    #[cfg(unix)]
+    let (client, create_url) = {
+        let homedir = dirs::home_dir().unwrap();
+        let socket_path = homedir.join(".nodex/run/nodex.sock");
+        let client: Client<UnixConnector, _> = Client::unix();
+        let create_url = HyperLocalUri::new(&socket_path, "/create-verifiable-message");
+        (client, create_url)
+    };
 
-    let create_url = HyperLocalUri::new(&socket_path, "/create-verifiable-message");
+    #[cfg(not(unix))]
+    let (client, create_url) = {
+        let client = Client::new();
+        let create_url = Uri::from_static("http://127.0.0.1:3000/create-verifiable-message");
+        (client, create_url)
+    };
 
     let my_did = {
         let config = read(homedir.join(".config/nodex/config.json"))?;
