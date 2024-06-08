@@ -10,7 +10,7 @@ use hyperlocal::{UnixClientExt, UnixConnector, Uri as HyperLocalUri};
 use hyper_util::client::legacy::Client;
 
 #[cfg(windows)]
-use hyper::{Client, Uri};
+use hyper::{client::Client, Uri};
 
 async fn response_to_string(mut response: hyper::Response<Incoming>) -> anyhow::Result<String> {
     let mut body: Vec<u8> = Vec::with_capacity(2048);
