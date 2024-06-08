@@ -1,6 +1,5 @@
 use http_body_util::BodyExt;
-use hyper::{body::Incoming, Method, Request, StatusCode};
-use hyper_util::client::legacy::Client;
+use hyper::{Client, Method, Request, Response, StatusCode, Uri};
 use serde_json::json;
 use std::fs::read;
 use tokio::io::AsyncWriteExt as _;
