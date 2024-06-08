@@ -27,9 +27,10 @@ async fn response_to_string(mut response: hyper::Response<Incoming>) -> anyhow::
 }
 
 async fn create_didcomm_message_scenario() -> anyhow::Result<String> {
+    let homedir = dirs::home_dir().unwrap();
+
     #[cfg(unix)]
     let (client, create_url) = {
-        let homedir = dirs::home_dir().unwrap();
         let socket_path = homedir.join(".nodex/run/nodex.sock");
         let client: Client<UnixConnector, _> = Client::unix();
         let create_url = HyperLocalUri::new(&socket_path, "/create-didcomm-message");
@@ -60,7 +61,7 @@ async fn create_didcomm_message_scenario() -> anyhow::Result<String> {
         .method(Method::POST)
         .uri(create_url)
         .header("Content-Type", "application/json")
-        .body(hyper::Body::from(body))?;
+        .body(body)?;
     dbg!(&request);
 
     let response = client.request(request).await?;
@@ -75,9 +76,10 @@ async fn create_didcomm_message_scenario() -> anyhow::Result<String> {
 }
 
 async fn verify_didcomm_message_scenario(input: String) -> anyhow::Result<()> {
+    let homedir = dirs::home_dir().unwrap();
+
     #[cfg(unix)]
     let (client, verify_url) = {
-        let homedir = dirs::home_dir().unwrap();
         let socket_path = homedir.join(".nodex/run/nodex.sock");
         let client: Client<UnixConnector, _> = Client::unix();
         let verify_url = HyperLocalUri::new(&socket_path, "/verify-didcomm-message");
@@ -100,7 +102,7 @@ async fn verify_didcomm_message_scenario(input: String) -> anyhow::Result<()> {
         .method(Method::POST)
         .uri(verify_url)
         .header("Content-Type", "application/json")
-        .body(hyper::Body::from(body))?;
+        .body(body)?;
     dbg!(&request);
 
     let response = client.request(request).await?;
