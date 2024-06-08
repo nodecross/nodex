@@ -23,4 +23,6 @@ tokio = { version = "1.36", features = [
     "macros",
     "rt-multi-thread",
 ] }
+
+[target.'cfg(windows)'.dependencies]
 hyperlocal = { git = "https://github.com/softprops/hyperlocal.git", rev = "34dc857" }

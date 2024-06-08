@@ -1,10 +1,12 @@
 use http_body_util::BodyExt;
 use hyper::{body::Incoming, Method, Request, StatusCode};
 use hyper_util::client::legacy::Client;
-use hyperlocal::{UnixClientExt, UnixConnector, Uri as HyperLocalUri};
 use serde_json::json;
 use std::fs::read;
 use tokio::io::AsyncWriteExt as _;
+
+#[cfg(unix)]
+use hyperlocal::{UnixClientExt, UnixConnector, Uri as HyperLocalUri};
 
 async fn response_to_string(mut response: hyper::Response<Incoming>) -> anyhow::Result<String> {
     let mut body: Vec<u8> = Vec::with_capacity(2048);

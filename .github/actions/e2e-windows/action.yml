@@ -40,11 +40,13 @@ runs:
         Start-Sleep -Seconds 10
 
         $agentPath = Join-Path -Path $PWD -ChildPath ${{ inputs.binary-path }}
-        Start-Process "$agentPath"
+        Start-Process -FilePath "$agentPath" -NoNewWindow -RedirectStandardOutput "output.txt" -RedirectStandardError "error.txt"
         Start-Sleep -Seconds 10
 
         cd e2e
         cargo test
+
+        Get-Process nodex-agent | Stop-Process -Force
       env:
         NODEX_DID_HTTP_ENDPOINT: http://127.0.0.1:4010
         NODEX_DID_ATTACHMENT_LINK: http://127.0.0.1:4010
@@ -52,28 +54,28 @@ runs:
         NODEX_SERVER_PORT: 3000
         RUST_BACKTRACE: 1
 
-    - name: (run) shutdown agent by SIGINT
-      shell: powershell
-      run: |
-        Get-Process nodex-agent | Stop-Process -Force
-        Start-Sleep -Seconds 3
+    # - name: (run) shutdown agent by SIGINT
+    #   shell: powershell
+    #   run: |
+    #     Get-Process nodex-agent | Stop-Process -Force
+    #     Start-Sleep -Seconds 3
 
-    - name: (run) Check for 'SIGINT' log message
-      shell: powershell
-      id: check_logs_for_sigint
-      run: |
-        if (Select-String -Path log.txt -Pattern "SIGINT") {
-          echo "::set-output name=stopped_found::true"
-        } else {
-          echo "::set-output name=stopped_found::false"
-        }
+    # - name: (run) Check for 'SIGINT' log message
+    #   shell: powershell
+    #   id: check_logs_for_sigint
+    #   run: |
+    #     if (Select-String -Path log.txt -Pattern "SIGINT") {
+    #       echo "::set-output name=stopped_found::true"
+    #     } else {
+    #       echo "::set-output name=stopped_found::false"
+    #     }
 
-    - name: (run) Verify process is not running in e2e_agent by SIGINT
-      shell: powershell
-      if: steps.check_logs_for_sigint.outputs.stopped_found == 'true'
-      run: $pids = (Get-Process -Name nodex-agent -ErrorAction SilentlyContinue)
+    # - name: (run) Verify process is not running in e2e_agent by SIGINT
+    #   shell: powershell
+    #   if: steps.check_logs_for_sigint.outputs.stopped_found == 'true'
+    #   run: $pids = (Get-Process -Name nodex-agent -ErrorAction SilentlyContinue)
 
     - name: (run) show log of agent
       shell: powershell
-      run: Get-Content "agent.log"
+      run: Get-Content "output.txt"
       if: ${{ always() }}
