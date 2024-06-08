@@ -12,11 +12,6 @@ dirs = "5.0.1"
 hex = "0.4"
 http-body-util = { version = "0.1" }
 hyper = { version = "1.2", features = ["client", "http1"] }
-hyper-util = { version = "0.1.3", features = [
-    "client-legacy",
-    "http1",
-    "tokio",
-] }
 tokio = { version = "1.36", features = [
     "io-std",
     "io-util",
@@ -26,3 +21,8 @@ tokio = { version = "1.36", features = [
 
 [target.'cfg(unix)'.dependencies]
 hyperlocal = { git = "https://github.com/softprops/hyperlocal.git", rev = "34dc857" }
+hyper-util = { version = "0.1.3", features = [
+    "client-legacy",
+    "http1",
+    "tokio",
+] }

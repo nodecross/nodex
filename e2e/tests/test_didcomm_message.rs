@@ -1,18 +1,26 @@
 use http_body_util::BodyExt;
-use hyper::{Client, Method, Request, Response, StatusCode, Uri};
+use hyper::{body::Incoming, Method, Request, StatusCode};
 use serde_json::json;
 use std::fs::read;
 use tokio::io::AsyncWriteExt as _;
 
 #[cfg(unix)]
 use hyperlocal::{UnixClientExt, UnixConnector, Uri as HyperLocalUri};
+#[cfg(unix)]
+use hyper_util::client::legacy::Client;
 
-async fn response_to_string(mut response: Response<hyper::Body>) -> anyhow::Result<String> {
+#[cfg(windows)]
+use hyper::{Client, Uri};
+
+async fn response_to_string(mut response: hyper::Response<Incoming>) -> anyhow::Result<String> {
     let mut body: Vec<u8> = Vec::with_capacity(2048);
 
-    while let Some(frame_result) = hyper::body::HttpBody::data(&mut response).await {
+    while let Some(frame_result) = response.frame().await {
         let frame = frame_result?;
-        body.extend_from_slice(&frame);
+
+        if let Some(segment) = frame.data_ref() {
+            body.write_all(segment.iter().as_slice()).await?;
+        }
     }
 
     Ok(String::from_utf8(body)?)
