@@ -1,5 +1,5 @@
-use hyper::{Client, Method, Request, Response, StatusCode, Uri};
 use http_body_util::BodyExt;
+use hyper::{Client, Method, Request, Response, StatusCode, Uri};
 use serde_json::json;
 use std::fs::read;
 use tokio::io::AsyncWriteExt as _;
@@ -45,7 +45,8 @@ async fn create_didcomm_message_scenario() -> anyhow::Result<String> {
         "destination_did": my_did,
         "operation_tag": "test",
         "message": "Hello, world!"
-    }).to_string();
+    })
+    .to_string();
 
     let request = Request::builder()
         .method(Method::POST)
@@ -84,7 +85,8 @@ async fn verify_didcomm_message_scenario(input: String) -> anyhow::Result<()> {
 
     let body = json!({
         "message": input
-    }).to_string();
+    })
+    .to_string();
 
     let request = Request::builder()
         .method(Method::POST)
