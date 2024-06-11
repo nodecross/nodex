@@ -59,6 +59,10 @@ impl MetricUsecase {
                 _ = interval.tick() => {
                     let metrics_with_timestamp_list = self.cache_repository.lock().await.get();
 
+                    if metrics_with_timestamp_list.is_empty() {
+                        continue;
+                    }
+
                     match self.store_repository.save(metrics_with_timestamp_list).await {
                         Ok(_) => {
                             self.cache_repository.lock().await.clear();
