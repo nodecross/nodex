@@ -109,8 +109,8 @@ impl Default for ConfigRoot {
                 cipher: None,
             },
             metrics: MetricsConfig {
-                collect_interval: 5,
-                send_interval: 15,
+                collect_interval: 15,
+                send_interval: 60,
             },
             is_initialized: false,
             schema_version: 1,
