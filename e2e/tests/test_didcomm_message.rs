@@ -4,7 +4,7 @@ use serde_json::json;
 use std::fs::read;
 use tokio::io::AsyncWriteExt as _;
 
-use e2e::common::http::{new_client, new_uri, response_to_string};
+use e2e::common::platform_client::{new_client, new_uri, response_to_string};
 
 async fn create_didcomm_message_scenario() -> anyhow::Result<String> {
     let homedir = dirs::home_dir().unwrap();
