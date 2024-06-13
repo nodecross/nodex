@@ -1,9 +1,7 @@
 use http_body_util::BodyExt;
 use hyper::{
     body::{Body, Incoming},
-
-    Uri as HyperUri,
-    Response,
+    Response, Uri as HyperUri,
 };
 use hyper_util::client::legacy::Client as LegacyClient;
 use std::boxed::Box;

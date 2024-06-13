@@ -53,7 +53,7 @@ async fn verify_verifiable_message_scenario(input: String) -> anyhow::Result<()>
         "message": input
     })
     .to_string();
-    let verify_url = new_uri("/create-verifiable-message");
+    let verify_url = new_uri("/verify-verifiable-message");
     let request = Request::builder()
         .method(Method::POST)
         .uri(verify_url)
