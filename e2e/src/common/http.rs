@@ -1,21 +1,28 @@
 use http_body_util::BodyExt;
 use hyper::{
     body::{Body, Incoming},
+
     Uri as HyperUri,
     Response,
 };
 use hyper_util::client::legacy::Client as LegacyClient;
-use serde_json::Value;
 use std::boxed::Box;
 use std::error::Error as StdError;
-use std::path::PathBuf;
 use tokio::io::AsyncWriteExt as _;
 
 #[cfg(unix)]
-use hyperlocal::{UnixClientExt, UnixConnector, Uri as HyperLocalUri};
+mod platform_specific {
+    pub use hyperlocal::{UnixClientExt, UnixConnector, Uri as HyperLocalUri};
+    pub use std::path::PathBuf;
+}
 
 #[cfg(windows)]
-use hyper_util::client::legacy::connect::HttpConnector;
+mod platform_specific {
+    pub use hyper_util::client::legacy::connect::HttpConnector;
+    pub use hyper_util::rt::TokioExecutor;
+}
+
+use platform_specific::*;
 
 pub enum GenericUri {
     #[cfg(unix)]
@@ -35,26 +42,6 @@ impl GenericUri {
         let full_url = format!("{}{}", base_url, path);
         Self::Http(full_url.parse().expect("Failed to parse URL"))
     }
-}
-
-#[cfg(windows)]
-pub fn new_client<B>() -> LegacyClient<HttpConnector, B>
-where
-    B: Body + Send + 'static + Unpin,
-    B::Data: Send,
-    B::Error: Into<Box<dyn StdError + Send + Sync>>,
-{
-    LegacyClient::<HttpConnector, B>::new()
-}
-
-#[cfg(unix)]
-pub fn new_client<B>() -> LegacyClient<UnixConnector, B>
-where
-    B: Body + Send + 'static + Unpin,
-    B::Data: Send,
-    B::Error: Into<Box<dyn StdError + Send + Sync>>,
-{
-    LegacyClient::<UnixConnector, B>::unix()
 }
 
 pub fn new_uri(url: &str) -> hyper::Uri {
@@ -78,6 +65,27 @@ pub fn new_uri(url: &str) -> hyper::Uri {
     }
 }
 
+#[cfg(unix)]
+pub fn new_client<B>() -> LegacyClient<UnixConnector, B>
+where
+    B: Body + Send + 'static + Unpin,
+    B::Data: Send,
+    B::Error: Into<Box<dyn StdError + Send + Sync>>,
+{
+    LegacyClient::<UnixConnector, B>::unix()
+}
+
+#[cfg(windows)]
+pub fn new_client<B>() -> LegacyClient<HttpConnector, B>
+where
+    B: Body + Send + 'static + Unpin,
+    B::Data: Send,
+    B::Error: Into<Box<dyn StdError + Send + Sync>>,
+{
+    let http_connector = HttpConnector::new();
+    let executor = TokioExecutor::new();
+    LegacyClient::builder(executor).build(http_connector)
+}
 
 pub async fn response_to_string(mut response: Response<Incoming>) -> anyhow::Result<String> {
     let mut body: Vec<u8> = Vec::with_capacity(2048);
