@@ -45,7 +45,7 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        target: [x86_64-apple-darwin]
+        target: [aarch64-apple-darwin]
     name: Build / MacOS / ${{ matrix.target }}
 
     steps:
@@ -84,8 +84,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [x86_64-apple-darwin]
-        runner: [macos-13, macos-12]
+        target: [aarch64-apple-darwin]
+        runner: [macos-latest]
     name: E2E / MacOS / ${{ matrix.runner }}
     runs-on: ${{ matrix.runner }}
 
