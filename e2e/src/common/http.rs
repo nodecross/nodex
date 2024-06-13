@@ -14,6 +14,9 @@ use tokio::io::AsyncWriteExt as _;
 #[cfg(unix)]
 use hyperlocal::{UnixClientExt, UnixConnector, Uri as HyperLocalUri};
 
+#[cfg(windows)]
+use hyper_util::client::legacy::http::HttpConnector;
+
 pub enum GenericUri {
     #[cfg(unix)]
     Unix(HyperLocalUri),
