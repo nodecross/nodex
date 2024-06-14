@@ -47,7 +47,7 @@ runs:
         cargo test
 
         Get-Process nodex-agent | Stop-Process -Force
-        if (Select-String -Path log.txt -Pattern "SIGINT") {
+        if (Select-String -Path output.txt -Pattern "SIGINT") {
           echo "SIGINT Successfully"
         } else {
           echo "SIGINT Failed"
