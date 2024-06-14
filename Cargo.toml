@@ -1,17 +1,17 @@
 [package]
-name = "nodex"
-version = "2.0.2"
 authors = ["NodeX Authors <>"]
-edition = "2018"
-license-file = "LICENSE"
-description = "Automate device security provisioning with edge intelligence."
-homepage = "https://nodecross.io"
-documentation = "https://docs.nodecross.io"
-repository = "https://github.com/nodecross/nodex"
-readme = "README.md"
-keywords = ["iot", "embedded", "root-of-trust", "did"]
-categories = ["embedded", "cryptography"]
 build = "build.rs"
+categories = ["cryptography", "embedded"]
+description = "Automate device security provisioning with edge intelligence."
+documentation = "https://docs.nodecross.io"
+edition = "2018"
+homepage = "https://nodecross.io"
+keywords = ["did", "embedded", "iot", "root-of-trust"]
+license-file = "LICENSE"
+name = "nodex"
+readme = "README.md"
+repository = "https://github.com/nodecross/nodex"
+version = "2.0.2"
 
 [workspace]
 members = ["e2e"]
@@ -22,9 +22,9 @@ path = "src/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
+alloc = []
 default = ["std"]
 std = []
-alloc = []
 
 [dependencies]
 data-encoding = { version = "2.5.0" }
@@ -113,13 +113,13 @@ rstest = { version = "0.18.2" }
 shadow-rs = "0.27.1"
 
 [profile.dev]
-panic = "abort"
 debug = true
+panic = "abort"
 
 [profile.test]
-panic = "abort"
-opt-level = 3
 debug = true
+opt-level = 3
+panic = "abort"
 
 [profile.release]
 panic = "abort"
