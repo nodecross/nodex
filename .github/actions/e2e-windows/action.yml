@@ -49,10 +49,10 @@ runs:
         cargo test
 
         Get-Process nodex-agent | Stop-Process -Force
-        if (Select-String -Path "$outputPath" -Pattern "SIGINT") {
-          echo "SIGINT Successfully"
+        if (Select-String -Path "$outputPath" -Pattern "stopped") {
+          echo "stop Successfully"
         } else {
-          echo "SIGINT Failed"
+          echo "stop Failed"
           exit 1
         }
       env:
@@ -64,5 +64,7 @@ runs:
 
     - name: (run) show log of agent
       shell: powershell
-      run: Get-Content "output.txt"
+      run: |
+        $outputPath = Join-Path -Path $PWD -ChildPath "output.txt"
+        Get-Content $outputPath
       if: ${{ always() }}
