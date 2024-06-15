@@ -49,6 +49,7 @@ runs:
         cargo test
 
         Get-Process nodex-agent | Stop-Process -Force
+        Get-Content $outputPath
         if (Select-String -Path "$outputPath" -Pattern "stopped") {
           echo "stop Successfully"
         } else {
