@@ -40,14 +40,16 @@ runs:
         Start-Sleep -Seconds 10
 
         $agentPath = Join-Path -Path $PWD -ChildPath ${{ inputs.binary-path }}
-        Start-Process -FilePath "$agentPath" -NoNewWindow -RedirectStandardOutput "output.txt" -RedirectStandardError "error.txt"
+        $outputPath = Join-Path -Path $PWD -ChildPath "output.txt"
+        $errorPath = Join-Path -Path $PWD -ChildPath "error.txt"
+        Start-Process -FilePath "$agentPath" -NoNewWindow -RedirectStandardOutput "$outputPath" -RedirectStandardError "$errorPath"
         Start-Sleep -Seconds 10
 
         cd e2e
         cargo test
 
         Get-Process nodex-agent | Stop-Process -Force
-        if (Select-String -Path output.txt -Pattern "SIGINT") {
+        if (Select-String -Path "$outputPath" -Pattern "SIGINT") {
           echo "SIGINT Successfully"
         } else {
           echo "SIGINT Failed"
