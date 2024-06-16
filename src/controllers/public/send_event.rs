@@ -24,7 +24,7 @@ pub async fn handler(
                 return Ok(HttpResponse::BadRequest().json("occurred_at is invalid format"));
             }
         },
-        Err(e) => {
+        Err(_) => {
             return Ok(HttpResponse::BadRequest().json("occurred_at is invalid format"));
         }
     };

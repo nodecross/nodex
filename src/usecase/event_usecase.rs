@@ -15,6 +15,9 @@ impl EventUsecase {
     }
 
     pub async fn save(&self, request: EventStoreRequest) {
-        self.repository.save(request).await;
+        match self.repository.save(request).await {
+            Ok(_) => log::info!("save event"),
+            Err(e) => log::error!("{:?}", e),
+        }
     }
 }
