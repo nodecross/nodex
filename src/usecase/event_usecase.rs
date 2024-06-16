@@ -21,3 +21,34 @@ impl EventUsecase {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        repository::event_repository::{EventStoreRepository, EventStoreRequest},
+        usecase::event_usecase::EventUsecase,
+    };
+
+    pub struct MockEventStoreRepository {}
+
+    #[async_trait::async_trait]
+    impl EventStoreRepository for MockEventStoreRepository {
+        async fn save(&self, _: EventStoreRequest) -> anyhow::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn test_save() {
+        let usecase = EventUsecase {
+            repository: Box::new(MockEventStoreRepository {}),
+        };
+        usecase
+            .save(EventStoreRequest {
+                name: "test".to_string(),
+                detail: "test".to_string(),
+                occurred_at: chrono::Utc::now(),
+            })
+            .await;
+    }
+}
