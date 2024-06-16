@@ -40,8 +40,8 @@ runs:
         Start-Sleep -Seconds 10
 
         $agentPath = Join-Path -Path $PWD -ChildPath ${{ inputs.binary-path }}
-        $stdErrLogTmp = ".\stderr.log"
-        $stdOutLogTmp = ".\stdout.log"
+        $stdErrLogTmp = Join-Path -Path $PWD -ChildPath ".\stderr.log"
+        $stdOutLogTmp = Join-Path -Path $PWD -ChildPath ".\stdout.log"
         Start-Process -FilePath "$agentPath" -NoNewWindow -RedirectStandardOutput "$stdOutLogTmp" -RedirectStandardError "$stdErrLogTmp"
         Start-Sleep -Seconds 10
 
