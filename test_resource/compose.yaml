@@ -16,7 +16,7 @@ services:
       timeout: 30s
       retries: 5
       start_period: 10s
-    entrypoint: /bin/sh -c "apk add --no-cache curl && prism mock -h 0.0.0.0 /tmp/api.yaml
+    entrypoint: ["/bin/sh", "-c", "apk add --no-cache curl && prism mock -h 0.0.0.0 /tmp/api.yaml"]
 
   studio_prism:
     image: stoplight/prism:5.8.1
@@ -33,7 +33,7 @@ services:
       timeout: 30s
       retries: 5
       start_period: 10s
-    entrypoint: /bin/sh -c "apk add --no-cache curl && prism mock -h 0.0.0.0 /tmp/api.yaml
+    entrypoint: ["/bin/sh", "-c", "apk add --no-cache curl && prism mock -h 0.0.0.0 /tmp/api.yaml"]
 
   systemd_test:
     depends_on:
