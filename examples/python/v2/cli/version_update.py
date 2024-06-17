@@ -1,4 +1,12 @@
-from sock import post
+import json
+from platform_os from is_windows
+
+
+if is_windows():
+    from request import post
+else:
+    from sock import post
+
 
 
 payload = {
