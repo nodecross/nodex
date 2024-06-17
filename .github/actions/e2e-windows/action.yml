@@ -47,11 +47,10 @@ runs:
 
         cd e2e
         cargo test
+        Start-Sleep -Seconds 10
 
         Get-Process nodex-agent | Stop-Process -Force
-        Get-Content $stdOutLogTmp
-        Get-Content $stdErrLogTmp
-        if (Select-String -Path "$stdOutLogTmp" -Pattern "stopped") {
+        if (Select-String -Path "$stdErrLogTmp" -Pattern "stopped") {
           echo "stop Successfully"
         } else {
           echo "stop Failed"
@@ -67,6 +66,8 @@ runs:
     - name: (run) show log of agent
       shell: powershell
       run: |
-        $outputPath = Join-Path -Path $PWD -ChildPath "output.txt"
+        $stdOutLogTmp = Join-Path -Path $PWD -ChildPath ".\stdout.log"
         Get-Content $outputPath
+        $stdErrLogTmp = Join-Path -Path $PWD -ChildPath ".\stderr.log"
+        Get-Content $stdErrLogTmp
       if: ${{ always() }}
