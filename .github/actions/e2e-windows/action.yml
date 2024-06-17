@@ -67,7 +67,7 @@ runs:
       shell: powershell
       run: |
         $stdOutLogTmp = Join-Path -Path $PWD -ChildPath ".\stdout.log"
-        Get-Content $outputPath
+        Get-Content $stdOutLogTmp
         $stdErrLogTmp = Join-Path -Path $PWD -ChildPath ".\stderr.log"
         Get-Content $stdErrLogTmp
       if: ${{ always() }}
