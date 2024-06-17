@@ -37,7 +37,6 @@ runs:
         pid=$(docker exec $container_id pgrep -f nodex-agent)
         docker exec $container_id kill -SIGINT $pid
         sleep 3
-      if: ${{ always() }}
 
     - name: (run) Check for 'SIGINT' log message
       shell: bash
@@ -74,7 +73,6 @@ runs:
         pid=$(docker exec $container_id pgrep -f nodex-agent)
         docker exec $container_id kill -SIGTERM $pid
         sleep 3
-      if: ${{ always() }}
 
     - name: (run) Check for 'SIGTERM' log message
       shell: bash
@@ -101,4 +99,17 @@ runs:
     - name: (run) show log of agent
       shell: bash
       run: docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e logs e2e_agent
+      if: ${{ always() }}
+
+    - name: Check Docker Info
+      shell: bash
+      run: docker info
+      if: ${{ always() }}
+  
+    - name: Check system resources
+      shell: bash
+      run: |
+        free -m
+        df -h
+        cat /proc/cpuinfo
       if: ${{ always() }}

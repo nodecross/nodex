@@ -62,7 +62,6 @@ runs:
       run: |
         pgrep -f nodex-agent | xargs kill -SIGINT
         sleep 3
-      if: ${{ always() }}
 
     - name: (run) Check for 'SIGINT' log message
       shell: bash
@@ -114,7 +113,6 @@ runs:
       run: |
         pgrep -f nodex-agent | xargs kill -SIGTERM
         sleep 3
-      if: ${{ always() }}
 
     - name: (run) Check for 'SIGTERM' log message
       shell: bash
@@ -142,4 +140,17 @@ runs:
     - name: (run) show log of mock server
       shell: bash
       run: docker compose -f test_resource/compose.yaml logs
+      if: ${{ always() }}
+
+    - name: Check Docker Info
+      shell: bash
+      run: docker info
+      if: ${{ always() }}
+  
+    - name: Check system resources
+      shell: bash
+      run: |
+        free -m
+        df -h
+        cat /proc/cpuinfo
       if: ${{ always() }}
