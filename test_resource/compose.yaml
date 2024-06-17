@@ -11,10 +11,10 @@ services:
       - "4010:4010"
     healthcheck:
       # this docker image doens't have curl
-      test: wget --no-verbose --tries=1 --spider http://localhost:4010/health || exit 1
-      interval: 5s
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:4010/health || exit 1"]
+      interval: 30s
       timeout: 30s
-      retries: 5
+      retries: 3
       start_period: 10s
 
   studio_prism:
@@ -27,10 +27,10 @@ services:
       - "8020:4010"
     healthcheck:
       # this docker image doens't have curl
-      test: wget --no-verbose --tries=1 --spider http://localhost:4010/health || exit 1
-      interval: 5s
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8020/health || exit 1"]
+      interval: 30s
       timeout: 30s
-      retries: 5
+      retries: 3
       start_period: 10s
 
   systemd_test:
