@@ -47,9 +47,9 @@ runs:
 
         cd e2e
         cargo test
-        Start-Sleep -Seconds 10
 
         Get-Process nodex-agent | Stop-Process -Force
+        Start-Sleep -Seconds 10
         if (Select-String -Path "$stdErrLogTmp" -Pattern "stopped") {
           echo "stop Successfully"
         } else {
@@ -68,6 +68,4 @@ runs:
       run: |
         $stdOutLogTmp = Join-Path -Path $PWD -ChildPath ".\stdout.log"
         Get-Content $stdOutLogTmp
-        $stdErrLogTmp = Join-Path -Path $PWD -ChildPath ".\stderr.log"
-        Get-Content $stdErrLogTmp
       if: ${{ always() }}
