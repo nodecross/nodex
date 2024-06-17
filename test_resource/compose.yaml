@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   sidetree_prism:
-    image: stoplight/prism:4
+    image: stoplight/prism:5.8.1
     command: "mock -h 0.0.0.0 /tmp/api.yaml"
     platform: linux/amd64
     volumes:
