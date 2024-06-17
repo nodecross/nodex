@@ -86,9 +86,6 @@ jobs:
       matrix:
         target: [x86_64-apple-darwin]
         runner: [macos-13, macos-12]
-    concurrency:
-      group: mac_group
-      cancel-in-progress: true
     name: E2E / MacOS / ${{ matrix.runner }}
     runs-on: ${{ matrix.runner }}
 
@@ -155,9 +152,6 @@ jobs:
             debian-bullseye,
             debian-buster,
           ]
-    concurrency:
-      group: linux_group
-      cancel-in-progress: true
     name: E2E / Linux / ${{ matrix.docker-image }}
 
     steps:
