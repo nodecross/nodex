@@ -1,6 +1,6 @@
 import json
 import pprint
-from platform_os from is_windows
+from platform_os import is_windows
 
 if is_windows():
     from request import post

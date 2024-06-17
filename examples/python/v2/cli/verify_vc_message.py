@@ -1,5 +1,5 @@
 import json
-from platform_os from is_windows
+from platform_os import is_windows
 
 
 if is_windows():
