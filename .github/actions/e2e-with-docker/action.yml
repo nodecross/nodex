@@ -101,15 +101,9 @@ runs:
       run: docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e logs e2e_agent
       if: ${{ always() }}
 
-    - name: Check Docker Info
-      shell: bash
-      run: docker info
-      if: ${{ always() }}
-  
-    - name: Check system resources
+    - name: Check Docker logs
       shell: bash
       run: |
-        free -m
-        df -h
-        cat /proc/cpuinfo
+        docker compose -f test_resource/compose.yaml logs sidetree_prism
+        docker compose -f test_resource/compose.yaml logs studio_prism
       if: ${{ always() }}
