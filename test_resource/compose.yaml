@@ -67,7 +67,7 @@ services:
     environment:
       NODEX_DID_HTTP_ENDPOINT: http://sidetree_prism:4010
       NODEX_DID_ATTACHMENT_LINK: http://sidetree_prism:4010
-      NODEX_STUDIO_HTTP_ENDPOINT: http://studio_prism:8020
+      NODEX_STUDIO_HTTP_ENDPOINT: http://studio_prism:4010
       RUST_BACKTRACE: 1
     profiles:
       - e2e
@@ -88,7 +88,7 @@ services:
     environment:
       NODEX_DID_HTTP_ENDPOINT: http://sidetree_prism:4010
       NODEX_DID_ATTACHMENT_LINK: http://sidetree_prism:4010
-      NODEX_STUDIO_HTTP_ENDPOINT: http://studio_prism:8020
+      NODEX_STUDIO_HTTP_ENDPOINT: http://studio_prism:4010
       RUST_BACKTRACE: 1
     profiles:
       - e2e
