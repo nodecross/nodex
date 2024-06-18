@@ -141,10 +141,3 @@ runs:
       shell: bash
       run: docker compose -f test_resource/compose.yaml logs
       if: ${{ always() }}
-
-    - name: Check Docker logs
-      shell: bash
-      run: |
-        docker compose -f test_resource/compose.yaml logs sidetree_prism
-        docker compose -f test_resource/compose.yaml logs studio_prism
-      if: ${{ always() }}

@@ -100,17 +100,3 @@ runs:
       shell: bash
       run: docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e logs e2e_agent
       if: ${{ always() }}
-
-    - name: Check Docker logs
-      shell: bash
-      run: |
-        docker compose -f test_resource/compose.yaml exec sidetree_prism wget --no-verbose --tries=1 --spider http://localhost:4010/health
-        docker compose -f test_resource/compose.yaml exec studio_prism wget --no-verbose --tries=1 --spider http://localhost:4010/health
-      if: ${{ always() }}
-
-    - name: Check Docker logs
-      shell: bash
-      run: |
-        docker compose -f test_resource/compose.yaml logs sidetree_prism
-        docker compose -f test_resource/compose.yaml logs studio_prism
-      if: ${{ always() }}
