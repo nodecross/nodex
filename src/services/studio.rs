@@ -329,6 +329,7 @@ impl MetricStoreRepository for Studio {
     async fn save(&self, request: MetricStoreRequest) -> anyhow::Result<()> {
         let payload = serde_json::to_string(&request).expect("failed to serialize");
         let res = self.http_client.post("/v1/metric", &payload).await?;
+        println!("{:?}", res);
 
         let status = res.status();
         let json: Value = res.json().await.context("Failed to read response body")?;

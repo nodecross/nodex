@@ -137,6 +137,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
   /v1/metric:
     post:
       summary: Send metrics
