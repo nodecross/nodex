@@ -12,7 +12,7 @@ services:
     healthcheck:
       # this docker image doens't have curl
       test: ["CMD-SHELL", "curl -f http://localhost:4010/health || exit 1"]
-      interval: 30s
+      interval: 5s
       timeout: 30s
       retries: 5
       start_period: 10s
@@ -29,7 +29,7 @@ services:
     healthcheck:
       # this docker image doens't have curl
       test: ["CMD-SHELL", "curl -f http://localhost:4010/health || exit 1"]
-      interval: 30s
+      interval: 5s
       timeout: 30s
       retries: 5
       start_period: 10s
