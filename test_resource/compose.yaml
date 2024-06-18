@@ -11,12 +11,13 @@ services:
       - "4010:4010"
     healthcheck:
       # this docker image doens't have curl
-      test: ["CMD-SHELL", "curl -f http://localhost:4010/health || exit 1"]
+      # test: ["CMD-SHELL", "curl -f http://localhost:4010/health || exit 1"]
+      test: wget --no-verbose --tries=1 --spider --method=GET http://localhost:4010/health || exit 1
       interval: 5s
       timeout: 30s
       retries: 5
       start_period: 10s
-    entrypoint: ["/bin/sh", "-c", "apk add --no-cache curl && chmod +x /usr/local/bin/prism && prism mock -h 0.0.0.0 /tmp/api.yaml"]
+    # entrypoint: ["/bin/sh", "-c", "apk add --no-cache curl && chmod +x /usr/local/bin/prism && prism mock -h 0.0.0.0 /tmp/api.yaml"]
 
   studio_prism:
     image: stoplight/prism:5.8.1
@@ -28,12 +29,13 @@ services:
       - "8020:4010"
     healthcheck:
       # this docker image doens't have curl
-      test: ["CMD-SHELL", "curl -f http://localhost:4010/health || exit 1"]
+      # test: ["CMD-SHELL", "curl -f http://localhost:4010/health || exit 1"]
+      test: wget --no-verbose --tries=1 --spider --method=GET http://localhost:4010/health || exit 1
       interval: 5s
       timeout: 30s
       retries: 5
       start_period: 10s
-    entrypoint: ["/bin/sh", "-c", "apk add --no-cache curl && chmod +x /usr/local/bin/prism && prism mock -h 0.0.0.0 /tmp/api.yaml"]
+    # entrypoint: ["/bin/sh", "-c", "apk add --no-cache curl && chmod +x /usr/local/bin/prism && prism mock -h 0.0.0.0 /tmp/api.yaml"]
 
   systemd_test:
     depends_on:
