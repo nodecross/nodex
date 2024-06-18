@@ -139,28 +139,28 @@ paths:
                 $ref: "#/components/schemas/Error"
   /v1/metric:
     post:
-    summary: Send metrics
-    operationId: sendMetics
-    tags:
-      - metric
-    requestBody:
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Metric"
-    responses:
-      "200":
-        description: Expected response to a valid request
+      summary: Send metrics
+      operationId: sendMetics
+      tags:
+        - metric
+      requestBody:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/EmptyResponse"
-      default:
-        description: unexpected error
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/Error"
+              $ref: "#/components/schemas/Metric"
+      responses:
+        "200":
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmptyResponse"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
 components:
   schemas:
