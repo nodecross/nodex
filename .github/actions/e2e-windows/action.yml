@@ -59,7 +59,7 @@ runs:
         cd e2e
         cargo test
 
-        python send_ctrl_c.py nodex-agent.exe
+        python test_resource/win/send_ctrl_c.py nodex-agent.exe
         Start-Sleep -Seconds 10
         if (Select-String -Path "$stdErrLogTmp" -Pattern "stopped") {
           echo "stop Successfully"
