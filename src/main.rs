@@ -27,7 +27,7 @@ use tokio::time::Duration;
 
 #[cfg(windows)]
 use windows::Win32::{
-    Foundation::{CloseHandle, GetLastError, HANDLE},
+    Foundation::{CloseHandle, GetLastError},
     System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE},
 };
 
