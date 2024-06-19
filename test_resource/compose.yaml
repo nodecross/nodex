@@ -9,7 +9,6 @@ services:
     ports:
       - "4010:4010"
     healthcheck:
-      # this docker image doens't have curl
       test: ["CMD-SHELL", "curl -f http://localhost:4010/health || exit 1"]
       interval: 5s
       timeout: 30s
@@ -25,7 +24,6 @@ services:
     ports:
       - "8020:4010"
     healthcheck:
-      # this docker image doens't have curl
       test: ["CMD-SHELL", "curl -f http://localhost:4010/health || exit 1"]
       interval: 5s
       timeout: 30s
