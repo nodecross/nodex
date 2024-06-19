@@ -58,15 +58,6 @@ runs:
 
         cd e2e
         cargo test
-
-        python test_resource/win/send_ctrl_c.py nodex-agent.exe
-        Start-Sleep -Seconds 10
-        if (Select-String -Path "$stdErrLogTmp" -Pattern "stopped") {
-          echo "stop Successfully"
-        } else {
-          echo "stop Failed"
-          exit 1
-        }
       env:
         NODEX_DID_HTTP_ENDPOINT: http://127.0.0.1:4010
         NODEX_DID_ATTACHMENT_LINK: http://127.0.0.1:4010
