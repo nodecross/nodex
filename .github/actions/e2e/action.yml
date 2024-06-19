@@ -141,8 +141,3 @@ runs:
       shell: bash
       run: docker compose -f test_resource/compose.yaml logs
       if: ${{ always() }}
-  
-    - name: (run) show colima log
-      shell: bash
-      run: cat /Users/runner/.colima/_lima/colima/serial*.log
-      if: ${{ always() }}
