@@ -16,12 +16,12 @@ const operation_tag = "test-operation-tag";
 
 (async () => {
   const message = JSON.stringify(messageJson, null, 4);
-  const response = await post("/create-didcomm-message", {
+  const response = await post("/create-verifiable-message", {
     destination_did,
     message,
     operation_tag,
   });
 
-  console.log('\nPlease paste below to "verifyDidcommMessage.js".\n');
+  console.log('\nPlease paste below to "verifyVcMessage.js".\n');
   console.log(response);
 })();
