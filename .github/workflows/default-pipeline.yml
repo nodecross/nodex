@@ -103,8 +103,6 @@ jobs:
 
       - name: Setup docker and docker-compose (missing on MacOS)
         run: |
-          brew upgrade
-          colima delete
           curl -O https://raw.githubusercontent.com/Homebrew/homebrew-core/dc0669eca9479e9eeb495397ba3a7480aaa45c2e/Formula/qemu.rb
           brew install ./qemu.rb
           brew link --overwrite qemu
