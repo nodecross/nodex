@@ -121,6 +121,7 @@ jobs:
           brew install --force python3 && brew unlink python3 && brew unlink python3 && brew link --overwrite python3
 
       - name: Setup docker and docker-compose (missing on MacOS)
+        id: run_brew_install
         run: |
           brew install docker docker-compose colima
 
@@ -153,6 +154,11 @@ jobs:
         uses: ./.github/actions/e2e-mac
         with:
           binary-path: ./nodex-agent
+
+      - name: (run) show colima log
+        shell: bash
+        run: cat /Users/runner/.colima/_lima/colima/serial*.log
+        if: steps.run_brew_install.outcome == 'failure'
 
   e2e-windows:
     needs: build-windows
