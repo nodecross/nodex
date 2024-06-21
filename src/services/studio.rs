@@ -357,21 +357,40 @@ impl EventStoreRepository for Studio {
 
         let payload = serde_json::to_string(&vc).context("failed to serialize")?;
 
-        let res = self.http_client.post("/v1/events", &payload).await?;
+        async fn send(
+            studio: &Studio,
+            payload: String,
+        ) -> anyhow::Result<(reqwest::StatusCode, String)> {
+            let res = studio.http_client.post("/v1/events", &payload).await?;
 
-        let status = res.status();
-        let json: Value = res.json().await.context("Failed to read response body")?;
-        let message = if let Some(message) = json.get("message").map(|v| v.to_string()) {
-            message
-        } else {
-            "".to_string()
-        };
+            let status = res.status();
+            let json: Value = res.json().await.context("Failed to read response body")?;
+            let message = if let Some(message) = json.get("message").map(|v| v.to_string()) {
+                message
+            } else {
+                "".to_string()
+            };
+
+            Ok((status, message))
+        }
+
+        let (status, message) = send(self, payload.clone()).await?;
 
         match status {
             reqwest::StatusCode::OK => Ok(()),
             reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
             reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
-                anyhow::bail!("StatusCode=500, {}", message);
+                // retry once
+                log::info!("failed to send event: {}, retrying...", message);
+                let (status, message) = send(self, payload).await?;
+                match status {
+                    reqwest::StatusCode::OK => Ok(()),
+                    reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
+                        anyhow::bail!("StatusCode=500, {}", message);
+                    }
+                    other => anyhow::bail!("StatusCode={other}, {}", message),
+                }
             }
             other => anyhow::bail!("StatusCode={other}, {}", message),
         }
