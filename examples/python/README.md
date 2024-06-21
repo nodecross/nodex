@@ -1,14 +1,14 @@
-# Example for nodejs
+# Example for python
 
 ## Install dependencies
 
 ```bash
-npm i
+pip install -r requirements.txt
 ```
 
 ## Run
 
 ```bash
 # ex) Run "find did" example
-node src/findDid.js
+python src/find_did.py
 ```

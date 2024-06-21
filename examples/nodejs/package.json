@@ -1,36 +1,12 @@
 {
-  "name": "nodejs",
+  "name": "nodex",
   "version": "1.0.0",
-  "main": "index.js",
-  "license": "MIT",
   "type": "module",
-  "devDependencies": {
-    "@types/node": "^18.11.17",
-    "@types/ws": "^8.5.5",
-    "tsx": "^4.1.2",
-    "typescript": "^4.9.4"
-  },
+  "main": "find_did.js",
   "scripts": {
-    "app": "tsx app/index.ts",
-    "create_did": "tsx cli/create_did.ts",
-    "find_did": "tsx cli/find_did.ts",
-    "generate_didcomm_encrypted_message": "tsx cli/generate_didcomm_encrypted_message.ts",
-    "generate_didcomm_plaintext_message": "tsx cli/generate_didcomm_plaintext_message.ts",
-    "generate_didcomm_signed_message": "tsx cli/generate_didcomm_signed_message.ts",
-    "generate_vc": "tsx cli/generate_vc.ts",
-    "transfer": "tsx cli/transfer.ts",
-    "receive": "tsx cli/receive.ts",
-    "verify_didcomm_encrypted_message": "tsx cli/verify_didcomm_encrypted_message.ts",
-    "verify_didcomm_plaintext_message": "tsx cli/verify_didcomm_plaintext_message.ts",
-    "verify_didcomm_signed_message": "tsx cli/verify_didcomm_signed_message.ts",
-    "verify_vc": "tsx cli/verify_vc.ts",
-    "version_get": "tsx cli/version_get.ts",
-    "version_update": "tsx cli/version_update.ts",
-    "network": "tsx cli/network.ts"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "got": "^12.5.3",
-    "systeminformation": "^5.21.17",
-    "ws": "^8.13.0"
+    "got": "^14.4.0"
   }
 }
