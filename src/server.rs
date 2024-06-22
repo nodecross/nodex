@@ -93,7 +93,7 @@ fn config_app(context: web::Data<Context>) -> Box<dyn Fn(&mut web::ServiceConfig
                     )
                     .route(
                         "/version/get",
-                        web::post().to(controllers::internal::version::handler_get),
+                        web::get().to(controllers::internal::version::handler_get),
                     )
                     .route(
                         "/version/update",
