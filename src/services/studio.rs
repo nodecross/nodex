@@ -1,5 +1,5 @@
 use crate::repository::message_activity_repository::MessageActivityHttpError;
-use crate::repository::metric_repository::{MetricStoreRepository, MetricStoreRequest};
+use crate::repository::metric_repository::{MetricStoreRepository, MetricsWithTimestamp};
 use crate::server_config;
 use crate::{
     nodex::utils::studio_client::{StudioClient, StudioClientConfig},
@@ -324,11 +324,42 @@ impl MessageActivityRepository for Studio {
     }
 }
 
+#[derive(Serialize)]
+struct MetricStr {
+    metric_type: String,
+    value: f32,
+}
+
+#[derive(Serialize)]
+struct MetricsWithTimestampStr {
+    timestamp: chrono::DateTime<chrono::Utc>,
+    metrics: Vec<MetricStr>,
+}
+
 #[async_trait::async_trait]
 impl MetricStoreRepository for Studio {
-    async fn save(&self, request: MetricStoreRequest) -> anyhow::Result<()> {
-        let payload = serde_json::to_string(&request).expect("failed to serialize");
-        let res = self.http_client.post("/v1/metric", &payload).await?;
+    async fn save(&self, request: Vec<MetricsWithTimestamp>) -> anyhow::Result<()> {
+        let metrics_str = request
+            .into_iter()
+            .map(|m| MetricsWithTimestampStr {
+                timestamp: m.timestamp,
+                metrics: m
+                    .metrics
+                    .into_iter()
+                    .map(|metric| MetricStr {
+                        metric_type: metric.metric_type.to_string(),
+                        value: metric.value,
+                    })
+                    .collect::<Vec<MetricStr>>(),
+            })
+            .collect::<Vec<MetricsWithTimestampStr>>();
+
+        let vc =
+            DIDVCService::new(NodeX::new()).generate(&json!(metrics_str), chrono::Utc::now())?;
+
+        let payload = serde_json::to_string(&vc).context("failed to serialize")?;
+
+        let res = self.http_client.post("/v1/metrics", &payload).await?;
 
         let status = res.status();
         let json: Value = res.json().await.context("Failed to read response body")?;
@@ -337,7 +368,6 @@ impl MetricStoreRepository for Studio {
         } else {
             "".to_string()
         };
-
         match status {
             reqwest::StatusCode::OK => Ok(()),
             reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
