@@ -161,7 +161,7 @@ impl NodeX {
         }
         self.extract_zip(content, &output_path)?;
 
-        self.execute_agent(&agent_path)?;
+        self.run_agent(&agent_path)?;
 
         Ok(())
     }
@@ -189,7 +189,7 @@ impl NodeX {
     }
 
     #[cfg(unix)]
-    fn execute_agent(&self, agent_path: &Path) -> anyhow::Result<()> {
+    fn run_agent(&self, agent_path: &Path) -> anyhow::Result<()> {
         Command::new("chmod").arg("+x").arg(agent_path).status()?;
 
         let daemonize = Daemonize::new();
@@ -201,7 +201,7 @@ impl NodeX {
     }
 
     #[cfg(windows)]
-    fn execute_agent(&self, agent_path: &Path) -> anyhow::Result<()> {
+    fn run_agent(&self, agent_path: &Path) -> anyhow::Result<()> {
         let agent_path_str = agent_path
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("Failed to convert agent_path to string"))?;
