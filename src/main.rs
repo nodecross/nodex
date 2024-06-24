@@ -410,7 +410,12 @@ fn kill_other_self_process() {
             let mut system = System::new_all();
             system.refresh_all();
 
-            for process in system.processes_by_exact_name("nodex-agent") {
+            #[cfg(unix)]
+            let process_name = { "nodex-agent" };
+            #[cfg(windows)]
+            let process_name = { "nodex-agent.exe" };
+
+            for process in system.processes_by_exact_name(process_name) {
                 if current_pid == process.pid() {
                     continue;
                 }
