@@ -23,8 +23,8 @@ runs:
     - name: Setup and Run Tests
       shell: bash
       run: |
-        prism mock -h 127.0.0.1 -p 4010 test_resource/did_sidetree.yaml
-        prism mock -h 127.0.0.1 -p 8020 test_resource/studio.yaml
+        prism mock -h 127.0.0.1 -p 4010 test_resource/did_sidetree.yaml &
+        prism mock -h 127.0.0.1 -p 8020 test_resource/studio.yaml &
         sleep 5
 
         ${{ inputs.binary-path }} > log.txt 2>&1 &
