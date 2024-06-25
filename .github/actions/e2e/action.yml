@@ -14,7 +14,7 @@ runs:
 
     - name: (setup) install prism
       shell: bash
-      run: brew install prism 
+      run: npm install -g @stoplight/prism-cli
 
     - name: (setup) copy default config to home
       shell: bash
