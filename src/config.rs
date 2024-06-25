@@ -380,11 +380,21 @@ impl AppConfig {
     }
 
     pub fn get_metric_collect_interval(&self) -> u64 {
-        self.root.metrics.clone().collect_interval
+        let collect_interval = self.root.metrics.clone().collect_interval;
+        if !(5..=300).contains(&collect_interval) {
+            log::error!("collect_interval must be between 5 and 300");
+            panic!()
+        }
+        collect_interval
     }
 
     pub fn get_metric_send_interval(&self) -> u64 {
-        self.root.metrics.clone().send_interval
+        let send_interval = self.root.metrics.clone().send_interval;
+        if !(60..=3600).contains(&send_interval) {
+            log::error!("send_interval must be between 60 and 3600");
+            panic!()
+        }
+        send_interval
     }
 
     // NOTE: Is Initialized
