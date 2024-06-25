@@ -8,7 +8,7 @@ use crate::{
 
 #[derive(Deserialize, Serialize)]
 pub struct MessageContainer {
-    name: String,
+    key: String,
     detail: String,
     occurred_at: String,
 }
@@ -32,7 +32,7 @@ pub async fn handler(
     let usecase = EventUsecase::new();
     usecase
         .save(EventStoreRequest {
-            name: json.name,
+            key: json.key,
             detail: json.detail,
             occurred_at,
         })

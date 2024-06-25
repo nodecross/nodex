@@ -2,7 +2,7 @@ import { post } from "./lib/sock.js";
 
 (async () => {
   const payload = {
-    name: "test-name",
+    key: "test-key",
     detail: "test-detail",
     occurred_at: String(Math.floor(Date.now() / 1000)),
   };

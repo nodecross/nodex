@@ -3,7 +3,7 @@ use serde::Serialize;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct EventStoreRequest {
-    pub name: String,
+    pub key: String,
     pub detail: String,
     pub occurred_at: DateTime<Utc>,
 }

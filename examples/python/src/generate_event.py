@@ -5,7 +5,7 @@ import time
 json_response = post(
     "/events",
     {
-        "name": "test-name",
+        "key": "test-key",
         "detail": "test-detail",
         "occurred_at": str(int(time.time())),
     },

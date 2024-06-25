@@ -45,7 +45,7 @@ mod tests {
         };
         usecase
             .save(EventStoreRequest {
-                name: "test".to_string(),
+                key: "test".to_string(),
                 detail: "test".to_string(),
                 occurred_at: chrono::Utc::now(),
             })
