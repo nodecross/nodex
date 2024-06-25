@@ -12,6 +12,10 @@ runs:
       with:
         node-version: '20.15.0'
 
+    - name: (setup) install prism
+      shell: bash
+      run: brew install prism 
+
     - name: (setup) copy default config to home
       shell: bash
       run: mkdir -p ~/.config/nodex & cp test_resource/config/* ~/.config/nodex/
