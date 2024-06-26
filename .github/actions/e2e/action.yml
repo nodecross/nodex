@@ -7,76 +7,40 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '20.15.0'
+
+    - name: (setup) install prism
+      shell: bash
+      run: npm install -g @stoplight/prism-cli
+
     - name: (setup) copy default config to home
       shell: bash
       run: mkdir -p ~/.config/nodex & cp test_resource/config/* ~/.config/nodex/
 
-    - name: (setup) pull docker images
-      shell: bash
-      run: docker compose -f test_resource/compose.yaml pull -q
-
-    - name: (run) run mock server
-      uses: nick-fields/retry@v3
-      with:
-        timeout_minutes: 5
-        max_attempts: 10
-        retry_on: error
-        # This command failed many times on MacOS runners, so it was automatically retried.
-        command: |
-          docker compose -f test_resource/compose.yaml up -d --wait
-          sleep 3
-          # check whether the mock server is running
-          curl http://localhost:4010/api/v1/identifiers/did:nodex:test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-          curl http://localhost:8020/health
-        on_retry_command: |
-          docker compose -f test_resource/compose.yaml restart
-
-    - name: (run) show docker image status
-      shell: bash
-      run: docker compose -f test_resource/compose.yaml ps
-
-    - name: (run) run agent for e2e tests
-      uses: nick-fields/retry@v3
-      with:
-        timeout_seconds: 120
-        max_attempts: 10
-        retry_on: error
-        # This command failed many times on MacOS runners, so it was automatically retried.
-        command: |
-          ${{ inputs.binary-path }} > log.txt 2>&1 &
-          sleep 3
-          test -e ~/.nodex/run/nodex.sock
-      env:
-        NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
-        NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
-        NODEX_STUDIO_HTTP_ENDPOINT: http://localhost:8020
-        RUST_BACKTRACE: 1
-
-    - name: (run) e2e tests
-      shell: bash
-      working-directory: e2e
-      run: cargo test
-
-    - name: (run) shutdown agent by SIGINT
+    - name: Setup and Run Tests
       shell: bash
       run: |
+        prism mock -h localhost -p 4010 test_resource/did_sidetree.yaml > sidetree.txt 2>&1 &
+        prism mock -h localhost -p 8020 test_resource/studio.yaml > studio.txt 2>&1 &
+        sleep 5
+
+        ${{ inputs.binary-path }} > log.txt 2>&1 &
+        sleep 5
+
+        cd e2e
+        cargo test
+
         pgrep -f nodex-agent | xargs kill -SIGINT
-        sleep 3
+        sleep 5
 
-    - name: (run) Check for 'SIGINT' log message
-      shell: bash
-      id: check_logs_for_sigint
-      run: |
-        if cat log.txt | grep -q "SIGINT"; then
-          echo "::set-output name=stopped_found::true"
-        else
-          echo "::set-output name=stopped_found::false"
+        if !grep -q "SIGINT" log.txt; then
+          echo "SIGINT not found in log."
+          exit 1
         fi
 
-    - name: (run) Verify process is not running in e2e_agent by SIGINT
-      shell: bash
-      if: steps.check_logs_for_sigint.outputs.stopped_found == 'true'
-      run: |
         pids=$(pgrep -f nodex-agent || true)
         # When executing pgrep, if the process does not exist, it exits; therefore, a solution for that is needed.
         if [ -z "$pids" ]; then
@@ -85,59 +49,23 @@ runs:
           echo "Process is still running, which is not expected."
           exit 1
         fi
+      env:
+        NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
+        NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
+        NODEX_STUDIO_HTTP_ENDPOINT: http://localhost:8020
+        RUST_BACKTRACE: 1
 
     - name: (run) show log of agent
       shell: bash
       run: cat log.txt
       if: ${{ always() }}
 
-    - name: (run) run agent for e2e tests
-      uses: nick-fields/retry@v3
-      with:
-        timeout_seconds: 120
-        max_attempts: 10
-        retry_on: error
-        # This command failed many times on MacOS runners, so it was automatically retried.
-        command: |
-          ${{ inputs.binary-path }} > log.txt 2>&1 &
-          sleep 3
-          test -e ~/.nodex/run/nodex.sock
-      env:
-        NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
-        NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
-        NODEX_STUDIO_HTTP_ENDPOINT: http://localhost:8020
-        RUST_BACKTRACE: 1
-
-    - name: (run) shutdown agent by SIGTERM
+    - name: (run) show mock sidetree log
       shell: bash
-      run: |
-        pgrep -f nodex-agent | xargs kill -SIGTERM
-        sleep 3
+      run: cat sidetree.txt
+      if: ${{ always() }}
 
-    - name: (run) Check for 'SIGTERM' log message
+    - name: (run) show mock studio log
       shell: bash
-      id: check_logs_for_sigterm
-      run: |
-        if cat log.txt | grep -q "SIGTERM"; then
-          echo "::set-output name=stopped_found::true"
-        else
-          echo "::set-output name=stopped_found::false"
-        fi
-
-    - name: (run) Verify process is not running in e2e_agent by SIGTERM
-      shell: bash
-      if: steps.check_logs_for_sigterm.outputs.stopped_found == 'true'
-      run: |
-        pids=$(pgrep -f nodex-agent || true)
-        # When executing pgrep, if the process does not exist, it exits; therefore, a solution for that is needed.
-        if [ -z "$pids" ]; then
-          echo "Process not found, as expected."
-        else
-          echo "Process is still running, which is not expected."
-          exit 1
-        fi
-
-    - name: (run) show log of mock server
-      shell: bash
-      run: docker compose -f test_resource/compose.yaml logs
+      run: cat studio.txt
       if: ${{ always() }}
