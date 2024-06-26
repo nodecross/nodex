@@ -23,8 +23,8 @@ runs:
     - name: Setup and Run Tests
       shell: bash
       run: |
-        prism mock -h 127.0.0.1 -p 4010 test_resource/did_sidetree.yaml > sidetree.txt 2>&1 &
-        prism mock -h 127.0.0.1 -p 8020 test_resource/studio.yaml > studio.txt 2>&1 &
+        prism mock -h localhost -p 4010 test_resource/did_sidetree.yaml > sidetree.txt 2>&1 &
+        prism mock -h localhost -p 8020 test_resource/studio.yaml > studio.txt 2>&1 &
         sleep 5
 
         ${{ inputs.binary-path }} > log.txt 2>&1 &
@@ -50,9 +50,9 @@ runs:
           exit 1
         fi
       env:
-        NODEX_DID_HTTP_ENDPOINT: http://127.0.0.1:4010
-        NODEX_DID_ATTACHMENT_LINK: http://127.0.0.1:4010
-        NODEX_STUDIO_HTTP_ENDPOINT: http://127.0.0.1:8020
+        NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
+        NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
+        NODEX_STUDIO_HTTP_ENDPOINT: http://localhost:8020
         RUST_BACKTRACE: 1
 
     - name: (run) show log of agent
