@@ -43,6 +43,10 @@ pub fn new_server(sock_path: &PathBuf, sender: Box<dyn TransferClient>) -> Serve
                 "/verify-didcomm-message",
                 web::post().to(controllers::public::nodex_verify_didcomm_message::handler),
             )
+            .route(
+                "/events",
+                web::post().to(controllers::public::send_event::handler),
+            )
             // NOTE: Internal (Private) Routes
             .service(
                 web::scope("/internal")
@@ -64,7 +68,7 @@ pub fn new_server(sock_path: &PathBuf, sender: Box<dyn TransferClient>) -> Serve
                     )
                     .route(
                         "/version/get",
-                        web::post().to(controllers::internal::version::handler_get),
+                        web::get().to(controllers::internal::version::handler_get),
                     )
                     .route(
                         "/version/update",
