@@ -41,7 +41,7 @@ jobs:
           use-cache: true
 
   build-macos:
-    runs-on: macos-14
+    runs-on: macos-latest
     timeout-minutes: 10
     strategy:
       matrix:
@@ -85,7 +85,7 @@ jobs:
       fail-fast: false
       matrix:
         target: [aarch64-apple-darwin]
-        runner: [macos-latest]
+        runner: [macos-14]
     name: E2E / MacOS / ${{ matrix.runner }}
     runs-on: ${{ matrix.runner }}
 
