@@ -122,11 +122,6 @@ jobs:
         with:
           binary-path: ./nodex-agent
 
-      - name: (run) show colima log
-        shell: bash
-        run: cat ~/.colima/_lima/colima/ha.stderr.log
-        if: failure()
-
   e2e-linux:
     needs: build-linux
     runs-on: ubuntu-latest
