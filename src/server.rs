@@ -47,6 +47,10 @@ pub fn new_server(sock_path: &PathBuf, sender: Box<dyn TransferClient>) -> Serve
                 "/events",
                 web::post().to(controllers::public::send_event::handler),
             )
+            .route(
+                "/custom_metrics",
+                web::post().to(controllers::public::send_custom_metric::handler),
+            )
             // NOTE: Internal (Private) Routes
             .service(
                 web::scope("/internal")

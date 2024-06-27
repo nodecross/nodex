@@ -1,3 +1,4 @@
+pub mod custom_metric_usecase;
 pub mod didcomm_message_usecase;
 pub mod event_usecase;
 pub mod metric_usecase;
