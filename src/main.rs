@@ -12,7 +12,9 @@ use nix::{
     sys::signal::{kill, Signal},
     unistd::Pid,
 };
+use repository::metric_repository::MetricsCacheRepository;
 use rumqttc::{AsyncClient, MqttOptions, QoS};
+use services::metrics::{MetricsInMemoryCacheService, MetricsWatchService};
 use services::nodex::NodeX;
 use services::studio::Studio;
 use shadow_rs::shadow;
@@ -21,6 +23,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::{collections::HashMap, fs, sync::Arc};
 use sysinfo::{get_current_pid, System};
 use tokio::sync::mpsc;
+use tokio::sync::Mutex;
 use tokio::sync::Notify;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
@@ -179,13 +182,30 @@ async fn main() -> std::io::Result<()> {
         .unwrap();
     log::info!("subscribed: {}", studio_did_topic);
 
-    let should_stop = Arc::new(AtomicBool::new(false));
+    let shutdown_notify = Arc::new(Notify::new());
 
-    let mut metric_usecase = MetricUsecase::new(should_stop.clone());
-    tokio::spawn(async move {
-        metric_usecase.start_collect_metric().await;
-        log::info!("Metric usecase has been successfully stopped.");
-    });
+    let cache_repository = Arc::new(Mutex::new(MetricsInMemoryCacheService::new()));
+    let collect_task = {
+        let mut metric_usecase = MetricUsecase::new(
+            Box::new(Studio::new()),
+            Box::new(MetricsWatchService::new()),
+            app_config(),
+            Arc::clone(&cache_repository),
+            Arc::clone(&shutdown_notify),
+        );
+        tokio::spawn(async move { metric_usecase.collect_task().await })
+    };
+
+    let send_task = {
+        let mut metric_usecase = MetricUsecase::new(
+            Box::new(Studio::new()),
+            Box::new(MetricsWatchService::new()),
+            app_config(),
+            Arc::clone(&cache_repository),
+            Arc::clone(&shutdown_notify),
+        );
+        tokio::spawn(async move { metric_usecase.send_task().await })
+    };
 
     // NOTE: booting...
     let (tx, rx) = mpsc::channel::<Command>(32);
@@ -209,8 +229,6 @@ async fn main() -> std::io::Result<()> {
 
     let server_handle = server.handle();
 
-    let shutdown_notify = Arc::new(Notify::new());
-
     let message_polling_task =
         tokio::spawn(nodex_receive::polling_task(Arc::clone(&shutdown_notify)));
 
@@ -222,6 +240,7 @@ async fn main() -> std::io::Result<()> {
         mqtt_topic,
     ));
 
+    let should_stop = Arc::new(AtomicBool::new(false));
     let shutdown = tokio::spawn(async move {
         handle_signals(should_stop.clone()).await;
 
@@ -232,7 +251,14 @@ async fn main() -> std::io::Result<()> {
         log::info!("Agent has been successfully stopped.");
     });
 
-    match tokio::try_join!(server_task, sender_task, message_polling_task, shutdown) {
+    match tokio::try_join!(
+        server_task,
+        sender_task,
+        message_polling_task,
+        collect_task,
+        send_task,
+        shutdown
+    ) {
         Ok(_) => Ok(()),
         Err(e) => {
             log::error!("{:?}", e);

@@ -45,7 +45,7 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        target: [x86_64-apple-darwin]
+        target: [aarch64-apple-darwin]
     name: Build / MacOS / ${{ matrix.target }}
 
     steps:
@@ -103,8 +103,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [x86_64-apple-darwin]
-        runner: [macos-13, macos-12]
+        target: [aarch64-apple-darwin]
+        runner: [macos-14]
     name: E2E / MacOS / ${{ matrix.runner }}
     runs-on: ${{ matrix.runner }}
 
@@ -119,20 +119,6 @@ jobs:
           find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
           sudo rm -rf /Library/Frameworks/Python.framework/
           brew install --force python3 && brew unlink python3 && brew unlink python3 && brew link --overwrite python3
-
-      - name: Setup docker and docker-compose (missing on MacOS)
-        id: run_brew_install
-        run: |
-          brew install docker docker-compose colima
-
-          # Link the Docker Compose v2 plugin so it's understood by the docker CLI
-          mkdir -p ~/.docker/cli-plugins
-          ln -sfn /usr/local/opt/docker-compose/bin/docker-compose ~/.docker/cli-plugins/docker-compose
-
-          colima start
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: 1
-          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
 
       - name: (run) download artifacts (macos)
         uses: actions/download-artifact@v4
@@ -154,11 +140,6 @@ jobs:
         uses: ./.github/actions/e2e-mac
         with:
           binary-path: ./nodex-agent
-
-      - name: (run) show colima log
-        shell: bash
-        run: cat /Users/runner/.colima/_lima/colima/serial*.log
-        if: steps.run_brew_install.outcome == 'failure'
 
   e2e-windows:
     needs: build-windows

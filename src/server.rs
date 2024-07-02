@@ -72,6 +72,14 @@ fn config_app(context: web::Data<Context>) -> Box<dyn Fn(&mut web::ServiceConfig
                 "/verify-didcomm-message",
                 web::post().to(controllers::public::nodex_verify_didcomm_message::handler),
             )
+            .route(
+                "/events",
+                web::post().to(controllers::public::send_event::handler),
+            )
+            .route(
+                "/custom_metrics",
+                web::post().to(controllers::public::send_custom_metric::handler),
+            )
             // NOTE: Internal (Private) Routes
             .service(
                 web::scope("/internal")
