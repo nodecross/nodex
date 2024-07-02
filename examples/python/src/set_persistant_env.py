@@ -18,8 +18,8 @@ if not is_windows():
 env_vars = {
     "NODEX_DID_HTTP_ENDPOINT": "https://did.nodecross.io",
     "NODEX_DID_ATTACHMENT_LINK": "https://did.getnodex.io",
-    "NODEX_HUB_HTTP_ENDPOINT": "http://localhost:8000",
-    "NODEX_SERVER_PORT": "3333"
+    "NODEX_HUB_HTTP_ENDPOINT": "http://http.hub.nodecross.io",
+    "NODEX_SERVER_PORT": "3000"
 }
 for env_name, env_value in env_vars.items():
     update_env_var(env_name, env_value)
