@@ -61,7 +61,7 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       matrix:
         target: [x86_64-pc-windows-msvc]
