@@ -158,7 +158,7 @@ jobs:
         uses: ./.github/actions/upload-release-asset
         with:
           release_id: ${{ steps.release.outputs.result }}
-          asset_path: ./examples/nodejs/example.zip
+          asset_path: ./examples/example.zip
           asset_name: example.zip
           asset_content_type: application/zip
           github_token: ${{ secrets.GITHUB_TOKEN }}
