@@ -1,3 +1,5 @@
+use crate::nodex::utils::did_accessor::{DIDAccessorImpl, DidAccessor};
+use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::repository::custom_metric_repository::{
     CustomMetricStoreRepository, CustomMetricStoreRequest,
 };
@@ -11,16 +13,12 @@ use crate::{
         CreatedMessageActivityRequest, MessageActivityRepository, VerifiedMessageActivityRequest,
     },
 };
-
 use anyhow::Context;
-
+use nodex_didcomm::did::did_repository::DidRepositoryImpl;
+use nodex_didcomm::didcomm::encrypted::DIDCommEncryptedService;
+use nodex_didcomm::verifiable_credentials::did_vc::DIDVCService;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-
-use super::{
-    internal::{did_vc::DIDVCService, didcomm_encrypted::DIDCommEncryptedService},
-    nodex::NodeX,
-};
 
 #[derive(Deserialize)]
 pub struct EmptyResponse {}
@@ -38,6 +36,9 @@ struct ErrorResponse {
 
 pub struct Studio {
     http_client: StudioClient,
+    didcomm_service: DIDCommEncryptedService<DidRepositoryImpl<SideTreeClient>>,
+    vc_service: DIDVCService<DidRepositoryImpl<SideTreeClient>>,
+    did_accessor: DIDAccessorImpl,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -78,8 +79,21 @@ impl Studio {
             }
         };
 
+        let sidetree_client = SideTreeClient::new(&server_config.did_http_endpoint())
+            .expect("failed to create sidetree client");
+        let did_repository = DidRepositoryImpl::new(sidetree_client);
+        let didcomm_service = DIDCommEncryptedService::new(
+            did_repository.clone(),
+            Some(server_config.did_attachment_link()),
+        );
+        let vc_service = DIDVCService::new(did_repository);
+        let did_accessor = DIDAccessorImpl {};
+
         Studio {
             http_client: client,
+            didcomm_service,
+            vc_service,
+            did_accessor,
         }
     }
 
@@ -233,15 +247,25 @@ impl MessageActivityRepository for Studio {
         request: CreatedMessageActivityRequest,
     ) -> Result<(), MessageActivityHttpError> {
         // TODO: refactoring more simple
-        let service = DIDCommEncryptedService::new(NodeX::new(), DIDVCService::new(NodeX::new()));
 
         let project_did = {
             let network = crate::network_config();
             let network = network.lock();
             network.get_project_did().expect("project_did is not set")
         };
-        let payload = service
-            .generate(&project_did, &json!(request), None, request.occurred_at)
+        let my_did = self.did_accessor.get_my_did();
+        let my_keyring = self.did_accessor.get_my_keyring();
+
+        let payload = self
+            .didcomm_service
+            .generate(
+                &my_did,
+                &project_did,
+                &my_keyring,
+                &json!(request),
+                None,
+                request.occurred_at,
+            )
             .await
             .context("failed to generate payload")?;
         let payload = serde_json::to_string(&payload).context("failed to serialize")?;
@@ -283,14 +307,24 @@ impl MessageActivityRepository for Studio {
         request: VerifiedMessageActivityRequest,
     ) -> Result<(), MessageActivityHttpError> {
         // TODO: refactoring more simple
-        let service = DIDCommEncryptedService::new(NodeX::new(), DIDVCService::new(NodeX::new()));
         let project_did = {
             let network = crate::network_config();
             let network = network.lock();
             network.get_project_did().expect("project_did is not set")
         };
-        let payload = service
-            .generate(&project_did, &json!(request), None, request.verified_at)
+        let my_did = self.did_accessor.get_my_did();
+        let my_keyring = self.did_accessor.get_my_keyring();
+
+        let payload = self
+            .didcomm_service
+            .generate(
+                &my_did,
+                &project_did,
+                &my_keyring,
+                &json!(request),
+                None,
+                request.verified_at,
+            )
             .await
             .context("failed to generate payload")?;
         let payload = serde_json::to_string(&payload).context("failed to serialize")?;
@@ -358,11 +392,19 @@ impl MetricStoreRepository for Studio {
             })
             .collect::<Vec<MetricsWithTimestampStr>>();
 
-        let vc =
-            DIDVCService::new(NodeX::new()).generate(&json!(metrics_str), chrono::Utc::now())?;
+        let my_did = self.did_accessor.get_my_did();
+        let my_keyring = self.did_accessor.get_my_keyring();
+        let payload = self
+            .vc_service
+            .generate(
+                &my_did,
+                &my_keyring,
+                &json!(metrics_str),
+                chrono::Utc::now(),
+            )
+            .context("failed to generate payload")?;
 
-        let payload = serde_json::to_string(&vc).context("failed to serialize")?;
-
+        let payload = serde_json::to_string(&payload).context("failed to serialize")?;
         let res = self.http_client.post("/v1/metrics", &payload).await?;
 
         let status = res.status();
@@ -386,9 +428,13 @@ impl MetricStoreRepository for Studio {
 #[async_trait::async_trait]
 impl EventStoreRepository for Studio {
     async fn save(&self, request: EventStoreRequest) -> anyhow::Result<()> {
-        let vc = DIDVCService::new(NodeX::new()).generate(&json!(&request), chrono::Utc::now())?;
-
-        let payload = serde_json::to_string(&vc).context("failed to serialize")?;
+        let my_did = self.did_accessor.get_my_did();
+        let my_keyring = self.did_accessor.get_my_keyring();
+        let payload = self
+            .vc_service
+            .generate(&my_did, &my_keyring, &json!(&request), chrono::Utc::now())
+            .context("failed to generate payload")?;
+        let payload = serde_json::to_string(&payload).context("failed to serialize")?;
 
         async fn send(
             studio: &Studio,
@@ -433,9 +479,13 @@ impl EventStoreRepository for Studio {
 #[async_trait::async_trait]
 impl CustomMetricStoreRepository for Studio {
     async fn save(&self, request: CustomMetricStoreRequest) -> anyhow::Result<()> {
-        let vc = DIDVCService::new(NodeX::new()).generate(&json!(&request), chrono::Utc::now())?;
-
-        let payload = serde_json::to_string(&vc).context("failed to serialize")?;
+        let my_did = self.did_accessor.get_my_did();
+        let my_keyring = self.did_accessor.get_my_keyring();
+        let payload = self
+            .vc_service
+            .generate(&my_did, &my_keyring, &json!(&request), chrono::Utc::now())
+            .context("failed to generate payload")?;
+        let payload = serde_json::to_string(&payload).context("failed to serialize")?;
 
         async fn send(
             studio: &Studio,
