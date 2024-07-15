@@ -12,7 +12,6 @@ use nix::{
     sys::signal::{kill, Signal},
     unistd::Pid,
 };
-use repository::metric_repository::MetricsCacheRepository;
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use services::metrics::{MetricsInMemoryCacheService, MetricsWatchService};
 use services::nodex::NodeX;
@@ -23,7 +22,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::{collections::HashMap, fs, sync::Arc};
 use sysinfo::{get_current_pid, System};
 use tokio::sync::mpsc;
-use tokio::sync::Mutex;
 use tokio::sync::Notify;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
@@ -181,13 +179,13 @@ async fn main() -> std::io::Result<()> {
 
     let shutdown_notify = Arc::new(Notify::new());
 
-    let cache_repository = Arc::new(Mutex::new(MetricsInMemoryCacheService::new()));
+    let cache_repository = MetricsInMemoryCacheService::new();
     let collect_task = {
         let mut metric_usecase = MetricUsecase::new(
-            Box::new(Studio::new()),
-            Box::new(MetricsWatchService::new()),
+            Studio::new(),
+            MetricsWatchService::new(),
             app_config(),
-            Arc::clone(&cache_repository),
+            cache_repository.clone(),
             Arc::clone(&shutdown_notify),
         );
         tokio::spawn(async move { metric_usecase.collect_task().await })
@@ -195,10 +193,10 @@ async fn main() -> std::io::Result<()> {
 
     let send_task = {
         let mut metric_usecase = MetricUsecase::new(
-            Box::new(Studio::new()),
-            Box::new(MetricsWatchService::new()),
+            Studio::new(),
+            MetricsWatchService::new(),
             app_config(),
-            Arc::clone(&cache_repository),
+            cache_repository,
             Arc::clone(&shutdown_notify),
         );
         tokio::spawn(async move { metric_usecase.send_task().await })
