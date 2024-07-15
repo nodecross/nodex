@@ -19,6 +19,13 @@ pub struct VerifiedMessageActivityRequest {
     pub to: String,
     pub message_id: Uuid,
     pub verified_at: DateTime<Utc>,
+    pub status: VerifiedStatus,
+}
+
+// TODO: Erase VerifiedStatus
+#[derive(Clone, Debug, Serialize)]
+pub enum VerifiedStatus {
+    Valid,
 }
 
 #[derive(Error, Debug)]

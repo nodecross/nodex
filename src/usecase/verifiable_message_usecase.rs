@@ -142,6 +142,7 @@ where
                 to: my_did,
                 message_id: message.message_id,
                 verified_at: now,
+                status: VerifiedStatus::Valid,
             })
             .await
             .map_err(VerifyVerifiableMessageUseCaseError::MessageActivityHttpError)?;
