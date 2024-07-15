@@ -19,13 +19,6 @@ pub struct VerifiedMessageActivityRequest {
     pub to: String,
     pub message_id: Uuid,
     pub verified_at: DateTime<Utc>,
-    pub status: VerifiedStatus,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub enum VerifiedStatus {
-    Valid,
-    Invalid,
 }
 
 #[derive(Error, Debug)]
@@ -48,14 +41,15 @@ pub enum MessageActivityHttpError {
 
 #[async_trait::async_trait]
 pub trait MessageActivityRepository {
+    type Error: std::error::Error;
     async fn add_create_activity(
         &self,
         request: CreatedMessageActivityRequest,
-    ) -> Result<(), MessageActivityHttpError>;
+    ) -> Result<(), Self::Error>;
     async fn add_verify_activity(
         &self,
         request: VerifiedMessageActivityRequest,
-    ) -> Result<(), MessageActivityHttpError>;
+    ) -> Result<(), Self::Error>;
 }
 
 #[cfg(test)]
@@ -99,6 +93,7 @@ pub mod mocks {
 
     #[async_trait::async_trait]
     impl MessageActivityRepository for MockMessageActivityRepository {
+        type Error = MessageActivityHttpError;
         async fn add_create_activity(
             &self,
             _request: CreatedMessageActivityRequest,

@@ -1,6 +1,7 @@
 use home_config::HomeConfig;
-use nodex_didcomm::keyring::keypair::KeyPairing;
-use nodex_didcomm::keyring::secp256k1::Secp256k1HexKeyPair;
+use nodex_didcomm::keyring::keypair::{
+    HexKeyPair, K256KeyPair, KeyPair, KeyPairing, KeyPairingError, X25519KeyPair,
+};
 use serde::Deserialize;
 use serde::Serialize;
 use std::env;
@@ -14,45 +15,12 @@ use std::{
 use std::{fs::OpenOptions, sync::MutexGuard};
 use thiserror::Error;
 
-pub type KeyPair = nodex_didcomm::keyring::secp256k1::Secp256k1;
-
-trait KeyPairExt {
-    fn to_keypair_config(&self) -> KeyPairConfig;
-}
-
-impl KeyPairExt for KeyPair {
-    fn to_keypair_config(&self) -> KeyPairConfig {
-        let hex = self.to_hex_key_pair();
-        KeyPairConfig {
-            public_key: hex.public_key,
-            secret_key: hex.secret_key,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-struct KeyPairConfig {
-    public_key: String,
-    secret_key: String,
-}
-
-impl KeyPairConfig {
-    fn to_keypair(&self) -> anyhow::Result<KeyPair> {
-        let hex = Secp256k1HexKeyPair {
-            public_key: self.public_key.clone(),
-            secret_key: self.secret_key.clone(),
-        };
-
-        Ok(KeyPair::from_hex_key_pair(&hex)?)
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 struct KeyPairsConfig {
-    sign: Option<KeyPairConfig>,
-    update: Option<KeyPairConfig>,
-    recover: Option<KeyPairConfig>,
-    encrypt: Option<KeyPairConfig>,
+    sign: Option<HexKeyPair>,
+    update: Option<HexKeyPair>,
+    recovery: Option<HexKeyPair>,
+    encrypt: Option<HexKeyPair>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -85,7 +53,7 @@ pub struct ExtensionsConfig {
     pub cipher: Option<CipherExtensionConfig>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(default)]
 pub struct ConfigRoot {
     did: Option<String>,
@@ -103,7 +71,7 @@ impl Default for ConfigRoot {
             key_pairs: KeyPairsConfig {
                 sign: None,
                 update: None,
-                recover: None,
+                recovery: None,
                 encrypt: None,
             },
             extensions: ExtensionsConfig {
@@ -149,18 +117,38 @@ pub fn app_config() -> Box<SingletonAppConfig> {
     }
 }
 
-#[derive(Debug)]
 pub struct AppConfig {
     config: HomeConfig,
     root: ConfigRoot,
 }
 
 #[derive(Error, Debug)]
-pub enum AppConfigError {
+pub enum AppConfigError<E: std::error::Error> {
     #[error("key decode failed")]
-    DecodeFailed(anyhow::Error),
+    DecodeFailed(E),
     #[error("failed to write config file")]
     WriteError(home_config::JsonError),
+}
+
+fn convert_to_key<U, V, T: KeyPair<U, V>>(
+    config: &HexKeyPair,
+) -> Result<T, AppConfigError<T::Error>> {
+    T::from_hex_key_pair(config).map_err(AppConfigError::DecodeFailed)
+}
+
+#[inline]
+fn load_key_pair<U, V, T: KeyPair<U, V>>(kind: &Option<HexKeyPair>) -> Option<T> {
+    if let Some(ref key) = kind {
+        match convert_to_key(key) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                log::error!("{:?}", e);
+                None
+            }
+        }
+    } else {
+        None
+    }
 }
 
 impl AppConfig {
@@ -175,7 +163,7 @@ impl AppConfig {
 
     fn new() -> Self {
         let config = HomeConfig::with_config_dir(AppConfig::APP_NAME, AppConfig::CONFIG_FILE);
-        let config_dir = config.path().parent().expect("unreachable");
+        let config_dir = config.path().parent().unwrap();
 
         if !Path::exists(config.path()) {
             match fs::create_dir_all(config_dir) {
@@ -206,7 +194,7 @@ impl AppConfig {
         AppConfig { root, config }
     }
 
-    pub fn write(&self) -> Result<(), AppConfigError> {
+    pub fn write(&self) -> Result<(), AppConfigError<KeyPairingError>> {
         self.config
             .save_json(&self.root)
             .map_err(AppConfigError::WriteError)
@@ -255,22 +243,8 @@ impl AppConfig {
     }
 
     // NOTE: SIGN
-    pub fn load_sign_key_pair(&self) -> Option<KeyPair> {
-        if let Some(ref key) = self.root.key_pairs.sign {
-            match Self::convert_to_key(key) {
-                Ok(v) => Some(v),
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    None
-                }
-            }
-        } else {
-            None
-        }
-    }
-
-    fn convert_to_key(config: &KeyPairConfig) -> Result<KeyPair, AppConfigError> {
-        config.to_keypair().map_err(AppConfigError::DecodeFailed)
+    pub fn load_sign_key_pair(&self) -> Option<K256KeyPair> {
+        load_key_pair(&self.root.key_pairs.sign)
     }
 
     pub fn load_keyring(&self) -> Option<KeyPairing> {
@@ -286,63 +260,39 @@ impl AppConfig {
         })
     }
 
-    pub fn save_sign_key_pair(&mut self, value: &KeyPair) -> Result<(), AppConfigError> {
-        self.root.key_pairs.sign = Some(value.to_keypair_config());
-        self.write()
+    pub fn save_sign_key_pair(&mut self, value: &K256KeyPair) {
+        self.root.key_pairs.sign = Some(value.to_hex_key_pair());
+        self.write().unwrap();
     }
 
     // NOTE: UPDATE
-    pub fn load_update_key_pair(&self) -> Option<KeyPair> {
-        if let Some(ref key) = self.root.key_pairs.update {
-            match Self::convert_to_key(key) {
-                Ok(v) => Some(v),
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    None
-                }
-            }
-        } else {
-            None
-        }
+    pub fn load_update_key_pair(&self) -> Option<K256KeyPair> {
+        load_key_pair(&self.root.key_pairs.update)
     }
 
-    pub fn save_update_key_pair(&mut self, value: &KeyPair) -> Result<(), AppConfigError> {
-        self.root.key_pairs.update = Some(value.to_keypair_config());
-        self.write()
+    pub fn save_update_key_pair(&mut self, value: &K256KeyPair) {
+        self.root.key_pairs.update = Some(value.to_hex_key_pair());
+        self.write().unwrap();
     }
 
     // NOTE: RECOVER
-    pub fn load_recovery_key_pair(&self) -> Option<KeyPair> {
-        match self.root.key_pairs.recover.clone() {
-            Some(v) => {
-                let keypair = v.to_keypair().expect("failed to decode keypair");
-
-                Some(keypair)
-            }
-            None => None,
-        }
+    pub fn load_recovery_key_pair(&self) -> Option<K256KeyPair> {
+        load_key_pair(&self.root.key_pairs.recovery)
     }
 
-    pub fn save_recover_key_pair(&mut self, value: &KeyPair) -> Result<(), AppConfigError> {
-        self.root.key_pairs.recover = Some(value.to_keypair_config());
-        self.write()
+    pub fn save_recovery_key_pair(&mut self, value: &K256KeyPair) {
+        self.root.key_pairs.recovery = Some(value.to_hex_key_pair());
+        self.write().unwrap();
     }
 
     // NOTE: ENCRYPT
-    pub fn load_encrypt_key_pair(&self) -> Option<KeyPair> {
-        match self.root.key_pairs.encrypt.clone() {
-            Some(v) => {
-                let keypair = v.to_keypair().expect("failed to decode keypair");
-
-                Some(keypair)
-            }
-            None => None,
-        }
+    pub fn load_encrypt_key_pair(&self) -> Option<X25519KeyPair> {
+        load_key_pair(&self.root.key_pairs.encrypt)
     }
 
-    pub fn save_encrypt_key_pair(&mut self, value: &KeyPair) -> Result<(), AppConfigError> {
-        self.root.key_pairs.encrypt = Some(value.to_keypair_config());
-        self.write()
+    pub fn save_encrypt_key_pair(&mut self, value: &X25519KeyPair) {
+        self.root.key_pairs.encrypt = Some(value.to_hex_key_pair());
+        self.write().unwrap();
     }
 
     // NOTE: DID
@@ -435,6 +385,10 @@ impl ServerConfig {
     pub fn studio_http_endpoint(&self) -> String {
         self.studio_http_endpoint.clone()
     }
+}
+
+pub fn server_config() -> ServerConfig {
+    ServerConfig::new()
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

@@ -1,98 +1,71 @@
-use anyhow::Context;
 use chrono::{DateTime, Utc};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{
-    nodex::utils::did_accessor::DidAccessor,
-    repository::message_activity_repository::{
-        CreatedMessageActivityRequest, MessageActivityHttpError, MessageActivityRepository,
-        VerifiedMessageActivityRequest, VerifiedStatus,
-    },
-    services::project_verifier::ProjectVerifier,
-};
 use nodex_didcomm::{
     did::did_repository::DidRepository,
-    didcomm::{
-        encrypted::{
-            DIDCommEncryptedService, DIDCommEncryptedServiceGenerateError,
-            DIDCommEncryptedServiceVerifyError,
-        },
-        types::DIDCommMessage,
-    },
+    didcomm::{encrypted::DidCommEncryptedService, types::DidCommMessage},
     verifiable_credentials::types::VerifiableCredentials,
 };
 
-pub struct DidcommMessageUseCase<V, R, D, A>
+use crate::{
+    nodex::utils::did_accessor::DidAccessor,
+    repository::message_activity_repository::{
+        CreatedMessageActivityRequest, MessageActivityRepository, VerifiedMessageActivityRequest,
+    },
+};
+
+pub struct DidcommMessageUseCase<R, D, A>
 where
-    V: ProjectVerifier,
     R: MessageActivityRepository,
-    D: DidRepository,
+    D: DidRepository + DidCommEncryptedService,
     A: DidAccessor,
 {
-    project_verifier: V,
     message_activity_repository: R,
-    didcomm_encrypted_service: DIDCommEncryptedService<D>,
+    did_repository: D,
     did_accessor: A,
 }
 
 #[derive(Debug, Error)]
-pub enum GenerateDidcommMessageUseCaseError {
-    #[error("target did not found : {0}")]
-    TargetDidNotFound(String),
-    #[error("bad request: {0}")]
-    BadRequest(String),
-    #[error("unauthorized: {0}")]
-    Unauthorized(String),
-    #[error("forbidden: {0}")]
-    Forbidden(String),
-    #[error("not found: {0}")]
-    NotFound(String),
-    #[error("conflict: {0}")]
-    Conflict(String),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
+pub enum GenerateDidcommMessageUseCaseError<E, F>
+where
+    E: std::error::Error,
+    F: std::error::Error,
+{
+    #[error("encrypted service error: {0}")]
+    DidCommEncryptedServiceGenerateError(E),
+    #[error("message activity error: {0}")]
+    MessageActivityHttpError(F),
+    #[error("failed serialize/deserialize : {0}")]
+    JsonError(#[from] serde_json::Error),
 }
 
 #[derive(Debug, Error)]
-pub enum VerifyDidcommMessageUseCaseError {
-    #[error("verification failed")]
-    VerificationFailed,
-    #[error("target did not found : {0}")]
-    TargetDidNotFound(String),
-    #[error("bad request: {0}")]
-    BadRequest(String),
-    #[error("unauthorized: {0}")]
-    Unauthorized(String),
-    #[error("forbidden: {0}")]
-    Forbidden(String),
-    #[error("not found: {0}")]
-    NotFound(String),
-    #[error("conflict: {0}")]
-    Conflict(String),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
+pub enum VerifyDidcommMessageUseCaseError<E, F>
+where
+    E: std::error::Error,
+    F: std::error::Error,
+{
+    #[error("encrypted service error: {0}")]
+    DidCommEncryptedServiceVerifyError(E),
+    #[error("message activity error: {0}")]
+    MessageActivityHttpError(F),
+    #[error("failed serialize/deserialize : {0}")]
+    JsonError(#[from] serde_json::Error),
 }
 
-impl<V, R, D, A> DidcommMessageUseCase<V, R, D, A>
+impl<R, D, A> DidcommMessageUseCase<R, D, A>
 where
-    V: ProjectVerifier,
     R: MessageActivityRepository,
-    D: DidRepository,
+    D: DidRepository + DidCommEncryptedService,
     A: DidAccessor,
 {
-    pub fn new(
-        project_verifier: V,
-        message_activity_repository: R,
-        didcomm_encrypted_service: DIDCommEncryptedService<D>,
-        did_accessor: A,
-    ) -> Self {
+    pub fn new(message_activity_repository: R, did_repository: D, did_accessor: A) -> Self {
         DidcommMessageUseCase {
-            project_verifier,
             message_activity_repository,
-            didcomm_encrypted_service,
+            did_repository,
             did_accessor,
         }
     }
@@ -103,36 +76,30 @@ where
         message: String,
         operation_tag: String,
         now: DateTime<Utc>,
-    ) -> Result<String, GenerateDidcommMessageUseCaseError> {
+    ) -> Result<String, GenerateDidcommMessageUseCaseError<D::GenerateError, R::Error>> {
         let message_id = Uuid::new_v4();
 
         let message = EncodedMessage {
             message_id,
             payload: message,
             created_at: now.to_rfc3339(),
-            project_hmac: self.project_verifier.create_project_hmac()?,
         };
-        let message = serde_json::to_value(message).context("failed to convert to value")?;
+        let message = serde_json::to_value(message)?;
         let my_did = self.did_accessor.get_my_did();
-        let didcomm_message = self
-            .didcomm_encrypted_service
-            .generate(
-                &self.did_accessor.get_my_did(),
-                &destination_did,
-                &self.did_accessor.get_my_keyring(),
-                &message,
-                None,
-                now,
-            )
-            .await
-            .map_err(|e| match e {
-                DIDCommEncryptedServiceGenerateError::DIDNotFound(d) => {
-                    GenerateDidcommMessageUseCaseError::TargetDidNotFound(d)
-                }
-                _ => GenerateDidcommMessageUseCaseError::Other(e.into()),
-            })?;
+        let didcomm_message = DidCommEncryptedService::generate(
+            &self.did_repository,
+            &my_did,
+            &destination_did,
+            &self.did_accessor.get_my_keyring(),
+            &message,
+            None,
+            now,
+            "",
+        )
+        .await
+        .map_err(GenerateDidcommMessageUseCaseError::DidCommEncryptedServiceGenerateError)?;
 
-        let result = serde_json::to_string(&didcomm_message).context("failed to serialize")?;
+        let result = serde_json::to_string(&didcomm_message)?;
 
         self.message_activity_repository
             .add_create_activity(CreatedMessageActivityRequest {
@@ -144,27 +111,7 @@ where
                 occurred_at: now,
             })
             .await
-            .map_err(|e| match e {
-                MessageActivityHttpError::BadRequest(message) => {
-                    GenerateDidcommMessageUseCaseError::BadRequest(message)
-                }
-                MessageActivityHttpError::Unauthorized(message) => {
-                    GenerateDidcommMessageUseCaseError::Unauthorized(message)
-                }
-                MessageActivityHttpError::Forbidden(message) => {
-                    GenerateDidcommMessageUseCaseError::Forbidden(message)
-                }
-                MessageActivityHttpError::NotFound(message) => {
-                    GenerateDidcommMessageUseCaseError::NotFound(message)
-                }
-                MessageActivityHttpError::Conflict(message) => {
-                    GenerateDidcommMessageUseCaseError::Conflict(message)
-                }
-                _ => GenerateDidcommMessageUseCaseError::Other(e.into()),
-            })?;
-
-        // Discard the unused result
-        let _ = result;
+            .map_err(GenerateDidcommMessageUseCaseError::MessageActivityHttpError)?;
 
         Ok(result)
     }
@@ -173,96 +120,34 @@ where
         &self,
         message: &str,
         now: DateTime<Utc>,
-    ) -> Result<VerifiableCredentials, VerifyDidcommMessageUseCaseError> {
-        let message =
-            serde_json::from_str::<DIDCommMessage>(message).context("failed to decode str")?;
-        let verified = self
-            .didcomm_encrypted_service
-            .verify(&self.did_accessor.get_my_keyring(), &message)
-            .await
-            .map_err(|e| {
-                log::debug!("{}", &e);
-                match e {
-                    DIDCommEncryptedServiceVerifyError::DIDNotFound(d) => {
-                        VerifyDidcommMessageUseCaseError::TargetDidNotFound(d)
-                    }
-                    _ => VerifyDidcommMessageUseCaseError::Other(e.into()),
-                }
-            })?;
-        // metadata field is not used
+    ) -> Result<VerifiableCredentials, VerifyDidcommMessageUseCaseError<D::VerifyError, R::Error>>
+    {
+        let message = serde_json::from_str::<DidCommMessage>(message)?;
+        let verified = DidCommEncryptedService::verify(
+            &self.did_repository,
+            &self.did_accessor.get_my_keyring(),
+            &message,
+        )
+        .await
+        .map_err(VerifyDidcommMessageUseCaseError::DidCommEncryptedServiceVerifyError)?;
         let verified = verified.message;
-
         let from_did = verified.issuer.id.clone();
         // check in verified. maybe exists?
         let my_did = self.did_accessor.get_my_did();
-
         let container = verified.clone().credential_subject.container;
+        let message = serde_json::from_value::<EncodedMessage>(container)?;
 
-        let message = serde_json::from_value::<EncodedMessage>(container)
-            .context("failed to deserialize to EncodedMessage")?;
+        self.message_activity_repository
+            .add_verify_activity(VerifiedMessageActivityRequest {
+                from: from_did,
+                to: my_did,
+                message_id: message.message_id,
+                verified_at: now,
+            })
+            .await
+            .map_err(VerifyDidcommMessageUseCaseError::MessageActivityHttpError)?;
 
-        if self
-            .project_verifier
-            .verify_project_hmac(&message.project_hmac)?
-        {
-            self.message_activity_repository
-                .add_verify_activity(VerifiedMessageActivityRequest {
-                    from: from_did,
-                    to: my_did,
-                    message_id: message.message_id,
-                    verified_at: now,
-                    status: VerifiedStatus::Valid,
-                })
-                .await
-                .map_err(|e| match e {
-                    MessageActivityHttpError::BadRequest(message) => {
-                        VerifyDidcommMessageUseCaseError::BadRequest(message)
-                    }
-                    MessageActivityHttpError::Unauthorized(message) => {
-                        VerifyDidcommMessageUseCaseError::Unauthorized(message)
-                    }
-                    MessageActivityHttpError::Forbidden(message) => {
-                        VerifyDidcommMessageUseCaseError::Forbidden(message)
-                    }
-                    MessageActivityHttpError::NotFound(message) => {
-                        VerifyDidcommMessageUseCaseError::NotFound(message)
-                    }
-                    MessageActivityHttpError::Conflict(message) => {
-                        VerifyDidcommMessageUseCaseError::Conflict(message)
-                    }
-                    _ => VerifyDidcommMessageUseCaseError::Other(e.into()),
-                })?;
-            Ok(verified)
-        } else {
-            self.message_activity_repository
-                .add_verify_activity(VerifiedMessageActivityRequest {
-                    from: from_did,
-                    to: my_did,
-                    message_id: message.message_id,
-                    verified_at: now,
-                    status: VerifiedStatus::Invalid,
-                })
-                .await
-                .map_err(|e| match e {
-                    MessageActivityHttpError::BadRequest(message) => {
-                        VerifyDidcommMessageUseCaseError::BadRequest(message)
-                    }
-                    MessageActivityHttpError::Unauthorized(message) => {
-                        VerifyDidcommMessageUseCaseError::Unauthorized(message)
-                    }
-                    MessageActivityHttpError::Forbidden(message) => {
-                        VerifyDidcommMessageUseCaseError::Forbidden(message)
-                    }
-                    MessageActivityHttpError::NotFound(message) => {
-                        VerifyDidcommMessageUseCaseError::NotFound(message)
-                    }
-                    MessageActivityHttpError::Conflict(message) => {
-                        VerifyDidcommMessageUseCaseError::Conflict(message)
-                    }
-                    _ => VerifyDidcommMessageUseCaseError::Other(e.into()),
-                })?;
-            Err(VerifyDidcommMessageUseCaseError::VerificationFailed)
-        }
+        Ok(verified)
     }
 }
 
@@ -271,34 +156,30 @@ struct EncodedMessage {
     pub message_id: Uuid,
     pub payload: String,
     pub created_at: String,
-    pub project_hmac: String,
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::nodex::utils::did_accessor::mocks::MockDIDAccessor;
+    use serde_json;
+
+    use nodex_didcomm::didcomm::encrypted::DidCommEncryptedServiceGenerateError;
+    use nodex_didcomm::didcomm::encrypted::DidCommEncryptedServiceVerifyError;
+
+    use crate::nodex::utils::did_accessor::mocks::MockDidAccessor;
     use crate::repository::did_repository::mocks::MockDidRepository;
     use crate::repository::message_activity_repository::mocks::MockMessageActivityRepository;
-    use crate::services::project_verifier::mocks::MockProjectVerifier;
-
-    use crate::usecase::didcomm_message_usecase::DidcommMessageUseCase;
     use crate::usecase::test_util::TestPresets;
-    use nodex_didcomm::didcomm::encrypted::DIDCommEncryptedService;
 
-    use serde_json;
+    use super::*;
 
     #[tokio::test]
     async fn test_create_and_verify() {
         let presets = TestPresets::default();
-
-        let service = DIDCommEncryptedService::new(presets.create_mock_did_repository(), None);
-
+        let repo = presets.create_mock_did_repository();
         let usecase = DidcommMessageUseCase::new(
-            MockProjectVerifier::create_success(),
             MockMessageActivityRepository::create_success(),
-            service.clone(),
-            MockDIDAccessor::new(presets.from_did, presets.from_keyring),
+            repo.clone(),
+            MockDidAccessor::new(presets.from_did, presets.from_keyring),
         );
 
         let message = "Hello".to_string();
@@ -315,10 +196,9 @@ mod tests {
             .unwrap();
 
         let usecase = DidcommMessageUseCase::new(
-            MockProjectVerifier::verify_success(),
             MockMessageActivityRepository::verify_success(),
-            service,
-            MockDIDAccessor::new(presets.to_did, presets.to_keyring),
+            repo,
+            MockDidAccessor::new(presets.to_did, presets.to_keyring),
         );
 
         let verified = usecase.verify(&generated, Utc::now()).await.unwrap();
@@ -329,10 +209,7 @@ mod tests {
     }
 
     mod generate_failed {
-        use crate::{
-            nodex::utils::did_accessor::mocks::MockDIDAccessor,
-            services::project_verifier::mocks::MockProjectVerifier,
-        };
+        use crate::nodex::utils::did_accessor::mocks::MockDidAccessor;
 
         use super::*;
 
@@ -341,10 +218,9 @@ mod tests {
             let presets = TestPresets::default();
 
             let usecase = DidcommMessageUseCase::new(
-                MockProjectVerifier::create_success(),
                 MockMessageActivityRepository::create_success(),
-                DIDCommEncryptedService::new(MockDidRepository::empty(), None),
-                MockDIDAccessor::new(presets.from_did, presets.from_keyring),
+                MockDidRepository::empty(),
+                MockDidAccessor::new(presets.from_did, presets.from_keyring),
             );
 
             let message = "Hello".to_string();
@@ -354,31 +230,10 @@ mod tests {
                 .generate(presets.to_did.clone(), message, "test".to_string(), now)
                 .await;
 
-            if let Err(GenerateDidcommMessageUseCaseError::TargetDidNotFound(_)) = generated {
-            } else {
-                panic!("unexpected result: {:?}", generated);
-            }
-        }
-
-        #[tokio::test]
-        async fn test_generate_create_project_hmac_failed() {
-            let presets = TestPresets::default();
-
-            let usecase = DidcommMessageUseCase::new(
-                MockProjectVerifier::create_failed(),
-                MockMessageActivityRepository::create_success(),
-                DIDCommEncryptedService::new(presets.create_mock_did_repository(), None),
-                MockDIDAccessor::new(presets.from_did, presets.from_keyring),
-            );
-
-            let message = "Hello".to_string();
-
-            let now = Utc::now();
-            let generated = usecase
-                .generate(presets.to_did.clone(), message, "test".to_string(), now)
-                .await;
-
-            if let Err(GenerateDidcommMessageUseCaseError::Other(_)) = generated {
+            if let Err(GenerateDidcommMessageUseCaseError::DidCommEncryptedServiceGenerateError(
+                DidCommEncryptedServiceGenerateError::DidDocNotFound(_),
+            )) = generated
+            {
             } else {
                 panic!("unexpected result: {:?}", generated);
             }
@@ -389,10 +244,9 @@ mod tests {
             let presets = TestPresets::default();
 
             let usecase = DidcommMessageUseCase::new(
-                MockProjectVerifier::create_success(),
                 MockMessageActivityRepository::create_fail(),
-                DIDCommEncryptedService::new(presets.create_mock_did_repository(), None),
-                MockDIDAccessor::new(presets.from_did, presets.from_keyring),
+                presets.create_mock_did_repository(),
+                MockDidAccessor::new(presets.from_did, presets.from_keyring),
             );
 
             let message = "Hello".to_string();
@@ -402,7 +256,8 @@ mod tests {
                 .generate(presets.to_did.clone(), message, "test".to_string(), now)
                 .await;
 
-            if let Err(GenerateDidcommMessageUseCaseError::Other(_)) = generated {
+            if let Err(GenerateDidcommMessageUseCaseError::MessageActivityHttpError(_)) = generated
+            {
             } else {
                 panic!("unexpected result: {:?}", generated);
             }
@@ -411,17 +266,13 @@ mod tests {
 
     mod verify_failed {
         use super::*;
-        use crate::{
-            nodex::utils::did_accessor::mocks::MockDIDAccessor,
-            services::project_verifier::mocks::MockProjectVerifier,
-        };
+        use crate::nodex::utils::did_accessor::mocks::MockDidAccessor;
 
         async fn create_test_message_for_verify_test(presets: TestPresets) -> String {
             let usecase = DidcommMessageUseCase::new(
-                MockProjectVerifier::create_success(),
                 MockMessageActivityRepository::create_success(),
-                DIDCommEncryptedService::new(presets.create_mock_did_repository(), None),
-                MockDIDAccessor::new(presets.from_did, presets.from_keyring),
+                presets.create_mock_did_repository(),
+                MockDidAccessor::new(presets.from_did, presets.from_keyring),
             );
 
             let message = "Hello".to_string();
@@ -445,15 +296,17 @@ mod tests {
             let generated = create_test_message_for_verify_test(presets.clone()).await;
 
             let usecase = DidcommMessageUseCase::new(
-                MockProjectVerifier::verify_success(),
                 MockMessageActivityRepository::verify_success(),
-                DIDCommEncryptedService::new(MockDidRepository::empty(), None),
-                MockDIDAccessor::new(presets.to_did, presets.to_keyring),
+                MockDidRepository::empty(),
+                MockDidAccessor::new(presets.to_did, presets.to_keyring),
             );
 
             let verified = usecase.verify(&generated, Utc::now()).await;
 
-            if let Err(VerifyDidcommMessageUseCaseError::TargetDidNotFound(_)) = verified {
+            if let Err(VerifyDidcommMessageUseCaseError::DidCommEncryptedServiceVerifyError(
+                DidCommEncryptedServiceVerifyError::DidDocNotFound(_),
+            )) = verified
+            {
             } else {
                 panic!("unexpected result: {:#?}", verified);
             }
@@ -465,15 +318,14 @@ mod tests {
             let generated = create_test_message_for_verify_test(presets.clone()).await;
 
             let usecase = DidcommMessageUseCase::new(
-                MockProjectVerifier::verify_success(),
                 MockMessageActivityRepository::verify_fail(),
-                DIDCommEncryptedService::new(presets.create_mock_did_repository(), None),
-                MockDIDAccessor::new(presets.from_did, presets.from_keyring),
+                presets.create_mock_did_repository(),
+                MockDidAccessor::new(presets.to_did, presets.to_keyring),
             );
 
             let verified = usecase.verify(&generated, Utc::now()).await;
 
-            if let Err(VerifyDidcommMessageUseCaseError::Other(_)) = verified {
+            if let Err(VerifyDidcommMessageUseCaseError::MessageActivityHttpError(_)) = verified {
             } else {
                 panic!("unexpected result: {:?}", verified);
             }

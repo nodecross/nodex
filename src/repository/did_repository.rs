@@ -1,13 +1,14 @@
 #[cfg(test)]
 pub mod mocks {
-    use std::collections::BTreeMap;
+    use std::{collections::BTreeMap, convert::TryFrom};
 
     use nodex_didcomm::{
         did::{
             did_repository::{CreateIdentifierError, DidRepository, FindIdentifierError},
-            sidetree::payload::{DIDDocument, DIDResolutionResponse, DidPublicKey, MethodMetadata},
+            sidetree::payload::{DidDocument, DidPublicKey, DidResolutionResponse, MethodMetadata},
         },
-        keyring::keypair::KeyPairing,
+        keyring::jwk::Jwk,
+        keyring::keypair::{KeyPair, KeyPairing},
     };
 
     #[derive(Clone)]
@@ -29,32 +30,49 @@ pub mod mocks {
         }
     }
 
+    #[derive(Debug, thiserror::Error)]
+    pub enum DummyError {}
+
     #[async_trait::async_trait]
     impl DidRepository for MockDidRepository {
+        type CreateIdentifierError = CreateIdentifierError<DummyError>;
+        type FindIdentifierError = FindIdentifierError<DummyError>;
         async fn create_identifier(
             &self,
             _keyring: KeyPairing,
-        ) -> Result<DIDResolutionResponse, CreateIdentifierError> {
+        ) -> Result<DidResolutionResponse, Self::CreateIdentifierError> {
             unimplemented!()
         }
         async fn find_identifier(
             &self,
             did: &str,
-        ) -> Result<Option<DIDResolutionResponse>, FindIdentifierError> {
+        ) -> Result<Option<DidResolutionResponse>, Self::FindIdentifierError> {
             if let Some(keyrings) = self.map.get(did) {
                 let public_keys = keyrings
                     .iter()
-                    .map(|keyring| DidPublicKey {
-                        id: did.to_string() + "#signingKey",
-                        controller: String::new(),
-                        r#type: "EcdsaSecp256k1VerificationKey2019".to_string(),
-                        public_key_jwk: keyring.sign.to_jwk(false).unwrap(),
+                    .flat_map(|keyring| {
+                        vec![
+                            DidPublicKey {
+                                id: "signingKey".to_string(),
+                                controller: String::new(),
+                                r#type: "EcdsaSecp256k1VerificationKey2019".to_string(),
+                                public_key_jwk: Jwk::try_from(keyring.sign.get_public_key())
+                                    .unwrap(),
+                            },
+                            DidPublicKey {
+                                id: "encryptionKey".to_string(),
+                                controller: String::new(),
+                                r#type: "X25519KeyAgreementKey2019".to_string(),
+                                public_key_jwk: Jwk::try_from(keyring.encrypt.get_public_key())
+                                    .unwrap(),
+                            },
+                        ]
                     })
                     .collect();
 
-                let response = DIDResolutionResponse {
+                let response = DidResolutionResponse {
                     context: "https://www.w3.org/ns/did-resolution/v1".to_string(),
-                    did_document: DIDDocument {
+                    did_document: DidDocument {
                         id: did.to_string(),
                         public_key: Some(public_keys),
                         service: None,
@@ -78,19 +96,21 @@ pub mod mocks {
 
     #[async_trait::async_trait]
     impl DidRepository for NoPublicKeyDidRepository {
+        type CreateIdentifierError = CreateIdentifierError<DummyError>;
+        type FindIdentifierError = FindIdentifierError<DummyError>;
         async fn create_identifier(
             &self,
             _keyring: KeyPairing,
-        ) -> Result<DIDResolutionResponse, CreateIdentifierError> {
+        ) -> Result<DidResolutionResponse, Self::CreateIdentifierError> {
             unimplemented!()
         }
         async fn find_identifier(
             &self,
             did: &str,
-        ) -> Result<Option<DIDResolutionResponse>, FindIdentifierError> {
-            Ok(Some(DIDResolutionResponse {
+        ) -> Result<Option<DidResolutionResponse>, Self::FindIdentifierError> {
+            Ok(Some(DidResolutionResponse {
                 context: "https://www.w3.org/ns/did-resolution/v1".to_string(),
-                did_document: DIDDocument {
+                did_document: DidDocument {
                     id: did.to_string(),
                     public_key: None,
                     service: None,
@@ -110,19 +130,21 @@ pub mod mocks {
 
     #[async_trait::async_trait]
     impl DidRepository for IllegalPublicKeyLengthDidRepository {
+        type CreateIdentifierError = CreateIdentifierError<DummyError>;
+        type FindIdentifierError = FindIdentifierError<DummyError>;
         async fn create_identifier(
             &self,
             _keyring: KeyPairing,
-        ) -> Result<DIDResolutionResponse, CreateIdentifierError> {
+        ) -> Result<DidResolutionResponse, Self::CreateIdentifierError> {
             unimplemented!()
         }
         async fn find_identifier(
             &self,
             did: &str,
-        ) -> Result<Option<DIDResolutionResponse>, FindIdentifierError> {
-            Ok(Some(DIDResolutionResponse {
+        ) -> Result<Option<DidResolutionResponse>, Self::FindIdentifierError> {
+            Ok(Some(DidResolutionResponse {
                 context: "https://www.w3.org/ns/did-resolution/v1".to_string(),
-                did_document: DIDDocument {
+                did_document: DidDocument {
                     id: did.to_string(),
                     public_key: Some(vec![]),
                     service: None,

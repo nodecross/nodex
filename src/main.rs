@@ -1,6 +1,6 @@
 extern crate env_logger;
 
-use crate::{config::ServerConfig, controllers::public::nodex_receive};
+use crate::controllers::public::nodex_receive;
 use anyhow::anyhow;
 use clap::{Parser, Subcommand};
 use dotenvy::dotenv;
@@ -47,11 +47,8 @@ mod services;
 mod usecase;
 
 pub use crate::config::app_config;
+pub use crate::config::server_config;
 pub use crate::network::network_config;
-
-pub fn server_config() -> ServerConfig {
-    ServerConfig::new()
-}
 
 shadow!(build);
 
