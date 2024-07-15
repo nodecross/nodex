@@ -1,4 +1,5 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use crate::repository::metric_repository::{
     Metric, MetricType, MetricsCacheRepository, MetricsWatchRepository, MetricsWithTimestamp,
@@ -11,8 +12,9 @@ pub struct MetricsWatchService {
     networks: Networks,
 }
 
+#[derive(Clone)]
 pub struct MetricsInMemoryCacheService {
-    cache: std::sync::Arc<std::sync::Mutex<Vec<MetricsWithTimestamp>>>,
+    cache: Arc<Mutex<Vec<MetricsWithTimestamp>>>,
 }
 
 impl MetricsWatchService {
@@ -110,25 +112,28 @@ impl MetricsWatchRepository for MetricsWatchService {
     }
 }
 
-impl MetricsCacheRepository for MetricsInMemoryCacheService {
-    fn new() -> Self {
+impl MetricsInMemoryCacheService {
+    pub fn new() -> Self {
         Self {
             cache: Arc::new(Mutex::new(Vec::new())),
         }
     }
+}
 
-    fn push(&mut self, timestamp: DateTime<Utc>, metrics: Vec<Metric>) {
-        let mut cache = self.cache.lock().unwrap();
+#[async_trait::async_trait]
+impl MetricsCacheRepository for MetricsInMemoryCacheService {
+    async fn push(&mut self, timestamp: DateTime<Utc>, metrics: Vec<Metric>) {
+        let mut cache = self.cache.lock().await;
         cache.push(MetricsWithTimestamp { timestamp, metrics });
     }
 
-    fn clear(&mut self) {
-        let mut cache = self.cache.lock().unwrap();
+    async fn clear(&mut self) {
+        let mut cache = self.cache.lock().await;
         cache.clear();
     }
 
-    fn get(&mut self) -> Vec<MetricsWithTimestamp> {
-        let cache = self.cache.lock().unwrap();
+    async fn get(&mut self) -> Vec<MetricsWithTimestamp> {
+        let cache = self.cache.lock().await;
         cache.clone()
     }
 }

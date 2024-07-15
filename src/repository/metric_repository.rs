@@ -18,11 +18,11 @@ pub trait MetricsWatchRepository {
     fn watch_metrics(&mut self) -> Vec<Metric>;
 }
 
+#[async_trait::async_trait]
 pub trait MetricsCacheRepository {
-    fn new() -> Self;
-    fn push(&mut self, timestamp: DateTime<Utc>, metrics: Vec<Metric>);
-    fn clear(&mut self);
-    fn get(&mut self) -> Vec<MetricsWithTimestamp>;
+    async fn push(&mut self, timestamp: DateTime<Utc>, metrics: Vec<Metric>);
+    async fn clear(&mut self);
+    async fn get(&mut self) -> Vec<MetricsWithTimestamp>;
 }
 
 #[async_trait::async_trait]
