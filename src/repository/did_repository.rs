@@ -53,14 +53,14 @@ pub mod mocks {
                     .flat_map(|keyring| {
                         vec![
                             DidPublicKey {
-                                id: "signingKey".to_string(),
+                                id: "#signingKey".to_string(),
                                 controller: String::new(),
                                 r#type: "EcdsaSecp256k1VerificationKey2019".to_string(),
                                 public_key_jwk: Jwk::try_from(keyring.sign.get_public_key())
                                     .unwrap(),
                             },
                             DidPublicKey {
-                                id: "encryptionKey".to_string(),
+                                id: "#encryptionKey".to_string(),
                                 controller: String::new(),
                                 r#type: "X25519KeyAgreementKey2019".to_string(),
                                 public_key_jwk: Jwk::try_from(keyring.encrypt.get_public_key())
