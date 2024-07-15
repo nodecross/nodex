@@ -14,6 +14,7 @@ use crate::{
     nodex::utils::did_accessor::DidAccessor,
     repository::message_activity_repository::{
         CreatedMessageActivityRequest, MessageActivityRepository, VerifiedMessageActivityRequest,
+        VerifiedStatus,
     },
 };
 
@@ -143,6 +144,7 @@ where
                 to: my_did,
                 message_id: message.message_id,
                 verified_at: now,
+                status: VerifiedStatus::Valid,
             })
             .await
             .map_err(VerifyDidcommMessageUseCaseError::MessageActivityHttpError)?;
