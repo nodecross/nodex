@@ -78,7 +78,6 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
     }
 
     pub fn save(&mut self, did: &str) {
-        let mut config = self.config.lock();
         self.secure_keystore
             .write(&SecureKeyStoreKey::Sign(&self.sign));
         self.secure_keystore
@@ -87,9 +86,11 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
             .write(&SecureKeyStoreKey::Recovery(&self.recovery));
         self.secure_keystore
             .write(&SecureKeyStoreKey::Encrypt(&self.encrypt));
-
-        config.save_did(did);
-        config.save_is_initialized(true);
+        {
+            let mut config = self.config.lock();
+            config.save_did(did);
+            config.save_is_initialized(true);
+        }
     }
 
     pub fn get_identifier(&self) -> Result<String, KeyPairingError> {
