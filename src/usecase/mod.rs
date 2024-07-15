@@ -7,9 +7,11 @@ pub mod verifiable_message_usecase;
 
 #[cfg(test)]
 mod test_util {
-    use nodex_didcomm::keyring::{extension::trng::OSRandomNumberGenerator, keypair::KeyPairing};
+    use nodex_didcomm::keyring::keypair::KeyPairing;
 
     use crate::repository::did_repository::mocks::MockDidRepository;
+
+    use rand_core::OsRng;
 
     #[derive(Clone)]
     pub struct TestPresets {
@@ -21,13 +23,11 @@ mod test_util {
 
     impl Default for TestPresets {
         fn default() -> Self {
-            let trng = OSRandomNumberGenerator::default();
-
             TestPresets {
                 from_did: "did:example:from".to_string(),
-                from_keyring: KeyPairing::create_keyring(&trng).unwrap(),
+                from_keyring: KeyPairing::create_keyring(&mut OsRng),
                 to_did: "did:example:to".to_string(),
-                to_keyring: KeyPairing::create_keyring(&trng).unwrap(),
+                to_keyring: KeyPairing::create_keyring(&mut OsRng),
             }
         }
     }

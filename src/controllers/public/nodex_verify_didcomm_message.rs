@@ -2,13 +2,17 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::nodex::utils::did_accessor::DIDAccessorImpl;
-use crate::services::{nodex::NodeX, project_verifier::ProjectVerifierImplOnNetworkConfig};
+use nodex_didcomm::didcomm::encrypted::DidCommEncryptedServiceVerifyError as SE;
+
+use crate::nodex::utils::did_accessor::DidAccessorImpl;
 use crate::{
     services::studio::Studio,
-    usecase::didcomm_message_usecase::{DidcommMessageUseCase, VerifyDidcommMessageUseCaseError},
+    usecase::didcomm_message_usecase::{
+        DidcommMessageUseCase, VerifyDidcommMessageUseCaseError as UE,
+    },
 };
-use nodex_didcomm::didcomm::encrypted::DIDCommEncryptedService;
+
+use super::utils;
 
 // NOTE: POST /verify-verifiable-message
 #[derive(Deserialize, Serialize)]
@@ -22,47 +26,28 @@ pub async fn handler(
 ) -> actix_web::Result<HttpResponse> {
     let now = Utc::now();
 
-    let usecase = DidcommMessageUseCase::new(
-        ProjectVerifierImplOnNetworkConfig::new(),
-        Studio::new(),
-        DIDCommEncryptedService::new(NodeX::new(), None),
-        DIDAccessorImpl {},
-    );
+    let usecase =
+        DidcommMessageUseCase::new(Studio::new(), utils::did_repository(), DidAccessorImpl {});
 
     match usecase.verify(&json.message, now).await {
         Ok(v) => Ok(HttpResponse::Ok().json(v)),
         Err(e) => match e {
-            VerifyDidcommMessageUseCaseError::VerificationFailed => {
+            UE::DidCommEncryptedServiceVerifyError(SE::VCServiceError(e)) => {
+                log::warn!("verify error: {}", e);
                 Ok(HttpResponse::Unauthorized().finish())
             }
-            VerifyDidcommMessageUseCaseError::TargetDidNotFound(target) => {
+            UE::DidCommEncryptedServiceVerifyError(SE::DidDocNotFound(target)) => {
                 log::warn!("Target DID not found. did = {}", target);
                 Ok(HttpResponse::NotFound().finish())
             }
-            VerifyDidcommMessageUseCaseError::BadRequest(message) => {
-                log::warn!("Bad Request: {}", message);
-                Ok(HttpResponse::BadRequest().body(message))
-            }
-            VerifyDidcommMessageUseCaseError::Unauthorized(message) => {
-                log::warn!("Unauthorized: {}", message);
-                Ok(HttpResponse::Unauthorized().body(message))
-            }
-            VerifyDidcommMessageUseCaseError::Forbidden(message) => {
-                log::warn!("Forbidden: {}", message);
-                Ok(HttpResponse::Forbidden().body(message))
-            }
-            VerifyDidcommMessageUseCaseError::NotFound(message) => {
-                log::warn!("Not Found: {}", message);
-                Ok(HttpResponse::NotFound().body(message))
-            }
-            VerifyDidcommMessageUseCaseError::Conflict(message) => {
-                log::warn!("Conflict: {}", message);
-                Ok(HttpResponse::Conflict().body(message))
-            }
-            VerifyDidcommMessageUseCaseError::Other(e) => {
-                log::error!("{:?}", e);
-                Ok(HttpResponse::InternalServerError().finish())
-            }
+            UE::MessageActivityHttpError(e) => Ok(utils::handle_status(e)),
+            UE::JsonError(_) => todo!(),
+            UE::DidCommEncryptedServiceVerifyError(SE::SidetreeFindRequestFailed(_))
+            | UE::DidCommEncryptedServiceVerifyError(SE::DidPublicKeyNotFound(_))
+            | UE::DidCommEncryptedServiceVerifyError(SE::DecryptFailed(_)) => todo!(),
+            UE::DidCommEncryptedServiceVerifyError(SE::MetadataBodyNotFound(_))
+            | UE::DidCommEncryptedServiceVerifyError(SE::JsonError(_))
+            | UE::DidCommEncryptedServiceVerifyError(SE::FindSenderError(_)) => todo!(),
         },
     }
 }

@@ -1,25 +1,23 @@
 use crate::{
-    app_config,
     config::SingletonAppConfig,
-    nodex::extension::secure_keystore::{SecureKeyStore, SecureKeyStoreError, SecureKeyStoreType},
+    nodex::extension::secure_keystore::{SecureKeyStore, SecureKeyStoreKey},
 };
-use nodex_didcomm::keyring::{extension::trng::OSRandomNumberGenerator, secp256k1::Secp256k1};
+use nodex_didcomm::keyring::keypair::{K256KeyPair, X25519KeyPair};
+use rand_core::OsRng;
 
 use thiserror::Error;
 
-pub struct KeyPairingWithConfig {
-    sign: Secp256k1,
-    update: Secp256k1,
-    recovery: Secp256k1,
-    encrypt: Secp256k1,
+pub struct KeyPairingWithConfig<S: SecureKeyStore> {
+    sign: K256KeyPair,
+    update: K256KeyPair,
+    recovery: K256KeyPair,
+    encrypt: X25519KeyPair,
     config: Box<SingletonAppConfig>,
-    secure_keystore: SecureKeyStore,
+    secure_keystore: S,
 }
 
 #[derive(Error, Debug)]
 pub enum KeyPairingError {
-    #[error("secure keystore error")]
-    SecureKeyStoreError(#[from] SecureKeyStoreError),
     #[error("create keyring failed")]
     CreateKeyringFailed(#[from] nodex_didcomm::keyring::keypair::KeyPairingError),
     #[error("key not found")]
@@ -28,26 +26,23 @@ pub enum KeyPairingError {
     DIDNotFound,
 }
 
-impl KeyPairingWithConfig {
-    pub fn load_keyring() -> Result<Self, KeyPairingError> {
-        let config = app_config();
-        let secure_keystore = SecureKeyStore::new();
-
-        fn load_secp256k1(
-            secure_keystore: &SecureKeyStore,
-            key_type: SecureKeyStoreType,
-        ) -> Result<Secp256k1, KeyPairingError> {
-            let key_pair = secure_keystore
-                .read(&key_type)?
-                .ok_or(KeyPairingError::KeyNotFound)?;
-
-            Ok(key_pair)
-        }
-
-        let sign = load_secp256k1(&secure_keystore, SecureKeyStoreType::Sign)?;
-        let update = load_secp256k1(&secure_keystore, SecureKeyStoreType::Update)?;
-        let recovery = load_secp256k1(&secure_keystore, SecureKeyStoreType::Recover)?;
-        let encrypt = load_secp256k1(&secure_keystore, SecureKeyStoreType::Encrypt)?;
+impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
+    pub fn load_keyring(
+        config: Box<SingletonAppConfig>,
+        secure_keystore: S,
+    ) -> Result<Self, KeyPairingError> {
+        let sign = secure_keystore
+            .read_sign()
+            .ok_or(KeyPairingError::KeyNotFound)?;
+        let update = secure_keystore
+            .read_update()
+            .ok_or(KeyPairingError::KeyNotFound)?;
+        let recovery = secure_keystore
+            .read_recovery()
+            .ok_or(KeyPairingError::KeyNotFound)?;
+        let encrypt = secure_keystore
+            .read_encrypt()
+            .ok_or(KeyPairingError::KeyNotFound)?;
 
         Ok(KeyPairingWithConfig {
             sign,
@@ -59,22 +54,18 @@ impl KeyPairingWithConfig {
         })
     }
 
-    pub fn create_keyring() -> Result<Self, KeyPairingError> {
-        let config = app_config();
-        let secure_keystore = SecureKeyStore::new();
-
+    pub fn create_keyring(config: Box<SingletonAppConfig>, secure_keystore: S) -> Self {
         // TODO: extension trng support
-        let trng = OSRandomNumberGenerator::default();
-        let keyring = nodex_didcomm::keyring::keypair::KeyPairing::create_keyring(&trng)?;
+        let keyring = nodex_didcomm::keyring::keypair::KeyPairing::create_keyring(&mut OsRng);
 
-        Ok(KeyPairingWithConfig {
+        KeyPairingWithConfig {
             sign: keyring.sign,
             update: keyring.update,
             recovery: keyring.recovery,
             encrypt: keyring.encrypt,
             config,
             secure_keystore,
-        })
+        }
     }
 
     pub fn get_keyring(&self) -> nodex_didcomm::keyring::keypair::KeyPairing {
@@ -87,20 +78,16 @@ impl KeyPairingWithConfig {
     }
 
     pub fn save(&mut self, did: &str) {
-        self.secure_keystore
-            .write(&SecureKeyStoreType::Sign, &self.sign)
-            .expect("failed to save sign key");
-        self.secure_keystore
-            .write(&SecureKeyStoreType::Update, &self.update)
-            .expect("failed to save update key");
-        self.secure_keystore
-            .write(&SecureKeyStoreType::Recover, &self.recovery)
-            .expect("failed to save recovery key");
-        self.secure_keystore
-            .write(&SecureKeyStoreType::Encrypt, &self.encrypt)
-            .expect("failed to save encrypt key");
-
         let mut config = self.config.lock();
+        self.secure_keystore
+            .write(&SecureKeyStoreKey::Sign(&self.sign));
+        self.secure_keystore
+            .write(&SecureKeyStoreKey::Update(&self.update));
+        self.secure_keystore
+            .write(&SecureKeyStoreKey::Recovery(&self.recovery));
+        self.secure_keystore
+            .write(&SecureKeyStoreKey::Encrypt(&self.encrypt));
+
         config.save_did(did);
         config.save_is_initialized(true);
     }
