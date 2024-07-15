@@ -1,6 +1,6 @@
 use home_config::HomeConfig;
 use nodex_didcomm::keyring::keypair::{
-    HexKeyPair, K256KeyPair, KeyPair, KeyPairing, KeyPairingError, X25519KeyPair,
+    K256KeyPair, KeyPair, KeyPairHex, KeyPairing, KeyPairingError, X25519KeyPair,
 };
 use serde::Deserialize;
 use serde::Serialize;
@@ -17,10 +17,10 @@ use thiserror::Error;
 
 #[derive(Clone, Deserialize, Serialize)]
 struct KeyPairsConfig {
-    sign: Option<HexKeyPair>,
-    update: Option<HexKeyPair>,
-    recovery: Option<HexKeyPair>,
-    encrypt: Option<HexKeyPair>,
+    sign: Option<KeyPairHex>,
+    update: Option<KeyPairHex>,
+    recovery: Option<KeyPairHex>,
+    encrypt: Option<KeyPairHex>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -131,13 +131,13 @@ pub enum AppConfigError<E: std::error::Error> {
 }
 
 fn convert_to_key<U, V, T: KeyPair<U, V>>(
-    config: &HexKeyPair,
+    config: &KeyPairHex,
 ) -> Result<T, AppConfigError<T::Error>> {
     T::from_hex_key_pair(config).map_err(AppConfigError::DecodeFailed)
 }
 
 #[inline]
-fn load_key_pair<U, V, T: KeyPair<U, V>>(kind: &Option<HexKeyPair>) -> Option<T> {
+fn load_key_pair<U, V, T: KeyPair<U, V>>(kind: &Option<KeyPairHex>) -> Option<T> {
     if let Some(ref key) = kind {
         match convert_to_key(key) {
             Ok(v) => Some(v),
