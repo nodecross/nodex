@@ -10,13 +10,15 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
-pub struct VerifiableMessageUseCase<R, D, A>
+pub struct VerifiableMessageUseCase<R, D, S, A>
 where
     R: MessageActivityRepository,
-    D: DidRepository + DidVcService,
+    D: DidRepository,
+    S: DidVcService,
     A: DidAccessor,
 {
     did_repository: D,
+    vc_service: S,
     message_activity_repository: R,
     did_accessor: A,
 }
@@ -53,15 +55,22 @@ where
     JsonError(#[from] serde_json::Error),
 }
 
-impl<R, D, A> VerifiableMessageUseCase<R, D, A>
+impl<R, D, S, A> VerifiableMessageUseCase<R, D, S, A>
 where
     R: MessageActivityRepository,
-    D: DidRepository + DidVcService,
+    D: DidRepository,
+    S: DidVcService,
     A: DidAccessor,
 {
-    pub fn new(message_activity_repository: R, did_repository: D, did_accessor: A) -> Self {
+    pub fn new(
+        message_activity_repository: R,
+        vc_service: S,
+        did_accessor: A,
+        did_repository: D,
+    ) -> Self {
         VerifiableMessageUseCase {
             did_repository,
+            vc_service,
             message_activity_repository,
             did_accessor,
         }
@@ -72,7 +81,7 @@ where
         message: String,
         operation_tag: String,
         now: DateTime<Utc>,
-    ) -> Result<String, CreateVerifiableMessageUseCaseError<D::GenerateError, R::Error>> {
+    ) -> Result<String, CreateVerifiableMessageUseCaseError<S::GenerateError, R::Error>> {
         self.did_repository
             .find_identifier(&destination_did)
             .await
@@ -90,14 +99,10 @@ where
         };
 
         let message = serde_json::to_value(message)?;
-        let vc = DidVcService::generate(
-            &self.did_repository,
-            &my_did,
-            &self.did_accessor.get_my_keyring(),
-            &message,
-            now,
-        )
-        .map_err(CreateVerifiableMessageUseCaseError::DidVcServiceGenerateError)?;
+        let vc = self
+            .vc_service
+            .generate(&my_did, &self.did_accessor.get_my_keyring(), &message, now)
+            .map_err(CreateVerifiableMessageUseCaseError::DidVcServiceGenerateError)?;
 
         let result = serde_json::to_string(&vc)?;
 
@@ -119,10 +124,12 @@ where
         &self,
         message: &str,
         now: DateTime<Utc>,
-    ) -> Result<VerifiableCredentials, VerifyVerifiableMessageUseCaseError<D::VerifyError, R::Error>>
+    ) -> Result<VerifiableCredentials, VerifyVerifiableMessageUseCaseError<S::VerifyError, R::Error>>
     {
         let vc = serde_json::from_str::<VerifiableCredentials>(message)?;
-        let vc = DidVcService::verify(&self.did_repository, vc)
+        let vc = self
+            .vc_service
+            .verify(vc)
             .await
             .map_err(VerifyVerifiableMessageUseCaseError::DidVcServiceVerifyError)?;
         let container = vc.clone().credential_subject.container;
@@ -178,6 +185,7 @@ pub mod tests {
             MockMessageActivityRepository::create_success(),
             repository.clone(),
             MockDidAccessor::new(presets.from_did, presets.from_keyring.clone()),
+            repository.clone(),
         );
 
         let message = "Hello".to_string();
@@ -213,6 +221,7 @@ pub mod tests {
             MockMessageActivityRepository::verify_success(),
             repository.clone(),
             MockDidAccessor::new(presets.to_did, presets.from_keyring),
+            repository.clone(),
         );
 
         let verified = usecase.verify(&generated, Utc::now()).await.unwrap();
@@ -235,6 +244,7 @@ pub mod tests {
                 MockMessageActivityRepository::create_success(),
                 MockDidRepository::empty(),
                 MockDidAccessor::new(presets.from_did, presets.from_keyring),
+                MockDidRepository::empty(),
             );
 
             let message = "Hello".to_string();
@@ -259,6 +269,7 @@ pub mod tests {
                 MockMessageActivityRepository::create_fail(),
                 repository.clone(),
                 MockDidAccessor::new(presets.from_did, presets.from_keyring),
+                repository.clone(),
             );
 
             let message = "Hello".to_string();
@@ -288,6 +299,7 @@ pub mod tests {
                 MockMessageActivityRepository::create_success(),
                 repository.clone(),
                 MockDidAccessor::new(presets.from_did, presets.from_keyring),
+                repository.clone(),
             );
 
             let message = "Hello".to_string();
@@ -335,6 +347,7 @@ pub mod tests {
                 MockMessageActivityRepository::verify_success(),
                 repository.clone(),
                 MockDidAccessor::new("wrong_did".to_owned(), presets.from_keyring),
+                repository.clone(),
             );
 
             let verified = usecase.verify(&generated, Utc::now()).await;
@@ -355,6 +368,7 @@ pub mod tests {
                 MockMessageActivityRepository::verify_success(),
                 repository.clone(),
                 MockDidAccessor::new(presets.clone().to_did, presets.clone().to_keyring),
+                repository.clone(),
             );
 
             let generated = create_test_message_for_verify_test(presets).await;
@@ -380,6 +394,7 @@ pub mod tests {
                 MockMessageActivityRepository::verify_fail(),
                 repository.clone(),
                 MockDidAccessor::new(presets.to_did, presets.to_keyring),
+                repository.clone(),
             );
 
             let verified = usecase.verify(&generated, Utc::now()).await;

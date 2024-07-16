@@ -5,7 +5,7 @@ use anyhow::Context;
 use chrono::Utc;
 use hmac::{Hmac, Mac};
 use nodex_didcomm::did::did_repository::DidRepositoryImpl;
-use nodex_didcomm::didcomm::encrypted::DidCommEncryptedService;
+use nodex_didcomm::didcomm::encrypted::{DidCommEncryptedService, DidCommServiceWithAttachment};
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     Url,
@@ -22,9 +22,8 @@ pub struct StudioClientConfig {
 pub struct StudioClient {
     pub base_url: Url,
     pub instance: reqwest::Client,
-    pub repository: DidRepositoryImpl<SideTreeClient>,
+    pub didcomm_service: DidCommServiceWithAttachment<DidRepositoryImpl<SideTreeClient>>,
     pub did_accessor: DidAccessorImpl,
-    pub attachment_link: String,
 }
 
 impl StudioClient {
@@ -33,14 +32,15 @@ impl StudioClient {
         let client = reqwest::Client::new();
         let server_config = server_config();
         let sidetree_client = SideTreeClient::new(&server_config.did_http_endpoint())?;
-        let repository = DidRepositoryImpl::new(sidetree_client);
+        let did_repository = DidRepositoryImpl::new(sidetree_client);
+        let didcomm_service =
+            DidCommServiceWithAttachment::new(did_repository, server_config.did_attachment_link());
         let did_accessor = DidAccessorImpl {};
 
         Ok(StudioClient {
             instance: client,
             base_url: url,
-            attachment_link: server_config.did_attachment_link(),
-            repository,
+            didcomm_service,
             did_accessor,
         })
     }
@@ -103,18 +103,18 @@ impl StudioClient {
         });
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
-        let payload = DidCommEncryptedService::generate(
-            &self.repository,
-            &my_did,
-            project_did,
-            &my_keyring,
-            &json!(message),
-            None,
-            Utc::now(),
-            &self.attachment_link,
-        )
-        .await
-        .context("")?;
+        let payload = self
+            .didcomm_service
+            .generate(
+                &my_did,
+                project_did,
+                &my_keyring,
+                &json!(message),
+                None,
+                Utc::now(),
+            )
+            .await
+            .context("")?;
         let payload = serde_json::to_string(&payload)?;
         let url = self.base_url.join(path)?;
         self.post(url.as_ref(), &payload).await
@@ -127,17 +127,17 @@ impl StudioClient {
     ) -> anyhow::Result<reqwest::Response> {
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
-        let payload = DidCommEncryptedService::generate(
-            &self.repository,
-            &my_did,
-            project_did,
-            &my_keyring,
-            &serde_json::Value::Null,
-            None,
-            Utc::now(),
-            &self.attachment_link,
-        )
-        .await?;
+        let payload = self
+            .didcomm_service
+            .generate(
+                &my_did,
+                project_did,
+                &my_keyring,
+                &serde_json::Value::Null,
+                None,
+                Utc::now(),
+            )
+            .await?;
         let payload = serde_json::to_string(&payload)?;
         let url = self.base_url.join(path)?;
         self.post(url.as_ref(), &payload).await
@@ -157,17 +157,17 @@ impl StudioClient {
         });
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
-        let payload = DidCommEncryptedService::generate(
-            &self.repository,
-            &my_did,
-            project_did,
-            &my_keyring,
-            &payload,
-            None,
-            Utc::now(),
-            &self.attachment_link,
-        )
-        .await?;
+        let payload = self
+            .didcomm_service
+            .generate(
+                &my_did,
+                project_did,
+                &my_keyring,
+                &payload,
+                None,
+                Utc::now(),
+            )
+            .await?;
         let payload = serde_json::to_string(&payload)?;
         self.post(url.unwrap().as_ref(), &payload).await
     }
@@ -179,17 +179,17 @@ impl StudioClient {
     ) -> anyhow::Result<reqwest::Response> {
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
-        let payload = DidCommEncryptedService::generate(
-            &self.repository,
-            &my_did,
-            project_did,
-            &my_keyring,
-            &serde_json::Value::Null,
-            None,
-            Utc::now(),
-            &self.attachment_link,
-        )
-        .await?;
+        let payload = self
+            .didcomm_service
+            .generate(
+                &my_did,
+                project_did,
+                &my_keyring,
+                &serde_json::Value::Null,
+                None,
+                Utc::now(),
+            )
+            .await?;
         let payload = serde_json::to_string(&payload)?;
         self.post(path, &payload).await
     }

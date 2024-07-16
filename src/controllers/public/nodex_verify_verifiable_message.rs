@@ -24,8 +24,9 @@ pub async fn handler(
 ) -> actix_web::Result<HttpResponse> {
     let now = Utc::now();
 
+    let repo = utils::did_repository();
     let usecase =
-        VerifiableMessageUseCase::new(Studio::new(), utils::did_repository(), DidAccessorImpl {});
+        VerifiableMessageUseCase::new(Studio::new(), repo.clone(), DidAccessorImpl {}, repo);
 
     match usecase.verify(&json.message, now).await {
         Ok(v) => Ok(HttpResponse::Ok().json(v)),

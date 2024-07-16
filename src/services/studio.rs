@@ -264,7 +264,6 @@ impl MessageActivityRepository for Studio {
             &json!(request),
             None,
             request.occurred_at,
-            "",
         )
         .await
         .context("failed to generate payload")?;
@@ -322,7 +321,6 @@ impl MessageActivityRepository for Studio {
             &json!(request),
             None,
             request.verified_at,
-            "",
         )
         .await
         .context("failed to generate payload")?;
