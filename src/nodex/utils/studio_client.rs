@@ -6,6 +6,7 @@ use chrono::Utc;
 use hmac::{Hmac, Mac};
 use nodex_didcomm::did::did_repository::DidRepositoryImpl;
 use nodex_didcomm::didcomm::encrypted::{DidCommEncryptedService, DidCommServiceWithAttachment};
+use nodex_didcomm::verifiable_credentials::types::VerifiableCredentials;
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     Url,
@@ -103,16 +104,11 @@ impl StudioClient {
         });
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
+
+        let model = VerifiableCredentials::new(my_did, json!(message), Utc::now());
         let payload = self
             .didcomm_service
-            .generate(
-                &my_did,
-                project_did,
-                &my_keyring,
-                &json!(message),
-                None,
-                Utc::now(),
-            )
+            .generate(model, &my_keyring, project_did, None)
             .await
             .context("")?;
         let payload = serde_json::to_string(&payload)?;
@@ -127,16 +123,11 @@ impl StudioClient {
     ) -> anyhow::Result<reqwest::Response> {
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
+
+        let model = VerifiableCredentials::new(my_did, serde_json::Value::Null, Utc::now());
         let payload = self
             .didcomm_service
-            .generate(
-                &my_did,
-                project_did,
-                &my_keyring,
-                &serde_json::Value::Null,
-                None,
-                Utc::now(),
-            )
+            .generate(model, &my_keyring, project_did, None)
             .await?;
         let payload = serde_json::to_string(&payload)?;
         let url = self.base_url.join(path)?;
@@ -157,17 +148,13 @@ impl StudioClient {
         });
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
+
+        let model = VerifiableCredentials::new(my_did, payload, Utc::now());
         let payload = self
             .didcomm_service
-            .generate(
-                &my_did,
-                project_did,
-                &my_keyring,
-                &payload,
-                None,
-                Utc::now(),
-            )
+            .generate(model, &my_keyring, project_did, None)
             .await?;
+
         let payload = serde_json::to_string(&payload)?;
         self.post(url.unwrap().as_ref(), &payload).await
     }
@@ -179,16 +166,11 @@ impl StudioClient {
     ) -> anyhow::Result<reqwest::Response> {
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
+
+        let model = VerifiableCredentials::new(my_did, serde_json::Value::Null, Utc::now());
         let payload = self
             .didcomm_service
-            .generate(
-                &my_did,
-                project_did,
-                &my_keyring,
-                &serde_json::Value::Null,
-                None,
-                Utc::now(),
-            )
+            .generate(model, &my_keyring, project_did, None)
             .await?;
         let payload = serde_json::to_string(&payload)?;
         self.post(path, &payload).await

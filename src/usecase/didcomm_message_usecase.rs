@@ -86,15 +86,15 @@ where
         };
         let message = serde_json::to_value(message)?;
         let my_did = self.did_accessor.get_my_did();
+
+        let model = VerifiableCredentials::new(my_did.clone(), message, now);
         let didcomm_message = self
             .didcomm_service
             .generate(
-                &my_did,
-                &destination_did,
+                model,
                 &self.did_accessor.get_my_keyring(),
-                &message,
+                &destination_did,
                 None,
-                now,
             )
             .await
             .map_err(GenerateDidcommMessageUseCaseError::ServiceGenerate)?;
