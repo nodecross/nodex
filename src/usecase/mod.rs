@@ -25,9 +25,9 @@ mod test_util {
         fn default() -> Self {
             TestPresets {
                 from_did: "did:example:from".to_string(),
-                from_keyring: KeyPairing::create_keyring(&mut OsRng),
+                from_keyring: KeyPairing::create_keyring(OsRng),
                 to_did: "did:example:to".to_string(),
-                to_keyring: KeyPairing::create_keyring(&mut OsRng),
+                to_keyring: KeyPairing::create_keyring(OsRng),
             }
         }
     }
