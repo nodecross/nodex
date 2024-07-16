@@ -56,7 +56,7 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
 
     pub fn create_keyring(config: Box<SingletonAppConfig>, secure_keystore: S) -> Self {
         // TODO: extension trng support
-        let keyring = nodex_didcomm::keyring::keypair::KeyPairing::create_keyring(&mut OsRng);
+        let keyring = nodex_didcomm::keyring::keypair::KeyPairing::create_keyring(OsRng);
 
         KeyPairingWithConfig {
             sign: keyring.sign,

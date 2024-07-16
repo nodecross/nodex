@@ -33,18 +33,17 @@ pub async fn handler(
     {
         Ok(v) => Ok(HttpResponse::Ok().body(v)),
         Err(e) => match e {
-            UE::DidCommEncryptedServiceGenerateError(SE::DidDocNotFound(target)) => {
+            UE::ServiceGenerate(SE::DidDocNotFound(target)) => {
                 log::warn!("Target DID not found. did = {}", target);
                 Ok(HttpResponse::NotFound().finish())
             }
             // UE::MessageActivityHttpError(CE::ReqwestError(ME::BadRequest(message))) => {
-            UE::MessageActivityHttpError(e) => Ok(utils::handle_status(e)),
-            UE::JsonError(_) => todo!(),
-            UE::DidCommEncryptedServiceGenerateError(SE::DidPublicKeyNotFound(_))
-            | UE::DidCommEncryptedServiceGenerateError(SE::VCServiceError(_))
-            | UE::DidCommEncryptedServiceGenerateError(SE::SidetreeFindRequestFailed(_)) => todo!(),
-            UE::DidCommEncryptedServiceGenerateError(SE::EncryptFailed(_))
-            | UE::DidCommEncryptedServiceGenerateError(SE::JsonError(_)) => todo!(),
+            UE::MessageActivity(e) => Ok(utils::handle_status(e)),
+            UE::Json(_) => todo!(),
+            UE::ServiceGenerate(SE::DidPublicKeyNotFound(_))
+            | UE::ServiceGenerate(SE::VcService(_))
+            | UE::ServiceGenerate(SE::SidetreeFindRequestFailed(_)) => todo!(),
+            UE::ServiceGenerate(SE::EncryptFailed(_)) | UE::ServiceGenerate(SE::Json(_)) => todo!(),
         },
     }
 }

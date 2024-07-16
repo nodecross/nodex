@@ -35,11 +35,11 @@ where
     F: std::error::Error,
 {
     #[error("encrypted service error: {0}")]
-    DidCommEncryptedServiceGenerateError(E),
+    ServiceGenerate(E),
     #[error("message activity error: {0}")]
-    MessageActivityHttpError(F),
+    MessageActivity(F),
     #[error("failed serialize/deserialize : {0}")]
-    JsonError(#[from] serde_json::Error),
+    Json(#[from] serde_json::Error),
 }
 
 #[derive(Debug, Error)]
@@ -49,11 +49,11 @@ where
     F: std::error::Error,
 {
     #[error("encrypted service error: {0}")]
-    DidCommEncryptedServiceVerifyError(E),
+    ServiceVerify(E),
     #[error("message activity error: {0}")]
-    MessageActivityHttpError(F),
+    MessageActivity(F),
     #[error("failed serialize/deserialize : {0}")]
-    JsonError(#[from] serde_json::Error),
+    Json(#[from] serde_json::Error),
 }
 
 impl<R, D, A> DidcommMessageUseCase<R, D, A>
@@ -97,7 +97,7 @@ where
                 now,
             )
             .await
-            .map_err(GenerateDidcommMessageUseCaseError::DidCommEncryptedServiceGenerateError)?;
+            .map_err(GenerateDidcommMessageUseCaseError::ServiceGenerate)?;
 
         let result = serde_json::to_string(&didcomm_message)?;
 
@@ -111,7 +111,7 @@ where
                 occurred_at: now,
             })
             .await
-            .map_err(GenerateDidcommMessageUseCaseError::MessageActivityHttpError)?;
+            .map_err(GenerateDidcommMessageUseCaseError::MessageActivity)?;
 
         Ok(result)
     }
@@ -128,7 +128,7 @@ where
             .didcomm_service
             .verify(&self.did_accessor.get_my_keyring(), &message)
             .await
-            .map_err(VerifyDidcommMessageUseCaseError::DidCommEncryptedServiceVerifyError)?;
+            .map_err(VerifyDidcommMessageUseCaseError::ServiceVerify)?;
         let verified = verified.message;
         let from_did = verified.issuer.id.clone();
         // check in verified. maybe exists?
@@ -145,7 +145,7 @@ where
                 status: VerifiedStatus::Valid,
             })
             .await
-            .map_err(VerifyDidcommMessageUseCaseError::MessageActivityHttpError)?;
+            .map_err(VerifyDidcommMessageUseCaseError::MessageActivity)?;
 
         Ok(verified)
     }
@@ -230,7 +230,7 @@ mod tests {
                 .generate(presets.to_did.clone(), message, "test".to_string(), now)
                 .await;
 
-            if let Err(GenerateDidcommMessageUseCaseError::DidCommEncryptedServiceGenerateError(
+            if let Err(GenerateDidcommMessageUseCaseError::ServiceGenerate(
                 DidCommEncryptedServiceGenerateError::DidDocNotFound(_),
             )) = generated
             {
@@ -256,8 +256,7 @@ mod tests {
                 .generate(presets.to_did.clone(), message, "test".to_string(), now)
                 .await;
 
-            if let Err(GenerateDidcommMessageUseCaseError::MessageActivityHttpError(_)) = generated
-            {
+            if let Err(GenerateDidcommMessageUseCaseError::MessageActivity(_)) = generated {
             } else {
                 panic!("unexpected result: {:?}", generated);
             }
@@ -303,7 +302,7 @@ mod tests {
 
             let verified = usecase.verify(&generated, Utc::now()).await;
 
-            if let Err(VerifyDidcommMessageUseCaseError::DidCommEncryptedServiceVerifyError(
+            if let Err(VerifyDidcommMessageUseCaseError::ServiceVerify(
                 DidCommEncryptedServiceVerifyError::DidDocNotFound(_),
             )) = verified
             {
@@ -325,7 +324,7 @@ mod tests {
 
             let verified = usecase.verify(&generated, Utc::now()).await;
 
-            if let Err(VerifyDidcommMessageUseCaseError::MessageActivityHttpError(_)) = verified {
+            if let Err(VerifyDidcommMessageUseCaseError::MessageActivity(_)) = verified {
             } else {
                 panic!("unexpected result: {:?}", verified);
             }

@@ -32,22 +32,22 @@ pub async fn handler(
     match usecase.verify(&json.message, now).await {
         Ok(v) => Ok(HttpResponse::Ok().json(v)),
         Err(e) => match e {
-            UE::DidCommEncryptedServiceVerifyError(SE::VCServiceError(e)) => {
+            UE::ServiceVerify(SE::VcService(e)) => {
                 log::warn!("verify error: {}", e);
                 Ok(HttpResponse::Unauthorized().finish())
             }
-            UE::DidCommEncryptedServiceVerifyError(SE::DidDocNotFound(target)) => {
+            UE::ServiceVerify(SE::DidDocNotFound(target)) => {
                 log::warn!("Target DID not found. did = {}", target);
                 Ok(HttpResponse::NotFound().finish())
             }
-            UE::MessageActivityHttpError(e) => Ok(utils::handle_status(e)),
-            UE::JsonError(_) => todo!(),
-            UE::DidCommEncryptedServiceVerifyError(SE::SidetreeFindRequestFailed(_))
-            | UE::DidCommEncryptedServiceVerifyError(SE::DidPublicKeyNotFound(_))
-            | UE::DidCommEncryptedServiceVerifyError(SE::DecryptFailed(_)) => todo!(),
-            UE::DidCommEncryptedServiceVerifyError(SE::MetadataBodyNotFound(_))
-            | UE::DidCommEncryptedServiceVerifyError(SE::JsonError(_))
-            | UE::DidCommEncryptedServiceVerifyError(SE::FindSenderError(_)) => todo!(),
+            UE::MessageActivity(e) => Ok(utils::handle_status(e)),
+            UE::Json(_) => todo!(),
+            UE::ServiceVerify(SE::SidetreeFindRequestFailed(_))
+            | UE::ServiceVerify(SE::DidPublicKeyNotFound(_))
+            | UE::ServiceVerify(SE::DecryptFailed(_)) => todo!(),
+            UE::ServiceVerify(SE::MetadataBodyNotFound(_))
+            | UE::ServiceVerify(SE::Json(_))
+            | UE::ServiceVerify(SE::FindSender(_)) => todo!(),
         },
     }
 }
