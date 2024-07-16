@@ -5,7 +5,6 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use nodex_didcomm::{
-    did::did_repository::DidRepository,
     didcomm::{encrypted::DidCommEncryptedService, types::DidCommMessage},
     verifiable_credentials::types::VerifiableCredentials,
 };
@@ -21,11 +20,11 @@ use crate::{
 pub struct DidcommMessageUseCase<R, D, A>
 where
     R: MessageActivityRepository,
-    D: DidRepository + DidCommEncryptedService,
+    D: DidCommEncryptedService,
     A: DidAccessor,
 {
     message_activity_repository: R,
-    did_repository: D,
+    didcomm_service: D,
     did_accessor: A,
 }
 
@@ -60,13 +59,13 @@ where
 impl<R, D, A> DidcommMessageUseCase<R, D, A>
 where
     R: MessageActivityRepository,
-    D: DidRepository + DidCommEncryptedService,
+    D: DidCommEncryptedService,
     A: DidAccessor,
 {
-    pub fn new(message_activity_repository: R, did_repository: D, did_accessor: A) -> Self {
+    pub fn new(message_activity_repository: R, didcomm_service: D, did_accessor: A) -> Self {
         DidcommMessageUseCase {
             message_activity_repository,
-            did_repository,
+            didcomm_service,
             did_accessor,
         }
     }
@@ -87,18 +86,18 @@ where
         };
         let message = serde_json::to_value(message)?;
         let my_did = self.did_accessor.get_my_did();
-        let didcomm_message = DidCommEncryptedService::generate(
-            &self.did_repository,
-            &my_did,
-            &destination_did,
-            &self.did_accessor.get_my_keyring(),
-            &message,
-            None,
-            now,
-            "",
-        )
-        .await
-        .map_err(GenerateDidcommMessageUseCaseError::DidCommEncryptedServiceGenerateError)?;
+        let didcomm_message = self
+            .didcomm_service
+            .generate(
+                &my_did,
+                &destination_did,
+                &self.did_accessor.get_my_keyring(),
+                &message,
+                None,
+                now,
+            )
+            .await
+            .map_err(GenerateDidcommMessageUseCaseError::DidCommEncryptedServiceGenerateError)?;
 
         let result = serde_json::to_string(&didcomm_message)?;
 
@@ -124,13 +123,12 @@ where
     ) -> Result<VerifiableCredentials, VerifyDidcommMessageUseCaseError<D::VerifyError, R::Error>>
     {
         let message = serde_json::from_str::<DidCommMessage>(message)?;
-        let verified = DidCommEncryptedService::verify(
-            &self.did_repository,
-            &self.did_accessor.get_my_keyring(),
-            &message,
-        )
-        .await
-        .map_err(VerifyDidcommMessageUseCaseError::DidCommEncryptedServiceVerifyError)?;
+
+        let verified = self
+            .didcomm_service
+            .verify(&self.did_accessor.get_my_keyring(), &message)
+            .await
+            .map_err(VerifyDidcommMessageUseCaseError::DidCommEncryptedServiceVerifyError)?;
         let verified = verified.message;
         let from_did = verified.issuer.id.clone();
         // check in verified. maybe exists?
