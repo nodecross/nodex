@@ -18,6 +18,8 @@ use anyhow::Context;
 use nodex_didcomm::did::did_repository::DidRepositoryImpl;
 use nodex_didcomm::didcomm::encrypted::DidCommEncryptedService;
 use nodex_didcomm::verifiable_credentials::did_vc::DidVcService;
+use nodex_didcomm::verifiable_credentials::types::VerifiableCredentials;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -256,14 +258,13 @@ impl MessageActivityRepository for Studio {
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
 
+        let model = VerifiableCredentials::new(my_did, json!(request), request.occurred_at);
         let payload = DidCommEncryptedService::generate(
             &self.did_repository,
-            &my_did,
-            &project_did,
+            model,
             &my_keyring,
-            &json!(request),
+            &project_did,
             None,
-            request.occurred_at,
         )
         .await
         .context("failed to generate payload")?;
@@ -313,14 +314,13 @@ impl MessageActivityRepository for Studio {
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
 
+        let model = VerifiableCredentials::new(my_did, json!(request), request.verified_at);
         let payload = DidCommEncryptedService::generate(
             &self.did_repository,
-            &my_did,
-            &project_did,
+            model,
             &my_keyring,
-            &json!(request),
+            &project_did,
             None,
-            request.verified_at,
         )
         .await
         .context("failed to generate payload")?;
@@ -390,14 +390,10 @@ impl MetricStoreRepository for Studio {
 
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
-        let payload = DidVcService::generate(
-            &self.did_repository,
-            &my_did,
-            &my_keyring,
-            &json!(metrics_str),
-            chrono::Utc::now(),
-        )
-        .context("failed to generate payload")?;
+
+        let model = VerifiableCredentials::new(my_did, json!(metrics_str), chrono::Utc::now());
+        let payload = DidVcService::generate(&self.did_repository, model, &my_keyring)
+            .context("failed to generate payload")?;
 
         let payload = serde_json::to_string(&payload).context("failed to serialize")?;
         let res = self.http_client.post("/v1/metrics", &payload).await?;
@@ -425,14 +421,9 @@ impl EventStoreRepository for Studio {
     async fn save(&self, request: EventStoreRequest) -> anyhow::Result<()> {
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
-        let payload = DidVcService::generate(
-            &self.did_repository,
-            &my_did,
-            &my_keyring,
-            &json!(&request),
-            chrono::Utc::now(),
-        )
-        .context("failed to generate payload")?;
+        let model = VerifiableCredentials::new(my_did, json!(request), chrono::Utc::now());
+        let payload = DidVcService::generate(&self.did_repository, model, &my_keyring)
+            .context("failed to generate payload")?;
         let payload = serde_json::to_string(&payload).context("failed to serialize")?;
 
         async fn send(
@@ -480,14 +471,9 @@ impl CustomMetricStoreRepository for Studio {
     async fn save(&self, request: CustomMetricStoreRequest) -> anyhow::Result<()> {
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
-        let payload = DidVcService::generate(
-            &self.did_repository,
-            &my_did,
-            &my_keyring,
-            &json!(&request),
-            chrono::Utc::now(),
-        )
-        .context("failed to generate payload")?;
+        let model = VerifiableCredentials::new(my_did, json!(request), chrono::Utc::now());
+        let payload = DidVcService::generate(&self.did_repository, model, &my_keyring)
+            .context("failed to generate payload")?;
         let payload = serde_json::to_string(&payload).context("failed to serialize")?;
 
         async fn send(

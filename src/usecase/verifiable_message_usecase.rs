@@ -99,9 +99,10 @@ where
         };
 
         let message = serde_json::to_value(message)?;
+        let model = VerifiableCredentials::new(my_did.clone(), message, now);
         let vc = self
             .vc_service
-            .generate(&my_did, &self.did_accessor.get_my_keyring(), &message, now)
+            .generate(model, &self.did_accessor.get_my_keyring())
             .map_err(CreateVerifiableMessageUseCaseError::DidVcServiceGenerateError)?;
 
         let result = serde_json::to_string(&vc)?;
