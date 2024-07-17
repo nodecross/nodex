@@ -37,12 +37,21 @@ pub async fn handler(
     };
 
     let usecase = EventUsecase::new();
-    usecase
+    match usecase
         .save(EventStoreRequest {
             key: json.key,
             detail: json.detail,
             occurred_at,
         })
-        .await;
-    Ok(HttpResponse::NoContent().finish())
+        .await
+    {
+        Ok(_) => {
+            log::info!("save event");
+            Ok(HttpResponse::NoContent().finish())
+        }
+        Err(e) => {
+            log::error!("{:?}", e);
+            Ok(HttpResponse::InternalServerError().json("internal server error"))
+        }
+    }
 }

@@ -14,10 +14,16 @@ impl EventUsecase {
         }
     }
 
-    pub async fn save(&self, request: EventStoreRequest) {
+    pub async fn save(&self, request: EventStoreRequest) -> Result<(), anyhow::Error> {
         match self.repository.save(request).await {
-            Ok(_) => log::info!("save event"),
-            Err(e) => log::error!("{:?}", e),
+            Ok(_) => {
+                log::info!("save event");
+                Ok(())
+            }
+            Err(e) => {
+                log::error!("{:?}", e);
+                Err(e)
+            }
         }
     }
 }
@@ -43,12 +49,13 @@ mod tests {
         let usecase = EventUsecase {
             repository: Box::new(MockEventStoreRepository {}),
         };
-        usecase
+        let _ = usecase
             .save(EventStoreRequest {
                 key: "test".to_string(),
                 detail: "test".to_string(),
                 occurred_at: chrono::Utc::now(),
             })
-            .await;
+            .await
+            .map_err(|e| panic!("{:?}", e));
     }
 }

@@ -10,5 +10,5 @@ pub struct EventStoreRequest {
 
 #[async_trait::async_trait]
 pub trait EventStoreRepository {
-    async fn save(&self, request: EventStoreRequest) -> anyhow::Result<()>;
+    async fn save(&self, request: EventStoreRequest) -> anyhow::Result<(), anyhow::Error>;
 }
