@@ -33,17 +33,31 @@ pub async fn handler(
     {
         Ok(v) => Ok(HttpResponse::Ok().body(v)),
         Err(e) => match e {
+            UE::MessageActivity(e) => Ok(utils::handle_status(e)),
             UE::ServiceGenerate(SE::DidDocNotFound(target)) => {
                 log::warn!("Target DID not found. did = {}", target);
                 Ok(HttpResponse::NotFound().finish())
             }
-            // UE::MessageActivityHttpError(CE::ReqwestError(ME::BadRequest(message))) => {
-            UE::MessageActivity(e) => Ok(utils::handle_status(e)),
-            UE::Json(_) => todo!(),
-            UE::ServiceGenerate(SE::DidPublicKeyNotFound(_))
-            | UE::ServiceGenerate(SE::VcService(_))
-            | UE::ServiceGenerate(SE::SidetreeFindRequestFailed(_)) => todo!(),
-            UE::ServiceGenerate(SE::EncryptFailed(_)) | UE::ServiceGenerate(SE::Json(_)) => todo!(),
+            UE::ServiceGenerate(SE::DidPublicKeyNotFound(e)) => {
+                log::warn!("cannot public key: {}", e);
+                Ok(HttpResponse::BadRequest().body(e.to_string()))
+            }
+            UE::Json(e) | UE::ServiceGenerate(SE::Json(e)) => {
+                log::warn!("json error: {}", e);
+                Ok(HttpResponse::InternalServerError().finish())
+            }
+            UE::ServiceGenerate(SE::VcService(e)) => {
+                log::warn!("verify error: {}", e);
+                Ok(HttpResponse::Unauthorized().finish())
+            }
+            UE::ServiceGenerate(SE::SidetreeFindRequestFailed(e)) => {
+                log::warn!("sidetree error: {}", e);
+                Ok(HttpResponse::InternalServerError().finish())
+            }
+            UE::ServiceGenerate(SE::EncryptFailed(e)) => {
+                log::warn!("decrypt failed: {}", e);
+                Ok(HttpResponse::InternalServerError().finish())
+            }
         },
     }
 }

@@ -24,19 +24,20 @@ where
 }
 
 #[derive(Debug, Error)]
-pub enum CreateVerifiableMessageUseCaseError<E, F>
+pub enum CreateVerifiableMessageUseCaseError<D, E, F>
 where
+    D: std::error::Error,
     E: std::error::Error,
     F: std::error::Error,
 {
     #[error("vc service error: {0}")]
-    DidVcServiceGenerateError(E),
+    DidVcServiceGenerate(E),
     #[error("message activity error: {0}")]
-    MessageActivityHttpError(F),
+    MessageActivity(F),
     #[error("destination did not found")]
-    DestinationNotFound,
+    DestinationNotFound(Option<D>),
     #[error("failed serialize/deserialize : {0}")]
-    JsonError(#[from] serde_json::Error),
+    Json(#[from] serde_json::Error),
 }
 
 #[derive(Debug, Error)]
@@ -46,13 +47,13 @@ where
     F: std::error::Error,
 {
     #[error("vc service error: {0}")]
-    DidVcServiceVerifyError(E),
+    DidVcServiceVerify(E),
     #[error("message activity error: {0}")]
-    MessageActivityHttpError(F),
+    MessageActivity(F),
     #[error("This message is not addressed to me")]
     NotAddressedToMe,
     #[error("failed serialize/deserialize : {0}")]
-    JsonError(#[from] serde_json::Error),
+    Json(#[from] serde_json::Error),
 }
 
 impl<R, D, S, A> VerifiableMessageUseCase<R, D, S, A>
@@ -81,13 +82,16 @@ where
         message: String,
         operation_tag: String,
         now: DateTime<Utc>,
-    ) -> Result<String, CreateVerifiableMessageUseCaseError<S::GenerateError, R::Error>> {
-        self.did_repository
-            .find_identifier(&destination_did)
-            .await
-            .ok()
-            .and_then(|x| x)
-            .ok_or(CreateVerifiableMessageUseCaseError::DestinationNotFound)?;
+    ) -> Result<
+        String,
+        CreateVerifiableMessageUseCaseError<D::FindIdentifierError, S::GenerateError, R::Error>,
+    > {
+        use CreateVerifiableMessageUseCaseError::DestinationNotFound;
+        match self.did_repository.find_identifier(&destination_did).await {
+            Err(e) => Err(DestinationNotFound(Some(e))),
+            Ok(None) => Err(DestinationNotFound(None)),
+            Ok(Some(_)) => Ok(()),
+        }?;
 
         let message_id = Uuid::new_v4();
         let my_did = self.did_accessor.get_my_did();
@@ -103,7 +107,7 @@ where
         let vc = self
             .vc_service
             .generate(model, &self.did_accessor.get_my_keyring())
-            .map_err(CreateVerifiableMessageUseCaseError::DidVcServiceGenerateError)?;
+            .map_err(CreateVerifiableMessageUseCaseError::DidVcServiceGenerate)?;
 
         let result = serde_json::to_string(&vc)?;
 
@@ -117,22 +121,21 @@ where
                 occurred_at: now,
             })
             .await
-            .map_err(CreateVerifiableMessageUseCaseError::MessageActivityHttpError)?;
+            .map_err(CreateVerifiableMessageUseCaseError::MessageActivity)?;
         Ok(result)
     }
 
     pub async fn verify(
         &self,
-        message: &str,
+        message: VerifiableCredentials,
         now: DateTime<Utc>,
     ) -> Result<VerifiableCredentials, VerifyVerifiableMessageUseCaseError<S::VerifyError, R::Error>>
     {
-        let vc = serde_json::from_str::<VerifiableCredentials>(message)?;
         let vc = self
             .vc_service
-            .verify(vc)
+            .verify(message)
             .await
-            .map_err(VerifyVerifiableMessageUseCaseError::DidVcServiceVerifyError)?;
+            .map_err(VerifyVerifiableMessageUseCaseError::DidVcServiceVerify)?;
         let container = vc.clone().credential_subject.container;
 
         let message = serde_json::from_value::<EncodedMessage>(container)?;
@@ -153,7 +156,7 @@ where
                 status: VerifiedStatus::Valid,
             })
             .await
-            .map_err(VerifyVerifiableMessageUseCaseError::MessageActivityHttpError)?;
+            .map_err(VerifyVerifiableMessageUseCaseError::MessageActivity)?;
         Ok(vc)
     }
 }
@@ -225,7 +228,8 @@ pub mod tests {
             repository.clone(),
         );
 
-        let verified = usecase.verify(&generated, Utc::now()).await.unwrap();
+        let generated = serde_json::from_str::<VerifiableCredentials>(&generated).unwrap();
+        let verified = usecase.verify(generated, Utc::now()).await.unwrap();
         let encoded_message =
             serde_json::from_value::<EncodedMessage>(verified.credential_subject.container)
                 .unwrap();
@@ -255,7 +259,7 @@ pub mod tests {
                 .generate(presets.to_did, message, "test".to_string(), now)
                 .await;
 
-            if let Err(CreateVerifiableMessageUseCaseError::DestinationNotFound) = generated {
+            if let Err(CreateVerifiableMessageUseCaseError::DestinationNotFound(_)) = generated {
             } else {
                 panic!("unexpected result: {:?}", generated);
             }
@@ -280,8 +284,7 @@ pub mod tests {
                 .generate(presets.to_did, message, "test".to_string(), now)
                 .await;
 
-            if let Err(CreateVerifiableMessageUseCaseError::MessageActivityHttpError(_)) = generated
-            {
+            if let Err(CreateVerifiableMessageUseCaseError::MessageActivity(_)) = generated {
             } else {
                 panic!("unexpected result: {:?}", generated);
             }
@@ -351,7 +354,8 @@ pub mod tests {
                 repository.clone(),
             );
 
-            let verified = usecase.verify(&generated, Utc::now()).await;
+            let generated = serde_json::from_str::<VerifiableCredentials>(&generated).unwrap();
+            let verified = usecase.verify(generated, Utc::now()).await;
 
             if let Err(VerifyVerifiableMessageUseCaseError::NotAddressedToMe) = verified {
             } else {
@@ -373,9 +377,10 @@ pub mod tests {
             );
 
             let generated = create_test_message_for_verify_test(presets).await;
-            let verified = usecase.verify(&generated, Utc::now()).await;
+            let generated = serde_json::from_str::<VerifiableCredentials>(&generated).unwrap();
+            let verified = usecase.verify(generated, Utc::now()).await;
 
-            if let Err(VerifyVerifiableMessageUseCaseError::DidVcServiceVerifyError(
+            if let Err(VerifyVerifiableMessageUseCaseError::DidVcServiceVerify(
                 DidVcServiceVerifyError::DidDocNotFound(_),
             )) = verified
             {
@@ -398,10 +403,10 @@ pub mod tests {
                 repository.clone(),
             );
 
-            let verified = usecase.verify(&generated, Utc::now()).await;
+            let generated = serde_json::from_str::<VerifiableCredentials>(&generated).unwrap();
+            let verified = usecase.verify(generated, Utc::now()).await;
 
-            if let Err(VerifyVerifiableMessageUseCaseError::MessageActivityHttpError(_)) = verified
-            {
+            if let Err(VerifyVerifiableMessageUseCaseError::MessageActivity(_)) = verified {
             } else {
                 panic!("unexpected result: {:?}", verified);
             }
