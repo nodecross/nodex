@@ -38,7 +38,7 @@ pub async fn handler(
                 UE::MessageActivity(e) => Ok(utils::handle_status(e)),
                 UE::NotAddressedToMe => {
                     log::warn!("its not to me: {}", e);
-                    Ok(HttpResponse::BadRequest().body(e.to_string()))
+                    Ok(HttpResponse::Forbidden().finish())
                 }
                 UE::ServiceVerify(SE::FindSender(e)) => {
                     log::warn!("cannot find sender: {}", e);
