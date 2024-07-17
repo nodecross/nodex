@@ -44,13 +44,6 @@ env_logger = { version = "0.11.3", features = ["color"] }
 hex = { version = "0.4.3" }
 hmac = { version = "0.12.1" }
 home-config = { version = "0.6.0", features = ["json", "toml", "yaml"] }
-k256 = { version = "0.13.3", features = [
-    "alloc",
-    "ecdh",
-    "ecdsa",
-    "serde",
-    "sha256",
-] }
 log = { version = "0.4.21" }
 mac_address = "1.1.5"
 nix = { version = "0.28.0", features = ["signal"] }
@@ -75,7 +68,6 @@ uuid = { version = "1.8.0", features = [
     "serde",
     "v4",
 ] }
-x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
 zip = "2.1.0"
 rand_core = "0.6.4"
 
