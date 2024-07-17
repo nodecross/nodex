@@ -34,13 +34,21 @@ pub async fn handler(
     {
         Ok(v) => Ok(HttpResponse::Ok().body(v)),
         Err(e) => match e {
-            UE::DestinationNotFound => Ok(HttpResponse::NotFound().finish()),
-            UE::MessageActivityHttpError(e) => Ok(utils::handle_status(e)),
-            UE::DidVcServiceGenerateError(e) => {
+            UE::MessageActivity(e) => Ok(utils::handle_status(e)),
+            UE::DestinationNotFound(e) => {
+                if let Some(e) = e {
+                    log::error!("{:?}", e);
+                }
+                Ok(HttpResponse::NotFound().finish())
+            }
+            UE::DidVcServiceGenerate(e) => {
                 log::error!("{:?}", e);
                 Ok(HttpResponse::InternalServerError().finish())
             }
-            UE::JsonError(_) => todo!(),
+            UE::Json(e) => {
+                log::warn!("json error: {}", e);
+                Ok(HttpResponse::InternalServerError().finish())
+            }
         },
     }
 }

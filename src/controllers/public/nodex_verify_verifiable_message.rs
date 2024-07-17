@@ -3,6 +3,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use nodex_didcomm::verifiable_credentials::did_vc::DidVcServiceVerifyError as SE;
+use nodex_didcomm::verifiable_credentials::types::VerifiableCredentials;
 
 use crate::nodex::utils::did_accessor::DidAccessorImpl;
 use crate::usecase::verifiable_message_usecase::VerifyVerifiableMessageUseCaseError as UE;
@@ -28,19 +29,34 @@ pub async fn handler(
     let usecase =
         VerifiableMessageUseCase::new(Studio::new(), repo.clone(), DidAccessorImpl {}, repo);
 
-    match usecase.verify(&json.message, now).await {
-        Ok(v) => Ok(HttpResponse::Ok().json(v)),
-        Err(e) => match e {
-            UE::DidVcServiceVerifyError(SE::VerifyFailed(e)) => {
-                log::warn!("verify error: {}", e);
-                Ok(HttpResponse::Unauthorized().finish())
-            }
-            UE::NotAddressedToMe => Ok(HttpResponse::Forbidden().finish()),
-            UE::MessageActivityHttpError(e) => Ok(utils::handle_status(e)),
-            UE::JsonError(_) => todo!(),
-            UE::DidVcServiceVerifyError(SE::PublicKeyNotFound(_))
-            | UE::DidVcServiceVerifyError(SE::DidDocNotFound(_))
-            | UE::DidVcServiceVerifyError(SE::FindIdentifierError(_)) => todo!(),
+    match serde_json::from_str::<VerifiableCredentials>(&json.message) {
+        Err(e) => Ok(HttpResponse::BadRequest().body(e.to_string())),
+        Ok(vc) => match usecase.verify(vc, now).await {
+            Ok(v) => Ok(HttpResponse::Ok().json(v)),
+            Err(e) => match e {
+                UE::MessageActivity(e) => Ok(utils::handle_status(e)),
+                UE::DidVcServiceVerify(SE::VerifyFailed(e)) => {
+                    log::warn!("verify error: {}", e);
+                    Ok(HttpResponse::Unauthorized().finish())
+                }
+                UE::DidVcServiceVerify(SE::FindIdentifier(e)) => {
+                    log::warn!("find identifier error: {}", e);
+                    Ok(HttpResponse::NotFound().finish())
+                }
+                UE::DidVcServiceVerify(SE::DidDocNotFound(target)) => {
+                    log::warn!("Target DID not found. did = {}", target);
+                    Ok(HttpResponse::NotFound().finish())
+                }
+                UE::NotAddressedToMe => Ok(HttpResponse::Forbidden().finish()),
+                UE::Json(e) => {
+                    log::warn!("json error: {}", e);
+                    Ok(HttpResponse::InternalServerError().finish())
+                }
+                UE::DidVcServiceVerify(SE::PublicKeyNotFound(e)) => {
+                    log::warn!("cannot public key: {}", e);
+                    Ok(HttpResponse::BadRequest().body(e.to_string()))
+                }
+            },
         },
     }
 }

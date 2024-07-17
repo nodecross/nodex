@@ -50,6 +50,9 @@ where
 {
     #[error("encrypted service error: {0}")]
     ServiceVerify(E),
+    //TODO: Add tests
+    #[error("This message is not addressed to me")]
+    NotAddressedToMe,
     #[error("message activity error: {0}")]
     MessageActivity(F),
     #[error("failed serialize/deserialize : {0}")]
@@ -118,12 +121,14 @@ where
 
     pub async fn verify(
         &self,
-        message: &str,
+        message: DidCommMessage,
         now: DateTime<Utc>,
     ) -> Result<VerifiableCredentials, VerifyDidcommMessageUseCaseError<D::VerifyError, R::Error>>
     {
-        let message = serde_json::from_str::<DidCommMessage>(message)?;
-
+        let my_did = self.did_accessor.get_my_did();
+        if !message.find_receivers().contains(&my_did) {
+            return Err(VerifyDidcommMessageUseCaseError::NotAddressedToMe);
+        }
         let verified = self
             .didcomm_service
             .verify(&self.did_accessor.get_my_keyring(), &message)
@@ -132,7 +137,6 @@ where
         let verified = verified.message;
         let from_did = verified.issuer.id.clone();
         // check in verified. maybe exists?
-        let my_did = self.did_accessor.get_my_did();
         let container = verified.clone().credential_subject.container;
         let message = serde_json::from_value::<EncodedMessage>(container)?;
 
@@ -194,6 +198,7 @@ mod tests {
             )
             .await
             .unwrap();
+        let generated = serde_json::from_str::<DidCommMessage>(&generated).unwrap();
 
         let usecase = DidcommMessageUseCase::new(
             MockMessageActivityRepository::verify_success(),
@@ -201,7 +206,7 @@ mod tests {
             MockDidAccessor::new(presets.to_did, presets.to_keyring),
         );
 
-        let verified = usecase.verify(&generated, Utc::now()).await.unwrap();
+        let verified = usecase.verify(generated, Utc::now()).await.unwrap();
         let encoded_message =
             serde_json::from_value::<EncodedMessage>(verified.credential_subject.container)
                 .unwrap();
@@ -293,6 +298,7 @@ mod tests {
         async fn test_verify_did_not_found() {
             let presets = TestPresets::default();
             let generated = create_test_message_for_verify_test(presets.clone()).await;
+            let generated = serde_json::from_str::<DidCommMessage>(&generated).unwrap();
 
             let usecase = DidcommMessageUseCase::new(
                 MockMessageActivityRepository::verify_success(),
@@ -300,7 +306,7 @@ mod tests {
                 MockDidAccessor::new(presets.to_did, presets.to_keyring),
             );
 
-            let verified = usecase.verify(&generated, Utc::now()).await;
+            let verified = usecase.verify(generated, Utc::now()).await;
 
             if let Err(VerifyDidcommMessageUseCaseError::ServiceVerify(
                 DidCommEncryptedServiceVerifyError::DidDocNotFound(_),
@@ -315,6 +321,7 @@ mod tests {
         async fn test_verify_add_activity_failed() {
             let presets = TestPresets::default();
             let generated = create_test_message_for_verify_test(presets.clone()).await;
+            let generated = serde_json::from_str::<DidCommMessage>(&generated).unwrap();
 
             let usecase = DidcommMessageUseCase::new(
                 MockMessageActivityRepository::verify_fail(),
@@ -322,7 +329,7 @@ mod tests {
                 MockDidAccessor::new(presets.to_did, presets.to_keyring),
             );
 
-            let verified = usecase.verify(&generated, Utc::now()).await;
+            let verified = usecase.verify(generated, Utc::now()).await;
 
             if let Err(VerifyDidcommMessageUseCaseError::MessageActivity(_)) = verified {
             } else {

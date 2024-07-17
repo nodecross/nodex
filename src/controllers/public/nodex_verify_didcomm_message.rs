@@ -3,6 +3,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use nodex_didcomm::didcomm::encrypted::DidCommEncryptedServiceVerifyError as SE;
+use nodex_didcomm::didcomm::types::DidCommMessage;
 
 use crate::nodex::utils::did_accessor::DidAccessorImpl;
 use crate::{
@@ -29,25 +30,50 @@ pub async fn handler(
     let usecase =
         DidcommMessageUseCase::new(Studio::new(), utils::did_repository(), DidAccessorImpl {});
 
-    match usecase.verify(&json.message, now).await {
-        Ok(v) => Ok(HttpResponse::Ok().json(v)),
-        Err(e) => match e {
-            UE::ServiceVerify(SE::VcService(e)) => {
-                log::warn!("verify error: {}", e);
-                Ok(HttpResponse::Unauthorized().finish())
-            }
-            UE::ServiceVerify(SE::DidDocNotFound(target)) => {
-                log::warn!("Target DID not found. did = {}", target);
-                Ok(HttpResponse::NotFound().finish())
-            }
-            UE::MessageActivity(e) => Ok(utils::handle_status(e)),
-            UE::Json(_) => todo!(),
-            UE::ServiceVerify(SE::SidetreeFindRequestFailed(_))
-            | UE::ServiceVerify(SE::DidPublicKeyNotFound(_))
-            | UE::ServiceVerify(SE::DecryptFailed(_)) => todo!(),
-            UE::ServiceVerify(SE::MetadataBodyNotFound(_))
-            | UE::ServiceVerify(SE::Json(_))
-            | UE::ServiceVerify(SE::FindSender(_)) => todo!(),
+    match serde_json::from_str::<DidCommMessage>(&json.message) {
+        Err(e) => Ok(HttpResponse::BadRequest().body(e.to_string())),
+        Ok(message) => match usecase.verify(message, now).await {
+            Ok(v) => Ok(HttpResponse::Ok().json(v)),
+            Err(e) => match e {
+                UE::MessageActivity(e) => Ok(utils::handle_status(e)),
+                UE::NotAddressedToMe => {
+                    log::warn!("its not to me: {}", e);
+                    Ok(HttpResponse::BadRequest().body(e.to_string()))
+                }
+                UE::ServiceVerify(SE::FindSender(e)) => {
+                    log::warn!("cannot find sender: {}", e);
+                    Ok(HttpResponse::BadRequest().body(e.to_string()))
+                }
+                UE::ServiceVerify(SE::DidPublicKeyNotFound(e)) => {
+                    log::warn!("cannot public key: {}", e);
+                    Ok(HttpResponse::BadRequest().body(e.to_string()))
+                }
+                UE::ServiceVerify(SE::MetadataBodyNotFound(e)) => {
+                    let e = e.map(|e| e.to_string()).unwrap_or("".to_string());
+                    log::warn!("cannot find sender: {}", e);
+                    Ok(HttpResponse::BadRequest().body(e))
+                }
+                UE::ServiceVerify(SE::VcService(e)) => {
+                    log::warn!("verify error: {}", e);
+                    Ok(HttpResponse::Unauthorized().finish())
+                }
+                UE::ServiceVerify(SE::DidDocNotFound(target)) => {
+                    log::warn!("Target DID not found. did = {}", target);
+                    Ok(HttpResponse::NotFound().finish())
+                }
+                UE::Json(e) | UE::ServiceVerify(SE::Json(e)) => {
+                    log::warn!("json error: {}", e);
+                    Ok(HttpResponse::InternalServerError().finish())
+                }
+                UE::ServiceVerify(SE::DecryptFailed(e)) => {
+                    log::warn!("decrypt failed: {}", e);
+                    Ok(HttpResponse::InternalServerError().finish())
+                }
+                UE::ServiceVerify(SE::SidetreeFindRequestFailed(e)) => {
+                    log::warn!("sidetree error: {}", e);
+                    Ok(HttpResponse::InternalServerError().finish())
+                }
+            },
         },
     }
 }
