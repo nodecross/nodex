@@ -17,6 +17,13 @@ pub async fn handler(
     _req: HttpRequest,
     web::Json(json): web::Json<MessageContainer>,
 ) -> actix_web::Result<HttpResponse> {
+    if json.key.is_empty() {
+        return Ok(HttpResponse::BadRequest().json("key is required"));
+    }
+    if json.detail.is_empty() {
+        return Ok(HttpResponse::BadRequest().json("detail is required"));
+    }
+
     let occurred_at = match json.occurred_at.parse::<i64>() {
         Ok(timestamp) => match DateTime::from_timestamp(timestamp, 0) {
             Some(dt) => dt,
