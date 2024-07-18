@@ -48,16 +48,16 @@ impl StudioClient {
 
     fn auth_headers(&self, payload: String) -> anyhow::Result<HeaderMap> {
         let config = network_config();
-        let secret = config.lock().get_secret_key().unwrap();
+        let secret = config
+            .lock()
+            .get_secret_key()
+            .ok_or(anyhow::anyhow!("not found secret key"))?;
         let mut mac = HmacSha256::new_from_slice(secret.as_bytes())?;
 
         mac.update(payload.as_bytes());
         let signature = &hex::encode(mac.finalize().into_bytes());
         let mut headers = HeaderMap::new();
-        headers.insert(
-            "X-Nodex-Signature",
-            HeaderValue::from_str(signature).unwrap(),
-        );
+        headers.insert("X-Nodex-Signature", HeaderValue::from_str(signature)?);
         headers.insert(
             reqwest::header::CONTENT_TYPE,
             HeaderValue::from_static("application/json"),
@@ -141,7 +141,7 @@ impl StudioClient {
         message_id: String,
         is_verified: bool,
     ) -> anyhow::Result<reqwest::Response> {
-        let url = self.base_url.join(path);
+        let url = self.base_url.join(path)?;
         let payload = json!({
             "message_id": message_id,
             "is_verified": is_verified,
@@ -156,7 +156,7 @@ impl StudioClient {
             .await?;
 
         let payload = serde_json::to_string(&payload)?;
-        self.post(url.unwrap().as_ref(), &payload).await
+        self.post(url.as_ref(), &payload).await
     }
 
     pub async fn network(
