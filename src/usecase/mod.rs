@@ -8,10 +8,9 @@ pub mod verifiable_message_usecase;
 #[cfg(test)]
 mod test_util {
     use nodex_didcomm::keyring::keypair::KeyPairing;
+    use nodex_didcomm::rand_core::OsRng;
 
     use crate::repository::did_repository::mocks::MockDidRepository;
-
-    use rand_core::OsRng;
 
     #[derive(Clone)]
     pub struct TestPresets {

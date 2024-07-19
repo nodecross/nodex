@@ -3,7 +3,7 @@ use crate::{
     nodex::extension::secure_keystore::{SecureKeyStore, SecureKeyStoreKey},
 };
 use nodex_didcomm::keyring::keypair::{K256KeyPair, X25519KeyPair};
-use rand_core::OsRng;
+use nodex_didcomm::rand_core::OsRng;
 
 use thiserror::Error;
 
