@@ -17,6 +17,13 @@ pub async fn handler(
     _req: HttpRequest,
     web::Json(json): web::Json<MessageContainer>,
 ) -> actix_web::Result<HttpResponse> {
+    if json.key.is_empty() {
+        return Ok(HttpResponse::BadRequest().json("key is required"));
+    }
+    if json.detail.is_empty() {
+        return Ok(HttpResponse::BadRequest().json("detail is required"));
+    }
+
     let occurred_at = match json.occurred_at.parse::<i64>() {
         Ok(timestamp) => match DateTime::from_timestamp(timestamp, 0) {
             Some(dt) => dt,
@@ -30,12 +37,21 @@ pub async fn handler(
     };
 
     let usecase = EventUsecase::new();
-    usecase
+    match usecase
         .save(EventStoreRequest {
             key: json.key,
             detail: json.detail,
             occurred_at,
         })
-        .await;
-    Ok(HttpResponse::NoContent().finish())
+        .await
+    {
+        Ok(_) => {
+            log::info!("save event");
+            Ok(HttpResponse::NoContent().finish())
+        }
+        Err(e) => {
+            log::error!("{:?}", e);
+            Ok(HttpResponse::InternalServerError().json("internal server error"))
+        }
+    }
 }
