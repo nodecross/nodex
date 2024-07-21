@@ -105,7 +105,7 @@ impl Studio {
         let payload = serde_json::to_string(&request).expect("failed to serialize");
         let res = self
             .http_client
-            .post_with_auth_headers("/v1/device", &payload)
+            .post_with_auth_header("/v1/device", &payload)
             .await?;
 
         let status = res.status();

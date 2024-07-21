@@ -65,7 +65,7 @@ impl StudioClient {
         Ok(headers)
     }
 
-    pub async fn post_with_auth_headers(
+    pub async fn post_with_auth_header(
         &self,
         path: &str,
         body: &str,
@@ -145,7 +145,7 @@ impl StudioClient {
             .await?;
         let payload = serde_json::to_string(&payload)?;
         let url = self.base_url.join(path)?;
-        self.post_with_auth_headers(url.as_ref(), &payload).await
+        self.post(url.as_ref(), &payload).await
     }
 
     pub async fn ack_message(
@@ -192,7 +192,12 @@ impl StudioClient {
 
     pub async fn put(&self, path: &str, body: &str) -> anyhow::Result<reqwest::Response> {
         let url = self.base_url.join(path)?;
-        let headers = self.auth_headers("".to_string())?;
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            reqwest::header::CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
+
         let response = self
             .instance
             .put(url)
