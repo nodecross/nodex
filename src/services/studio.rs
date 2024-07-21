@@ -84,11 +84,6 @@ impl Studio {
         let sidetree_client = SideTreeClient::new(&server_config.did_http_endpoint())
             .expect("failed to create sidetree client");
         let did_repository = DidRepositoryImpl::new(sidetree_client);
-        // let didcomm_service = DIDCommEncryptedService::new(
-        //     did_repository.clone(),
-        //     Some(server_config.did_attachment_link()),
-        // );
-        // let vc_service = DIDVCService::new(did_repository);
         let did_accessor = DidAccessorImpl {};
 
         Studio {
@@ -108,7 +103,10 @@ impl Studio {
             project_did,
         };
         let payload = serde_json::to_string(&request).expect("failed to serialize");
-        let res = self.http_client.post("/v1/device", &payload).await?;
+        let res = self
+            .http_client
+            .post_with_auth_headers("/v1/device", &payload)
+            .await?;
 
         let status = res.status();
 
@@ -294,9 +292,9 @@ impl MessageActivityRepository for Studio {
             reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
                 Err(MessageActivityHttpError::InternalServerError(message))
             }
+
             other => Err(MessageActivityHttpError::Other(anyhow::anyhow!(
-                "StatusCode={}, unexpected response",
-                other
+                "StatusCode={other}, unexpected response"
             ))),
         }
     }
@@ -351,8 +349,7 @@ impl MessageActivityRepository for Studio {
                 Err(MessageActivityHttpError::InternalServerError(message))
             }
             other => Err(MessageActivityHttpError::Other(anyhow::anyhow!(
-                "StatusCode={}, unexpected response",
-                other
+                "StatusCode={other}, unexpected response"
             ))),
         }
     }

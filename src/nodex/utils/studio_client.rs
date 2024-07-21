@@ -65,18 +65,32 @@ impl StudioClient {
         Ok(headers)
     }
 
-    #[allow(dead_code)]
-    pub async fn get(&self, _path: &str) -> anyhow::Result<reqwest::Response> {
-        let url = self.base_url.join(_path)?;
-        let headers = self.auth_headers("".to_string())?;
+    pub async fn post_with_auth_headers(
+        &self,
+        path: &str,
+        body: &str,
+    ) -> anyhow::Result<reqwest::Response> {
+        let url = self.base_url.join(path)?;
+        let headers = self.auth_headers(body.to_string())?;
 
-        let response = self.instance.get(url).headers(headers).send().await?;
+        let response = self
+            .instance
+            .post(url)
+            .headers(headers)
+            .body(body.to_string())
+            .send()
+            .await?;
+
         Ok(response)
     }
 
     pub async fn post(&self, path: &str, body: &str) -> anyhow::Result<reqwest::Response> {
         let url = self.base_url.join(path)?;
-        let headers = self.auth_headers(body.to_string())?;
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            reqwest::header::CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
 
         let response = self
             .instance
@@ -131,7 +145,7 @@ impl StudioClient {
             .await?;
         let payload = serde_json::to_string(&payload)?;
         let url = self.base_url.join(path)?;
-        self.post(url.as_ref(), &payload).await
+        self.post_with_auth_headers(url.as_ref(), &payload).await
     }
 
     pub async fn ack_message(
@@ -189,15 +203,6 @@ impl StudioClient {
 
         Ok(response)
     }
-
-    #[allow(dead_code)]
-    pub async fn delete(&self, _path: &str) -> anyhow::Result<reqwest::Response> {
-        let url = self.base_url.join(_path)?;
-        let headers = self.auth_headers("".to_string())?;
-        let response = self.instance.delete(url).headers(headers).send().await?;
-
-        Ok(response)
-    }
 }
 
 #[cfg(test)]
@@ -208,31 +213,6 @@ pub mod tests {
     #[derive(Deserialize)]
     struct Res {
         origin: String,
-    }
-
-    #[actix_rt::test]
-    #[ignore]
-    async fn it_should_success_get() {
-        let client_config: StudioClientConfig = StudioClientConfig {
-            base_url: "https://httpbin.org".to_string(),
-        };
-
-        let client = match StudioClient::new(&client_config) {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
-
-        let res = match client.get("/get").await {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
-
-        let json: Res = match res.json().await {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
-
-        assert!(!json.origin.is_empty());
     }
 
     #[actix_rt::test]
@@ -273,31 +253,6 @@ pub mod tests {
         };
 
         let res = match client.put("/put", r#"{"key":"value"}"#).await {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
-
-        let json: Res = match res.json().await {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
-
-        assert!(!json.origin.is_empty());
-    }
-
-    #[actix_rt::test]
-    #[ignore]
-    async fn it_should_success_delete() {
-        let client_config: StudioClientConfig = StudioClientConfig {
-            base_url: "https://httpbin.org".to_string(),
-        };
-
-        let client = match StudioClient::new(&client_config) {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
-
-        let res = match client.delete("/delete").await {
             Ok(v) => v,
             Err(_) => panic!(),
         };
