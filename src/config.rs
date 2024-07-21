@@ -24,8 +24,8 @@ impl KeyPairExt for KeyPair {
     fn to_keypair_config(&self) -> KeyPairConfig {
         let hex = self.to_hex_key_pair();
         KeyPairConfig {
-            public_key: hex::encode(hex.public_key),
-            secret_key: hex::encode(hex.secret_key),
+            public_key: hex.public_key,
+            secret_key: hex.secret_key,
         }
     }
 }
