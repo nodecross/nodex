@@ -94,9 +94,6 @@ impl MessageReceiveUsecase {
                 }
                 Err(_) => {
                     log::error!("Verify failed : message_id = {}", m.id);
-                    self.studio
-                        .ack_message(&self.project_did, m.id, false)
-                        .await?;
                     continue;
                 }
             }
