@@ -1,10 +1,11 @@
 use crate::nodex::utils::did_accessor::{DIDAccessorImpl, DidAccessor};
 use crate::services::nodex::NodeX;
-use crate::services::studio::Studio;
+use crate::services::studio::{MessageResponse, Studio};
 use anyhow::anyhow;
 use nodex_didcomm::didcomm::encrypted::DIDCommEncryptedService;
 
 use serde::{Deserialize, Serialize};
+use serde_json;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::Notify;
 
@@ -43,13 +44,26 @@ impl MessageReceiveUsecase {
         }
     }
 
+    async fn handle_invalid_json(
+        &self,
+        m: &MessageResponse,
+        e: serde_json::Error,
+    ) -> Result<(), anyhow::Error> {
+        self.studio
+            .ack_message(&self.project_did, m.id.clone(), false)
+            .await?;
+        Err(anyhow::anyhow!("Invalid Json: {:?}", e))
+    }
+
     pub async fn receive_message(&self) -> anyhow::Result<()> {
         // TODO: refactoring more simple
         let service = DIDCommEncryptedService::new(NodeX::new(), None);
 
         for m in self.studio.get_message(&self.project_did).await? {
-            let json_message = serde_json::from_str(&m.raw_message)
-                .map_err(|e| anyhow::anyhow!("Invalid Json: {:?}", e))?;
+            let json_message = match serde_json::from_str(&m.raw_message) {
+                Ok(msg) => msg,
+                Err(e) => return self.handle_invalid_json(&m, e).await,
+            };
             log::info!("Receive message. message_id = {:?}", m.id);
             match service
                 .verify(&DIDAccessorImpl {}.get_my_keyring(), &json_message)
@@ -61,6 +75,9 @@ impl MessageReceiveUsecase {
                         m.id,
                         verified.message.issuer.id
                     );
+                    self.studio
+                        .ack_message(&self.project_did, m.id, true)
+                        .await?;
                     if verified.message.issuer.id == self.project_did {
                         let container = verified.message.credential_subject.container;
                         let operation_type = container["operation"].clone();
@@ -76,15 +93,9 @@ impl MessageReceiveUsecase {
                                 let output_path = { PathBuf::from("C:\\Temp\\nodex-agent") };
 
                                 self.agent.update_version(binary_url, output_path).await?;
-                                self.studio
-                                    .ack_message(&self.project_did, m.id, true)
-                                    .await?;
                             }
                             Ok(OperationType::UpdateNetworkJson) => {
                                 self.studio.network().await?;
-                                self.studio
-                                    .ack_message(&self.project_did, m.id, true)
-                                    .await?;
                             }
                             Err(e) => {
                                 log::error!("Json Parse Error: {:?}", e);
