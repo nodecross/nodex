@@ -48,6 +48,9 @@ impl MessageReceiveUsecase {
         let service = DIDCommEncryptedService::new(NodeX::new(), None);
 
         for m in self.studio.get_message(&self.project_did).await? {
+            self.studio
+                .ack_message(&self.project_did, m.id.as_str(), true)
+                .await?;
             let json_message = serde_json::from_str(&m.raw_message)
                 .map_err(|e| anyhow::anyhow!("Invalid Json: {:?}", e))?;
             log::info!("Receive message. message_id = {:?}", m.id);
@@ -69,9 +72,6 @@ impl MessageReceiveUsecase {
                                 let binary_url = container["binary_url"]
                                     .as_str()
                                     .ok_or(anyhow!("the container does n't have binary_url"))?;
-                                self.studio
-                                    .ack_message(&self.project_did, m.id, true)
-                                    .await?;
 
                                 #[cfg(unix)]
                                 let output_path = { PathBuf::from("/tmp/nodex-agent") };
@@ -82,9 +82,6 @@ impl MessageReceiveUsecase {
                             }
                             Ok(OperationType::UpdateNetworkJson) => {
                                 self.studio.network().await?;
-                                self.studio
-                                    .ack_message(&self.project_did, m.id, true)
-                                    .await?;
                             }
                             Err(e) => {
                                 log::error!("Json Parse Error: {:?}", e);

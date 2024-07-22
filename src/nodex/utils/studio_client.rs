@@ -145,7 +145,7 @@ impl StudioClient {
         &self,
         path: &str,
         project_did: &str,
-        message_id: String,
+        message_id: &str,
         is_verified: bool,
     ) -> anyhow::Result<reqwest::Response> {
         let url = self.base_url.join(path);

@@ -193,7 +193,7 @@ impl Studio {
     pub async fn ack_message(
         &self,
         project_did: &str,
-        message_id: String,
+        message_id: &str,
         is_verified: bool,
     ) -> anyhow::Result<()> {
         let res = self
