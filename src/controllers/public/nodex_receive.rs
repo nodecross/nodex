@@ -69,6 +69,9 @@ impl MessageReceiveUsecase {
                                 let binary_url = container["binary_url"]
                                     .as_str()
                                     .ok_or(anyhow!("the container does n't have binary_url"))?;
+                                self.studio
+                                    .ack_message(&self.project_did, m.id, true)
+                                    .await?;
 
                                 #[cfg(unix)]
                                 let output_path = { PathBuf::from("/tmp/nodex-agent") };
@@ -76,9 +79,6 @@ impl MessageReceiveUsecase {
                                 let output_path = { PathBuf::from("C:\\Temp\\nodex-agent") };
 
                                 self.agent.update_version(binary_url, output_path).await?;
-                                self.studio
-                                    .ack_message(&self.project_did, m.id, true)
-                                    .await?;
                             }
                             Ok(OperationType::UpdateNetworkJson) => {
                                 self.studio.network().await?;
