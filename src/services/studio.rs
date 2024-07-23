@@ -239,7 +239,6 @@ impl Studio {
     }
 }
 
-#[async_trait::async_trait]
 impl MessageActivityRepository for Studio {
     type Error = MessageActivityHttpError;
     async fn add_create_activity(
@@ -367,7 +366,6 @@ struct MetricsWithTimestampStr {
     metrics: Vec<MetricStr>,
 }
 
-#[async_trait::async_trait]
 impl MetricStoreRepository for Studio {
     async fn save(&self, request: Vec<MetricsWithTimestamp>) -> anyhow::Result<()> {
         let metrics_str = request
@@ -413,7 +411,6 @@ impl MetricStoreRepository for Studio {
     }
 }
 
-#[async_trait::async_trait]
 impl EventStoreRepository for Studio {
     async fn save(&self, request: EventStoreRequest) -> anyhow::Result<()> {
         let my_did = self.did_accessor.get_my_did();
@@ -463,7 +460,6 @@ impl EventStoreRepository for Studio {
     }
 }
 
-#[async_trait::async_trait]
 impl CustomMetricStoreRepository for Studio {
     async fn save(&self, request: CustomMetricStoreRequest) -> anyhow::Result<()> {
         let my_did = self.did_accessor.get_my_did();

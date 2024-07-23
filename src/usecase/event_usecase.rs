@@ -3,17 +3,22 @@ use crate::{
     services::studio::Studio,
 };
 
-pub struct EventUsecase {
-    repository: Box<dyn EventStoreRepository>,
+pub struct EventUsecase<R>
+where
+    R: EventStoreRepository,
+{
+    repository: R,
 }
 
-impl EventUsecase {
+impl EventUsecase<Studio> {
     pub fn new() -> Self {
         EventUsecase {
-            repository: Box::new(Studio::new()),
+            repository: Studio::new(),
         }
     }
+}
 
+impl<R: EventStoreRepository> EventUsecase<R> {
     pub async fn save(&self, request: EventStoreRequest) -> anyhow::Result<()> {
         match self.repository.save(request).await {
             Ok(_) => {
@@ -37,7 +42,6 @@ mod tests {
 
     pub struct MockEventStoreRepository {}
 
-    #[async_trait::async_trait]
     impl EventStoreRepository for MockEventStoreRepository {
         async fn save(&self, _: EventStoreRequest) -> anyhow::Result<()> {
             Ok(())
@@ -47,7 +51,7 @@ mod tests {
     #[tokio::test]
     async fn test_save() {
         let usecase = EventUsecase {
-            repository: Box::new(MockEventStoreRepository {}),
+            repository: MockEventStoreRepository {},
         };
         let _ = usecase
             .save(EventStoreRequest {

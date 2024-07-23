@@ -18,15 +18,15 @@ pub trait MetricsWatchRepository {
     fn watch_metrics(&mut self) -> Vec<Metric>;
 }
 
-#[async_trait::async_trait]
-pub trait MetricsCacheRepository {
+#[trait_variant::make(MetricsCacheRepository: Send)]
+pub trait LocalMetricsCacheRepository {
     async fn push(&mut self, timestamp: DateTime<Utc>, metrics: Vec<Metric>);
     async fn clear(&mut self);
     async fn get(&mut self) -> Vec<MetricsWithTimestamp>;
 }
 
-#[async_trait::async_trait]
-pub trait MetricStoreRepository {
+#[trait_variant::make(MetricStoreRepository: Send)]
+pub trait LocalMetricStoreRepository {
     async fn save(&self, request: Vec<MetricsWithTimestamp>) -> anyhow::Result<()>;
 }
 

@@ -206,7 +206,7 @@ async fn main() -> std::io::Result<()> {
     let (tx, rx) = mpsc::channel::<Command>(32);
     let db = Arc::new(RwLock::new(HashMap::<String, bool>::new()));
 
-    let transfer_client = Box::new(MqttClient::new(tx));
+    let transfer_client = MqttClient::new(tx);
 
     #[cfg(unix)]
     let server = {

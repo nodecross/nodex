@@ -30,7 +30,6 @@ std = []
 actix-rt = "2.9.0"
 actix-web = "4.5.1"
 anyhow = "1.0.81"
-async-trait = "0.1.80"
 bytes = "1.6.1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.5.9", features = ["cargo", "derive"] }
@@ -56,6 +55,7 @@ shadow-rs = "0.29.0"
 sysinfo = "0.30.13"
 thiserror = "1.0.58"
 tokio = { version = "1.38.1", features = ["full"] }
+trait-variant = "0.1.2"
 url = "2.5.2"
 uuid = { version = "1.10.0", features = [
     "fast-rng",

@@ -1,5 +1,4 @@
 use anyhow::Context;
-use async_trait::async_trait;
 use nodex_didcomm::did::sidetree::client::{SidetreeHttpClient, SidetreeHttpClientResponse};
 use url::{ParseError, Url};
 
@@ -28,7 +27,6 @@ pub enum SideTreeClientError {
     ReqwestError(#[from] reqwest::Error),
 }
 
-#[async_trait]
 impl SidetreeHttpClient for SideTreeClient {
     type Error = SideTreeClientError;
     async fn post_create_identifier(

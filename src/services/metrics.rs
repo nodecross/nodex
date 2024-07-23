@@ -120,7 +120,6 @@ impl MetricsInMemoryCacheService {
     }
 }
 
-#[async_trait::async_trait]
 impl MetricsCacheRepository for MetricsInMemoryCacheService {
     async fn push(&mut self, timestamp: DateTime<Utc>, metrics: Vec<Metric>) {
         let mut cache = self.cache.lock().await;

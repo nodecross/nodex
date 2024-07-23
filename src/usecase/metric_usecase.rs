@@ -100,7 +100,6 @@ mod tests {
 
     pub struct MockMetricStoreRepository {}
 
-    #[async_trait::async_trait]
     impl MetricStoreRepository for MockMetricStoreRepository {
         async fn save(&self, _: Vec<MetricsWithTimestamp>) -> anyhow::Result<()> {
             Ok(())
