@@ -33,7 +33,6 @@ pub mod mocks {
     #[derive(Debug, thiserror::Error)]
     pub enum DummyError {}
 
-    #[async_trait::async_trait]
     impl DidRepository for MockDidRepository {
         type CreateIdentifierError = CreateIdentifierError<DummyError>;
         type FindIdentifierError = FindIdentifierError<DummyError>;
@@ -93,7 +92,6 @@ pub mod mocks {
     #[derive(Clone, Copy)]
     pub struct NoPublicKeyDidRepository;
 
-    #[async_trait::async_trait]
     impl DidRepository for NoPublicKeyDidRepository {
         type CreateIdentifierError = CreateIdentifierError<DummyError>;
         type FindIdentifierError = FindIdentifierError<DummyError>;
@@ -127,7 +125,6 @@ pub mod mocks {
     #[derive(Clone, Copy)]
     pub struct IllegalPublicKeyLengthDidRepository;
 
-    #[async_trait::async_trait]
     impl DidRepository for IllegalPublicKeyLengthDidRepository {
         type CreateIdentifierError = CreateIdentifierError<DummyError>;
         type FindIdentifierError = FindIdentifierError<DummyError>;

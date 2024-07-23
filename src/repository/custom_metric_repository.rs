@@ -8,7 +8,7 @@ pub struct CustomMetricStoreRequest {
     pub occurred_at: DateTime<Utc>,
 }
 
-#[async_trait::async_trait]
-pub trait CustomMetricStoreRepository {
+#[trait_variant::make(CustomMetricStoreRepository: Send)]
+pub trait LocalCustomMetricStoreRepository {
     async fn save(&self, request: CustomMetricStoreRequest) -> anyhow::Result<()>;
 }
