@@ -23,7 +23,7 @@ impl SideTreeClient {
 pub enum SideTreeClientError {
     #[error("parse error: {0}")]
     ParseError(#[from] ParseError),
-    #[error("reqwest error: {0}")]
+    #[error("reqwest error: {0:?}")]
     ReqwestError(#[from] reqwest::Error),
 }
 

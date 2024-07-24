@@ -10,8 +10,8 @@ pub enum Command {
     Send { value: Value, resp: Responder },
 }
 
-#[trait_variant::make(TransferClient: Send)]
-pub trait LocalTransferClient: Sync {
+#[trait_variant::make(Send)]
+pub trait TransferClient: Sync {
     async fn send(&self, value: Value) -> anyhow::Result<bool>;
 }
 

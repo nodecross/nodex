@@ -39,13 +39,13 @@ impl NodeX {
         // NOTE: find did
         let config = app_config();
         let keystore = FileBaseKeyStore::new(config.clone());
-        if let Ok(v) =
+        if let Some(did) =
             keyring::keypair::KeyPairingWithConfig::load_keyring(config.clone(), keystore.clone())
+                .ok()
+                .and_then(|v| v.get_identifier().ok())
         {
-            if let Ok(did) = v.get_identifier() {
-                if let Some(json) = self.find_identifier(&did).await? {
-                    return Ok(json);
-                }
+            if let Some(json) = self.find_identifier(&did).await? {
+                return Ok(json);
             }
         }
 

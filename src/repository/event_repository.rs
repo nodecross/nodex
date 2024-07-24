@@ -8,7 +8,7 @@ pub struct EventStoreRequest {
     pub occurred_at: DateTime<Utc>,
 }
 
-#[trait_variant::make(EventStoreRepository: Send)]
-pub trait LocalEventStoreRepository {
+#[trait_variant::make(Send)]
+pub trait EventStoreRepository {
     async fn save(&self, request: EventStoreRequest) -> anyhow::Result<()>;
 }

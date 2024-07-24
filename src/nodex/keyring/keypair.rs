@@ -18,7 +18,7 @@ pub struct KeyPairingWithConfig<S: SecureKeyStore> {
 
 #[derive(Error, Debug)]
 pub enum KeyPairingError {
-    #[error("create keyring failed")]
+    #[error("create keyring failed: {0}")]
     CreateKeyringFailed(#[from] nodex_didcomm::keyring::keypair::KeyPairingError),
     #[error("key not found")]
     KeyNotFound,
