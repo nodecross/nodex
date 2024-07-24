@@ -10,5 +10,5 @@ pub struct CustomMetricStoreRequest {
 
 #[async_trait::async_trait]
 pub trait CustomMetricStoreRepository {
-    async fn save(&self, request: CustomMetricStoreRequest) -> anyhow::Result<()>;
+    async fn save(&self, request: CustomMetricStoreRequest) -> anyhow::Result<(), anyhow::Error>;
 }

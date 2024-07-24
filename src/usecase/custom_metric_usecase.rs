@@ -14,10 +14,13 @@ impl CustomMetricUsecase {
         }
     }
 
-    pub async fn save(&self, request: CustomMetricStoreRequest) {
-        match self.repository.save(request).await {
-            Ok(_) => log::info!("save event"),
-            Err(e) => log::error!("{:?}", e),
+    pub async fn save(&self, request: CustomMetricStoreRequest) -> Result<(), anyhow::Error> {
+        if let Err(e) = self.repository.save(request).await {
+            log::error!("{:?}", e);
+            Err(e)
+        } else {
+            log::info!("save custom metrics");
+            Ok(())
         }
     }
 }
@@ -45,12 +48,15 @@ mod tests {
         let usecase = CustomMetricUsecase {
             repository: Box::new(MockCustomMetricStoreRepository {}),
         };
-        usecase
-            .save(CustomMetricStoreRequest {
-                key: "test_key".to_string(),
-                value: 10.52,
-                occurred_at: chrono::Utc::now(),
-            })
-            .await;
+
+        let request = CustomMetricStoreRequest {
+            key: "test_key".to_string(),
+            value: 10.52,
+            occurred_at: chrono::Utc::now(),
+        };
+
+        if let Err(e) = usecase.save(request).await {
+            panic!("{:?}", e);
+        }
     }
 }
