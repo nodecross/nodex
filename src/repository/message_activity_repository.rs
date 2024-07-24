@@ -46,8 +46,8 @@ pub enum MessageActivityHttpError {
     Other(#[from] anyhow::Error),
 }
 
-#[trait_variant::make(MessageActivityRepository: Send)]
-pub trait LocalMessageActivityRepository {
+#[trait_variant::make(Send)]
+pub trait MessageActivityRepository {
     type Error: std::error::Error;
     async fn add_create_activity(
         &self,
