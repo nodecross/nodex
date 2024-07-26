@@ -14,7 +14,7 @@ impl CustomMetricUsecase {
         }
     }
 
-    pub async fn save(&self, request: CustomMetricStoreRequest) -> Result<(), anyhow::Error> {
+    pub async fn save(&self, request: CustomMetricStoreRequest) -> anyhow::Result<()> {
         if let Err(e) = self.repository.save(request).await {
             log::error!("{:?}", e);
             Err(e)
