@@ -80,6 +80,10 @@ fn config_app(context: web::Data<Context>) -> Box<dyn Fn(&mut web::ServiceConfig
                 "/custom_metrics",
                 web::post().to(controllers::public::send_custom_metric::handler),
             )
+            .route(
+                "/attributes",
+                web::post().to(controllers::public::send_attributes::handler),
+            )
             // NOTE: Internal (Private) Routes
             .service(
                 web::scope("/internal")
