@@ -15,6 +15,8 @@ use std::{
 use std::{fs::OpenOptions, sync::MutexGuard};
 use thiserror::Error;
 
+use crate::nodex::utils::UnwrapLog;
+
 #[derive(Clone, Deserialize, Serialize)]
 struct KeyPairsConfig {
     sign: Option<KeyPairHex>,
@@ -138,17 +140,8 @@ fn convert_to_key<U, V, T: KeyPair<U, V>>(
 
 #[inline]
 fn load_key_pair<U, V, T: KeyPair<U, V>>(kind: &Option<KeyPairHex>) -> Option<T> {
-    if let Some(ref key) = kind {
-        match convert_to_key(key) {
-            Ok(v) => Some(v),
-            Err(e) => {
-                log::error!("{:?}", e);
-                None
-            }
-        }
-    } else {
-        None
-    }
+    kind.as_ref()
+        .and_then(|key| convert_to_key(key).map_err(|e| log::error!("{:?}", e)).ok())
 }
 
 impl AppConfig {
@@ -166,30 +159,11 @@ impl AppConfig {
         let config_dir = config.path().parent().unwrap();
 
         if !Path::exists(config.path()) {
-            match fs::create_dir_all(config_dir) {
-                Ok(_) => {}
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    panic!()
-                }
-            };
-
-            match Self::touch(config.path()) {
-                Ok(_) => {}
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    panic!()
-                }
-            };
+            fs::create_dir_all(config_dir).unwrap_log();
+            Self::touch(config.path()).unwrap_log();
         }
 
-        let root = match config.json::<ConfigRoot>() {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        };
+        let root = config.json::<ConfigRoot>().unwrap_log();
 
         AppConfig { root, config }
     }
@@ -202,44 +176,45 @@ impl AppConfig {
 
     // NOTE: trng - read
     pub fn load_trng_read_sig(&self) -> Option<Extension> {
-        match self.root.extensions.trng.clone() {
-            Some(v) => Some(v.read),
-            None => None,
-        }
+        self.root.extensions.trng.as_ref().map(|v| v.read.clone())
     }
 
     // NOTE: secure_keystore - write
     pub fn load_secure_keystore_write_sig(&self) -> Option<Extension> {
-        match self.root.extensions.secure_keystore.clone() {
-            Some(v) => Some(v.write),
-            None => None,
-        }
+        self.root
+            .extensions
+            .secure_keystore
+            .as_ref()
+            .map(|v| v.write.clone())
     }
 
     // NOTE: secure_keystore - read
     pub fn load_secure_keystore_read_sig(&self) -> Option<Extension> {
-        match self.root.extensions.secure_keystore.clone() {
-            Some(v) => Some(v.read),
-            None => None,
-        }
+        self.root
+            .extensions
+            .secure_keystore
+            .as_ref()
+            .map(|v| v.read.clone())
     }
 
     // NOTE: cipher - encrypt
     #[allow(dead_code)]
     pub fn load_cipher_encrypt_sig(&self) -> Option<Extension> {
-        match self.root.extensions.cipher.clone() {
-            Some(v) => Some(v.encrypt),
-            None => None,
-        }
+        self.root
+            .extensions
+            .cipher
+            .as_ref()
+            .map(|v| v.encrypt.clone())
     }
 
     // NOTE: cipher - decrypt
     #[allow(dead_code)]
     pub fn load_cipher_decrypt_sig(&self) -> Option<Extension> {
-        match self.root.extensions.cipher.clone() {
-            Some(v) => Some(v.decrypt),
-            None => None,
-        }
+        self.root
+            .extensions
+            .cipher
+            .as_ref()
+            .map(|v| v.decrypt.clone())
     }
 
     // NOTE: SIGN
@@ -302,14 +277,7 @@ impl AppConfig {
 
     pub fn save_did(&mut self, value: &str) {
         self.root.did = Some(value.to_string());
-
-        match self.write() {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        }
+        self.write().unwrap_log()
     }
 
     pub fn get_metric_collect_interval(&self) -> u64 {
@@ -338,13 +306,7 @@ impl AppConfig {
 
     pub fn save_is_initialized(&mut self, value: bool) {
         self.root.is_initialized = value;
-        match self.write() {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        }
+        self.write().unwrap_log()
     }
 }
 
