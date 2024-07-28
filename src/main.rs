@@ -32,6 +32,7 @@ use windows::Win32::{
     System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE},
 };
 
+use nodex::utils::UnwrapLog;
 use usecase::metric_usecase::MetricUsecase;
 
 mod config;
@@ -108,49 +109,25 @@ async fn main() -> std::io::Result<()> {
     {
         let config = app_config();
         let config = config.lock();
-        match config.write() {
-            Ok(()) => (),
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        };
+        config.write().unwrap_log();
     }
 
-    let home_dir = match dirs::home_dir() {
-        Some(v) => v,
-        None => panic!(),
-    };
+    let home_dir = dirs::home_dir().unwrap();
     let config_dir = home_dir.join(".nodex");
     let runtime_dir = config_dir.clone().join("run");
     let logs_dir = config_dir.clone().join("logs");
 
-    match fs::create_dir_all(&runtime_dir) {
-        Ok(()) => (),
-        Err(e) => {
-            log::error!("{:?}", e);
-            panic!()
-        }
-    };
-    match fs::create_dir_all(&logs_dir) {
-        Ok(()) => (),
-        Err(e) => {
-            log::error!("{:?}", e);
-            panic!()
-        }
-    };
+    fs::create_dir_all(&runtime_dir).unwrap_log();
+    fs::create_dir_all(&logs_dir).unwrap_log();
 
     // NOTE: generate Key Chain
     let node_x = NodeX::new();
     let device_did = node_x.create_identifier().await.unwrap();
 
     // NOTE: CLI
-    match cli.config {
-        true => {
-            use_cli(cli.command, device_did.did_document.id.clone());
-            return Ok(());
-        }
-        false => (),
+    if cli.config {
+        use_cli(cli.command, device_did.did_document.id.clone());
+        return Ok(());
     }
 
     // NOTE: studio initilize
@@ -246,20 +223,16 @@ async fn main() -> std::io::Result<()> {
         log::info!("Agent has been successfully stopped.");
     });
 
-    match tokio::try_join!(
+    let _ = tokio::try_join!(
         server_task,
         sender_task,
         message_polling_task,
         collect_task,
         send_task,
         shutdown
-    ) {
-        Ok(_) => Ok(()),
-        Err(e) => {
-            log::error!("{:?}", e);
-            panic!()
-        }
-    }
+    )
+    .unwrap_log();
+    Ok(())
 }
 
 #[cfg(windows)]
@@ -353,13 +326,10 @@ async fn studio_initialize(my_did: String) {
         let network_config = network.lock();
 
         // NOTE: check network secret_key and project_did
-        match network_config.get_secret_key() {
-            Some(_) => (),
-            None => {
-                log::error!("Network secret_key is not set. Please set secret_key use cli");
-                panic!()
-            }
-        }
+        network_config
+            .get_secret_key()
+            .ok_or("Network secret_key is not set. Please set secret_key use cli")
+            .unwrap_log();
         network_config
             .get_project_did()
             .expect("Network project_did is not set. Please set project_did use cli")
@@ -367,13 +337,10 @@ async fn studio_initialize(my_did: String) {
 
     // NOTE: register device
     let studio = Studio::new();
-    match studio.register_device(my_did, project_did).await {
-        Ok(()) => (),
-        Err(e) => {
-            log::error!("{:?}", e);
-            panic!()
-        }
-    };
+    studio
+        .register_device(my_did, project_did)
+        .await
+        .unwrap_log();
 }
 
 async fn send_device_info() {
@@ -390,7 +357,7 @@ async fn send_device_info() {
         .expect("Failed to get project_did");
 
     let studio = Studio::new();
-    match studio
+    studio
         .send_device_info(
             project_did,
             mac_address,
@@ -398,13 +365,7 @@ async fn send_device_info() {
             OS.to_string(),
         )
         .await
-    {
-        Ok(()) => (),
-        Err(e) => {
-            log::error!("{:?}", e);
-            panic!()
-        }
-    };
+        .unwrap_log();
 }
 
 fn log_init() {
@@ -426,33 +387,26 @@ fn log_init() {
 }
 
 fn kill_other_self_process() {
-    match get_current_pid() {
-        Ok(current_pid) => {
-            let mut system = System::new_all();
-            system.refresh_all();
+    let current_pid = get_current_pid().unwrap_log();
+    let mut system = System::new_all();
+    system.refresh_all();
 
-            #[cfg(unix)]
-            let process_name = { "nodex-agent" };
-            #[cfg(windows)]
-            let process_name = { "nodex-agent.exe" };
+    #[cfg(unix)]
+    let process_name = { "nodex-agent" };
+    #[cfg(windows)]
+    let process_name = { "nodex-agent.exe" };
 
-            for process in system.processes_by_exact_name(process_name) {
-                if current_pid == process.pid() {
-                    continue;
-                }
-                if process.parent() == Some(current_pid) {
-                    continue;
-                }
-
-                let pid = process.pid().as_u32();
-                if let Err(e) = kill_process(pid) {
-                    log::error!("Failed to kill process with PID: {}. Error: {:?}", pid, e);
-                }
-            }
+    for process in system.processes_by_exact_name(process_name) {
+        if current_pid == process.pid() {
+            continue;
         }
-        Err(e) => {
-            log::error!("Failed to get current PID: {:?}", e);
-            panic!()
+        if process.parent() == Some(current_pid) {
+            continue;
+        }
+
+        let pid = process.pid().as_u32();
+        if let Err(e) = kill_process(pid) {
+            log::error!("Failed to kill process with PID: {}. Error: {:?}", pid, e);
         }
     }
 }
