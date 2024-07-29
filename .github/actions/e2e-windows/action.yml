@@ -66,10 +66,6 @@ runs:
       shell: powershell
       run: Expand-Archive -Path nginx.zip -DestinationPath .
 
-    - name: Install Root CA
-      shell: powershell
-      run: Import-Certificate -Filepath .\test_resource\fixtures\root-CA.crt -CertStoreLocation Cert:\CurrentUser\Root
-
     - name: Setup tmate session
       uses: mxschmitt/action-tmate@v3
 
