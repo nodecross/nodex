@@ -30,7 +30,7 @@ jobs:
         with:
           ref: ${{ github.ref }}
           actor: ${{ github.actor }}
-          github_token: ${{ secrets.PAT }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
   bump-version:
     name: Bump Version
