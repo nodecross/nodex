@@ -27,28 +27,6 @@ runs:
         $prismPath = Get-Command prism | Select-Object -ExpandProperty Source
         echo "::set-output name=prismPath::$prismPath"
 
-    - name: Cache Squid
-      id: cache-squid
-      uses: actions/cache@v4
-      with:
-        path: squid.msi
-        key: ${{ runner.os }}-primes
-
-    - name: Get Squid
-      if: steps.cache-squid.outputs.cache-hit != 'true'
-      shell: bash
-      run: wget https://packages.diladele.com/squid/4.14/squid.msi
-
-    - name: Install Squid
-      shell: powershell
-      run: |
-        $file = "squid.msi"
-        $log = "install.log"
-        $procMain = Start-Process "msiexec" "/i `"$file`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
-        $procLog = Start-Process "powershell" "Get-Content -Path `"$log`" -Wait" -NoNewWindow -PassThru
-        $procMain.WaitForExit()
-        $procLog.Kill()
-
     - name: Setup tmate session
       uses: mxschmitt/action-tmate@v3
 
