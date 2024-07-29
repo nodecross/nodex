@@ -32,7 +32,10 @@ runs:
       uses: actions/cache@v4
       with:
         path: squid.msi
-        key: ${{ runner.os }}-primes
+        key: ${{ runner.os }}-squid
+
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
 
     - name: Get Squid
       if: steps.cache-squid.outputs.cache-hit != 'true'
@@ -48,9 +51,6 @@ runs:
         $procLog = Start-Process "powershell" "Get-Content -Path `"$log`" -Wait" -NoNewWindow -PassThru
         $procMain.WaitForExit()
         $procLog.Kill()
-
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
 
     - name: Setup and Run Tests
       shell: powershell
