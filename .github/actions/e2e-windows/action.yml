@@ -34,42 +34,24 @@ runs:
         path: squid.msi
         key: ${{ runner.os }}-squid
 
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+
     - name: Get Squid
       if: steps.cache-squid.outputs.cache-hit != 'true'
-      shell: powershell
-      run: Invoke-WebRequest https://packages.diladele.com/squid/4.14/squid.msi -OutFile squid.msi
+      shell: bash
+      run: wget https://packages.diladele.com/squid/4.14/squid.msi
 
     - name: Install Squid
       shell: powershell
       run: |
         $file = "squid.msi"
         $log = "install.log"
-        New-Item -Path $log -ItemType File -Force | Out-Null
         $procMain = Start-Process "msiexec" "/i `"$file`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
         $procLog = Start-Process "powershell" "Get-Content -Path `"$log`" -Wait" -NoNewWindow -PassThru
         $procMain.WaitForExit()
         $procLog.Kill()
 
-    - name: Cache Nginx
-      id: cache-nginx
-      uses: actions/cache@v4
-      with:
-        path: nginx.zip
-        key: ${{ runner.os }}-nginx
-
-    - name: Get Nginx
-      if: steps.cache-nginx.outputs.cache-hit != 'true'
-      shell: powershell
-      run: Invoke-WebRequest http://nginx.org/download/nginx-1.26.1.zip -OutFile nginx.zip
-
-    - name: Extract Nginx
-      shell: powershell
-      run: Expand-Archive -Path nginx.zip -DestinationPath .
-
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
-
-     # nginx-1.26.1
     - name: Setup and Run Tests
       shell: powershell
       run: |
