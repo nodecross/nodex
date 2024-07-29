@@ -89,23 +89,7 @@ runs:
     - name: Setup tmate session
       uses: mxschmitt/action-tmate@v3
 
-# Get-Content .\test_resource\fixtures\proxy-cert.crt, .\test_resource\fixtures\proxy-cert.key | Set-Content proxy-cert.pem
-# .\mitmproxy.exe --certs *=.\proxy-cert.pem --set listen_port=3129
-
-# cp -r .\test_resource\fixtures\ D:\Squid\
-# cp .\test_resource\squid\conf\squid.conf D:\Squid\etc\squid\squid.conf
-# D:\Squid\bin\squid.exe -f .\test_resource\squid\conf\squid.conf
-# Import-Certificate -Filepath .\test_resource\fixtures\root-CA.crt -CertStoreLocation Cert:\CurrentUser\Root -WhatIf
-
-# Remove-item alias:curl
-# curl --proxy "https://localhost:3129" https://google.com
-# curl --proxy-insecure --proxy "https://localhost:3129" https://google.com
-      # certutil -addstore -f "ROOT" .\test_resource\fixtures\root-CA.crt
-      # curl --proxy-cacert .\test_resource\fixtures\root-CA.crt
-
-# Stop-Process -Name "squid"
-# nginx-1.26.1
-
+     # nginx-1.26.1
     - name: Setup and Run Tests
       shell: powershell
       run: |
