@@ -51,9 +51,9 @@ services:
       timeout: 30s
       retries: 5
       start_period: 10s
-    expose:
-      - "4010"
-      - "4011"
+    ports:
+      - "4010:4010"
+      - "4011:4011"
   proxy:
     depends_on: *depends_on
     build:
@@ -70,9 +70,9 @@ services:
       timeout: 30s
       retries: 5
       start_period: 10s
-    expose:
-      - "3128"
-      - "3129"
+    ports:
+      - "3128:3128"
+      - "3129:3129"
     ulimits:
       nofile:
         soft: "65536"

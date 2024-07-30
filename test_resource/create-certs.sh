@@ -57,7 +57,7 @@ openssl req -x509 -new -nodes \
 # Note that rustls is finicky, requiring the subjectAltName field to be present.
 openssl req -new -sha512 \
    -subj "/C=FR/L=Toulouse/O=Test/CN=nginx" \
-   -addext 'subjectAltName=DNS:nginx,DNS:localhost' \
+   -addext 'subjectAltName=DNS:nginx,DNS:localhost,IP:192.168.56.3' \
    -addext 'basicConstraints=critical,CA:FALSE' \
    -addext 'extendedKeyUsage=serverAuth' \
    -key nginx-cert.key \
@@ -71,7 +71,7 @@ openssl x509 -req \
 
 openssl req -new -sha512 \
    -subj "/C=FR/L=Toulouse/O=Test/CN=proxy" \
-   -addext 'subjectAltName=DNS:proxy,DNS:localhost' \
+   -addext 'subjectAltName=DNS:proxy,DNS:localhost,IP:192.168.56.3' \
    -addext 'basicConstraints=critical,CA:FALSE' \
    -addext 'extendedKeyUsage=serverAuth' \
    -key proxy-cert.key \
@@ -98,6 +98,8 @@ openssl x509 -req \
 #    -out client-cert.crt
 # The client_id is a PEM encoded private key and at least one PEM encoded certificate.
 # cat client-cert.key client-cert.crt > client-id.pem
+
+openssl crl2pkcs7 -nocrl -certfile root-CA.crt -out root-CA.p7b
 
 # For this test setup, we don't need to keep the key for the root CA nor the signing requests.
 # Keep all the certificates and keys in the fixtures/ directory.

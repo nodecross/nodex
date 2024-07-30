@@ -1,0 +1,105 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+$script = <<-SCRIPT
+cd C:\\Users\\vagrant
+$progressPreference = 'silentlyContinue'
+Invoke-WebRequest -Uri https://github.com/microsoft/winget-cli/releases/download/v1.8.1911/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle -OutFile Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle
+Invoke-WebRequest -Uri https://github.com/microsoft/winget-cli/releases/download/v1.8.1911/76fba573f02545629706ab99170237bc_License1.xml -OutFile 76fba573f02545629706ab99170237bc_License1.xml
+Invoke-WebRequest -Uri https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx -OutFile Microsoft.VCLibs.x64.14.00.Desktop.appx
+Invoke-WebRequest -Uri https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.x64.appx -OutFile Microsoft.UI.Xaml.2.8.x64.appx
+Add-AppxPackage Microsoft.VCLibs.x64.14.00.Desktop.appx
+Add-AppxPackage Microsoft.UI.Xaml.2.8.x64.appx
+Add-AppxProvisionedPackage -Online -PackagePath Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle -LicensePath 76fba573f02545629706ab99170237bc_License1.xml -Verbose
+Add-AppxPackage -Path Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle
+Add-AppxPackage -Path "https://cdn.winget.microsoft.com/cache/source.msix"
+winget install -e --silent --accept-source-agreements --accept-source-agreements --id Microsoft.VisualStudio.2022.BuildTools --override "--passive --wait --add Microsoft.VisualStudio.Workload.VCTools;includeRecommended"
+Invoke-WebRequest -Uri https://static.rust-lang.org/rustup/dist/i686-pc-windows-gnu/rustup-init.exe -OutFile rustup-init.exe
+.\\rustup-init.exe -y
+$ENV:Path="$ENV:USERPROFILE\\.cargo\\bin;"+$ENV:Path
+New-Item -ItemType Directory -Force -Path $env:USERPROFILE\\.config\\nodex
+Copy-Item C:\\Users\\vagrant\\nodex\\test_resource\\config\\* $env:USERPROFILE\\.config\\nodex\\
+cd C:\\Users\\vagrant\\nodex
+cargo build
+SCRIPT
+
+Vagrant.configure("2") do |config|
+  config.vm.define "agent" do |agent|
+    agent.winrm.transport = :plaintext
+    agent.winrm.basic_auth_only = true
+    agent.vm.box = "gusztavvargadr/windows-server"
+    agent.vm.box_version = "2102.0.2404"
+    agent.vm.provision "file", source: "../../", destination: "C:\\Users\\vagrant\\nodex"
+    agent.vm.provision "shell", inline: $script
+    agent.vm.hostname = "agent"
+    agent.vm.network "private_network", ip: "192.168.56.2", hostname: true
+  end
+
+  config.vm.define "docker" do |docker|
+    docker.vm.box = "gusztavvargadr/docker-linux"
+    docker.vm.box_version = "2600.2404.2405"
+    docker.vm.provision "file", source: "../", destination: "test_resource"
+    docker.vm.hostname = "docker"
+    docker.vm.network "private_network", ip: "192.168.56.3", hostname: true
+  end
+
+  # Disable automatic box update checking. If you disable this, then
+  # boxes will only be checked for updates when the user runs
+  # `vagrant box outdated`. This is not recommended.
+  # config.vm.box_check_update = false
+
+  # Create a forwarded port mapping which allows access to a specific port
+  # within the machine from a port on the host machine. In the example below,
+  # accessing "localhost:8080" will access port 80 on the guest machine.
+  # NOTE: This will enable public access to the opened port
+  # config.vm.network "forwarded_port", guest: 80, host: 8080
+
+  # Create a forwarded port mapping which allows access to a specific port
+  # within the machine from a port on the host machine and only allow access
+  # via 127.0.0.1 to disable public access
+  # config.vm.network "forwarded_port", guest: 80, host: 8080, host_ip: "127.0.0.1"
+
+  # Create a private network, which allows host-only access to the machine
+  # using a specific IP.
+  # config.vm.network "private_network", ip: "192.168.33.10"
+
+  # Create a public network, which generally matched to bridged network.
+  # Bridged networks make the machine appear as another physical device on
+  # your network.
+  # config.vm.network "public_network"
+
+  # Share an additional folder to the guest VM. The first argument is
+  # the path on the host to the actual folder. The second argument is
+  # the path on the guest to mount the folder. And the optional third
+  # argument is a set of non-required options.
+  # config.vm.synced_folder "../data", "/vagrant_data"
+
+  # Disable the default share of the current code directory. Doing this
+  # provides improved isolation between the vagrant box and your host
+  # by making sure your Vagrantfile isn't accessible to the vagrant box.
+  # If you use this you may want to enable additional shared subfolders as
+  # shown above.
+  # config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  # Provider-specific configuration so you can fine-tune various
+  # backing providers for Vagrant. These expose provider-specific options.
+  # Example for VirtualBox:
+  #
+  # config.vm.provider "virtualbox" do |vb|
+  #   # Display the VirtualBox GUI when booting the machine
+  #   vb.gui = true
+  #
+  #   # Customize the amount of memory on the VM:
+  #   vb.memory = "1024"
+  # end
+  #
+  # View the documentation for the provider you are using for more
+  # information on available options.
+
+  # Enable provisioning with a shell script. Additional provisioners such as
+  # Ansible, Chef, Docker, Puppet and Salt are also available. Please see the
+  # documentation for more information about their specific syntax and use.
+  # config.vm.provision "shell", inline: <<-SHELL
+  #   apt-get update
+  #   apt-get install -y apache2
+  # SHELL
+end
