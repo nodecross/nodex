@@ -66,7 +66,7 @@ impl MetricUsecase {
                     match self.store_repository.save(metrics_with_timestamp_list).await {
                         Ok(_) => {
                             self.cache_repository.lock().await.clear();
-                            log::info!("sended metrics");
+                            log::info!("sent metrics");
                         },
                         Err(e) => log::error!("failed to send metric{:?}", e),
                     }
