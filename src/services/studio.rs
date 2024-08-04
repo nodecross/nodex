@@ -237,6 +237,60 @@ impl Studio {
             other => anyhow::bail!("StatusCode={other}, unexpected response"),
         }
     }
+
+    #[inline]
+    async fn relay_to_studio<T: serde::Serialize>(
+        &self,
+        path: &str,
+        request: T,
+    ) -> anyhow::Result<()> {
+        let my_did = self.did_accessor.get_my_did();
+        let my_keyring = self.did_accessor.get_my_keyring();
+        let model =
+            VerifiableCredentials::new(my_did, serde_json::to_value(request)?, chrono::Utc::now());
+        let payload = DidVcService::generate(&self.did_repository, model, &my_keyring)
+            .context("failed to generate payload")?;
+        let payload = serde_json::to_string(&payload).context("failed to serialize")?;
+
+        async fn send(
+            studio: &Studio,
+            path: &str,
+            payload: String,
+        ) -> anyhow::Result<(reqwest::StatusCode, String)> {
+            let res = studio.http_client.post(path, &payload).await?;
+
+            let status = res.status();
+            let json: Value = res.json().await.context("Failed to read response body")?;
+            let message = if let Some(message) = json.get("message").map(|v| v.to_string()) {
+                message
+            } else {
+                "".to_string()
+            };
+
+            Ok((status, message))
+        }
+
+        let (status, message) = send(self, path, payload.clone()).await?;
+
+        match status {
+            reqwest::StatusCode::OK => Ok(()),
+            reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
+                // retry once
+                log::info!("failed to send custom_metric: {}, retrying...", message);
+                let (status, message) = send(self, path, payload).await?;
+                match status {
+                    reqwest::StatusCode::OK => Ok(()),
+                    reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
+                    reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
+                        anyhow::bail!("StatusCode=500, {}", message);
+                    }
+                    other => anyhow::bail!("StatusCode={other}, {}", message),
+                }
+            }
+            other => anyhow::bail!("StatusCode={other}, {}", message),
+        }
+    }
 }
 
 impl MessageActivityRepository for Studio {
@@ -413,152 +467,18 @@ impl MetricStoreRepository for Studio {
 
 impl EventStoreRepository for Studio {
     async fn save(&self, request: EventStoreRequest) -> anyhow::Result<()> {
-        let my_did = self.did_accessor.get_my_did();
-        let my_keyring = self.did_accessor.get_my_keyring();
-        let model = VerifiableCredentials::new(my_did, json!(request), chrono::Utc::now());
-        let payload = DidVcService::generate(&self.did_repository, model, &my_keyring)
-            .context("failed to generate payload")?;
-        let payload = serde_json::to_string(&payload).context("failed to serialize")?;
-
-        async fn send(
-            studio: &Studio,
-            payload: String,
-        ) -> anyhow::Result<(reqwest::StatusCode, String)> {
-            let res = studio.http_client.post("/v1/events", &payload).await?;
-
-            let status = res.status();
-            let json: Value = res.json().await.context("Failed to read response body")?;
-            let message = if let Some(message) = json.get("message").map(|v| v.to_string()) {
-                message
-            } else {
-                "".to_string()
-            };
-
-            Ok((status, message))
-        }
-
-        let (status, message) = send(self, payload.clone()).await?;
-
-        match status {
-            reqwest::StatusCode::OK => Ok(()),
-            reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
-            reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
-                // retry once
-                log::info!("failed to send event: {}, retrying...", message);
-                let (status, message) = send(self, payload).await?;
-                match status {
-                    reqwest::StatusCode::OK => Ok(()),
-                    reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
-                    reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
-                        anyhow::bail!("StatusCode=500, {}", message);
-                    }
-                    other => anyhow::bail!("StatusCode={other}, {}", message),
-                }
-            }
-            other => anyhow::bail!("StatusCode={other}, {}", message),
-        }
+        self.relay_to_studio("/v1/events", request).await
     }
 }
 
 impl CustomMetricStoreRepository for Studio {
     async fn save(&self, request: CustomMetricStoreRequest) -> anyhow::Result<()> {
-        let my_did = self.did_accessor.get_my_did();
-        let my_keyring = self.did_accessor.get_my_keyring();
-        let model = VerifiableCredentials::new(my_did, json!(request), chrono::Utc::now());
-        let payload = DidVcService::generate(&self.did_repository, model, &my_keyring)
-            .context("failed to generate payload")?;
-        let payload = serde_json::to_string(&payload).context("failed to serialize")?;
-
-        async fn send(
-            studio: &Studio,
-            payload: String,
-        ) -> anyhow::Result<(reqwest::StatusCode, String)> {
-            let res = studio
-                .http_client
-                .post("/v1/custom_metrics", &payload)
-                .await?;
-
-            let status = res.status();
-            let json: Value = res.json().await.context("Failed to read response body")?;
-            let message = if let Some(message) = json.get("message").map(|v| v.to_string()) {
-                message
-            } else {
-                "".to_string()
-            };
-
-            Ok((status, message))
-        }
-
-        let (status, message) = send(self, payload.clone()).await?;
-
-        match status {
-            reqwest::StatusCode::OK => Ok(()),
-            reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
-            reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
-                // retry once
-                log::info!("failed to send custom_metric: {}, retrying...", message);
-                let (status, message) = send(self, payload).await?;
-                match status {
-                    reqwest::StatusCode::OK => Ok(()),
-                    reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
-                    reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
-                        anyhow::bail!("StatusCode=500, {}", message);
-                    }
-                    other => anyhow::bail!("StatusCode={other}, {}", message),
-                }
-            }
-            other => anyhow::bail!("StatusCode={other}, {}", message),
-        }
+        self.relay_to_studio("/v1/custom_metrics", request).await
     }
 }
 
-#[async_trait::async_trait]
 impl AttributeStoreRepository for Studio {
     async fn save(&self, request: AttributeStoreRequest) -> anyhow::Result<()> {
-        let my_did = self.did_accessor.get_my_did();
-        let my_keyring = self.did_accessor.get_my_keyring();
-        let payload = self
-            .vc_service
-            .generate(&my_did, &my_keyring, &json!(&request), chrono::Utc::now())
-            .context("failed to generate payload")?;
-        let payload = serde_json::to_string(&payload).context("failed to serialize")?;
-
-        async fn send(
-            studio: &Studio,
-            payload: String,
-        ) -> anyhow::Result<(reqwest::StatusCode, String)> {
-            let res = studio.http_client.post("/v1/tag-values", &payload).await?;
-
-            let status = res.status();
-            let json: Value = res.json().await.context("Failed to read response body")?;
-            let message = if let Some(message) = json.get("message").map(|v| v.to_string()) {
-                message
-            } else {
-                "".to_string()
-            };
-
-            Ok((status, message))
-        }
-
-        let (status, message) = send(self, payload.clone()).await?;
-
-        match status {
-            reqwest::StatusCode::OK => Ok(()),
-            reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
-            reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
-                // retry once
-                log::info!("failed to send event: {}, retrying...", message);
-                let (status, message) = send(self, payload).await?;
-                match status {
-                    reqwest::StatusCode::OK => Ok(()),
-                    reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
-                    reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
-                        anyhow::bail!("StatusCode=500, {}", message);
-                    }
-                    other => anyhow::bail!("StatusCode={other}, {}", message),
-                }
-            }
-            other => anyhow::bail!("StatusCode={other}, {}", message),
-        }
+        self.relay_to_studio("/v1/tag-values", request).await
     }
 }
