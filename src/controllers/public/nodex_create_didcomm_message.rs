@@ -2,10 +2,10 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use nodex_didcomm::didcomm::encrypted::DidCommEncryptedServiceGenerateError as SE;
+use nodex_didcomm::didcomm::encrypted::DidCommEncryptedServiceGenerateError as S;
 
 use crate::nodex::utils::did_accessor::DidAccessorImpl;
-use crate::usecase::didcomm_message_usecase::GenerateDidcommMessageUseCaseError as UE;
+use crate::usecase::didcomm_message_usecase::GenerateDidcommMessageUseCaseError as U;
 use crate::{services::studio::Studio, usecase::didcomm_message_usecase::DidcommMessageUseCase};
 
 use super::utils;
@@ -33,28 +33,28 @@ pub async fn handler(
     {
         Ok(v) => Ok(HttpResponse::Ok().body(v)),
         Err(e) => match e {
-            UE::MessageActivity(e) => Ok(utils::handle_status(e)),
-            UE::ServiceGenerate(SE::DidDocNotFound(target)) => {
+            U::MessageActivity(e) => Ok(utils::handle_status(e)),
+            U::ServiceGenerate(S::DidDocNotFound(target)) => {
                 log::warn!("Target DID not found. did = {}", target);
                 Ok(HttpResponse::NotFound().finish())
             }
-            UE::ServiceGenerate(SE::DidPublicKeyNotFound(e)) => {
+            U::ServiceGenerate(S::DidPublicKeyNotFound(e)) => {
                 log::warn!("cannot public key: {}", e);
                 Ok(HttpResponse::BadRequest().body(e.to_string()))
             }
-            UE::Json(e) | UE::ServiceGenerate(SE::Json(e)) => {
+            U::Json(e) | U::ServiceGenerate(S::Json(e)) => {
                 log::warn!("json error: {}", e);
                 Ok(HttpResponse::InternalServerError().finish())
             }
-            UE::ServiceGenerate(SE::VcService(e)) => {
+            U::ServiceGenerate(S::VcService(e)) => {
                 log::warn!("verify error: {}", e);
                 Ok(HttpResponse::Unauthorized().finish())
             }
-            UE::ServiceGenerate(SE::SidetreeFindRequestFailed(e)) => {
+            U::ServiceGenerate(S::SidetreeFindRequestFailed(e)) => {
                 log::warn!("sidetree error: {}", e);
                 Ok(HttpResponse::InternalServerError().finish())
             }
-            UE::ServiceGenerate(SE::EncryptFailed(e)) => {
+            U::ServiceGenerate(S::EncryptFailed(e)) => {
                 log::warn!("decrypt failed: {}", e);
                 Ok(HttpResponse::InternalServerError().finish())
             }
