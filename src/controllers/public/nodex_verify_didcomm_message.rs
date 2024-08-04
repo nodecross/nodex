@@ -2,14 +2,14 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use nodex_didcomm::didcomm::encrypted::DidCommEncryptedServiceVerifyError as SE;
+use nodex_didcomm::didcomm::encrypted::DidCommEncryptedServiceVerifyError as S;
 use nodex_didcomm::didcomm::types::DidCommMessage;
 
 use crate::nodex::utils::did_accessor::DidAccessorImpl;
 use crate::{
     services::studio::Studio,
     usecase::didcomm_message_usecase::{
-        DidcommMessageUseCase, VerifyDidcommMessageUseCaseError as UE,
+        DidcommMessageUseCase, VerifyDidcommMessageUseCaseError as U,
     },
 };
 
@@ -35,41 +35,41 @@ pub async fn handler(
         Ok(message) => match usecase.verify(message, now).await {
             Ok(v) => Ok(HttpResponse::Ok().json(v)),
             Err(e) => match e {
-                UE::MessageActivity(e) => Ok(utils::handle_status(e)),
-                UE::NotAddressedToMe => {
+                U::MessageActivity(e) => Ok(utils::handle_status(e)),
+                U::NotAddressedToMe => {
                     log::warn!("its not to me: {}", e);
                     Ok(HttpResponse::Forbidden().finish())
                 }
-                UE::ServiceVerify(SE::FindSender(e)) => {
+                U::ServiceVerify(S::FindSender(e)) => {
                     log::warn!("cannot find sender: {}", e);
                     Ok(HttpResponse::BadRequest().body(e.to_string()))
                 }
-                UE::ServiceVerify(SE::DidPublicKeyNotFound(e)) => {
+                U::ServiceVerify(S::DidPublicKeyNotFound(e)) => {
                     log::warn!("cannot public key: {}", e);
                     Ok(HttpResponse::BadRequest().body(e.to_string()))
                 }
-                UE::ServiceVerify(SE::MetadataBodyNotFound(e)) => {
+                U::ServiceVerify(S::MetadataBodyNotFound(e)) => {
                     let e = e.map(|e| e.to_string()).unwrap_or("".to_string());
                     log::warn!("cannot find sender: {}", e);
                     Ok(HttpResponse::BadRequest().body(e))
                 }
-                UE::ServiceVerify(SE::VcService(e)) => {
+                U::ServiceVerify(S::VcService(e)) => {
                     log::warn!("verify error: {}", e);
                     Ok(HttpResponse::Unauthorized().finish())
                 }
-                UE::ServiceVerify(SE::DidDocNotFound(target)) => {
+                U::ServiceVerify(S::DidDocNotFound(target)) => {
                     log::warn!("Target DID not found. did = {}", target);
                     Ok(HttpResponse::NotFound().finish())
                 }
-                UE::Json(e) | UE::ServiceVerify(SE::Json(e)) => {
+                U::Json(e) | U::ServiceVerify(S::Json(e)) => {
                     log::warn!("json error: {}", e);
                     Ok(HttpResponse::InternalServerError().finish())
                 }
-                UE::ServiceVerify(SE::DecryptFailed(e)) => {
+                U::ServiceVerify(S::DecryptFailed(e)) => {
                     log::warn!("decrypt failed: {}", e);
                     Ok(HttpResponse::InternalServerError().finish())
                 }
-                UE::ServiceVerify(SE::SidetreeFindRequestFailed(e)) => {
+                U::ServiceVerify(S::SidetreeFindRequestFailed(e)) => {
                     log::warn!("sidetree error: {}", e);
                     Ok(HttpResponse::InternalServerError().finish())
                 }

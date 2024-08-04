@@ -3,7 +3,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use crate::nodex::utils::did_accessor::DidAccessorImpl;
-use crate::usecase::verifiable_message_usecase::CreateVerifiableMessageUseCaseError as UE;
+use crate::usecase::verifiable_message_usecase::CreateVerifiableMessageUseCaseError as U;
 use crate::{
     services::studio::Studio, usecase::verifiable_message_usecase::VerifiableMessageUseCase,
 };
@@ -34,18 +34,18 @@ pub async fn handler(
     {
         Ok(v) => Ok(HttpResponse::Ok().body(v)),
         Err(e) => match e {
-            UE::MessageActivity(e) => Ok(utils::handle_status(e)),
-            UE::DestinationNotFound(e) => {
+            U::MessageActivity(e) => Ok(utils::handle_status(e)),
+            U::DestinationNotFound(e) => {
                 if let Some(e) = e {
                     log::error!("{:?}", e);
                 }
                 Ok(HttpResponse::NotFound().finish())
             }
-            UE::DidVcServiceGenerate(e) => {
+            U::DidVcServiceGenerate(e) => {
                 log::error!("{:?}", e);
                 Ok(HttpResponse::InternalServerError().finish())
             }
-            UE::Json(e) => {
+            U::Json(e) => {
                 log::warn!("json error: {}", e);
                 Ok(HttpResponse::InternalServerError().finish())
             }
