@@ -2,15 +2,16 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::nodex::utils::did_accessor::DIDAccessorImpl;
+use nodex_didcomm::verifiable_credentials::did_vc::DidVcServiceVerifyError as S;
+use nodex_didcomm::verifiable_credentials::types::VerifiableCredentials;
+
+use crate::nodex::utils::did_accessor::DidAccessorImpl;
+use crate::usecase::verifiable_message_usecase::VerifyVerifiableMessageUseCaseError as U;
 use crate::{
     services::studio::Studio, usecase::verifiable_message_usecase::VerifiableMessageUseCase,
 };
-use crate::{
-    services::{nodex::NodeX, project_verifier::ProjectVerifierImplOnNetworkConfig},
-    usecase::verifiable_message_usecase::VerifyVerifiableMessageUseCaseError,
-};
-use nodex_didcomm::verifiable_credentials::did_vc::DIDVCService;
+
+use super::utils;
 
 // NOTE: POST /verify-verifiable-message
 #[derive(Deserialize, Serialize)]
@@ -24,51 +25,38 @@ pub async fn handler(
 ) -> actix_web::Result<HttpResponse> {
     let now = Utc::now();
 
-    let usecase = VerifiableMessageUseCase::new(
-        ProjectVerifierImplOnNetworkConfig::new(),
-        NodeX::new(),
-        Studio::new(),
-        DIDVCService::new(NodeX::new()),
-        DIDAccessorImpl {},
-    );
+    let repo = utils::did_repository();
+    let usecase =
+        VerifiableMessageUseCase::new(Studio::new(), repo.clone(), DidAccessorImpl {}, repo);
 
-    match usecase.verify(&json.message, now).await {
-        Ok(v) => Ok(HttpResponse::Ok().json(v)),
-        Err(e) => match e {
-            VerifyVerifiableMessageUseCaseError::VerificationFailed => {
-                Ok(HttpResponse::Unauthorized().finish())
-            }
-            VerifyVerifiableMessageUseCaseError::NotAddressedToMe => {
-                Ok(HttpResponse::Forbidden().finish())
-            }
-            VerifyVerifiableMessageUseCaseError::VCServiceFailed(e) => {
-                log::error!("{:?}", e);
-                Ok(HttpResponse::InternalServerError().finish())
-            }
-            VerifyVerifiableMessageUseCaseError::BadRequest(message) => {
-                log::warn!("Bad Request: {}", message);
-                Ok(HttpResponse::BadRequest().body(message))
-            }
-            VerifyVerifiableMessageUseCaseError::Unauthorized(message) => {
-                log::warn!("Unauthorized: {}", message);
-                Ok(HttpResponse::Unauthorized().body(message))
-            }
-            VerifyVerifiableMessageUseCaseError::Forbidden(message) => {
-                log::warn!("Forbidden: {}", message);
-                Ok(HttpResponse::Forbidden().body(message))
-            }
-            VerifyVerifiableMessageUseCaseError::NotFound(message) => {
-                log::warn!("NotFound: {}", message);
-                Ok(HttpResponse::NotFound().body(message))
-            }
-            VerifyVerifiableMessageUseCaseError::Conflict(message) => {
-                log::warn!("Conflict: {}", message);
-                Ok(HttpResponse::Conflict().body(message))
-            }
-            VerifyVerifiableMessageUseCaseError::Other(e) => {
-                log::error!("{:?}", e);
-                Ok(HttpResponse::InternalServerError().finish())
-            }
+    match serde_json::from_str::<VerifiableCredentials>(&json.message) {
+        Err(e) => Ok(HttpResponse::BadRequest().body(e.to_string())),
+        Ok(vc) => match usecase.verify(vc, now).await {
+            Ok(v) => Ok(HttpResponse::Ok().json(v)),
+            Err(e) => match e {
+                U::MessageActivity(e) => Ok(utils::handle_status(e)),
+                U::DidVcServiceVerify(S::VerifyFailed(e)) => {
+                    log::warn!("verify error: {}", e);
+                    Ok(HttpResponse::Unauthorized().finish())
+                }
+                U::DidVcServiceVerify(S::FindIdentifier(e)) => {
+                    log::warn!("find identifier error: {}", e);
+                    Ok(HttpResponse::NotFound().finish())
+                }
+                U::DidVcServiceVerify(S::DidDocNotFound(target)) => {
+                    log::warn!("Target DID not found. did = {}", target);
+                    Ok(HttpResponse::NotFound().finish())
+                }
+                U::NotAddressedToMe => Ok(HttpResponse::Forbidden().finish()),
+                U::Json(e) => {
+                    log::warn!("json error: {}", e);
+                    Ok(HttpResponse::InternalServerError().finish())
+                }
+                U::DidVcServiceVerify(S::PublicKeyNotFound(e)) => {
+                    log::warn!("cannot public key: {}", e);
+                    Ok(HttpResponse::BadRequest().body(e.to_string()))
+                }
+            },
         },
     }
 }

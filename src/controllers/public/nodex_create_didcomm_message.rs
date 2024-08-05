@@ -2,13 +2,13 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::nodex::utils::did_accessor::DIDAccessorImpl;
+use nodex_didcomm::didcomm::encrypted::DidCommEncryptedServiceGenerateError as S;
+
+use crate::nodex::utils::did_accessor::DidAccessorImpl;
+use crate::usecase::didcomm_message_usecase::GenerateDidcommMessageUseCaseError as U;
 use crate::{services::studio::Studio, usecase::didcomm_message_usecase::DidcommMessageUseCase};
-use crate::{
-    services::{nodex::NodeX, project_verifier::ProjectVerifierImplOnNetworkConfig},
-    usecase::didcomm_message_usecase::GenerateDidcommMessageUseCaseError,
-};
-use nodex_didcomm::didcomm::encrypted::DIDCommEncryptedService;
+
+use super::utils;
 
 // NOTE: POST /create-didcomm-message
 #[derive(Deserialize, Serialize)]
@@ -24,12 +24,8 @@ pub async fn handler(
 ) -> actix_web::Result<HttpResponse> {
     let now = Utc::now();
 
-    let usecase = DidcommMessageUseCase::new(
-        ProjectVerifierImplOnNetworkConfig::new(),
-        Studio::new(),
-        DIDCommEncryptedService::new(NodeX::new(), None),
-        DIDAccessorImpl {},
-    );
+    let usecase =
+        DidcommMessageUseCase::new(Studio::new(), utils::did_repository(), DidAccessorImpl {});
 
     match usecase
         .generate(json.destination_did, json.message, json.operation_tag, now)
@@ -37,32 +33,29 @@ pub async fn handler(
     {
         Ok(v) => Ok(HttpResponse::Ok().body(v)),
         Err(e) => match e {
-            GenerateDidcommMessageUseCaseError::TargetDidNotFound(target) => {
+            U::MessageActivity(e) => Ok(utils::handle_status(e)),
+            U::ServiceGenerate(S::DidDocNotFound(target)) => {
                 log::warn!("Target DID not found. did = {}", target);
                 Ok(HttpResponse::NotFound().finish())
             }
-            GenerateDidcommMessageUseCaseError::BadRequest(message) => {
-                log::warn!("Bad Request: {}", message);
-                Ok(HttpResponse::BadRequest().body(message))
+            U::ServiceGenerate(S::DidPublicKeyNotFound(e)) => {
+                log::warn!("cannot public key: {}", e);
+                Ok(HttpResponse::BadRequest().body(e.to_string()))
             }
-            GenerateDidcommMessageUseCaseError::Unauthorized(message) => {
-                log::warn!("Unauthorized: {}", message);
-                Ok(HttpResponse::Unauthorized().body(message))
+            U::Json(e) | U::ServiceGenerate(S::Json(e)) => {
+                log::warn!("json error: {}", e);
+                Ok(HttpResponse::InternalServerError().finish())
             }
-            GenerateDidcommMessageUseCaseError::Forbidden(message) => {
-                log::warn!("Forbidden: {}", message);
-                Ok(HttpResponse::Forbidden().body(message))
+            U::ServiceGenerate(S::VcService(e)) => {
+                log::warn!("verify error: {}", e);
+                Ok(HttpResponse::Unauthorized().finish())
             }
-            GenerateDidcommMessageUseCaseError::NotFound(message) => {
-                log::warn!("Not Found: {}", message);
-                Ok(HttpResponse::NotFound().body(message))
+            U::ServiceGenerate(S::SidetreeFindRequestFailed(e)) => {
+                log::warn!("sidetree error: {}", e);
+                Ok(HttpResponse::InternalServerError().finish())
             }
-            GenerateDidcommMessageUseCaseError::Conflict(message) => {
-                log::warn!("Conflict: {}", message);
-                Ok(HttpResponse::Conflict().body(message))
-            }
-            GenerateDidcommMessageUseCaseError::Other(e) => {
-                log::error!("{:?}", e);
+            U::ServiceGenerate(S::EncryptFailed(e)) => {
+                log::warn!("decrypt failed: {}", e);
                 Ok(HttpResponse::InternalServerError().finish())
             }
         },

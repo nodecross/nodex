@@ -5,9 +5,9 @@ pub trait DidAccessor {
     fn get_my_keyring(&self) -> KeyPairing;
 }
 
-pub struct DIDAccessorImpl {}
+pub struct DidAccessorImpl {}
 
-impl DidAccessor for DIDAccessorImpl {
+impl DidAccessor for DidAccessorImpl {
     fn get_my_did(&self) -> String {
         let config = crate::app_config();
         let config = config.lock();
@@ -25,18 +25,18 @@ impl DidAccessor for DIDAccessorImpl {
 pub mod mocks {
     use super::*;
 
-    pub struct MockDIDAccessor {
+    pub struct MockDidAccessor {
         my_did: String,
         my_keyring: KeyPairing,
     }
 
-    impl MockDIDAccessor {
-        pub fn new(my_did: String, my_keyring: KeyPairing) -> MockDIDAccessor {
-            MockDIDAccessor { my_did, my_keyring }
+    impl MockDidAccessor {
+        pub fn new(my_did: String, my_keyring: KeyPairing) -> MockDidAccessor {
+            MockDidAccessor { my_did, my_keyring }
         }
     }
 
-    impl DidAccessor for MockDIDAccessor {
+    impl DidAccessor for MockDidAccessor {
         fn get_my_did(&self) -> String {
             self.my_did.clone()
         }

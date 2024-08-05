@@ -2,16 +2,13 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::nodex::utils::did_accessor::DIDAccessorImpl;
+use crate::nodex::utils::did_accessor::DidAccessorImpl;
+use crate::usecase::verifiable_message_usecase::CreateVerifiableMessageUseCaseError as U;
 use crate::{
-    services::project_verifier::ProjectVerifierImplOnNetworkConfig,
-    usecase::verifiable_message_usecase::CreateVerifiableMessageUseCaseError,
+    services::studio::Studio, usecase::verifiable_message_usecase::VerifiableMessageUseCase,
 };
-use crate::{
-    services::{nodex::NodeX, studio::Studio},
-    usecase::verifiable_message_usecase::VerifiableMessageUseCase,
-};
-use nodex_didcomm::verifiable_credentials::did_vc::DIDVCService;
+
+use super::utils;
 
 // NOTE: POST /create-verifiable-message
 #[derive(Deserialize, Serialize)]
@@ -27,13 +24,9 @@ pub async fn handler(
 ) -> actix_web::Result<HttpResponse> {
     let now = Utc::now();
 
-    let usecase = VerifiableMessageUseCase::new(
-        ProjectVerifierImplOnNetworkConfig::new(),
-        NodeX::new(),
-        Studio::new(),
-        DIDVCService::new(NodeX::new()),
-        DIDAccessorImpl {},
-    );
+    let repo = utils::did_repository();
+    let usecase =
+        VerifiableMessageUseCase::new(Studio::new(), repo.clone(), DidAccessorImpl {}, repo);
 
     match usecase
         .generate(json.destination_did, json.message, json.operation_tag, now)
@@ -41,35 +34,19 @@ pub async fn handler(
     {
         Ok(v) => Ok(HttpResponse::Ok().body(v)),
         Err(e) => match e {
-            CreateVerifiableMessageUseCaseError::DestinationNotFound => {
+            U::MessageActivity(e) => Ok(utils::handle_status(e)),
+            U::DestinationNotFound(e) => {
+                if let Some(e) = e {
+                    log::error!("{:?}", e);
+                }
                 Ok(HttpResponse::NotFound().finish())
             }
-            CreateVerifiableMessageUseCaseError::BadRequest(message) => {
-                log::warn!("Bad Request: {}", message);
-                Ok(HttpResponse::BadRequest().body(message))
-            }
-            CreateVerifiableMessageUseCaseError::Unauthorized(message) => {
-                log::warn!("Unauthorized: {}", message);
-                Ok(HttpResponse::Unauthorized().body(message))
-            }
-            CreateVerifiableMessageUseCaseError::Forbidden(message) => {
-                log::warn!("Forbidden: {}", message);
-                Ok(HttpResponse::Forbidden().body(message))
-            }
-            CreateVerifiableMessageUseCaseError::NotFound(message) => {
-                log::warn!("NotFound: {}", message);
-                Ok(HttpResponse::NotFound().body(message))
-            }
-            CreateVerifiableMessageUseCaseError::Conflict(message) => {
-                log::warn!("Conflict: {}", message);
-                Ok(HttpResponse::Conflict().body(message))
-            }
-            CreateVerifiableMessageUseCaseError::VCServiceFailed(e) => {
+            U::DidVcServiceGenerate(e) => {
                 log::error!("{:?}", e);
                 Ok(HttpResponse::InternalServerError().finish())
             }
-            CreateVerifiableMessageUseCaseError::Other(e) => {
-                log::error!("{:?}", e);
+            U::Json(e) => {
+                log::warn!("json error: {}", e);
                 Ok(HttpResponse::InternalServerError().finish())
             }
         },

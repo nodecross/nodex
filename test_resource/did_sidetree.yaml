@@ -95,12 +95,50 @@ components:
         publicKey:
           type: array
           items:
-            $ref: "#/components/schemas/PublicKey"
+            - $ref: "#/components/schemas/PublicKey"
+            - $ref: "#/components/schemas/PublicKeyEnc"
         authentication:
           type: array
           items:
             type: string
-          example: ["#signingKey"]
+          example: ["#signingKey", "#encryptionKey"]
+
+    PublicKeyEnc:
+      type: object
+      required:
+        - id
+        - type
+        - controller
+        - publicKeyJwk
+      properties:
+        id:
+          type: string
+          example: "#encryptionKey"
+        controller:
+          type: string
+          example: ""
+        type:
+          type: string
+          example: "X25519KeyAgreementKey2019"
+        publicKeyJwk:
+          $ref: "#/components/schemas/PublicKeyJwkEnc"
+
+    PublicKeyJwkEnc:
+      type: object
+      required:
+        - kty
+        - crv
+        - x
+      properties:
+        kty:
+          type: string
+          example: "OKP"
+        crv:
+          type: string
+          example: "X25519"
+        x:
+          type: string
+          example: "UnWe6FZwUEK6_IwsjOiyL2VOBcKOSsc7kJlErzPI70c"
 
     PublicKey:
       type: object
@@ -112,7 +150,7 @@ components:
       properties:
         id:
           type: string
-          example: "did:nodex:test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA#signingKey"
+          example: "#signingKey"
         controller:
           type: string
           example: ""
@@ -138,10 +176,10 @@ components:
           example: "secp256k1"
         x:
           type: string
-          example: "mdmONnqXT4BmVbIb_H_XEhxSM9ScQCWnnpVW2pCigis"
+          example: "l52hoeJk9g5jwFJSQPbdoF43Ks8RAcXnnBWkJ4Cu0zU"
         y:
           type: string
-          example: "v7c-2yGrLaRNXXgO6n39QYUpTcfYdj97eCiX6lwjXEQ"
+          example: "QO1yc5ije5FnTP43BpIgTTsqYuWzGhZAmwND4pZ1BSE"
 
     methodMetadata:
       type: object
