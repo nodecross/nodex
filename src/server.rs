@@ -45,9 +45,9 @@ pub fn new_web_server<C: TransferClient + 'static>(port: u16, sender: C) -> Serv
     .run()
 }
 
-fn config_app<'a, C: TransferClient + 'static>(
-    context: &'a web::Data<Context<C>>,
-) -> impl Fn(&mut web::ServiceConfig) + 'a {
+fn config_app<C: TransferClient + 'static>(
+    context: &web::Data<Context<C>>,
+) -> impl Fn(&mut web::ServiceConfig) + '_ {
     move |cfg: &mut web::ServiceConfig| {
         cfg.app_data(context.clone())
             .route(
