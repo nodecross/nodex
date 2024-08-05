@@ -47,8 +47,8 @@ pub fn new_web_server<C: TransferClient + 'static>(port: u16, sender: C) -> Serv
 
 fn config_app<'a, C: TransferClient + 'static>(
     context: &'a web::Data<Context<C>>,
-) -> Box<dyn Fn(&mut web::ServiceConfig) + 'a> {
-    Box::new(move |cfg: &mut web::ServiceConfig| {
+) -> impl Fn(&mut web::ServiceConfig) + 'a {
+    move |cfg: &mut web::ServiceConfig| {
         cfg.app_data(context.clone())
             .route(
                 "/identifiers",
@@ -102,5 +102,5 @@ fn config_app<'a, C: TransferClient + 'static>(
                         web::post().to(controllers::internal::network::handler),
                     ),
             );
-    })
+    }
 }
