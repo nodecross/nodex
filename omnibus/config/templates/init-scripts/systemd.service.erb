@@ -1,0 +1,14 @@
+[Unit]
+Description=Rust Project Service
+After=network.target
+
+[Service]
+ExecStart=<%= install_dir %>/bin/nodex-agent
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+User=nobody
+Group=nobody
+PIDFile=<%= install_dir %>/var/run/nodex-agent.pid
+
+[Install]
+WantedBy=multi-user.target

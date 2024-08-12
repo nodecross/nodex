@@ -1,0 +1,9 @@
+#!/bin/sh
+#
+# Perform necessary nodex-agent removal steps
+# after package is uninstalled.
+#
+
+echo "nodex-agent has been uninstalled!"
+
+exit 0
