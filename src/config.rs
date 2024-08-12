@@ -114,6 +114,7 @@ impl Default for ConfigRoot {
             metrics: MetricsConfig {
                 collect_interval: 15,
                 send_interval: 60,
+                cache_capacity: 400_000,
             },
             is_initialized: false,
             schema_version: 1,
@@ -380,6 +381,15 @@ impl AppConfig {
         send_interval
     }
 
+    pub fn get_metric_cache_capacity(&self) -> usize {
+        let cache_capacity = self.root.metrics.clone().cache_capacity;
+        if !(10_000..=1_000_000).contains(&cache_capacity) {
+            log::error!("cache_capacity must be between 10_000 and 1_000_000");
+            panic!()
+        }
+        cache_capacity
+    }
+
     // NOTE: Is Initialized
     #[allow(dead_code)]
     pub fn get_is_initialized(&self) -> bool {
@@ -441,4 +451,5 @@ impl ServerConfig {
 struct MetricsConfig {
     collect_interval: u64,
     send_interval: u64,
+    cache_capacity: usize,
 }

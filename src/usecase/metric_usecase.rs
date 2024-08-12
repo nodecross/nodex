@@ -81,6 +81,8 @@ impl MetricUsecase {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::VecDeque;
+
     use super::*;
     use crate::{
         app_config,
@@ -92,7 +94,7 @@ mod tests {
 
     #[async_trait::async_trait]
     impl MetricStoreRepository for MockMetricStoreRepository {
-        async fn save(&self, _: Vec<MetricsWithTimestamp>) -> anyhow::Result<()> {
+        async fn save(&self, _: VecDeque<MetricsWithTimestamp>) -> anyhow::Result<()> {
             Ok(())
         }
     }
@@ -122,7 +124,7 @@ mod tests {
             store_repository: Box::new(MockMetricStoreRepository {}),
             watch_repository: Box::new(MockMetricWatchRepository {}),
             config: app_config(),
-            cache_repository: Arc::new(TokioMutex::new(MetricsInMemoryCacheService::new())),
+            cache_repository: Arc::new(TokioMutex::new(MetricsInMemoryCacheService::new(400_000))),
             shutdown_notify: notify_clone,
         };
         notify.notify_one();
@@ -137,7 +139,7 @@ mod tests {
             store_repository: Box::new(MockMetricStoreRepository {}),
             watch_repository: Box::new(MockMetricWatchRepository {}),
             config: app_config(),
-            cache_repository: Arc::new(TokioMutex::new(MetricsInMemoryCacheService::new())),
+            cache_repository: Arc::new(TokioMutex::new(MetricsInMemoryCacheService::new(400_000))),
             shutdown_notify: notify_clone,
         };
         notify.notify_one();

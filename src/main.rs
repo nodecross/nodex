@@ -184,7 +184,9 @@ async fn main() -> std::io::Result<()> {
 
     let shutdown_notify = Arc::new(Notify::new());
 
-    let cache_repository = Arc::new(Mutex::new(MetricsInMemoryCacheService::new()));
+    let cache_repository = Arc::new(Mutex::new(MetricsInMemoryCacheService::new(
+        app_config().lock().get_metric_cache_capacity(),
+    )));
     let collect_task = {
         let mut metric_usecase = MetricUsecase::new(
             Box::new(Studio::new()),

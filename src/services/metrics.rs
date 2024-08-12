@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::VecDeque,
+    sync::{Arc, Mutex},
+};
 
 use crate::repository::metric_repository::{
     Metric, MetricType, MetricsCacheRepository, MetricsWatchRepository, MetricsWithTimestamp,
@@ -12,7 +15,7 @@ pub struct MetricsWatchService {
 }
 
 pub struct MetricsInMemoryCacheService {
-    cache: std::sync::Arc<std::sync::Mutex<Vec<MetricsWithTimestamp>>>,
+    cache: std::sync::Arc<std::sync::Mutex<VecDeque<MetricsWithTimestamp>>>,
 }
 
 impl MetricsWatchService {
@@ -111,15 +114,15 @@ impl MetricsWatchRepository for MetricsWatchService {
 }
 
 impl MetricsCacheRepository for MetricsInMemoryCacheService {
-    fn new() -> Self {
+    fn new(capacity: usize) -> Self {
         Self {
-            cache: Arc::new(Mutex::new(Vec::new())),
+            cache: Arc::new(Mutex::new(VecDeque::with_capacity(capacity))),
         }
     }
 
     fn push(&mut self, timestamp: DateTime<Utc>, metrics: Vec<Metric>) {
         let mut cache = self.cache.lock().unwrap();
-        cache.push(MetricsWithTimestamp { timestamp, metrics });
+        cache.push_back(MetricsWithTimestamp { timestamp, metrics });
     }
 
     fn clear(&mut self) {
@@ -127,7 +130,7 @@ impl MetricsCacheRepository for MetricsInMemoryCacheService {
         cache.clear();
     }
 
-    fn get(&mut self) -> Vec<MetricsWithTimestamp> {
+    fn get(&mut self) -> VecDeque<MetricsWithTimestamp> {
         let cache = self.cache.lock().unwrap();
         cache.clone()
     }

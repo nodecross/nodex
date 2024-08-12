@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::nodex::utils::did_accessor::{DIDAccessorImpl, DidAccessor};
 use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::repository::attribute_repository::{AttributeStoreRepository, AttributeStoreRequest};
@@ -377,7 +379,7 @@ struct MetricsWithTimestampStr {
 
 #[async_trait::async_trait]
 impl MetricStoreRepository for Studio {
-    async fn save(&self, request: Vec<MetricsWithTimestamp>) -> anyhow::Result<()> {
+    async fn save(&self, request: VecDeque<MetricsWithTimestamp>) -> anyhow::Result<()> {
         let metrics_str = request
             .into_iter()
             .map(|m| MetricsWithTimestampStr {

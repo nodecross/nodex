@@ -1,6 +1,9 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use std::fmt::{Display, Formatter, Result};
+use std::{
+    collections::VecDeque,
+    fmt::{Display, Formatter, Result},
+};
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Metric {
@@ -19,15 +22,15 @@ pub trait MetricsWatchRepository {
 }
 
 pub trait MetricsCacheRepository {
-    fn new() -> Self;
+    fn new(capacity: usize) -> Self;
     fn push(&mut self, timestamp: DateTime<Utc>, metrics: Vec<Metric>);
     fn clear(&mut self);
-    fn get(&mut self) -> Vec<MetricsWithTimestamp>;
+    fn get(&mut self) -> VecDeque<MetricsWithTimestamp>;
 }
 
 #[async_trait::async_trait]
 pub trait MetricStoreRepository {
-    async fn save(&self, request: Vec<MetricsWithTimestamp>) -> anyhow::Result<()>;
+    async fn save(&self, request: VecDeque<MetricsWithTimestamp>) -> anyhow::Result<()>;
 }
 
 #[derive(Debug, Serialize, Clone, PartialEq)]
