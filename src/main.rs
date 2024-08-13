@@ -124,13 +124,11 @@ async fn main() -> std::io::Result<()> {
     let node_x = NodeX::new();
     let device_did = node_x.create_identifier().await.unwrap();
 
-    // NOTE: CLI
     if cli.config {
         use_cli(cli.command, device_did.did_document.id.clone());
         return Ok(());
     }
 
-    // NOTE: studio initilize
     studio_initialize(device_did.did_document.id.clone()).await;
     send_device_info().await;
 
@@ -335,7 +333,6 @@ async fn studio_initialize(my_did: String) {
             .expect("Network project_did is not set. Please set project_did use cli")
     };
 
-    // NOTE: register device
     let studio = Studio::new();
     studio
         .register_device(my_did, project_did)

@@ -174,12 +174,10 @@ impl AppConfig {
             .map_err(AppConfigError::WriteError)
     }
 
-    // NOTE: trng - read
     pub fn load_trng_read_sig(&self) -> Option<Extension> {
         self.root.extensions.trng.as_ref().map(|v| v.read.clone())
     }
 
-    // NOTE: secure_keystore - write
     pub fn load_secure_keystore_write_sig(&self) -> Option<Extension> {
         self.root
             .extensions
@@ -188,7 +186,6 @@ impl AppConfig {
             .map(|v| v.write.clone())
     }
 
-    // NOTE: secure_keystore - read
     pub fn load_secure_keystore_read_sig(&self) -> Option<Extension> {
         self.root
             .extensions
@@ -197,7 +194,6 @@ impl AppConfig {
             .map(|v| v.read.clone())
     }
 
-    // NOTE: cipher - encrypt
     #[allow(dead_code)]
     pub fn load_cipher_encrypt_sig(&self) -> Option<Extension> {
         self.root
@@ -207,7 +203,6 @@ impl AppConfig {
             .map(|v| v.encrypt.clone())
     }
 
-    // NOTE: cipher - decrypt
     #[allow(dead_code)]
     pub fn load_cipher_decrypt_sig(&self) -> Option<Extension> {
         self.root
@@ -217,7 +212,6 @@ impl AppConfig {
             .map(|v| v.decrypt.clone())
     }
 
-    // NOTE: SIGN
     pub fn load_sign_key_pair(&self) -> Option<K256KeyPair> {
         load_key_pair(&self.root.key_pairs.sign)
     }
@@ -240,7 +234,6 @@ impl AppConfig {
         self.write().unwrap();
     }
 
-    // NOTE: UPDATE
     pub fn load_update_key_pair(&self) -> Option<K256KeyPair> {
         load_key_pair(&self.root.key_pairs.update)
     }
@@ -250,7 +243,6 @@ impl AppConfig {
         self.write().unwrap();
     }
 
-    // NOTE: RECOVER
     pub fn load_recovery_key_pair(&self) -> Option<K256KeyPair> {
         load_key_pair(&self.root.key_pairs.recovery)
     }
@@ -260,7 +252,6 @@ impl AppConfig {
         self.write().unwrap();
     }
 
-    // NOTE: ENCRYPT
     pub fn load_encrypt_key_pair(&self) -> Option<X25519KeyPair> {
         load_key_pair(&self.root.key_pairs.encrypt)
     }
@@ -270,7 +261,6 @@ impl AppConfig {
         self.write().unwrap();
     }
 
-    // NOTE: DID
     pub fn get_did(&self) -> Option<String> {
         self.root.did.clone()
     }
@@ -298,7 +288,6 @@ impl AppConfig {
         send_interval
     }
 
-    // NOTE: Is Initialized
     #[allow(dead_code)]
     pub fn get_is_initialized(&self) -> bool {
         self.root.is_initialized

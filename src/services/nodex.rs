@@ -34,7 +34,6 @@ impl NodeX {
         &self.did_repository
     }
 
-    // NOTE: DONE
     pub async fn create_identifier(&self) -> anyhow::Result<DidResolutionResponse> {
         // NOTE: find did
         let config = app_config();
@@ -60,7 +59,6 @@ impl NodeX {
         Ok(res)
     }
 
-    // NOTE: DONE
     pub async fn find_identifier(
         &self,
         did: &str,
