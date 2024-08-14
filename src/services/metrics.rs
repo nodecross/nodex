@@ -16,6 +16,7 @@ pub struct MetricsWatchService {
 
 pub struct MetricsInMemoryCacheService {
     cache: std::sync::Arc<std::sync::Mutex<VecDeque<MetricsWithTimestamp>>>,
+    cache_capacity: usize,
 }
 
 impl MetricsWatchService {
@@ -117,11 +118,15 @@ impl MetricsCacheRepository for MetricsInMemoryCacheService {
     fn new(capacity: usize) -> Self {
         Self {
             cache: Arc::new(Mutex::new(VecDeque::with_capacity(capacity))),
+            cache_capacity: capacity,
         }
     }
 
     fn push(&mut self, timestamp: DateTime<Utc>, metrics: Vec<Metric>) {
         let mut cache = self.cache.lock().unwrap();
+        if cache.len() >= self.cache_capacity {
+            cache.pop_front();
+        }
         cache.push_back(MetricsWithTimestamp { timestamp, metrics });
     }
 
