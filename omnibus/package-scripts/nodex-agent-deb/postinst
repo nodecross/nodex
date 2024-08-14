@@ -4,7 +4,6 @@
 # after package is installed.
 #
 
-PROGNAME=`basename $0`
 INSTALL_DIR=/opt/nodex-agent
 SERVICE_NAME=nodex-agent
 CONFIG_DIR=~/.config/nodex
