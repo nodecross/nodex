@@ -4,6 +4,39 @@
 # after package is uninstalled.
 #
 
-echo "nodex-agent has been uninstalled!"
+SERVICE_NAME=nodex-agent
+INSTALL_DIR=/opt/nodex-agent
+CONFIG_DIR=~/.config/nodex
+
+# Stop the service if it is running
+if command -v systemctl >/dev/null 2>&1; then
+    echo "Stopping service $SERVICE_NAME..."
+    systemctl stop $SERVICE_NAME || true
+    systemctl disable $SERVICE_NAME || true
+else
+    echo "[ WARNING ]\tCannot detect a supported init system. The nodex-agent package only provides service files for systemd"
+fi
+
+# Remove the symlink to the agent's binary
+if [ -L /usr/bin/nodex-agent ]; then
+    echo "Removing symlink /usr/bin/nodex-agent..."
+    rm /usr/bin/nodex-agent
+fi
+
+# Optionally, remove the user and group if they are no longer needed
+if id -u nodex >/dev/null 2>&1; then
+    echo "Removing nodex user and group..."
+    userdel nodex || true
+    groupdel nodex || true
+fi
+
+# Remove the installation directory and configuration directory
+echo "Removing installation directory ${INSTALL_DIR}..."
+rm -rf ${INSTALL_DIR}
+
+echo "Removing configuration directory ${CONFIG_DIR}..."
+rm -rf ${CONFIG_DIR}
+
+echo "Nodex Agent Service has been removed."
 
 exit 0
