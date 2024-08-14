@@ -3,12 +3,12 @@ use actix_web::{dev::Server, middleware, web, App, HttpServer};
 use std::path::PathBuf;
 use tokio::sync::Mutex as TokioMutex;
 
-pub struct Context {
-    pub sender: TokioMutex<Box<dyn TransferClient>>,
+pub struct Context<C: TransferClient> {
+    pub sender: TokioMutex<C>,
 }
 
 #[cfg(unix)]
-pub fn new_uds_server(sock_path: &PathBuf, sender: Box<dyn TransferClient>) -> Server {
+pub fn new_uds_server<C: TransferClient + 'static>(sock_path: &PathBuf, sender: C) -> Server {
     let context = web::Data::new(Context {
         sender: TokioMutex::new(sender),
     });
@@ -18,7 +18,7 @@ pub fn new_uds_server(sock_path: &PathBuf, sender: Box<dyn TransferClient>) -> S
             .wrap(middleware::DefaultHeaders::new().add(("x-version", "0.1.0")))
             .wrap(middleware::Compress::default())
             .wrap(middleware::Logger::default())
-            .configure(config_app(context.clone()))
+            .configure(config_app(&context))
     })
     .bind_uds(sock_path)
     .unwrap()
@@ -27,7 +27,7 @@ pub fn new_uds_server(sock_path: &PathBuf, sender: Box<dyn TransferClient>) -> S
 }
 
 #[cfg(windows)]
-pub fn new_web_server(port: u16, sender: Box<dyn TransferClient>) -> Server {
+pub fn new_web_server<C: TransferClient + 'static>(port: u16, sender: C) -> Server {
     let context = web::Data::new(Context {
         sender: TokioMutex::new(sender),
     });
@@ -37,7 +37,7 @@ pub fn new_web_server(port: u16, sender: Box<dyn TransferClient>) -> Server {
             .wrap(middleware::DefaultHeaders::new().add(("x-version", "0.1.0")))
             .wrap(middleware::Compress::default())
             .wrap(middleware::Logger::default())
-            .configure(config_app(context.clone()))
+            .configure(config_app(&context))
     })
     .bind(format!("127.0.0.1:{}", port))
     .unwrap()
@@ -45,8 +45,10 @@ pub fn new_web_server(port: u16, sender: Box<dyn TransferClient>) -> Server {
     .run()
 }
 
-fn config_app(context: web::Data<Context>) -> Box<dyn Fn(&mut web::ServiceConfig)> {
-    Box::new(move |cfg: &mut web::ServiceConfig| {
+fn config_app<C: TransferClient + 'static>(
+    context: &web::Data<Context<C>>,
+) -> impl Fn(&mut web::ServiceConfig) + '_ {
+    move |cfg: &mut web::ServiceConfig| {
         cfg.app_data(context.clone())
             .route(
                 "/identifiers",
@@ -100,5 +102,5 @@ fn config_app(context: web::Data<Context>) -> Box<dyn Fn(&mut web::ServiceConfig
                         web::post().to(controllers::internal::network::handler),
                     ),
             );
-    })
+    }
 }

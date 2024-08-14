@@ -1,10 +1,12 @@
-use super::did_accessor::{DIDAccessorImpl, DidAccessor};
+use super::did_accessor::{DidAccessor, DidAccessorImpl};
 use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::{network_config, server_config};
+use anyhow::Context;
 use chrono::Utc;
 use hmac::{Hmac, Mac};
 use nodex_didcomm::did::did_repository::DidRepositoryImpl;
-use nodex_didcomm::didcomm::encrypted::DIDCommEncryptedService;
+use nodex_didcomm::didcomm::encrypted::{DidCommEncryptedService, DidCommServiceWithAttachment};
+use nodex_didcomm::verifiable_credentials::types::VerifiableCredentials;
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     Url,
@@ -21,8 +23,8 @@ pub struct StudioClientConfig {
 pub struct StudioClient {
     pub base_url: Url,
     pub instance: reqwest::Client,
-    pub service: DIDCommEncryptedService<DidRepositoryImpl<SideTreeClient>>,
-    pub did_accessor: DIDAccessorImpl,
+    pub didcomm_service: DidCommServiceWithAttachment<DidRepositoryImpl<SideTreeClient>>,
+    pub did_accessor: DidAccessorImpl,
 }
 
 impl StudioClient {
@@ -32,30 +34,30 @@ impl StudioClient {
         let server_config = server_config();
         let sidetree_client = SideTreeClient::new(&server_config.did_http_endpoint())?;
         let did_repository = DidRepositoryImpl::new(sidetree_client);
-        let service =
-            DIDCommEncryptedService::new(did_repository, Some(server_config.did_attachment_link()));
-        let did_accessor = DIDAccessorImpl {};
+        let didcomm_service =
+            DidCommServiceWithAttachment::new(did_repository, server_config.did_attachment_link());
+        let did_accessor = DidAccessorImpl {};
 
         Ok(StudioClient {
             instance: client,
             base_url: url,
-            service,
+            didcomm_service,
             did_accessor,
         })
     }
 
     fn auth_headers(&self, payload: String) -> anyhow::Result<HeaderMap> {
         let config = network_config();
-        let secret = config.lock().get_secret_key().unwrap();
+        let secret = config
+            .lock()
+            .get_secret_key()
+            .ok_or(anyhow::anyhow!("not found secret key"))?;
         let mut mac = HmacSha256::new_from_slice(secret.as_bytes())?;
 
         mac.update(payload.as_bytes());
         let signature = &hex::encode(mac.finalize().into_bytes());
         let mut headers = HeaderMap::new();
-        headers.insert(
-            "X-Nodex-Signature",
-            HeaderValue::from_str(signature).unwrap(),
-        );
+        headers.insert("X-Nodex-Signature", HeaderValue::from_str(signature)?);
         headers.insert(
             reqwest::header::CONTENT_TYPE,
             HeaderValue::from_static("application/json"),
@@ -63,18 +65,32 @@ impl StudioClient {
         Ok(headers)
     }
 
-    #[allow(dead_code)]
-    pub async fn get(&self, _path: &str) -> anyhow::Result<reqwest::Response> {
-        let url = self.base_url.join(_path)?;
-        let headers = self.auth_headers("".to_string())?;
+    pub async fn post_with_auth_header(
+        &self,
+        path: &str,
+        body: &str,
+    ) -> anyhow::Result<reqwest::Response> {
+        let url = self.base_url.join(path)?;
+        let headers = self.auth_headers(body.to_string())?;
 
-        let response = self.instance.get(url).headers(headers).send().await?;
+        let response = self
+            .instance
+            .post(url)
+            .headers(headers)
+            .body(body.to_string())
+            .send()
+            .await?;
+
         Ok(response)
     }
 
     pub async fn post(&self, path: &str, body: &str) -> anyhow::Result<reqwest::Response> {
         let url = self.base_url.join(path)?;
-        let headers = self.auth_headers(body.to_string())?;
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            reqwest::header::CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
 
         let response = self
             .instance
@@ -102,17 +118,13 @@ impl StudioClient {
         });
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
+
+        let model = VerifiableCredentials::new(my_did, json!(message), Utc::now());
         let payload = self
-            .service
-            .generate(
-                &my_did,
-                project_did,
-                &my_keyring,
-                &json!(message),
-                None,
-                Utc::now(),
-            )
-            .await?;
+            .didcomm_service
+            .generate(model, &my_keyring, project_did, None)
+            .await
+            .context("")?;
         let payload = serde_json::to_string(&payload)?;
         let url = self.base_url.join(path)?;
         self.post(url.as_ref(), &payload).await
@@ -125,16 +137,11 @@ impl StudioClient {
     ) -> anyhow::Result<reqwest::Response> {
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
+
+        let model = VerifiableCredentials::new(my_did, serde_json::Value::Null, Utc::now());
         let payload = self
-            .service
-            .generate(
-                &my_did,
-                project_did,
-                &my_keyring,
-                &serde_json::Value::Null,
-                None,
-                Utc::now(),
-            )
+            .didcomm_service
+            .generate(model, &my_keyring, project_did, None)
             .await?;
         let payload = serde_json::to_string(&payload)?;
         let url = self.base_url.join(path)?;
@@ -148,26 +155,22 @@ impl StudioClient {
         message_id: String,
         is_verified: bool,
     ) -> anyhow::Result<reqwest::Response> {
-        let url = self.base_url.join(path);
+        let url = self.base_url.join(path)?;
         let payload = json!({
             "message_id": message_id,
             "is_verified": is_verified,
         });
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
+
+        let model = VerifiableCredentials::new(my_did, payload, Utc::now());
         let payload = self
-            .service
-            .generate(
-                &my_did,
-                project_did,
-                &my_keyring,
-                &payload,
-                None,
-                Utc::now(),
-            )
+            .didcomm_service
+            .generate(model, &my_keyring, project_did, None)
             .await?;
+
         let payload = serde_json::to_string(&payload)?;
-        self.post(url.unwrap().as_ref(), &payload).await
+        self.post(url.as_ref(), &payload).await
     }
 
     pub async fn network(
@@ -177,16 +180,11 @@ impl StudioClient {
     ) -> anyhow::Result<reqwest::Response> {
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
+
+        let model = VerifiableCredentials::new(my_did, serde_json::Value::Null, Utc::now());
         let payload = self
-            .service
-            .generate(
-                &my_did,
-                project_did,
-                &my_keyring,
-                &serde_json::Value::Null,
-                None,
-                Utc::now(),
-            )
+            .didcomm_service
+            .generate(model, &my_keyring, project_did, None)
             .await?;
         let payload = serde_json::to_string(&payload)?;
         self.post(path, &payload).await
@@ -194,7 +192,12 @@ impl StudioClient {
 
     pub async fn put(&self, path: &str, body: &str) -> anyhow::Result<reqwest::Response> {
         let url = self.base_url.join(path)?;
-        let headers = self.auth_headers("".to_string())?;
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            reqwest::header::CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
+
         let response = self
             .instance
             .put(url)
@@ -202,15 +205,6 @@ impl StudioClient {
             .body(body.to_string())
             .send()
             .await?;
-
-        Ok(response)
-    }
-
-    #[allow(dead_code)]
-    pub async fn delete(&self, _path: &str) -> anyhow::Result<reqwest::Response> {
-        let url = self.base_url.join(_path)?;
-        let headers = self.auth_headers("".to_string())?;
-        let response = self.instance.delete(url).headers(headers).send().await?;
 
         Ok(response)
     }
@@ -224,31 +218,6 @@ pub mod tests {
     #[derive(Deserialize)]
     struct Res {
         origin: String,
-    }
-
-    #[actix_rt::test]
-    #[ignore]
-    async fn it_should_success_get() {
-        let client_config: StudioClientConfig = StudioClientConfig {
-            base_url: "https://httpbin.org".to_string(),
-        };
-
-        let client = match StudioClient::new(&client_config) {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
-
-        let res = match client.get("/get").await {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
-
-        let json: Res = match res.json().await {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
-
-        assert!(!json.origin.is_empty());
     }
 
     #[actix_rt::test]
@@ -289,31 +258,6 @@ pub mod tests {
         };
 
         let res = match client.put("/put", r#"{"key":"value"}"#).await {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
-
-        let json: Res = match res.json().await {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
-
-        assert!(!json.origin.is_empty());
-    }
-
-    #[actix_rt::test]
-    #[ignore]
-    async fn it_should_success_delete() {
-        let client_config: StudioClientConfig = StudioClientConfig {
-            base_url: "https://httpbin.org".to_string(),
-        };
-
-        let client = match StudioClient::new(&client_config) {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
-
-        let res = match client.delete("/delete").await {
             Ok(v) => v,
             Err(_) => panic!(),
         };

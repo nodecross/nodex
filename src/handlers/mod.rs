@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use serde_json::Value;
 use tokio::sync::oneshot;
 
@@ -11,8 +10,8 @@ pub enum Command {
     Send { value: Value, resp: Responder },
 }
 
-#[async_trait]
-pub trait TransferClient: Send + Sync {
+#[trait_variant::make(Send)]
+pub trait TransferClient: Sync {
     async fn send(&self, value: Value) -> anyhow::Result<bool>;
 }
 
@@ -26,7 +25,6 @@ impl MqttClient {
     }
 }
 
-#[async_trait]
 impl TransferClient for MqttClient {
     async fn send(&self, value: Value) -> anyhow::Result<bool> {
         let (tx, rx) = oneshot::channel();
