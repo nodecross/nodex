@@ -1,6 +1,4 @@
 name "init-scripts"
-# always_build true
-
 ohai = Ohai::System.new
 ohai.all_plugins
 
