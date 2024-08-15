@@ -9,6 +9,8 @@ use std::{fs, sync::MutexGuard};
 
 use std::sync::{Arc, Mutex, Once};
 
+use crate::nodex::utils::UnwrapLog;
+
 #[derive(Clone)]
 pub struct SingletonNetworkConfig {
     inner: Arc<Mutex<Network>>,
@@ -69,39 +71,16 @@ impl Network {
         let config_dir = config.path().parent().expect("unreachable");
 
         if !Path::exists(config.path()) {
-            match fs::create_dir_all(config_dir) {
-                Ok(_) => {}
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    panic!()
-                }
-            };
-
-            match Self::touch(config.path()) {
-                Ok(_) => {}
-                Err(e) => {
-                    log::error!("{:?}", e);
-                    panic!()
-                }
-            };
+            fs::create_dir_all(config_dir).unwrap_log();
+            Self::touch(config.path()).unwrap_log();
         }
-
-        let root = match config.json::<ConfigNetwork>() {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!("{:?}", e);
-                panic!()
-            }
-        };
+        let root = config.json::<ConfigNetwork>().unwrap_log();
 
         Network { config, root }
     }
 
     pub fn write(&self) {
-        if let Err(e) = self.config.save_json(&self.root) {
-            log::error!("{:?}", e);
-            panic!()
-        }
+        self.config.save_json(&self.root).unwrap_log();
     }
 
     // NOTE: secret key

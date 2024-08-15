@@ -3,17 +3,22 @@ use crate::{
     services::studio::Studio,
 };
 
-pub struct CustomMetricUsecase {
-    repository: Box<dyn CustomMetricStoreRepository>,
+pub struct CustomMetricUsecase<R>
+where
+    R: CustomMetricStoreRepository,
+{
+    repository: R,
 }
 
-impl CustomMetricUsecase {
+impl CustomMetricUsecase<Studio> {
     pub fn new() -> Self {
         CustomMetricUsecase {
-            repository: Box::new(Studio::new()),
+            repository: Studio::new(),
         }
     }
+}
 
+impl<R: CustomMetricStoreRepository> CustomMetricUsecase<R> {
     pub async fn save(&self, request: CustomMetricStoreRequest) -> anyhow::Result<()> {
         if let Err(e) = self.repository.save(request).await {
             log::error!("{:?}", e);
@@ -36,7 +41,6 @@ mod tests {
 
     pub struct MockCustomMetricStoreRepository {}
 
-    #[async_trait::async_trait]
     impl CustomMetricStoreRepository for MockCustomMetricStoreRepository {
         async fn save(&self, _: CustomMetricStoreRequest) -> anyhow::Result<()> {
             Ok(())
@@ -46,7 +50,7 @@ mod tests {
     #[tokio::test]
     async fn test_save() {
         let usecase = CustomMetricUsecase {
-            repository: Box::new(MockCustomMetricStoreRepository {}),
+            repository: MockCustomMetricStoreRepository {},
         };
 
         let request = CustomMetricStoreRequest {

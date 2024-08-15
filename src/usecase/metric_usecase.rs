@@ -2,25 +2,33 @@ use crate::config::SingletonAppConfig;
 use crate::repository::metric_repository::{
     MetricStoreRepository, MetricsCacheRepository, MetricsWatchRepository,
 };
-use crate::services::metrics::MetricsInMemoryCacheService;
 use std::{sync::Arc, time::Duration};
-use tokio::sync::Mutex as TokioMutex;
 use tokio::sync::Notify;
 
-pub struct MetricUsecase {
-    store_repository: Box<dyn MetricStoreRepository + Send + Sync + 'static>,
-    watch_repository: Box<dyn MetricsWatchRepository + Send + Sync + 'static>,
+pub struct MetricUsecase<S, W, C>
+where
+    S: MetricStoreRepository,
+    W: MetricsWatchRepository,
+    C: MetricsCacheRepository,
+{
+    store_repository: S,
+    watch_repository: W,
     config: Box<SingletonAppConfig>,
-    cache_repository: Arc<TokioMutex<MetricsInMemoryCacheService>>,
+    cache_repository: C,
     shutdown_notify: Arc<Notify>,
 }
 
-impl MetricUsecase {
+impl<S, W, C> MetricUsecase<S, W, C>
+where
+    S: MetricStoreRepository,
+    W: MetricsWatchRepository,
+    C: MetricsCacheRepository,
+{
     pub fn new(
-        store_repository: Box<dyn MetricStoreRepository + Send + Sync>,
-        watch_repository: Box<dyn MetricsWatchRepository + Send + Sync>,
+        store_repository: S,
+        watch_repository: W,
         config: Box<SingletonAppConfig>,
-        cache_repository: Arc<TokioMutex<MetricsInMemoryCacheService>>,
+        cache_repository: C,
         shutdown_notify: Arc<Notify>,
     ) -> Self {
         MetricUsecase {
@@ -40,7 +48,7 @@ impl MetricUsecase {
                 _ = interval.tick() => {
                     let metrics = self.watch_repository.watch_metrics();
                     for metric in metrics {
-                        self.cache_repository.lock().await.push(chrono::Utc::now(), vec![metric]);
+                        self.cache_repository.push(chrono::Utc::now(), vec![metric]).await;
                     }
                     log::info!("collected metrics");
                 }
@@ -57,7 +65,7 @@ impl MetricUsecase {
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    let metrics_with_timestamp_list = self.cache_repository.lock().await.get();
+                    let metrics_with_timestamp_list = self.cache_repository.get().await;
 
                     if metrics_with_timestamp_list.is_empty() {
                         continue;
@@ -65,7 +73,7 @@ impl MetricUsecase {
 
                     match self.store_repository.save(metrics_with_timestamp_list).await {
                         Ok(_) => {
-                            self.cache_repository.lock().await.clear();
+                            self.cache_repository.clear().await;
                             log::info!("sent metrics");
                         },
                         Err(e) => log::error!("failed to send metric{:?}", e),
@@ -82,15 +90,16 @@ impl MetricUsecase {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::services::metrics::MetricsInMemoryCacheService;
     use crate::{
         app_config,
         repository::metric_repository::{
             Metric, MetricStoreRepository, MetricType, MetricsWatchRepository, MetricsWithTimestamp,
         },
     };
+
     pub struct MockMetricStoreRepository {}
 
-    #[async_trait::async_trait]
     impl MetricStoreRepository for MockMetricStoreRepository {
         async fn save(&self, _: Vec<MetricsWithTimestamp>) -> anyhow::Result<()> {
             Ok(())
@@ -119,10 +128,10 @@ mod tests {
         let notify = Arc::new(Notify::new());
         let notify_clone = notify.clone();
         let mut usecase = MetricUsecase {
-            store_repository: Box::new(MockMetricStoreRepository {}),
-            watch_repository: Box::new(MockMetricWatchRepository {}),
+            store_repository: MockMetricStoreRepository {},
+            watch_repository: MockMetricWatchRepository {},
             config: app_config(),
-            cache_repository: Arc::new(TokioMutex::new(MetricsInMemoryCacheService::new())),
+            cache_repository: MetricsInMemoryCacheService::new(),
             shutdown_notify: notify_clone,
         };
         notify.notify_one();
@@ -134,10 +143,10 @@ mod tests {
         let notify = Arc::new(Notify::new());
         let notify_clone = notify.clone();
         let mut usecase = MetricUsecase {
-            store_repository: Box::new(MockMetricStoreRepository {}),
-            watch_repository: Box::new(MockMetricWatchRepository {}),
+            store_repository: MockMetricStoreRepository {},
+            watch_repository: MockMetricWatchRepository {},
             config: app_config(),
-            cache_repository: Arc::new(TokioMutex::new(MetricsInMemoryCacheService::new())),
+            cache_repository: MetricsInMemoryCacheService::new(),
             shutdown_notify: notify_clone,
         };
         notify.notify_one();

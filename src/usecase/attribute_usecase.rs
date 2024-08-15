@@ -3,17 +3,19 @@ use crate::{
     services::studio::Studio,
 };
 
-pub struct AttributeUsecase {
-    repository: Box<dyn AttributeStoreRepository>,
+pub struct AttributeUsecase<R: AttributeStoreRepository> {
+    repository: R,
 }
 
-impl AttributeUsecase {
+impl AttributeUsecase<Studio> {
     pub fn new() -> Self {
         AttributeUsecase {
-            repository: Box::new(Studio::new()),
+            repository: Studio::new(),
         }
     }
+}
 
+impl<R: AttributeStoreRepository> AttributeUsecase<R> {
     pub async fn save(&self, request: AttributeStoreRequest) -> anyhow::Result<()> {
         match self.repository.save(request).await {
             Ok(_) => {
@@ -37,7 +39,6 @@ mod tests {
 
     pub struct MockAttributeStoreRepository {}
 
-    #[async_trait::async_trait]
     impl AttributeStoreRepository for MockAttributeStoreRepository {
         async fn save(&self, _: AttributeStoreRequest) -> anyhow::Result<()> {
             Ok(())
@@ -47,7 +48,7 @@ mod tests {
     #[tokio::test]
     async fn test_save() {
         let usecase = AttributeUsecase {
-            repository: Box::new(MockAttributeStoreRepository {}),
+            repository: MockAttributeStoreRepository {},
         };
         let _ = usecase
             .save(AttributeStoreRequest {

@@ -1,13 +1,15 @@
-use crate::nodex::utils::did_accessor::{DIDAccessorImpl, DidAccessor};
-use crate::services::nodex::NodeX;
-use crate::services::studio::{MessageResponse, Studio};
 use anyhow::anyhow;
-use nodex_didcomm::didcomm::encrypted::DIDCommEncryptedService;
 
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::Notify;
+
+use nodex_didcomm::didcomm::encrypted::DidCommEncryptedService;
+
+use crate::nodex::utils::did_accessor::{DidAccessor, DidAccessorImpl};
+use crate::services::nodex::NodeX;
+use crate::services::studio::{MessageResponse, Studio};
 
 #[derive(Deserialize)]
 enum OperationType {
@@ -56,18 +58,18 @@ impl MessageReceiveUsecase {
     }
 
     pub async fn receive_message(&self) -> anyhow::Result<()> {
-        // TODO: refactoring more simple
-        let service = DIDCommEncryptedService::new(NodeX::new(), None);
-
         for m in self.studio.get_message(&self.project_did).await? {
             let json_message = match serde_json::from_str(&m.raw_message) {
                 Ok(msg) => msg,
                 Err(e) => return self.handle_invalid_json(&m, e).await,
             };
             log::info!("Receive message. message_id = {:?}", m.id);
-            match service
-                .verify(&DIDAccessorImpl {}.get_my_keyring(), &json_message)
-                .await
+            match DidCommEncryptedService::verify(
+                self.agent.did_repository(),
+                &DidAccessorImpl {}.get_my_keyring(),
+                &json_message,
+            )
+            .await
             {
                 Ok(verified) => {
                     log::info!(
