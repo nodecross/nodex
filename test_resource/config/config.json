@@ -25,7 +25,8 @@
   },
   "metrics": {
     "collect_interval": 15,
-    "send_interval": 60
+    "send_interval": 60,
+    "cache_capacity": 400000
   },
   "is_initialized": true,
   "schema_version": 1
