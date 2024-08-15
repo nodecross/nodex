@@ -54,15 +54,9 @@ if [ -f "$CONFIG_DIR" ]; then
     else
         echo "[ WARNING ]\tCannot detect a supported init system. The nodex-agent package only provides service files for systemd"
     fi
-else
-    if command -v systemctl >/dev/null 2>&1; then
-        systemctl start $SERVICE_NAME || true
-    else
-        echo "[ WARNING ]\tCannot detect a supported init system. The nodex-agent package only provides service files for systemd"
-    fi
 fi
 
-echo "Nodex Agent Service has been installed and started."
+echo "$SERVICE_NAM has been installed and started."
 echo "Thank you for installing nodex-agent!"
 
 exit 0

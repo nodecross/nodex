@@ -1,14 +1,29 @@
 [Unit]
+# Service description and dependency management.
 Description=Nodex Agent Service
 After=network.target
 
 [Service]
+# Core service execution and reload settings.
 ExecStart=<%= install_dir %>/bin/nodex-agent
 ExecReload=/bin/kill -HUP $MAINPID
+
+# Restart behavior: restarts on failure, with a 10-second delay between attempts.
+# Limits restarts to 5 attempts within a 300-second period to avoid excessive restarts.
 Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+# Runs the service as the 'nodex' user and group, and manages the process ID.
 User=nodex
 Group=nodex
 PIDFile=<%= install_dir %>/var/run/nodex-agent.pid
+
+# Security and isolation settings:
+# - PrivateTmp: Isolates temporary files from other services.
+# - NoNewPrivileges: Prevents gaining additional privileges.
+# - ProtectSystem, ProtectHome, ProtectKernelModules, ProtectKernelTunables, ProtectControlGroups: Limits the service’s ability to modify the system, enhancing security.
 PrivateTmp=true
 NoNewPrivileges=true
 ProtectSystem=full
@@ -16,7 +31,10 @@ ProtectHome=true
 ProtectKernelModules=true
 ProtectKernelTunables=true
 ProtectControlGroups=true
+
+# Ensures the binary directory is read-only to prevent tampering.
 ReadOnlyPaths=<%= install_dir %>/bin
 
 [Install]
+# Makes the service start automatically in multi-user mode.
 WantedBy=multi-user.target

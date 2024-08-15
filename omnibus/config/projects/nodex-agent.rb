@@ -23,20 +23,19 @@ dependency "build-nodex-agent"
 exclude "**/.git"
 exclude "**/bundler/git"
 
-package :deb do
-  compression_level 9
-  # signed false
-end
+# package :deb do
+#   compression_level 9
+# end
 
-package :rpm do
-  compression_level 9
-  # signed false
-end
+# package :rpm do
+#   compression_level 6
+# end
 
+# package :tar do
+#   compression_level 6
+# end
+
+# use docker environment variable
 if ENV['TARGET_PLATFORM'] == 'ubuntu'
   package_scripts_path "#{Omnibus::Config.project_root}/package-scripts/nodex-agent-deb"
 end
-# else
-#   package_scripts_path "#{Omnibus::Config.project_root}/package-scripts/nodex-agent-rpm"
-# elsif osx_target?
-#     package_scripts_path "#{Omnibus::Config.project_root}/package-scripts/nodex-agent-dmg"
