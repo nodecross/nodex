@@ -6,7 +6,7 @@ pub struct AttributeStoreRequest {
     pub value: String,
 }
 
-#[async_trait::async_trait]
+#[trait_variant::make(Send)]
 pub trait AttributeStoreRepository {
     async fn save(&self, request: AttributeStoreRequest) -> anyhow::Result<()>;
 }

@@ -1,13 +1,11 @@
+use crate::nodex::extension::secure_keystore::FileBaseKeyStore;
 use crate::nodex::keyring;
 use crate::nodex::utils::sidetree_client::SideTreeClient;
-use crate::server_config;
+use crate::{app_config, server_config};
 use anyhow;
 use bytes::Bytes;
-use nodex_didcomm::did::did_repository::{
-    CreateIdentifierError, DidRepository, DidRepositoryImpl, FindIdentifierError,
-};
-use nodex_didcomm::did::sidetree::payload::DIDResolutionResponse;
-use nodex_didcomm::keyring::keypair::KeyPairing;
+use nodex_didcomm::did::did_repository::{DidRepository, DidRepositoryImpl};
+use nodex_didcomm::did::sidetree::payload::DidResolutionResponse;
 use std::{
     fs,
     io::Cursor,
@@ -20,7 +18,7 @@ use zip::ZipArchive;
 use daemonize::Daemonize;
 
 pub struct NodeX {
-    repository: DidRepositoryImpl<SideTreeClient>,
+    did_repository: DidRepositoryImpl<SideTreeClient>,
 }
 
 impl NodeX {
@@ -29,25 +27,31 @@ impl NodeX {
         let sidetree_client = SideTreeClient::new(&server_config.did_http_endpoint()).unwrap();
         let did_repository = DidRepositoryImpl::new(sidetree_client);
 
-        NodeX {
-            repository: did_repository,
-        }
+        NodeX { did_repository }
     }
 
-    // NOTE: DONE
-    pub async fn create_identifier(&self) -> anyhow::Result<DIDResolutionResponse> {
+    pub fn did_repository(&self) -> &DidRepositoryImpl<SideTreeClient> {
+        &self.did_repository
+    }
+
+    pub async fn create_identifier(&self) -> anyhow::Result<DidResolutionResponse> {
         // NOTE: find did
-        if let Ok(v) = keyring::keypair::KeyPairingWithConfig::load_keyring() {
-            if let Ok(did) = v.get_identifier() {
-                if let Some(json) = self.find_identifier(&did).await? {
-                    return Ok(json);
-                }
+        let config = app_config();
+        let keystore = FileBaseKeyStore::new(config.clone());
+        if let Some(did) =
+            keyring::keypair::KeyPairingWithConfig::load_keyring(config.clone(), keystore.clone())
+                .ok()
+                .and_then(|v| v.get_identifier().ok())
+        {
+            if let Some(json) = self.find_identifier(&did).await? {
+                return Ok(json);
             }
         }
 
-        let mut keyring_with_config = keyring::keypair::KeyPairingWithConfig::create_keyring()?;
+        let mut keyring_with_config =
+            keyring::keypair::KeyPairingWithConfig::create_keyring(config, keystore);
         let res = self
-            .repository
+            .did_repository
             .create_identifier(keyring_with_config.get_keyring())
             .await?;
         keyring_with_config.save(&res.did_document.id);
@@ -55,12 +59,11 @@ impl NodeX {
         Ok(res)
     }
 
-    // NOTE: DONE
     pub async fn find_identifier(
         &self,
         did: &str,
-    ) -> anyhow::Result<Option<DIDResolutionResponse>> {
-        let res = self.repository.find_identifier(did).await?;
+    ) -> anyhow::Result<Option<DidResolutionResponse>> {
+        let res = self.did_repository.find_identifier(did).await?;
 
         Ok(res)
     }
@@ -145,23 +148,5 @@ impl NodeX {
         }
 
         Ok(())
-    }
-}
-
-// TODO: remove this. use DidRepositoryImpl directly
-#[async_trait::async_trait]
-impl DidRepository for NodeX {
-    async fn create_identifier(
-        &self,
-        keyring: KeyPairing,
-    ) -> Result<DIDResolutionResponse, CreateIdentifierError> {
-        self.repository.create_identifier(keyring).await
-    }
-
-    async fn find_identifier(
-        &self,
-        did: &str,
-    ) -> Result<Option<DIDResolutionResponse>, FindIdentifierError> {
-        self.repository.find_identifier(did).await
     }
 }
