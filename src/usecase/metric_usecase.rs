@@ -124,7 +124,7 @@ mod tests {
             store_repository: Box::new(MockMetricStoreRepository {}),
             watch_repository: Box::new(MockMetricWatchRepository {}),
             config: app_config(),
-            cache_repository: Arc::new(TokioMutex::new(MetricsInMemoryCacheService::new(400_000))),
+            cache_repository: Arc::new(TokioMutex::new(MetricsInMemoryCacheService::new(1 << 16))),
             shutdown_notify: notify_clone,
         };
         notify.notify_one();
@@ -139,7 +139,7 @@ mod tests {
             store_repository: Box::new(MockMetricStoreRepository {}),
             watch_repository: Box::new(MockMetricWatchRepository {}),
             config: app_config(),
-            cache_repository: Arc::new(TokioMutex::new(MetricsInMemoryCacheService::new(400_000))),
+            cache_repository: Arc::new(TokioMutex::new(MetricsInMemoryCacheService::new(1 << 16))),
             shutdown_notify: notify_clone,
         };
         notify.notify_one();

@@ -114,7 +114,7 @@ impl Default for ConfigRoot {
             metrics: MetricsConfig {
                 collect_interval: 15,
                 send_interval: 60,
-                cache_capacity: 400_000,
+                cache_capacity: 1 << 16,
             },
             is_initialized: false,
             schema_version: 1,
