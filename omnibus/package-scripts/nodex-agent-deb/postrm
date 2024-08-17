@@ -1,42 +1,83 @@
 #!/bin/sh
-#
-# Perform necessary nodex-agent removal steps
-# after package is uninstalled.
-#
+# Perform necessary cleanup steps after nodex-agent package is removed, purged, upgraded, or deconfigured.
 
-SERVICE_NAME=nodex-agent
 INSTALL_DIR=/opt/nodex-agent
-CONFIG_DIR=~/.config/nodex
+SERVICE_NAME=nodex-agent
+HOME_DIR=/home/nodex/
 
-# Stop the service if it is running
-if command -v systemctl >/dev/null 2>&1; then
-    echo "Stopping service $SERVICE_NAME..."
-    systemctl stop $SERVICE_NAME || true
-    systemctl disable $SERVICE_NAME || true
-else
-    echo "[ WARNING ]\tCannot detect a supported init system. The nodex-agent package only provides service files for systemd"
-fi
+case "$1" in
+    remove)
+        echo "Stopping service $SERVICE_NAME..."
+        if command -v systemctl >/dev/null 2>&1; then
+            if ! systemctl stop "$SERVICE_NAME"; then
+                echo "Failed to stop service $SERVICE_NAME"
+            fi
+        fi
 
-# Remove the symlink to the agent's binary
-if [ -L /usr/bin/nodex-agent ]; then
-    echo "Removing symlink /usr/bin/nodex-agent..."
-    rm /usr/bin/nodex-agent
-fi
+        echo "Disabling service $SERVICE_NAME..."
+        if command -v systemctl >/dev/null 2>&1; then
+            if ! systemctl disable "$SERVICE_NAME"; then
+                echo "Failed to disable service $SERVICE_NAME"
+            fi
+            if ! systemctl daemon-reload; then
+                echo "Failed to reload systemctl daemon"
+            fi
+        fi
 
-# Optionally, remove the user and group if they are no longer needed
-if id -u nodex >/dev/null 2>&1; then
-    echo "Removing nodex user and group..."
-    userdel nodex || true
-    groupdel nodex || true
-fi
+        if [ -d "$INSTALL_DIR" ]; then
+            echo "Removing installation directory $INSTALL_DIR..."
+            if ! rm -rf "$INSTALL_DIR"; then
+                echo "Failed to remove installation directory"
+            fi
+        fi
+        ;;
 
-# Remove the installation directory and configuration directory
-echo "Removing installation directory ${INSTALL_DIR}..."
-rm -rf ${INSTALL_DIR}
+    purge)
+        echo "Purging configuration and removing directories..."
 
-echo "Removing configuration directory ${CONFIG_DIR}..."
-rm -rf ${CONFIG_DIR}
+        # Remove the service, if it still exists
+        if command -v systemctl >/dev/null 2>&1; then
+            if ! systemctl stop "$SERVICE_NAME"; then
+                echo "Failed to stop service $SERVICE_NAME"
+            fi
+            if ! systemctl disable "$SERVICE_NAME"; then
+                echo "Failed to disable service $SERVICE_NAME"
+            fi
+            if ! systemctl daemon-reload; then
+                echo "Failed to reload systemctl daemon"
+            fi
+        fi
 
-echo "Nodex Agent Service has been removed."
+        # Remove user and group
+        if id -u nodex >/dev/null 2>&1; then
+            echo "Removing nodex user and group..."
+            if ! userdel -r nodex; then
+                echo "Failed to remove nodex user"
+            fi
+            if ! groupdel nodex; then
+                echo "Failed to remove nodex group"
+            fi
+        fi
 
+        # Remove the installation directory
+        if [ -d "$INSTALL_DIR" ]; then
+            echo "Removing installation directory $INSTALL_DIR..."
+            if ! rm -rf "$INSTALL_DIR"; then
+                echo "Failed to remove installation directory"
+            fi
+        fi
+
+        # Remove configuration files
+        if [ -d "$HOME_DIR" ]; then
+            echo "Removing configuration directory $HOME_DIR..."
+            if ! rm -rf "$HOME_DIR"; then
+                echo "Failed to remove configuration directory"
+            fi
+        fi
+        ;;
+
+    *)
+esac
+
+echo "$SERVICE_NAME post-removal script completed."
 exit 0

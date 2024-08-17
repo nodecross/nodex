@@ -4,15 +4,14 @@
 # All Rights Reserved.
 
 name "nodex-agent"
-maintainer "CHANGE ME"
-homepage "https://CHANGE-ME.com"
-
-# Defaults to C:/nodex-agent on Windows
-# and /opt/nodex-agent on all other platforms
-install_dir "#{default_root}/#{name}"
+homepage "https://docs.nodecross.io/"
 
 build_version Omnibus::BuildVersion.semver
 build_iteration 1
+
+# Defaults to C:/nodex-agent on Windows
+# and /opt/nodex-agent on all other platforms
+install_dir "#{default_root}/#{name}/#{Omnibus::BuildVersion.semver.split('-').first}"
 
 # Creates required build directories
 dependency "preparation"

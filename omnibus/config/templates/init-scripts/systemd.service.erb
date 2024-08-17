@@ -1,9 +1,12 @@
 [Unit]
 # Service description and dependency management.
 Description=Nodex Agent Service
-After=network.target
+Wants=network-online.target
+After=network-online.target
 
 [Service]
+Type=simple
+
 # Core service execution and reload settings.
 ExecStart=<%= install_dir %>/bin/nodex-agent
 ExecReload=/bin/kill -HUP $MAINPID
@@ -18,7 +21,6 @@ StartLimitBurst=5
 # Runs the service as the 'nodex' user and group, and manages the process ID.
 User=nodex
 Group=nodex
-PIDFile=<%= install_dir %>/var/run/nodex-agent.pid
 
 # Security and isolation settings:
 # - PrivateTmp: Isolates temporary files from other services.

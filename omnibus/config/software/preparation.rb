@@ -23,8 +23,9 @@ skip_transitive_dependency_licensing true
 
 build do
   block do
-    touch "#{install_dir}/embedded/lib/.gitkeep"
-    touch "#{install_dir}/embedded/bin/.gitkeep"
+    # use embedd to embedded directory dependent libraries
+    # touch "#{install_dir}/embedded/lib/.gitkeep"
+    # touch "#{install_dir}/embedded/bin/.gitkeep"
     touch "#{install_dir}/bin/.gitkeep"
   end
 end

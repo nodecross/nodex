@@ -6,7 +6,7 @@
 
 INSTALL_DIR=/opt/nodex-agent
 SERVICE_NAME=nodex-agent
-CONFIG_DIR=~/.config/nodex
+HOME_DIR=/home/nodex/
 
 # Check if the user and group already exist, if not, create them
 if ! id -u nodex >/dev/null 2>&1; then
@@ -16,9 +16,20 @@ else
     echo "User nodex already exists."
 fi
 
+# Ensure the installation directory exists before setting ownership and permissions
+if [ ! -d "${INSTALL_DIR}" ]; then
+    echo "Creating installation directory ${INSTALL_DIR}..."
+    mkdir -p ${INSTALL_DIR}
+else
+    echo "Installation directory ${INSTALL_DIR} already exists."
+fi
+
 # Set ownership and permissions
 chown -R root:nodex ${INSTALL_DIR}
 chmod -R 750 ${INSTALL_DIR}
+mkdir -p ${HOME_DIR}
+chown -R nodex:nodex ${HOME_DIR}
+chmod -R 740 ${HOME_DIR}
 
 # Create a symlink to the agent's binary, handling existing symlink
 if [ -L /usr/bin/nodex-agent ]; then
@@ -47,7 +58,7 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl enable $SERVICE_NAME
 fi
 
-if [ -f "$CONFIG_DIR" ]; then
+if [ -f "$HOME_DIR/.config/nodex/config.json" ]; then
     echo "(Re)starting $SERVICE_NAME now..."
     if command -v systemctl >/dev/null 2>&1; then
         systemctl restart $SERVICE_NAME || true
@@ -56,7 +67,7 @@ if [ -f "$CONFIG_DIR" ]; then
     fi
 fi
 
-echo "$SERVICE_NAM has been installed and started."
+echo "$SERVICE_NAM has been installed"
 echo "Thank you for installing nodex-agent!"
 
 exit 0
