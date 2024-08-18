@@ -4,4 +4,14 @@
 # before package is installed.
 #
 
+set -e
+
+INSTALL_DIR=/opt/nodex-agent
+
+if [ -d $INSTALL_DIR ]; then
+    cp -r $INSTALL_DIR $INSTALL_DIR.backup
+fi
+
 echo "You're about to install nodex-agent!"
+
+exit 0

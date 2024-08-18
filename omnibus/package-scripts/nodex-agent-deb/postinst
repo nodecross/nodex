@@ -8,6 +8,8 @@ INSTALL_DIR=/opt/nodex-agent
 SERVICE_NAME=nodex-agent
 HOME_DIR=/home/nodex/
 
+set -e
+
 # Check if the user and group already exist, if not, create them
 if ! id -u nodex >/dev/null 2>&1; then
     echo "Creating dedicated user and group for nodex-agent..."
@@ -67,7 +69,7 @@ if [ -f "$HOME_DIR/.config/nodex/config.json" ]; then
     fi
 fi
 
-echo "$SERVICE_NAM has been installed"
+echo "$SERVICE_NAME has been installed"
 echo "Thank you for installing nodex-agent!"
 
 exit 0

@@ -5,6 +5,8 @@ INSTALL_DIR=/opt/nodex-agent
 SERVICE_NAME=nodex-agent
 HOME_DIR=/home/nodex/
 
+set -e
+
 case "$1" in
     remove)
         echo "Stopping service $SERVICE_NAME..."
