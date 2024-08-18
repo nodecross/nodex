@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -14,7 +15,8 @@ pub struct MetricsWatchService {
 
 #[derive(Clone)]
 pub struct MetricsInMemoryCacheService {
-    cache: Arc<Mutex<Vec<MetricsWithTimestamp>>>,
+    cache: Arc<Mutex<VecDeque<MetricsWithTimestamp>>>,
+    cache_capacity: usize,
 }
 
 impl MetricsWatchService {
@@ -113,9 +115,10 @@ impl MetricsWatchRepository for MetricsWatchService {
 }
 
 impl MetricsInMemoryCacheService {
-    pub fn new() -> Self {
+    pub fn new(capacity: usize) -> Self {
         Self {
-            cache: Arc::new(Mutex::new(Vec::new())),
+            cache: Arc::new(Mutex::new(VecDeque::with_capacity(capacity))),
+            cache_capacity: capacity,
         }
     }
 }
@@ -123,7 +126,10 @@ impl MetricsInMemoryCacheService {
 impl MetricsCacheRepository for MetricsInMemoryCacheService {
     async fn push(&mut self, timestamp: DateTime<Utc>, metrics: Vec<Metric>) {
         let mut cache = self.cache.lock().await;
-        cache.push(MetricsWithTimestamp { timestamp, metrics });
+        if cache.len() >= self.cache_capacity {
+            cache.pop_front();
+        }
+        cache.push_back(MetricsWithTimestamp { timestamp, metrics });
     }
 
     async fn clear(&mut self) {
@@ -131,7 +137,7 @@ impl MetricsCacheRepository for MetricsInMemoryCacheService {
         cache.clear();
     }
 
-    async fn get(&mut self) -> Vec<MetricsWithTimestamp> {
+    async fn get(&mut self) -> VecDeque<MetricsWithTimestamp> {
         let cache = self.cache.lock().await;
         cache.clone()
     }

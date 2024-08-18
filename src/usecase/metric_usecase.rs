@@ -89,6 +89,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::collections::VecDeque;
+
     use super::*;
     use crate::services::metrics::MetricsInMemoryCacheService;
     use crate::{
@@ -101,7 +103,7 @@ mod tests {
     pub struct MockMetricStoreRepository {}
 
     impl MetricStoreRepository for MockMetricStoreRepository {
-        async fn save(&self, _: Vec<MetricsWithTimestamp>) -> anyhow::Result<()> {
+        async fn save(&self, _: VecDeque<MetricsWithTimestamp>) -> anyhow::Result<()> {
             Ok(())
         }
     }
@@ -131,7 +133,7 @@ mod tests {
             store_repository: MockMetricStoreRepository {},
             watch_repository: MockMetricWatchRepository {},
             config: app_config(),
-            cache_repository: MetricsInMemoryCacheService::new(),
+            cache_repository: MetricsInMemoryCacheService::new(1 << 16),
             shutdown_notify: notify_clone,
         };
         notify.notify_one();
@@ -146,7 +148,7 @@ mod tests {
             store_repository: MockMetricStoreRepository {},
             watch_repository: MockMetricWatchRepository {},
             config: app_config(),
-            cache_repository: MetricsInMemoryCacheService::new(),
+            cache_repository: MetricsInMemoryCacheService::new(1 << 16),
             shutdown_notify: notify_clone,
         };
         notify.notify_one();
