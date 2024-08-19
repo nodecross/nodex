@@ -21,8 +21,9 @@ runs:
         cargo clippy -- -D warnings
 
     - name: (check) install-taplo
-      shell: bash
-      run: cargo install --locked taplo-cli
+      uses: taiki-e/install-action@v2
+      with:
+        tool: taplo-cli
 
     - name: (check) lint-toml
       shell: bash
