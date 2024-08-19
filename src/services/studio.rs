@@ -19,6 +19,7 @@ use nodex_didcomm::did::did_repository::DidRepositoryImpl;
 use nodex_didcomm::didcomm::encrypted::DidCommEncryptedService;
 use nodex_didcomm::verifiable_credentials::did_vc::DidVcService;
 use nodex_didcomm::verifiable_credentials::types::VerifiableCredentials;
+use std::collections::VecDeque;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -421,7 +422,7 @@ struct MetricsWithTimestampStr {
 }
 
 impl MetricStoreRepository for Studio {
-    async fn save(&self, request: Vec<MetricsWithTimestamp>) -> anyhow::Result<()> {
+    async fn save(&self, request: VecDeque<MetricsWithTimestamp>) -> anyhow::Result<()> {
         let metrics_str = request
             .into_iter()
             .map(|m| MetricsWithTimestampStr {
