@@ -1,0 +1,69 @@
+name: build with cross
+description: ""
+inputs:
+  platform:
+    required: true
+    description: ""
+  use-cache:
+    required: true
+    description: ""
+  checkout:
+    required: false
+    description: ""
+runs:
+  using: composite
+  steps:
+    - name: (checkout) source code
+      if: ${{ inputs.checkout == 'true' }}
+      uses: actions/checkout@v4
+
+    - name: (cache) rust
+      if: ${{ inputs.use-cache == 'true' }}
+      uses: Swatinem/rust-cache@v2
+
+    - name: (install) install development tools
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo
+
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.1'
+        bundler-cache: true
+
+    - name: Install Omnibus dependencies
+      run: |
+        cd omnibus
+        gem install bundler
+        bundle install --binstubs
+      shell: bash
+
+    - name: (run) Build package with Omnibus
+      run: |
+        bundle exec omnibus build nodex-agent --log-level info
+      env:
+        TARGET_PLATFORM: ${{ inputs.platform }}
+      shell: bash
+
+    - name: Install `cargo-get`
+      run: cargo install cargo-get
+      shell: bash
+
+    - name: (run) Rename the .deb file to a standard format
+      run: |
+        DEB_FILE=$(find omnibus/pkg -name "*.deb" | head -n 1)
+        PACKAGE_NAME="nodex-agent"
+        VERSION=$(cargo get package.version)
+        ITERATION="1"
+        ARCHITECTURE=$(dpkg --print-architecture)
+        UPLOAD_DEB_NAME="${PACKAGE_NAME}_${VERSION}-${ITERATION}_${ARCHITECTURE}.deb"
+        mv "$DEB_FILE" "omnibus/pkg/$UPLOAD_DEB_NAME"
+        echo "UPLOAD_DEB_NAME=$UPLOAD_DEB_NAME" >> $GITHUB_ENV
+      shell: bash
+
+    - name: (run) upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.UPLOAD_DEB_NAME }}
+        path: omnibus/pkg/${{ env.UPLOAD_DEB_NAME }}
