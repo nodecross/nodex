@@ -26,3 +26,8 @@ exclude "**/bundler/git"
 if ENV['TARGET_PLATFORM'] == 'ubuntu'
   package_scripts_path "#{Omnibus::Config.project_root}/package-scripts/nodex-agent-deb"
 end
+
+package :deb do
+  compression_level 5
+  compression_type :xz
+end
