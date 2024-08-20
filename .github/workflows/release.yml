@@ -115,10 +115,9 @@ jobs:
 
       - name: Create Example asset
         shell: bash
-        working-directory: examples/nodejs
+        working-directory: examples
         run: |
-          mv app/README.md .
-          zip -r example.zip app/ README.md package.json tsconfig.json yarn.lock ../../LICENSE
+          zip -r example.zip nodejs/ python/ systemd/ ../../LICENSE
 
       - name: Create Release
         uses: actions/github-script@v5
@@ -157,6 +156,7 @@ jobs:
         uses: ./.github/actions/upload-release-asset
         with:
           release_id: ${{ steps.release.outputs.result }}
+          asset_path: ${{ github.workspace }}/nodex-agent-x86_64-pc-windows-msvc.zip
           asset_name: nodex-agent-x86_64-windows.zip
           asset_content_type: application/zip
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -165,7 +165,7 @@ jobs:
         uses: ./.github/actions/upload-release-asset
         with:
           release_id: ${{ steps.release.outputs.result }}
-          asset_path: ./examples/nodejs/example.zip
+          asset_path: ./examples/example.zip
           asset_name: example.zip
           asset_content_type: application/zip
           github_token: ${{ secrets.GITHUB_TOKEN }}
