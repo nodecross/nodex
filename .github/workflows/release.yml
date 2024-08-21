@@ -21,23 +21,23 @@ jobs:
           actor: ${{ github.actor }}
           github_token: ${{ secrets.PAT }}
 
-  build-macos:
-    needs: check-user
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        target: [aarch64-apple-darwin]
-    name: Build / MacOS / ${{ matrix.target }}
-    steps:
-      - name: (checkout) source code
-        uses: actions/checkout@v4
+  # build-macos:
+  #   needs: check-user
+  #   runs-on: macos-latest
+  #   strategy:
+  #     matrix:
+  #       target: [aarch64-apple-darwin]
+  #   name: Build / MacOS / ${{ matrix.target }}
+  #   steps:
+  #     - name: (checkout) source code
+  #       uses: actions/checkout@v4
 
-      - name: (run) build
-        uses: ./.github/actions/build
-        with:
-          target: ${{ matrix.target }}
-          use-cache: false
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: (run) build
+  #       uses: ./.github/actions/build
+  #       with:
+  #         target: ${{ matrix.target }}
+  #         use-cache: false
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
 
   build-linux:
     needs: check-user
@@ -64,108 +64,108 @@ jobs:
           use-cache: true
           platform: ubuntu
 
-  build-windows:
-    needs: check-user
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        target: [x86_64-pc-windows-msvc]
-    name: Build / Windows / ${{ matrix.target }}
-    steps:
-      - name: (checkout) source code
-        uses: actions/checkout@v4
+  # build-windows:
+  #   needs: check-user
+  #   runs-on: windows-latest
+  #   strategy:
+  #     matrix:
+  #       target: [x86_64-pc-windows-msvc]
+  #   name: Build / Windows / ${{ matrix.target }}
+  #   steps:
+  #     - name: (checkout) source code
+  #       uses: actions/checkout@v4
 
-      - name: (run) build
-        uses: ./.github/actions/build-with-cross
-        with:
-          target: ${{ matrix.target }}
-          use-cache: false
-          binary-file-name: nodex-agent.exe
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: (run) build
+  #       uses: ./.github/actions/build-with-cross
+  #       with:
+  #         target: ${{ matrix.target }}
+  #         use-cache: false
+  #         binary-file-name: nodex-agent.exe
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
 
-  release:
-    name: Release
-    needs: [build-macos, build-linux, build-windows]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # release:
+  #   name: Release
+  #   needs: [build-macos, build-linux, build-windows]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+  #     - name: Setup Rust
+  #       uses: dtolnay/rust-toolchain@stable
 
-      - name: Install `cargo-get`
-        run: cargo install cargo-get
+  #     - name: Install `cargo-get`
+  #       run: cargo install cargo-get
 
-      - name: Set Crate Version as Environment Variable
-        id: set_crate_version
-        run: |
-          CARGO_TOML_VERSION=$(cargo get package.version)
-          echo "version=$CARGO_TOML_VERSION" >> $GITHUB_OUTPUT
+  #     - name: Set Crate Version as Environment Variable
+  #       id: set_crate_version
+  #       run: |
+  #         CARGO_TOML_VERSION=$(cargo get package.version)
+  #         echo "version=$CARGO_TOML_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: ${{ github.workspace }}
-          merge-multiple: true
+  #     - name: Download all artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         path: ${{ github.workspace }}
+  #         merge-multiple: true
 
-      - name: Check downloaded artifacts
-        run: |
-          ls -la ${{ github.workspace }}
+  #     - name: Check downloaded artifacts
+  #       run: |
+  #         ls -la ${{ github.workspace }}
 
-      - name: Create Example asset
-        shell: bash
-        working-directory: examples
-        run: |
-          zip -r example.zip nodejs/ python/ systemd/ ../../LICENSE
+  #     - name: Create Example asset
+  #       shell: bash
+  #       working-directory: examples
+  #       run: |
+  #         zip -r example.zip nodejs/ python/ systemd/ ../../LICENSE
 
-      - name: Create Release
-        uses: actions/github-script@v5
-        id: release
-        with:
-          result-encoding: string
-          script: |
-            const fs = require('fs').promises;
-            const release = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: "v${{ steps.set_crate_version.outputs.version }}",
-              generate_release_notes: true
-            });
-            return release.data.id;
+  #     - name: Create Release
+  #       uses: actions/github-script@v5
+  #       id: release
+  #       with:
+  #         result-encoding: string
+  #         script: |
+  #           const fs = require('fs').promises;
+  #           const release = await github.rest.repos.createRelease({
+  #             owner: context.repo.owner,
+  #             repo: context.repo.repo,
+  #             tag_name: "v${{ steps.set_crate_version.outputs.version }}",
+  #             generate_release_notes: true
+  #           });
+  #           return release.data.id;
 
-      - name: Upload asset (linux)
-        uses: ./.github/actions/upload-release-asset
-        with:
-          release_id: ${{ steps.release.outputs.result }}
-          asset_path: ${{ github.workspace }}/nodex-agent-x86_64-unknown-linux-gnu.zip
-          asset_name: nodex-agent-x86_64.zip
-          asset_content_type: application/zip
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Upload asset (linux)
+  #       uses: ./.github/actions/upload-release-asset
+  #       with:
+  #         release_id: ${{ steps.release.outputs.result }}
+  #         asset_path: ${{ github.workspace }}/nodex-agent-x86_64-unknown-linux-gnu.zip
+  #         asset_name: nodex-agent-x86_64.zip
+  #         asset_content_type: application/zip
+  #         github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload asset (mac)
-        uses: ./.github/actions/upload-release-asset
-        with:
-          release_id: ${{ steps.release.outputs.result }}
-          asset_path: ${{ github.workspace }}/nodex-agent-aarch64-apple-darwin.zip
-          asset_name: nodex-agent-mac.zip
-          asset_content_type: application/zip
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Upload asset (mac)
+  #       uses: ./.github/actions/upload-release-asset
+  #       with:
+  #         release_id: ${{ steps.release.outputs.result }}
+  #         asset_path: ${{ github.workspace }}/nodex-agent-aarch64-apple-darwin.zip
+  #         asset_name: nodex-agent-mac.zip
+  #         asset_content_type: application/zip
+  #         github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload asset (windows)
-        uses: ./.github/actions/upload-release-asset
-        with:
-          release_id: ${{ steps.release.outputs.result }}
-          asset_path: ${{ github.workspace }}/nodex-agent-x86_64-pc-windows-msvc.zip
-          asset_name: nodex-agent-x86_64-windows.zip
-          asset_content_type: application/zip
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Upload asset (windows)
+  #       uses: ./.github/actions/upload-release-asset
+  #       with:
+  #         release_id: ${{ steps.release.outputs.result }}
+  #         asset_path: ${{ github.workspace }}/nodex-agent-x86_64-pc-windows-msvc.zip
+  #         asset_name: nodex-agent-x86_64-windows.zip
+  #         asset_content_type: application/zip
+  #         github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload asset (example)
-        uses: ./.github/actions/upload-release-asset
-        with:
-          release_id: ${{ steps.release.outputs.result }}
-          asset_path: ./examples/example.zip
-          asset_name: example.zip
-          asset_content_type: application/zip
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Upload asset (example)
+  #       uses: ./.github/actions/upload-release-asset
+  #       with:
+  #         release_id: ${{ steps.release.outputs.result }}
+  #         asset_path: ./examples/example.zip
+  #         asset_name: example.zip
+  #         asset_content_type: application/zip
+  #         github_token: ${{ secrets.GITHUB_TOKEN }}

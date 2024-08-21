@@ -1,4 +1,4 @@
-name: build with cross
+name: build with omnibus
 description: ""
 inputs:
   platform:
