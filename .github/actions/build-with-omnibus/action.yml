@@ -22,9 +22,9 @@ runs:
       uses: Swatinem/rust-cache@v2
 
     - name: (install) install development tools
-      uses: taiki-e/install-action@v2
+      uses: actions-rs/toolchain@v1
       with:
-        tool: cargo
+        toolchain: stable
 
     - name: Set up Ruby
       uses: ruby/setup-ruby@v1
