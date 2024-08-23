@@ -7,6 +7,15 @@ inputs:
   use-cache:
     required: true
     description: ""
+  release-package-name:
+    required: true
+    description: ""
+  package-format:
+    required: true
+    description: ""
+  github-token:
+    required: true
+    description: ""
   checkout:
     required: false
     description: ""
@@ -21,49 +30,48 @@ runs:
       if: ${{ inputs.use-cache == 'true' }}
       uses: Swatinem/rust-cache@v2
 
-    - name: (install) install development tools
+    - name: (setup) install development tools
       uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
 
-    - name: Set up Ruby
+    - name: (setup) Set up Ruby
       uses: ruby/setup-ruby@v1
       with:
         ruby-version: '3.1'
         bundler-cache: true
 
-    - name: Install Omnibus dependencies
+    - name: (setup) Install Omnibus
       run: |
         cd omnibus
         gem install bundler
         bundle install --binstubs
       shell: bash
+   
+    - name: (setup) Install dependencies for building with Omnibus
+      if: ${{ inputs.platform == 'ubuntu' }}
+      run: |
+        add-apt-repository -y ppa:ubuntu-toolchain-r/test
+        apt-get update
+        apt-get install -y fakeroot
+      shell: bash
 
     - name: (run) Build package with Omnibus
       run: |
+        cd omnibus
         bundle exec omnibus build nodex-agent --log-level info
       env:
         TARGET_PLATFORM: ${{ inputs.platform }}
       shell: bash
 
-    - name: Install `cargo-get`
-      run: cargo install cargo-get
-      shell: bash
-
-    - name: (run) Rename the .deb file to a standard format
+    - name: (run) Rename package
       run: |
-        DEB_FILE=$(find omnibus/pkg -name "*.deb" | head -n 1)
-        PACKAGE_NAME="nodex-agent"
-        VERSION=$(cargo get package.version)
-        ITERATION="1"
-        ARCHITECTURE=$(dpkg --print-architecture)
-        UPLOAD_DEB_NAME="${PACKAGE_NAME}_${VERSION}-${ITERATION}_${ARCHITECTURE}.deb"
-        mv "$DEB_FILE" "omnibus/pkg/$UPLOAD_DEB_NAME"
-        echo "UPLOAD_DEB_NAME=$UPLOAD_DEB_NAME" >> $GITHUB_ENV
+        PKG_FILE=$(find omnibus/pkg -name "*.${{ inputs.package-format }}" | head -n 1)
+        mv "$DEB_FILE" "omnibus/pkg/${{ inputs.release-package-name }}"
       shell: bash
 
     - name: (run) upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.UPLOAD_DEB_NAME }}
-        path: omnibus/pkg/${{ env.UPLOAD_DEB_NAME }}
+        name: ${{ inputs.release-package-name }}
+        path: omnibus/pkg/${{ inputs.release-package-name }}
