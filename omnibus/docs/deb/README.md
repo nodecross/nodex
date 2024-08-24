@@ -9,7 +9,7 @@ Download the deb package from the [release page](https://github.com/nodecross/no
 Please run the following command. Be sure to replace the filename with the name of the file you downloaded.
 
 ```
-dpkg -i /path/to/nodex-agent_1.0.0_amd64.deb
+dpkg -i /path/to/<downloaded_filename>.deb
 ```
 
 ## How to Execute nodex-agent
