@@ -4,9 +4,6 @@ ohai.all_plugins
 
 build do
   if ohai['platform_family'] == 'debian'
-    # sysvinit support for debian only for now
-    mkdir "/etc/init.d"
-    # debian recommends using a different directory for systemd unit files
     etc_dir = "/etc/nodex-agent"
     systemd_directory = "/lib/systemd/system"
     erb source: "systemd.service.erb",
