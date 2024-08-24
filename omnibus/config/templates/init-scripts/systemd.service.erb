@@ -7,9 +7,8 @@ After=network-online.target
 [Service]
 Type=simple
 
-# Core service execution and reload settings.
+# Core service execution settings.
 ExecStart=<%= install_dir %>/bin/nodex-agent
-ExecReload=/bin/kill -HUP $MAINPID
 
 # Restart behavior: restarts on failure, with a 10-second delay between attempts.
 # Limits restarts to 5 attempts within a 300-second period to avoid excessive restarts.
@@ -25,11 +24,12 @@ Group=nodex
 # Security and isolation settings:
 # - PrivateTmp: Isolates temporary files from other services.
 # - NoNewPrivileges: Prevents gaining additional privileges.
-# - ProtectSystem, ProtectHome, ProtectKernelModules, ProtectKernelTunables, ProtectControlGroups: Limits the service’s ability to modify the system, enhancing security.
+# - ProtectSystem, ProtectKernelModules, ProtectKernelTunables, ProtectControlGroups: Limits the service’s ability to modify the system, enhancing security.
 PrivateTmp=true
 NoNewPrivileges=true
 ProtectSystem=full
-ProtectHome=true
+ReadWritePaths=%h/.config
+ReadWritePaths=%h/.nodex
 ProtectKernelModules=true
 ProtectKernelTunables=true
 ProtectControlGroups=true
