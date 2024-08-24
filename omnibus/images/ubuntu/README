@@ -1,4 +1,3 @@
-
 # How to Build and Run the Omnibus Ubuntu Environment
 This guide explains how to build the Docker image and run a Bash session within the container.
 
