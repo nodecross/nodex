@@ -19,6 +19,9 @@ build do
 
   command "cd #{project_dir} && cargo build --release"
   copy "#{project_dir}/target/release/nodex-agent", "#{install_dir}/bin"
+  if ENV['TARGET_PLATFORM'] == 'ubuntu'
+    copy "#{nodex_dir}/omnibus/docs/deb/README.md", "#{install_dir}/README.md"
+  end
 
   unless Dir.exist?("#{install_dir}/var/run")
     # prepare pid directory
