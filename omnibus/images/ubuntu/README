@@ -24,7 +24,6 @@ docker run -it --rm \
   omnibus-ubuntu bash
 ```
 
-
 With these commands, you can easily build and interact with the Omnibus Ubuntu environment.
 
 ## Building Within Omnibus
