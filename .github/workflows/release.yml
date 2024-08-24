@@ -68,9 +68,8 @@ jobs:
         run: |
           PACKAGE_NAME="nodex-agent"
           VERSION=$(cargo get package.version)
-          ITERATION="1"
           ARCHITECTURE=$(dpkg --print-architecture)
-          UPLOAD_DEB_NAME="${PACKAGE_NAME}_${VERSION}-${ITERATION}_${ARCHITECTURE}.deb"
+          UPLOAD_DEB_NAME="${PACKAGE_NAME}_${VERSION}_${ARCHITECTURE}.deb"
           echo "UPLOAD_DEB_NAME=$UPLOAD_DEB_NAME" >> $GITHUB_ENV
         shell: bash
 
