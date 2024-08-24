@@ -67,7 +67,7 @@ runs:
     - name: (run) Rename package
       run: |
         PKG_FILE=$(find omnibus/pkg -name "*.${{ inputs.package-format }}" | head -n 1)
-        mv "$DEB_FILE" "omnibus/pkg/${{ inputs.release-package-name }}"
+        mv "$PKG_FILE" "omnibus/pkg/${{ inputs.release-package-name }}"
       shell: bash
 
     - name: (run) upload artifact
