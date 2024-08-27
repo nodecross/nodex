@@ -17,8 +17,9 @@ build do
   copy "#{nodex_dir}/Cargo.toml", "#{project_dir}"
   copy "#{nodex_dir}/Cargo.lock", "#{project_dir}"
 
-  command "cd #{project_dir} && cargo build --release"
-  copy "#{project_dir}/target/release/nodex-agent", "#{install_dir}/bin"
+
+  command "cd #{project_dir} && cross build --target #{ENV['TARGET_ARCH']} --release"
+  copy "#{project_dir}/target/#{ENV['TARGET_ARCH']}/release/nodex-agent", "#{install_dir}/bin"
   if ENV['TARGET_PLATFORM'] == 'ubuntu'
     copy "#{nodex_dir}/omnibus/docs/deb/README.md", "#{install_dir}/README.md"
   end
