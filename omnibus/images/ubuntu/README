@@ -20,6 +20,8 @@ Once the image is built, you can start a Bash session in the container using:
 docker run -it --rm \
   -v $(pwd):/nodex \
   -e TARGET_PLATFORM=ubuntu \
+  -e TARGET_ARCH=x86_64-unknown-linux-gnu \
+  --privileged \
   omnibus-ubuntu bash
 ```
 
