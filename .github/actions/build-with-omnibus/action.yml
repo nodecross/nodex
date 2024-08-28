@@ -4,6 +4,9 @@ inputs:
   platform:
     required: true
     description: ""
+  arch:
+    required: true
+    description: ""
   use-cache:
     required: true
     description: ""
@@ -30,10 +33,10 @@ runs:
       if: ${{ inputs.use-cache == 'true' }}
       uses: Swatinem/rust-cache@v2
 
-    - name: (setup) install development tools
-      uses: actions-rs/toolchain@v1
+    - name: (install) install development tools
+      uses: taiki-e/install-action@v2
       with:
-        toolchain: stable
+        tool: cargo-llvm-cov,cross
 
     - name: (setup) Set up Ruby
       uses: ruby/setup-ruby@v1
@@ -62,6 +65,7 @@ runs:
         bundle exec omnibus build nodex-agent --log-level info
       env:
         TARGET_PLATFORM: ${{ inputs.platform }}
+        TARGET_ARCH: ${{ inputs.arch }}
       shell: bash
 
     - name: (run) Rename package

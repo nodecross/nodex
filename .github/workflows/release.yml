@@ -60,6 +60,9 @@ jobs:
           binary-file-name: nodex-agent
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install `cargo-get`
         run: cargo install cargo-get
         shell: bash
@@ -78,6 +81,7 @@ jobs:
         with:
           use-cache: true
           platform: ubuntu
+          arch: ${{ matrix.target }}
           release-package-name: ${{ env.UPLOAD_DEB_NAME }}
           package-format: deb
           github-token: ${{ secrets.GITHUB_TOKEN }}
