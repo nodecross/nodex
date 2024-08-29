@@ -1,0 +1,75 @@
+#!/bin/sh
+#
+# Perform necessary nodex-agent setup steps
+# after package is installed.
+#
+
+INSTALL_DIR=/opt/nodex-agent
+SERVICE_NAME=nodex-agent
+HOME_DIR=/home/nodex/
+
+set -e
+
+# Check if the user and group already exist, if not, create them
+if ! id -u nodex >/dev/null 2>&1; then
+    echo "Creating dedicated user and group for nodex-agent..."
+    useradd -r -s /bin/false nodex
+else
+    echo "User nodex already exists."
+fi
+
+# Ensure the installation directory exists before setting ownership and permissions
+if [ ! -d "${INSTALL_DIR}" ]; then
+    echo "Creating installation directory ${INSTALL_DIR}..."
+    mkdir -p ${INSTALL_DIR}
+else
+    echo "Installation directory ${INSTALL_DIR} already exists."
+fi
+
+# Set ownership and permissions
+chown -R root:nodex ${INSTALL_DIR}
+chmod -R 750 ${INSTALL_DIR}
+mkdir -p ${HOME_DIR}
+chown -R nodex:nodex ${HOME_DIR}
+chmod -R 740 ${HOME_DIR}
+
+# Create a symlink to the agent's binary, handling existing symlink
+if [ -L /usr/bin/nodex-agent ]; then
+    echo "Updating existing symlink for nodex-agent..."
+    ln -sf $INSTALL_DIR/bin/nodex-agent /usr/bin/nodex-agent
+elif [ -e /usr/bin/nodex-agent ]; then
+    echo "A file already exists at /usr/bin/nodex-agent. Removing it to create a symlink..."
+    rm /usr/bin/nodex-agent
+    ln -sf $INSTALL_DIR/bin/nodex-agent /usr/bin/nodex-agent
+else
+    echo "Creating a new symlink for nodex-agent..."
+    ln -sf $INSTALL_DIR/bin/nodex-agent /usr/bin/nodex-agent
+fi
+
+# Reload systemd to recognize the new service
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload
+else
+    echo "[ WARNING ]\tCannot detect a supported init system. The nodex-agent package only provides service files for systemd"
+fi
+
+# Enable and start the service
+echo "Enabling service $SERVICE_NAME"
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload
+    systemctl enable $SERVICE_NAME
+fi
+
+if [ -f "$HOME_DIR/.config/nodex/config.json" ]; then
+    echo "(Re)starting $SERVICE_NAME now..."
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl restart $SERVICE_NAME || true
+    else
+        echo "[ WARNING ]\tCannot detect a supported init system. The nodex-agent package only provides service files for systemd"
+    fi
+fi
+
+echo "$SERVICE_NAME has been installed"
+echo "Thank you for installing nodex-agent!"
+
+exit 0
