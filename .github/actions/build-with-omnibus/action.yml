@@ -50,7 +50,7 @@ runs:
         gem install bundler
         bundle install --binstubs
       shell: bash
-   
+
     - name: (setup) Install dependencies for building with Omnibus
       if: ${{ inputs.platform == 'ubuntu' }}
       run: |
@@ -74,8 +74,8 @@ runs:
         mv "$PKG_FILE" "omnibus/pkg/${{ inputs.release-package-name }}"
       shell: bash
 
-    - name: (run) upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ inputs.release-package-name }}
-        path: omnibus/pkg/${{ inputs.release-package-name }}
+    # - name: (run) upload artifact
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: ${{ inputs.release-package-name }}
+    #     path: omnibus/pkg/${{ inputs.release-package-name }}
