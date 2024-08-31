@@ -47,7 +47,7 @@ runs:
     - name: (setup) Install Omnibus
       run: |
         cd omnibus
-        gem install bundler
+        gem install bundler -v '2.5.17'
         bundle install
       shell: bash
 
