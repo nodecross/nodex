@@ -97,16 +97,6 @@ jobs:
           use-cache: true
           github-token: ${{ env.GITHUB_TOKEN }}
 
-      - name: (run) build with omnibus
-        uses: ./.github/actions/build-with-omnibus
-        with:
-          use-cache: true
-          platform: ubuntu
-          arch: ${{ matrix.target }}
-          release-package-name: test.deb
-          package-format: deb
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
   e2e-macos:
     needs: build-macos
     timeout-minutes: 20

@@ -76,8 +76,8 @@ runs:
         mv "$PKG_FILE" "omnibus/pkg/${{ inputs.release-package-name }}"
       shell: bash
 
-    # - name: (run) upload artifact
-    #   uses: actions/upload-artifact@v4
-    #   with:
-    #     name: ${{ inputs.release-package-name }}
-    #     path: omnibus/pkg/${{ inputs.release-package-name }}
+    - name: (run) upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.release-package-name }}
+        path: omnibus/pkg/${{ inputs.release-package-name }}
