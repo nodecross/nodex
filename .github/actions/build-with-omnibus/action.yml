@@ -48,7 +48,7 @@ runs:
       run: |
         cd omnibus
         gem install bundler
-        bundle install --binstubs
+        bundle install
       shell: bash
 
     - name: (setup) Install dependencies for building with Omnibus
