@@ -59,13 +59,21 @@ runs:
         bundle install
       shell: bash
 
-    - name: (run) Build package with Omnibus
+    - name: Set permissions for systemd directory
+      run: |
+        sudo mkdir -p /lib/systemd/system
+        sudo chown $USER:$USER /lib/systemd/system
+      shell: bash
+
+    - name: Build package with Omnibus
       run: |
         cd omnibus
-        sudo /usr/local/bin/bundle exec omnibus build nodex-agent --log-level info
-      env:
-        TARGET_PLATFORM: ${{ inputs.platform }}
-        TARGET_ARCH: ${{ inputs.arch }}
+        bundle exec omnibus build nodex-agent --log-level info
+      shell: bash
+
+    - name: Restore permissions for systemd directory
+      run: |
+        sudo chown root:root /lib/systemd/system
       shell: bash
 
     - name: (run) Rename package
