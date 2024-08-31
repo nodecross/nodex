@@ -71,6 +71,9 @@ runs:
       run: |
         cd omnibus
         bundle exec omnibus build nodex-agent --log-level info
+      env:
+        TARGET_PLATFORM: ${{ inputs.platform }}
+        TARGET_ARCH: ${{ inputs.arch }}
       shell: bash
 
     - name: Restore permissions for omnibus using directories
