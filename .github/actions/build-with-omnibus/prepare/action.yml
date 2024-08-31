@@ -1,9 +1,9 @@
+name: prepare for building with Omnibus
 description: ""
 inputs:
   platform:
     required: true
     description: ""
-name: prepare for building with Omnibus
 runs:
   using: composite
   steps:
