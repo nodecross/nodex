@@ -52,8 +52,9 @@ runs:
       shell: bash
     
     - name: (setup) prepare for ubuntu
-      uses: ./.github/actions/build-with-omnibus/prepare-on-ubuntu
-      if: ${{ inputs.platform == 'ubuntu' }}
+      uses: ./.github/actions/build-with-omnibus/prepare
+      with:
+        platform: ${{ inputs.platform }}
 
     - name: Build package with omnibus
       run: |
@@ -65,8 +66,9 @@ runs:
       shell: bash
 
     - name: restore for ubuntu
-      uses: ./.github/actions/build-with-omnibus/restore-on-ubuntu
-      if: ${{ inputs.platform == 'ubuntu' }}
+      uses: ./.github/actions/build-with-omnibus/restore
+      with:
+        platform: ${{ inputs.platform }}
 
     - name: (run) Rename package
       run: |
