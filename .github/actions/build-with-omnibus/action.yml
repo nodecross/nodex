@@ -44,13 +44,6 @@ runs:
         ruby-version: '3.1'
         bundler-cache: true
 
-    - name: (setup) Install Omnibus
-      run: |
-        cd omnibus
-        gem install bundler -v '2.5.17'
-        bundle install
-      shell: bash
-
     - name: (setup) Install dependencies for building with Omnibus
       if: ${{ inputs.platform == 'ubuntu' }}
       run: |
@@ -59,10 +52,23 @@ runs:
         sudo apt-get install -y fakeroot
       shell: bash
 
+    - name: (setup) Install Omnibus
+      run: |
+        cd omnibus
+        gem install bundler -v '2.5.17'
+        bundle install
+      shell: bash
+
+    - name: Set permissions for /var/cache/omnibus
+      run: |
+        sudo mkdir -p /var/cache/omnibus
+        sudo chown -R $USER:$USER /var/cache/omnibus
+      shell: bash
+
     - name: (run) Build package with Omnibus
       run: |
         cd omnibus
-        sudo bin/omnibus build nodex-agent --log-level info
+        bundle exec omnibus build nodex-agent --log-level info
       env:
         TARGET_PLATFORM: ${{ inputs.platform }}
         TARGET_ARCH: ${{ inputs.arch }}
