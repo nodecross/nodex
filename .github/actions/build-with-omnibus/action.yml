@@ -59,16 +59,10 @@ runs:
         bundle install
       shell: bash
 
-    - name: Set permissions for /var/cache/omnibus
-      run: |
-        sudo mkdir -p /var/cache/omnibus
-        sudo chown -R $USER:$USER /var/cache/omnibus
-      shell: bash
-
     - name: (run) Build package with Omnibus
       run: |
         cd omnibus
-        bundle exec omnibus build nodex-agent --log-level info
+        sudo /usr/local/bin/bundle exec omnibus build nodex-agent --log-level info
       env:
         TARGET_PLATFORM: ${{ inputs.platform }}
         TARGET_ARCH: ${{ inputs.arch }}
