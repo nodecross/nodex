@@ -44,13 +44,6 @@ runs:
         ruby-version: '3.1'
         bundler-cache: true
 
-    - name: (setup) Install Omnibus
-      run: |
-        cd omnibus
-        gem install bundler -v '2.5.17'
-        bundle install
-      shell: bash
-
     - name: (setup) Install dependencies for building with Omnibus
       if: ${{ inputs.platform == 'ubuntu' }}
       run: |
@@ -62,6 +55,8 @@ runs:
     - name: (run) Build package with Omnibus
       run: |
         cd omnibus
+        gem install bundler -v '2.5.17'
+        bundle install
         sudo bundle exec omnibus build nodex-agent --log-level info
       env:
         TARGET_PLATFORM: ${{ inputs.platform }}
