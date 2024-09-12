@@ -188,9 +188,9 @@ async fn main() -> std::io::Result<()> {
     let server = {
         let runtime_dir = config_dir.clone().join("run");
         fs::create_dir_all(&runtime_dir).unwrap_log();
-        let permissions = fs::Permissions::from_mode(0o766);
-        fs::set_permissions(&runtime_dir, permissions)?;
         let sock_path = runtime_dir.clone().join("nodex.sock");
+        let permissions = fs::Permissions::from_mode(0o766);
+        fs::set_permissions(&sock_path, permissions)?;
         server::new_uds_server(&sock_path, transfer_client)
     };
 
