@@ -12,14 +12,14 @@ use nix::{
     sys::signal::{kill, Signal},
     unistd::Pid,
 };
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use services::metrics::{MetricsInMemoryCacheService, MetricsWatchService};
 use services::nodex::NodeX;
 use services::studio::Studio;
 use shadow_rs::shadow;
 use std::env;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{collections::HashMap, fs, sync::Arc};
 use sysinfo::{get_current_pid, System};
