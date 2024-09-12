@@ -4,9 +4,10 @@
 # after package is installed.
 #
 
-INSTALL_DIR=/opt/nodex-agent
+INIT_INSTALL_DIR=/opt/nodex-agent
 SERVICE_NAME=nodex-agent
-HOME_DIR=/home/nodex/
+HOME_DIR=/home/nodex
+BIN_INSTALL_DIR=$HOME_DIR/bin
 
 set -e
 
@@ -19,16 +20,30 @@ else
 fi
 
 # Ensure the installation directory exists before setting ownership and permissions
-if [ ! -d "${INSTALL_DIR}" ]; then
-    echo "Creating installation directory ${INSTALL_DIR}..."
-    mkdir -p ${INSTALL_DIR}
+if [ ! -d "${INIT_INSTALL_DIR}" ]; then
+    echo "Creating installation directory ${INIT_INSTALL_DIR}..."
+    mkdir -p ${INIT_INSTALL_DIR}
 else
-    echo "Installation directory ${INSTALL_DIR} already exists."
+    echo "Installation directory ${INIT_INSTALL_DIR} already exists."
+fi
+
+if [ ! -d "${BIN_INSTALL_DIR}" ]; then
+    echo "Creating installation directory ${INIT_INSTALL_DIR}..."
+    mkdir -p ${BIN_INSTALL_DIR}
+else
+    echo "Installation directory ${BIN_INSTALL_DIR} already exists."
+fi
+
+if [ ! -f "${BIN_INSTALL_DIR}/nodex-agent" ]; then
+    echo "Copying files to installation directory ${BIN_INSTALL_DIR}..."
+    cp ${INIT_INSTALL_DIR}/bin/nodex-agent ${BIN_INSTALL_DIR}
+else
+    echo "${BIN_INSTALL_DIR}/nodex-agent already exists."
 fi
 
 # Set ownership and permissions
-chown -R root:nodex ${INSTALL_DIR}
-chmod -R 750 ${INSTALL_DIR}
+chown -R root:nodex ${INIT_INSTALL_DIR}
+chmod -R 750 ${INIT_INSTALL_DIR}
 mkdir -p ${HOME_DIR}
 chown -R nodex:nodex ${HOME_DIR}
 chmod -R 740 ${HOME_DIR}
@@ -36,14 +51,14 @@ chmod -R 740 ${HOME_DIR}
 # Create a symlink to the agent's binary, handling existing symlink
 if [ -L /usr/bin/nodex-agent ]; then
     echo "Updating existing symlink for nodex-agent..."
-    ln -sf $INSTALL_DIR/bin/nodex-agent /usr/bin/nodex-agent
+    ln -sf $INIT_INSTALL_DIR/bin/nodex-agent /usr/bin/nodex-agent
 elif [ -e /usr/bin/nodex-agent ]; then
     echo "A file already exists at /usr/bin/nodex-agent. Removing it to create a symlink..."
     rm /usr/bin/nodex-agent
-    ln -sf $INSTALL_DIR/bin/nodex-agent /usr/bin/nodex-agent
+    ln -sf $INIT_INSTALL_DIR/bin/nodex-agent /usr/bin/nodex-agent
 else
     echo "Creating a new symlink for nodex-agent..."
-    ln -sf $INSTALL_DIR/bin/nodex-agent /usr/bin/nodex-agent
+    ln -sf $INIT_INSTALL_DIR/bin/nodex-agent /usr/bin/nodex-agent
 fi
 
 # Reload systemd to recognize the new service
