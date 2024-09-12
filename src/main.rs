@@ -12,13 +12,14 @@ use nix::{
     sys::signal::{kill, Signal},
     unistd::Pid,
 };
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use services::metrics::{MetricsInMemoryCacheService, MetricsWatchService};
 use services::nodex::NodeX;
 use services::studio::Studio;
 use shadow_rs::shadow;
 use std::env;
-use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{collections::HashMap, fs, sync::Arc};
 use sysinfo::{get_current_pid, System};
@@ -115,13 +116,6 @@ async fn main() -> std::io::Result<()> {
 
     let home_dir = dirs::home_dir().unwrap();
     let config_dir = home_dir.join(".nodex");
-    let runtime_dir = if Path::new("/var/run/nodex").exists() {
-        PathBuf::from("/var/run")
-    } else {
-        let home_runtime_dir = config_dir.clone().join("run");
-        fs::create_dir_all(&home_runtime_dir).unwrap_log();
-        home_runtime_dir
-    };
     let logs_dir = config_dir.clone().join("logs");
 
     fs::create_dir_all(&logs_dir).unwrap_log();
@@ -192,6 +186,10 @@ async fn main() -> std::io::Result<()> {
 
     #[cfg(unix)]
     let server = {
+        let runtime_dir = config_dir.clone().join("run");
+        fs::create_dir_all(&runtime_dir).unwrap_log();
+        let permissions = fs::Permissions::from_mode(0o755);
+        fs::set_permissions(&runtime_dir, permissions)?;
         let sock_path = runtime_dir.clone().join("nodex.sock");
         server::new_uds_server(&sock_path, transfer_client)
     };
