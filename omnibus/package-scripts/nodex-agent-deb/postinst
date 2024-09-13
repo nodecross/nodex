@@ -52,7 +52,7 @@ if [ ! -d "${HOME_DIR}/.config" ]; then
     echo "Creating config directory ${HOME_DIR}/.config..."
     mkdir -p "${HOME_DIR}/.config"
 else
-    echo "config directory ${BIN_INSTALL_DIR} already exists."
+    echo "config directory ${HOME_DIR}/.config already exists."
 fi
 
 if [ ! -d "${HOME_DIR}/.nodex" ]; then
@@ -60,12 +60,12 @@ if [ ! -d "${HOME_DIR}/.nodex" ]; then
     mkdir -p "${HOME_DIR}/.nodex/run"
     mkdir -p "${HOME_DIR}/.nodex/logs"
 else
-    echo "log and runtime directory ${BIN_INSTALL_DIR} already exists."
+    echo "log and runtime directory ${HOME_DIR}/.nodex already exists."
 fi
 
 # Set permissions for .config and bin to restrict access to only nodex and root
-chmod 750 ${HOME_DIR}/.config
-chmod 750 ${BIN_INSTALL_DIR}
+chmod 740 ${HOME_DIR}/.config
+chmod 740 ${BIN_INSTALL_DIR}
 chmod -R 755 ${HOME_DIR}/.nodex/run
 chown -R nodex:nodex ${HOME_DIR}
 
