@@ -28,7 +28,7 @@ std = []
 
 [dependencies]
 actix-rt = "2.9.0"
-actix-web = "4.5.1"
+actix-web = "4.9.0"
 anyhow = "1.0.81"
 bytes = "1.6.1"
 chrono = { version = "0.4", features = ["serde"] }
