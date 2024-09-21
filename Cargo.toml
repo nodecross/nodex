@@ -1,4 +1,5 @@
 [workspace]
+exclude = ["e2e"]
 members = ["agent", "protocol"]
 resolver = "2"
 
