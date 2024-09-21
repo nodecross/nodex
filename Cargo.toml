@@ -1,6 +1,9 @@
-[package]
+[workspace]
+members = ["agent", "protocol"]
+resolver = "2"
+
+[workspace.package]
 authors = ["NodeX Authors <>"]
-build = "build.rs"
 categories = ["cryptography", "embedded"]
 description = "Automate device security provisioning with edge intelligence."
 documentation = "https://docs.nodecross.io"
@@ -8,50 +11,38 @@ edition = "2021"
 homepage = "https://nodecross.io"
 keywords = ["did", "embedded", "iot", "root-of-trust"]
 license-file = "LICENSE"
-name = "nodex"
 readme = "README.md"
 repository = "https://github.com/nodecross/nodex"
 version = "3.1.1"
 
-[workspace]
-members = ["e2e"]
-
-[[bin]]
-name = "nodex-agent"
-path = "src/main.rs"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[features]
-alloc = []
-default = ["std"]
-std = []
-
-[dependencies]
+[workspace.dependencies]
 actix-rt = "2.9.0"
 actix-web = "4.9.0"
+agent = { path = "./agent" }
 anyhow = "1.0.81"
 bytes = "1.6.1"
 chrono = { version = "0.4", features = ["serde"] }
-clap = { version = "4.5.9", features = ["cargo", "derive"] }
 cuid = "1.3.2"
-dirs = "5.0.1"
-dotenvy = "0.15.7"
+data-encoding = "2.6.0"
 env_logger = { version = "0.11.3", features = ["color"] }
 hex = "0.4.3"
 hmac = "0.12.1"
-home-config = { version = "0.6.0", features = ["json", "toml", "yaml"] }
+http = "1.1.0"
+k256 = { version = "0.13.3", features = ["ecdh", "ecdsa", "serde", "sha256"] }
 log = "0.4.21"
 mac_address = "1.1.5"
-nodex-didcomm = { git = "https://github.com/nodecross/nodex-didcomm", tag = "0.2.0" }
+protocol = { path = "./protocol" }
+rand_core = "0.6.4"
 reqwest = { version = "0.12", features = [
     "json",
     "rustls-tls-native-roots",
 ], default-features = false }
+rstest = "0.21.0"
 rumqttc = "0.24.0"
 serde = { version = "1.0.209", features = ["derive"] }
+serde_jcs = "0.1.0"
 serde_json = "1.0.125"
 sha2 = "0.10.8"
-shadow-rs = "0.29.0"
 sysinfo = "0.30.13"
 thiserror = "1.0.58"
 tokio = { version = "1.40.0", features = ["full"] }
@@ -63,23 +54,9 @@ uuid = { version = "1.10.0", features = [
     "serde",
     "v4",
 ] }
+x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
+zeroize = "1.8.1"
 zip = "2.2.0"
-
-[target.'cfg(windows)'.dependencies]
-windows = { version = "0.56.0", features = [
-    "Win32_Foundation",
-    "Win32_System_Threading",
-] }
-
-[target.'cfg(unix)'.dependencies]
-daemonize = "0.5.0"
-nix = { version = "0.29.0", features = ["signal"] }
-
-[dev-dependencies]
-rstest = "0.21.0"
-
-[build-dependencies]
-shadow-rs = "0.29.0"
 
 [profile.dev]
 debug = true

@@ -1,0 +1,10 @@
+[files]
+extend-exclude = [
+    "Doxyfile",
+    "examples/*",
+    "protocol/test_resources/*_didcomm_message.json",
+]
+ignore-files = true
+
+[default.extend-words]
+flate = "flate"
