@@ -127,7 +127,10 @@ where
             .unwrap();
         let update = keyring.update.get_public_key();
         let recovery = keyring.recovery.get_public_key();
-        let document = DidPatchDocument { public_keys: vec![sign, enc], service_endpoints: vec![] };
+        let document = DidPatchDocument {
+            public_keys: vec![sign, enc],
+            service_endpoints: vec![],
+        };
         let payload = did_create_payload(document, update, recovery)?;
 
         let response = self
@@ -138,7 +141,10 @@ where
         if response.status_code.is_success() {
             Ok(serde_json::from_str(&response.body)?)
         } else {
-            Err(CreateIdentifierError::SidetreeRequestFailed(format!("{:?}", response)))
+            Err(CreateIdentifierError::SidetreeRequestFailed(format!(
+                "{:?}",
+                response
+            )))
         }
     }
 
@@ -155,7 +161,10 @@ where
         match response.status_code {
             StatusCode::OK => Ok(Some(serde_json::from_str(&response.body)?)),
             StatusCode::NOT_FOUND => Ok(None),
-            _ => Err(FindIdentifierError::SidetreeRequestFailed(format!("{:?}", response))),
+            _ => Err(FindIdentifierError::SidetreeRequestFailed(format!(
+                "{:?}",
+                response
+            ))),
         }
     }
 }
@@ -177,7 +186,9 @@ pub mod mocks {
 
     impl MockDidRepository {
         pub fn from_single(map: BTreeMap<String, KeyPairing>) -> Self {
-            Self { map: map.into_iter().map(|(k, v)| (k, vec![v])).collect() }
+            Self {
+                map: map.into_iter().map(|(k, v)| (k, vec![v])).collect(),
+            }
         }
 
         pub fn new(map: BTreeMap<String, Vec<KeyPairing>>) -> Self {

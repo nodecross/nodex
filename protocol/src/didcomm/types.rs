@@ -48,7 +48,10 @@ pub enum FindSenderError {
 
 impl DidCommMessage {
     pub fn find_receivers(&self) -> Vec<String> {
-        self.recipients.iter().map(|v| v.header.kid.clone()).collect()
+        self.recipients
+            .iter()
+            .map(|v| v.header.kid.clone())
+            .collect()
     }
 
     pub fn find_sender(&self) -> Result<String, FindSenderError> {

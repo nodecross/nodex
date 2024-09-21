@@ -51,7 +51,9 @@ fn decode_base64url(
     s: &str,
 ) -> Result<k256::elliptic_curve::FieldBytes<k256::Secp256k1>, JwkToK256Error> {
     let mut result = k256::elliptic_curve::FieldBytes::<k256::Secp256k1>::default();
-    BASE64URL_NOPAD.decode_mut(s.as_bytes(), &mut result).map_err(JwkToK256Error::Decode)?;
+    BASE64URL_NOPAD
+        .decode_mut(s.as_bytes(), &mut result)
+        .map_err(JwkToK256Error::Decode)?;
     Ok(result)
 }
 
@@ -109,7 +111,12 @@ impl From<x25519_dalek::PublicKey> for Jwk {
         let x = BASE64URL_NOPAD.encode(value.as_bytes());
         let kty = "OKP".to_string();
         let crv = "X25519".to_string();
-        Jwk { kty, crv, x, y: None }
+        Jwk {
+            kty,
+            crv,
+            x,
+            y: None,
+        }
     }
 }
 

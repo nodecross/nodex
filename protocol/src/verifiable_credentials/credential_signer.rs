@@ -59,7 +59,10 @@ impl CredentialSigner {
         mut object: VerifiableCredentials,
         public_key: &k256::PublicKey,
     ) -> Result<VerifiableCredentials, CredentialSignerVerifyError> {
-        let proof = object.proof.take().ok_or(CredentialSignerVerifyError::ProofNotFound)?;
+        let proof = object
+            .proof
+            .take()
+            .ok_or(CredentialSignerVerifyError::ProofNotFound)?;
         let jws = proof.jws;
         let payload = serde_json::to_value(&object)?;
         jws::verify(&payload, &jws, public_key)?;
@@ -105,7 +108,9 @@ pub mod tests {
         let model = VerifiableCredentials {
             id: None,
             r#type: vec!["type".to_string()],
-            issuer: Issuer { id: "issuer".to_string() },
+            issuer: Issuer {
+                id: "issuer".to_string(),
+            },
             context: vec!["context".to_string()],
             issuance_date: DateTime::parse_from_rfc3339("2024-07-19T06:06:51.361316372Z")
                 .unwrap()
@@ -153,7 +158,9 @@ pub mod tests {
         let model = VerifiableCredentials {
             id: None,
             r#type: vec!["type".to_string()],
-            issuer: Issuer { id: "issuer".to_string() },
+            issuer: Issuer {
+                id: "issuer".to_string(),
+            },
             context: vec!["context".to_string()],
             issuance_date: Utc::now(),
             credential_subject: CredentialSubject {

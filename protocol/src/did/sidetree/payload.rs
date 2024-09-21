@@ -95,7 +95,12 @@ where
         purpose: Vec<String>,
     ) -> Result<PublicKeyPayload, T::Error> {
         let jwk: Jwk = self.try_into()?;
-        Ok(PublicKeyPayload { id: key_id, r#type: key_type, jwk, purpose })
+        Ok(PublicKeyPayload {
+            id: key_id,
+            r#type: key_type,
+            jwk,
+            purpose,
+        })
     }
 }
 
@@ -213,29 +218,48 @@ pub fn did_create_payload(
 ) -> Result<String, DidCreatePayloadError> {
     let update_commitment = commitment_scheme(&update_key.try_into()?)?;
     let recovery_commitment = commitment_scheme(&recovery_key.try_into()?)?;
-    let patch = DidAction::Replace { document: replace_payload };
-    let delta = DidDeltaObject { patches: vec![patch], update_commitment };
+    let patch = DidAction::Replace {
+        document: replace_payload,
+    };
+    let delta = DidDeltaObject {
+        patches: vec![patch],
+        update_commitment,
+    };
     let delta = canon(&delta)?;
     let delta_hash = multihash::hash_encode(&delta);
 
-    let suffix = DidSuffixObject { delta_hash, recovery_commitment };
+    let suffix = DidSuffixObject {
+        delta_hash,
+        recovery_commitment,
+    };
     let suffix = canon(&suffix)?;
     let encoded_delta = BASE64URL_NOPAD.encode(&delta);
     let encoded_suffix = BASE64URL_NOPAD.encode(&suffix);
 
-    let payload = DidPayload::Create { delta: encoded_delta, suffix_data: encoded_suffix };
+    let payload = DidPayload::Create {
+        delta: encoded_delta,
+        suffix_data: encoded_suffix,
+    };
 
     Ok(serde_jcs::to_string(&payload)?)
 }
 
 pub fn parse_did(did: &str) -> Option<(String, String)> {
     let ret: Vec<&str> = did.splitn(3, ':').collect();
-    if ret.len() == 3 { Some((ret[1].to_string(), ret[2].to_string())) } else { None }
+    if ret.len() == 3 {
+        Some((ret[1].to_string(), ret[2].to_string()))
+    } else {
+        None
+    }
 }
 
 pub fn get_did_suffix(method_specific_id: &str) -> Option<String> {
     let ret: Vec<&str> = method_specific_id.splitn(2, ':').collect();
-    if ret.len() == 2 || ret.len() == 1 { Some(ret[0].to_string()) } else { None }
+    if ret.len() == 2 || ret.len() == 1 {
+        Some(ret[0].to_string())
+    } else {
+        None
+    }
 }
 
 fn sign(
@@ -284,7 +308,10 @@ pub fn did_update_payload(
 ) -> Result<String, DidUpdatePayloadError> {
     let old_update: Jwk = old_update.try_into()?;
     let new_update = commitment_scheme(&new_update.try_into()?)?;
-    let delta = DidDeltaObject { patches: update_payload, update_commitment: new_update };
+    let delta = DidDeltaObject {
+        patches: update_payload,
+        update_commitment: new_update,
+    };
     let delta = canon(&delta)?;
     let delta_hash = multihash::hash_encode(&delta);
     let encoded_delta = BASE64URL_NOPAD.encode(&delta);
@@ -318,7 +345,10 @@ pub mod tests {
         let update = keyring.recovery.get_public_key();
         let recovery = keyring.update.get_public_key();
 
-        let document = DidPatchDocument { public_keys: vec![public], service_endpoints: vec![] };
+        let document = DidPatchDocument {
+            public_keys: vec![public],
+            service_endpoints: vec![],
+        };
 
         let _result = did_create_payload(document, update, recovery).unwrap();
     }

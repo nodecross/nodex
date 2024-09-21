@@ -50,12 +50,18 @@ mod tests {
     #[test]
     fn test_double_hash_then_encode() {
         let result = double_hash_encode(message().as_bytes());
-        assert_eq!(result, String::from("EiAEX1W46vVid7IjJyFY5ibjmyrgepTjW0rYrw-wo4xLCw"));
+        assert_eq!(
+            result,
+            String::from("EiAEX1W46vVid7IjJyFY5ibjmyrgepTjW0rYrw-wo4xLCw")
+        );
     }
 
     #[test]
     fn test_hash_then_encode() {
         let result = hash_encode(message().as_bytes());
-        assert_eq!(result, String::from("EiBfRiXU9h7bUngHRV9I-L4njnHoSqlNIxEf-rO2MJOnEw"));
+        assert_eq!(
+            result,
+            String::from("EiBfRiXU9h7bUngHRV9I-L4njnHoSqlNIxEf-rO2MJOnEw")
+        );
     }
 }

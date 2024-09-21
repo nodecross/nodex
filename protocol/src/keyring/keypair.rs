@@ -39,7 +39,10 @@ pub struct K256KeyPair {
 impl K256KeyPair {
     pub fn new(secret_key: k256::SecretKey) -> Self {
         let public_key = secret_key.public_key();
-        K256KeyPair { public_key, secret_key }
+        K256KeyPair {
+            public_key,
+            secret_key,
+        }
     }
 }
 
@@ -56,7 +59,10 @@ impl KeyPair<k256::SecretKey, k256::PublicKey> for K256KeyPair {
         let secret_key = hex::encode(sk);
         let pk = self.public_key.to_encoded_point(false);
         let public_key = hex::encode(pk.as_bytes());
-        KeyPairHex { secret_key, public_key }
+        KeyPairHex {
+            secret_key,
+            public_key,
+        }
     }
     fn from_hex_key_pair(kp: &KeyPairHex) -> Result<Self, KeyPairingError> {
         let secret_key = hex::decode(&kp.secret_key)?;
@@ -65,7 +71,10 @@ impl KeyPair<k256::SecretKey, k256::PublicKey> for K256KeyPair {
         let public_key = hex::decode(&kp.public_key)?;
         let public_key = k256::PublicKey::from_sec1_bytes(&public_key)
             .map_err(|e| KeyPairingError::Crypt(e.to_string()))?;
-        Ok(K256KeyPair { public_key, secret_key })
+        Ok(K256KeyPair {
+            public_key,
+            secret_key,
+        })
     }
 }
 
@@ -78,7 +87,10 @@ pub struct X25519KeyPair {
 impl X25519KeyPair {
     pub fn new(secret_key: x25519_dalek::StaticSecret) -> Self {
         let public_key = x25519_dalek::PublicKey::from(&secret_key);
-        X25519KeyPair { public_key, secret_key }
+        X25519KeyPair {
+            public_key,
+            secret_key,
+        }
     }
 }
 
@@ -95,7 +107,10 @@ impl KeyPair<x25519_dalek::StaticSecret, x25519_dalek::PublicKey> for X25519KeyP
         let secret_key = hex::encode(sk);
         let pk = self.public_key.as_bytes();
         let public_key = hex::encode(pk);
-        KeyPairHex { secret_key, public_key }
+        KeyPairHex {
+            secret_key,
+            public_key,
+        }
     }
     fn from_hex_key_pair(kp: &KeyPairHex) -> Result<Self, KeyPairingError> {
         let secret_key = hex::decode(&kp.secret_key)?;
@@ -108,7 +123,10 @@ impl KeyPair<x25519_dalek::StaticSecret, x25519_dalek::PublicKey> for X25519KeyP
             KeyPairingError::Crypt(format!("array length mismatch: {}", e.len()))
         })?;
         let public_key = x25519_dalek::PublicKey::from(public_key);
-        Ok(X25519KeyPair { public_key, secret_key })
+        Ok(X25519KeyPair {
+            public_key,
+            secret_key,
+        })
     }
 }
 
@@ -134,7 +152,12 @@ impl KeyPairing {
         let update = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
         let recovery = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
         let encrypt = X25519KeyPair::new(x25519_dalek::StaticSecret::random_from_rng(&mut csprng));
-        KeyPairing { sign, update, recovery, encrypt }
+        KeyPairing {
+            sign,
+            update,
+            recovery,
+            encrypt,
+        }
     }
 }
 
@@ -158,7 +181,12 @@ impl TryFrom<&KeyPairingHex> for KeyPairing {
         let recovery = K256KeyPair::from_hex_key_pair(&hex.recovery)?;
         let encrypt = X25519KeyPair::from_hex_key_pair(&hex.encrypt)?;
 
-        Ok(KeyPairing { sign, update, recovery, encrypt })
+        Ok(KeyPairing {
+            sign,
+            update,
+            recovery,
+            encrypt,
+        })
     }
 }
 

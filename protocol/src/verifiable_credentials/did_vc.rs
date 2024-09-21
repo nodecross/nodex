@@ -50,7 +50,11 @@ impl<R: DidRepository> DidVcService for R {
         let did = &model.issuer.id.clone();
         CredentialSigner::sign(
             model,
-            CredentialSignerSuite { did, key_id: "signingKey", context: &from_keyring.sign },
+            CredentialSignerSuite {
+                did,
+                key_id: "signingKey",
+                context: &from_keyring.sign,
+            },
         )
     }
 
@@ -63,7 +67,9 @@ impl<R: DidRepository> DidVcService for R {
             .await
             .map_err(Self::VerifyError::FindIdentifier)?;
         let did_document = did_document
-            .ok_or(DidVcServiceVerifyError::DidDocNotFound(model.issuer.id.clone()))?
+            .ok_or(DidVcServiceVerifyError::DidDocNotFound(
+                model.issuer.id.clone(),
+            ))?
             .did_document;
         let public_key = get_sign_key(&did_document)?;
         Ok(CredentialSigner::verify(model, &public_key)?)

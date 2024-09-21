@@ -90,7 +90,10 @@ impl VerifiableCredentials {
             r#type: vec![r#type],
             context: vec![context],
             issuance_date,
-            credential_subject: CredentialSubject { id: None, container: message },
+            credential_subject: CredentialSubject {
+                id: None,
+                container: message,
+            },
             expiration_date: None,
             proof: None,
         }

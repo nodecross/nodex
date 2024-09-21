@@ -66,7 +66,10 @@ fn didcomm_generate<R: DidRepository, V: DidVcService>(
         };
 
         message.append_attachment(
-            AttachmentBuilder::new(true).with_id(&id).with_format("metadata").with_data(data),
+            AttachmentBuilder::new(true)
+                .with_id(&id)
+                .with_format("metadata")
+                .with_data(data),
         )
     }
 
@@ -75,7 +78,10 @@ fn didcomm_generate<R: DidRepository, V: DidVcService>(
 
     let seal_message = message
         .as_jwe(&CryptoAlgorithm::XC20P, public_key.clone())
-        .seal(from_keyring.encrypt.get_secret_key().as_bytes(), Some(vec![public_key]))?;
+        .seal(
+            from_keyring.encrypt.get_secret_key().as_bytes(),
+            Some(vec![public_key]),
+        )?;
 
     Ok(serde_json::from_str::<DidCommMessage>(&seal_message)?)
 }
@@ -99,7 +105,9 @@ async fn generate<R: DidRepository, V: DidVcService>(
         .find_identifier(to_did)
         .await
         .map_err(DidCommEncryptedServiceGenerateError::SidetreeFindRequestFailed)?
-        .ok_or(DidCommEncryptedServiceGenerateError::DidDocNotFound(to_did.to_string()))?
+        .ok_or(DidCommEncryptedServiceGenerateError::DidDocNotFound(
+            to_did.to_string(),
+        ))?
         .did_document;
 
     didcomm_generate::<R, V>(&body, from_keyring, &to_doc, metadata, attachment_link)
@@ -132,15 +140,19 @@ fn didcomm_verify<R: DidRepository>(
 
     match metadata {
         Some(metadata) => {
-            let metadata = metadata
-                .data
-                .json
-                .as_ref()
-                .ok_or(DidCommEncryptedServiceVerifyError::MetadataBodyNotFound(None))?;
+            let metadata = metadata.data.json.as_ref().ok_or(
+                DidCommEncryptedServiceVerifyError::MetadataBodyNotFound(None),
+            )?;
             let metadata = serde_json::from_str::<Value>(metadata)?;
-            Ok(VerifiedContainer { message: body, metadata: Some(metadata) })
+            Ok(VerifiedContainer {
+                message: body,
+                metadata: Some(metadata),
+            })
         }
-        None => Ok(VerifiedContainer { message: body, metadata: None }),
+        None => Ok(VerifiedContainer {
+            message: body,
+            metadata: None,
+        }),
     }
 }
 
@@ -154,7 +166,9 @@ async fn verify<R: DidRepository>(
         .find_identifier(&other_did)
         .await
         .map_err(DidCommEncryptedServiceVerifyError::SidetreeFindRequestFailed)?
-        .ok_or(DidCommEncryptedServiceVerifyError::DidDocNotFound(other_did))?
+        .ok_or(DidCommEncryptedServiceVerifyError::DidDocNotFound(
+            other_did,
+        ))?
         .did_document;
     let mut container = didcomm_verify::<R>(&other_doc, my_keyring, message)?;
     // For performance, call low level api
@@ -243,7 +257,10 @@ where
     R: DidRepository + DidVcService,
 {
     pub fn new(did_repository: R, attachment_link: String) -> Self {
-        Self { vc_service: did_repository, attachment_link }
+        Self {
+            vc_service: did_repository,
+            attachment_link,
+        }
     }
 }
 
@@ -320,7 +337,10 @@ mod tests {
         let issuance_date = Utc::now();
 
         let model = VerifiableCredentials::new(from_did.clone(), message.clone(), issuance_date);
-        let res = repo.generate(model, &from_keyring, &to_did, None).await.unwrap();
+        let res = repo
+            .generate(model, &from_keyring, &to_did, None)
+            .await
+            .unwrap();
 
         let verified = repo.verify(&to_keyring, &res).await.unwrap();
         let verified = verified.message;
@@ -349,7 +369,10 @@ mod tests {
             let issuance_date = Utc::now();
 
             let model = VerifiableCredentials::new(from_did, message, issuance_date);
-            let res = repo.generate(model, &from_keyring, &to_did, None).await.unwrap_err();
+            let res = repo
+                .generate(model, &from_keyring, &to_did, None)
+                .await
+                .unwrap_err();
 
             if let DidCommEncryptedServiceGenerateError::DidDocNotFound(did) = res {
                 assert_eq!(did, to_did);
@@ -371,7 +394,10 @@ mod tests {
             let issuance_date = Utc::now();
 
             let model = VerifiableCredentials::new(from_did, message, issuance_date);
-            let res = repo.generate(model, &from_keyring, &to_did, None).await.unwrap_err();
+            let res = repo
+                .generate(model, &from_keyring, &to_did, None)
+                .await
+                .unwrap_err();
 
             if let DidCommEncryptedServiceGenerateError::DidPublicKeyNotFound(
                 GetPublicKeyError::PublicKeyNotFound(did),
@@ -405,7 +431,9 @@ mod tests {
             let model =
                 VerifiableCredentials::new(from_did.to_string(), message.clone(), issuance_date);
 
-            repo.generate(model, from_keyring, to_did, metadata).await.unwrap()
+            repo.generate(model, from_keyring, to_did, metadata)
+                .await
+                .unwrap()
         }
 
         #[actix_rt::test]

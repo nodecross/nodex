@@ -52,7 +52,11 @@ pub enum JwsDecodeError {
 
 pub fn sign(object: &Value, secret_key: &k256::SecretKey) -> Result<String, JwsEncodeError> {
     // NOTE: header
-    let header = JwsHeader { alg: "ES256K".to_string(), b64: false, crit: vec!["b64".to_string()] };
+    let header = JwsHeader {
+        alg: "ES256K".to_string(),
+        b64: false,
+        crit: vec!["b64".to_string()],
+    };
     let header = serde_jcs::to_string(&header)?;
     let header = BASE64URL_NOPAD.encode(header.as_bytes());
     // NOTE: payload
