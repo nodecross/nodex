@@ -2,7 +2,7 @@ use anyhow::anyhow;
 
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{env, sync::Arc, time::Duration};
 use tokio::sync::Notify;
 
 use protocol::didcomm::encrypted::DidCommEncryptedService;
@@ -87,14 +87,10 @@ impl MessageReceiveUsecase {
                             Ok(OperationType::UpdateAgent) => {
                                 let binary_url = container["binary_url"]
                                     .as_str()
-                                    .ok_or(anyhow!("the container does n't have binary_url"))?;
+                                    .ok_or(anyhow!("the container doesn't have binary_url"))?;
+                                let working_dir = env::current_exe()?;
 
-                                #[cfg(unix)]
-                                let output_path = { PathBuf::from("/tmp/nodex-agent") };
-                                #[cfg(windows)]
-                                let output_path = { PathBuf::from("C:\\Temp\\nodex-agent") };
-
-                                self.agent.update_version(binary_url, output_path).await?;
+                                self.agent.update_version(binary_url, working_dir).await?;
                             }
                             Ok(OperationType::UpdateNetworkJson) => {
                                 self.studio.network().await?;
