@@ -89,7 +89,7 @@ impl MessageReceiveUsecase {
                                     .as_str()
                                     .ok_or(anyhow!("the container doesn't have binary_url"))?;
 
-                                let tmp_path: PathBuf = {
+                                let tmp_path = {
                                     #[cfg(unix)]
                                     {
                                         PathBuf::from("/tmp/nodex-agent")
