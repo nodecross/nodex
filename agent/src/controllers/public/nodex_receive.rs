@@ -100,7 +100,10 @@ impl MessageReceiveUsecase {
                                     }
                                 };
                                 let exe_path = env::current_exe()?;
-                                let working_dir = exe_path.parent().map(|p| p.to_path_buf()).unwrap_or(tmp_path);
+                                let working_dir = exe_path
+                                    .parent()
+                                    .map(|p| p.to_path_buf())
+                                    .unwrap_or(tmp_path);
 
                                 self.agent.update_version(binary_url, working_dir).await?;
                             }
