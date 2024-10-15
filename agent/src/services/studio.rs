@@ -24,6 +24,10 @@ use std::collections::VecDeque;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+// The maximum JSON body size is actually 1MB
+// We reserve 100KB as a buffer for Verifiable Credential capacity
+const JSON_BODY_MAX_SIZE: usize = 900_000;
+
 #[derive(Deserialize)]
 pub struct EmptyResponse {}
 
@@ -423,46 +427,60 @@ struct MetricsWithTimestampStr {
 
 impl MetricStoreRepository for Studio {
     async fn save(&self, request: VecDeque<MetricsWithTimestamp>) -> anyhow::Result<()> {
-        let metrics_str = request
-            .into_iter()
-            .map(|m| MetricsWithTimestampStr {
-                timestamp: m.timestamp,
-                metrics: m
-                    .metrics
-                    .into_iter()
-                    .map(|metric| MetricStr {
-                        metric_type: metric.metric_type.to_string(),
-                        value: metric.value,
-                    })
-                    .collect::<Vec<MetricStr>>(),
-            })
-            .collect::<Vec<MetricsWithTimestampStr>>();
+        let mut metrics = request;
+        while !metrics.is_empty() {
+            let my_did = self.did_accessor.get_my_did();
+            let my_keyring = self.did_accessor.get_my_keyring();
+            let mut metrics_str = Vec::new();
+            let mut current_size = 0;
 
-        let my_did = self.did_accessor.get_my_did();
-        let my_keyring = self.did_accessor.get_my_keyring();
+            while let Some(m) = metrics.pop_front() {
+                let metrics_with_timestamp_str = MetricsWithTimestampStr {
+                    timestamp: m.timestamp,
+                    metrics: m
+                        .metrics
+                        .iter()
+                        .map(|metric| MetricStr {
+                            metric_type: metric.metric_type.to_string(),
+                            value: metric.value,
+                        })
+                        .collect::<Vec<MetricStr>>(),
+                };
 
-        let model = VerifiableCredentials::new(my_did, json!(metrics_str), chrono::Utc::now());
-        let payload = DidVcService::generate(&self.did_repository, model, &my_keyring)
-            .context("failed to generate payload")?;
-
-        let payload = serde_json::to_string(&payload).context("failed to serialize")?;
-        let res = self.http_client.post("/v1/metrics", &payload).await?;
-
-        let status = res.status();
-        let json: Value = res.json().await.context("Failed to read response body")?;
-        let message = if let Some(message) = json.get("message").map(|v| v.to_string()) {
-            message
-        } else {
-            "".to_string()
-        };
-        match status {
-            reqwest::StatusCode::OK => Ok(()),
-            reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
-            reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
-                anyhow::bail!("StatusCode=500, {}", message);
+                let item_size = serde_json::to_string(&metrics_with_timestamp_str)?.len();
+                if current_size + item_size > JSON_BODY_MAX_SIZE {
+                    metrics.push_front(m);
+                    break;
+                }
+                current_size += item_size;
+                metrics_str.push(metrics_with_timestamp_str);
             }
-            other => anyhow::bail!("StatusCode={other}, {}", message),
+
+            let model = VerifiableCredentials::new(my_did, json!(metrics_str), chrono::Utc::now());
+            let payload = DidVcService::generate(&self.did_repository, model, &my_keyring)
+                .context("failed to generate payload")?;
+
+            let payload = serde_json::to_string(&payload).context("failed to serialize")?;
+            let res = self.http_client.post("/v1/metrics", &payload).await?;
+
+            let status = res.status();
+            let json: Value = res.json().await.context("Failed to read response body")?;
+            let message = if let Some(message) = json.get("message").map(|v| v.to_string()) {
+                message
+            } else {
+                "".to_string()
+            };
+            match status {
+                reqwest::StatusCode::OK => continue,
+                reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
+                reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
+                    anyhow::bail!("StatusCode=500, {}", message);
+                }
+                other => anyhow::bail!("StatusCode={other}, {}", message),
+            }
         }
+
+        Ok(())
     }
 }
 
