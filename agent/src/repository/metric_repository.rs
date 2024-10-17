@@ -34,6 +34,7 @@ pub trait MetricStoreRepository {
 }
 
 #[derive(Debug, Serialize, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum MetricType {
     CpuUsage,
     MemoryUsage,
