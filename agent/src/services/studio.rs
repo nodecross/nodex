@@ -413,18 +413,6 @@ impl MessageActivityRepository for Studio {
     }
 }
 
-#[derive(Serialize)]
-struct MetricStr {
-    metric_type: String,
-    value: f32,
-}
-
-#[derive(Serialize)]
-struct MetricsWithTimestampStr {
-    timestamp: chrono::DateTime<chrono::Utc>,
-    metrics: Vec<MetricStr>,
-}
-
 impl MetricStoreRepository for Studio {
     async fn save(&self, request: VecDeque<MetricsWithTimestamp>) -> anyhow::Result<()> {
         let mut metrics = request;
@@ -435,25 +423,13 @@ impl MetricStoreRepository for Studio {
             let mut current_size = 0;
 
             while let Some(m) = metrics.pop_front() {
-                let metrics_with_timestamp_str = MetricsWithTimestampStr {
-                    timestamp: m.timestamp,
-                    metrics: m
-                        .metrics
-                        .iter()
-                        .map(|metric| MetricStr {
-                            metric_type: metric.metric_type.to_string(),
-                            value: metric.value,
-                        })
-                        .collect::<Vec<MetricStr>>(),
-                };
-
-                let item_size = serde_json::to_string(&metrics_with_timestamp_str)?.len();
+                let item_size = serde_json::to_string(&m)?.len();
                 if current_size + item_size > JSON_BODY_MAX_SIZE {
                     metrics.push_front(m);
                     break;
                 }
                 current_size += item_size;
-                metrics_str.push(metrics_with_timestamp_str);
+                metrics_str.push(m);
             }
 
             let model = VerifiableCredentials::new(my_did, json!(metrics_str), chrono::Utc::now());
