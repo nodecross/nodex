@@ -424,6 +424,9 @@ impl MetricStoreRepository for Studio {
 
             while let Some(m) = metrics.pop_front() {
                 let item_size = serde_json::to_string(&m)?.len();
+                if item_size > JSON_BODY_MAX_SIZE {
+                    anyhow::bail!("invalid item size: JSON body size too large")
+                }
                 if current_size + item_size > JSON_BODY_MAX_SIZE {
                     metrics.push_front(m);
                     break;
