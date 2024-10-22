@@ -22,15 +22,10 @@ User=nodex
 Group=nodex
 
 # Security and isolation settings:
-# - PrivateTmp: Isolates temporary files from other services.
 # - NoNewPrivileges: Prevents gaining additional privileges.
 # - ProtectSystem, ProtectKernelModules, ProtectKernelTunables, ProtectControlGroups: Limits the service’s ability to modify the system, enhancing security.
-PrivateTmp=true
 NoNewPrivileges=true
 ProtectSystem=full
-ReadWritePaths=%h/.config
-ReadWritePaths=%h/.nodex
-ReadWritePaths=%h/bin
 ProtectKernelModules=true
 ProtectKernelTunables=true
 ProtectControlGroups=true
