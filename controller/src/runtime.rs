@@ -7,7 +7,7 @@ use std::path::PathBuf;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RuntimeInfo {
     pub state: State,
-    pub agent_infos: Vec<AgentInfo>,
+    agent_infos: Vec<AgentInfo>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -1,6 +1,6 @@
-use state::manager::StateManager;
 use crate::config::get_config;
 use crate::runtime::RuntimeInfo;
+use state::manager::StateManager;
 
 mod config;
 mod process;
@@ -17,5 +17,7 @@ pub fn run() {
     let state_manager = StateManager::new();
     state_manager.handle_state(&mut runtime_info);
 
-    runtime_info.write(&runtime_info_path).expect("Failed to write runtime info");
+    runtime_info
+        .write(&runtime_info_path)
+        .expect("Failed to write runtime info");
 }

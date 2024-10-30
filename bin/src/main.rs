@@ -1,9 +1,6 @@
 use clap::{Parser, Subcommand};
 use shadow_rs::shadow;
 
-use agent;
-use controller;
-
 shadow!(build);
 
 #[derive(Parser, Debug)]
@@ -35,9 +32,9 @@ fn main() {
         }
         None => {
             if cli.agent_options.config || cli.agent_options.command.is_some() {
-                agent::run(&cli.agent_options);
+                let _ = agent::run(&cli.agent_options);
             } else {
-                agent::run(&agent::cli::AgentOptions::default());
+                let _ = agent::run(&agent::cli::AgentOptions::default());
             }
         }
     }

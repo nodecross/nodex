@@ -1,4 +1,5 @@
 use chrono::{DateTime, FixedOffset, Utc};
+use log;
 use nix::unistd::dup;
 use std::env;
 use std::fs;
@@ -16,6 +17,7 @@ pub struct AgentProcessManager {
     pub pid: u32,
     pub version: String,
     pub executed_at: DateTime<FixedOffset>,
+    #[allow(dead_code)]
     listener: Option<Arc<Mutex<UnixListener>>>,
 }
 
@@ -23,15 +25,20 @@ impl AgentProcessManager {
     pub fn new(uds_path: &PathBuf) -> Result<Self, &'static str> {
         let (pid, listener) = Self::launch_agent(uds_path)?;
         let version = env!("CARGO_PKG_VERSION").to_string();
-        let executed_at = Utc::now().with_timezone(&FixedOffset::east(9 * 3600));
-        Ok(AgentProcessManager { pid, version, executed_at, listener })
+        let executed_at = Utc::now().with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap());
+        Ok(AgentProcessManager {
+            pid,
+            version,
+            executed_at,
+            listener,
+        })
     }
 
     fn launch_agent(
         uds_path: &PathBuf,
     ) -> Result<(u32, Option<Arc<Mutex<UnixListener>>>), &'static str> {
         let (listener_fd, listener) = Self::get_fd(uds_path).map_err(|e| {
-            eprintln!("Error getting file descriptor: {}", e);
+            log::error!("Error getting file descriptor: {}", e);
             "Failed to get file descriptor"
         })?;
 
@@ -71,13 +78,13 @@ impl AgentProcessManager {
 
             Ok((DEFAULT_FD, None))
         } else {
-            if Path::new(&uds_path).exists() {
-                fs::remove_file(&uds_path)
+            if Path::new(uds_path).exists() {
+                fs::remove_file(uds_path)
                     .map_err(|e| format!("Failed to remove existing UDS file: {}", e))?;
             }
 
             let listener =
-                UnixListener::bind(&uds_path).map_err(|e| format!("Failed to bind UDS: {}", e))?;
+                UnixListener::bind(uds_path).map_err(|e| format!("Failed to bind UDS: {}", e))?;
 
             let listener_fd = dup(listener.as_raw_fd())
                 .map_err(|_| "Failed to duplicate file descriptor".to_string())?;

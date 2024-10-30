@@ -1,6 +1,6 @@
 use crate::config::get_config;
 use crate::process::agent::AgentProcessManager;
-use crate::runtime::{RuntimeInfo, AgentInfo};
+use crate::runtime::{AgentInfo, RuntimeInfo};
 
 pub struct DefaultState;
 

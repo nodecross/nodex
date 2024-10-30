@@ -1,17 +1,11 @@
 extern crate env_logger;
 
 use crate::controllers::public::nodex_receive;
-use anyhow::anyhow;
 use cli::AgentCommands;
 use dotenvy::dotenv;
 use handlers::Command;
 use handlers::MqttClient;
 use mac_address::get_mac_address;
-#[cfg(unix)]
-use nix::{
-    sys::signal::{kill, Signal},
-    unistd::Pid,
-};
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use services::metrics::{MetricsInMemoryCacheService, MetricsWatchService};
 use services::nodex::NodeX;
@@ -21,7 +15,6 @@ use std::env;
 use std::os::unix::fs::PermissionsExt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{collections::HashMap, fs, sync::Arc};
-use sysinfo::{get_current_pid, System};
 use tokio::sync::mpsc;
 use tokio::sync::Notify;
 use tokio::sync::RwLock;
@@ -148,7 +141,7 @@ pub async fn run(options: &cli::AgentOptions) -> std::io::Result<()> {
 
         let uds_server = server::new_uds_server(transfer_client);
         let permissions = fs::Permissions::from_mode(0o766);
-        fs::set_permissions(&sock_path, permissions)?;
+        fs::set_permissions(sock_path, permissions)?;
 
         uds_server
     };
@@ -247,11 +240,11 @@ fn use_cli(command: Option<&AgentCommands>, did: String) {
             AgentCommands::Network { command } => match command {
                 cli::NetworkSubCommands::Set { key, value } => match key.as_str() {
                     SECRET_KEY => {
-                        network_config.save_secret_key(&value);
+                        network_config.save_secret_key(value);
                         log::info!("Network {} is set", SECRET_KEY);
                     }
                     PROJECT_DID => {
-                        network_config.save_project_did(&value);
+                        network_config.save_project_did(value);
                         log::info!("Network {} is set", PROJECT_DID);
                     }
                     _ => {
