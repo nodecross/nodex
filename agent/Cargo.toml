@@ -5,10 +5,6 @@ edition = { workspace = true }
 name = "agent"
 version = { workspace = true }
 
-[[bin]]
-name = "nodex-agent"
-path = "src/main.rs"
-
 [dependencies]
 actix-rt = { workspace = true }
 actix-web = { workspace = true }

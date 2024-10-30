@@ -2,7 +2,7 @@ extern crate env_logger;
 
 use crate::controllers::public::nodex_receive;
 use anyhow::anyhow;
-use clap::{Parser, Subcommand};
+use cli::AgentCommands;
 use dotenvy::dotenv;
 use handlers::Command;
 use handlers::MqttClient;
@@ -16,7 +16,6 @@ use rumqttc::{AsyncClient, MqttOptions, QoS};
 use services::metrics::{MetricsInMemoryCacheService, MetricsWatchService};
 use services::nodex::NodeX;
 use services::studio::Studio;
-use shadow_rs::shadow;
 use std::env;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -37,6 +36,7 @@ use windows::Win32::{
 use nodex::utils::UnwrapLog;
 use usecase::metric_usecase::MetricUsecase;
 
+pub mod cli;
 mod config;
 mod controllers;
 mod handlers;
@@ -51,60 +51,16 @@ pub use crate::config::app_config;
 pub use crate::config::server_config;
 pub use crate::network::network_config;
 
-shadow!(build);
-
-#[derive(Parser, Debug)]
-#[clap(name = "nodex-agent")]
-#[clap(name = "nodex-agent")]
-#[clap(
-    version = shadow_rs::formatcp!("v{} ({} {})\n{} @ {}", build::PKG_VERSION, build::SHORT_COMMIT, build::BUILD_TIME_3339, build::RUST_VERSION, build::BUILD_TARGET),
-    about,
-    long_about = None
-)]
-struct Cli {
-    #[clap(long)]
-    config: bool,
-
-    #[command(subcommand)]
-    command: Option<Commands>,
-}
-
-#[derive(Debug, Subcommand)]
-enum Commands {
-    #[command(about = "help for did")]
-    Did {},
-    #[command(about = "help for network")]
-    Network {
-        #[command(subcommand)]
-        command: NetworkSubCommands,
-    },
-}
-
-#[derive(Debug, Subcommand)]
-enum NetworkSubCommands {
-    #[command(about = "help for Set")]
-    Set {
-        #[arg(short, long)]
-        key: String,
-        #[arg(short, long)]
-        value: String,
-    },
-    #[command(about = "help for Get")]
-    Get {
-        #[arg(short, long)]
-        key: String,
-    },
-}
-
 #[tokio::main]
-async fn main() -> std::io::Result<()> {
+pub async fn run(options: &cli::AgentOptions) -> std::io::Result<()> {
     dotenv().ok();
-
-    let cli = Cli::parse();
 
     std::env::set_var("RUST_LOG", "info");
     log_init();
-    kill_other_self_process();
+    #[cfg(windows)]
+    {
+        kill_other_self_process();
+    }
 
     let studio_did_topic = "nodex/did:nodex:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
 
@@ -124,8 +80,8 @@ async fn main() -> std::io::Result<()> {
     let node_x = NodeX::new();
     let device_did = node_x.create_identifier().await.unwrap();
 
-    if cli.config {
-        use_cli(cli.command, device_did.did_document.id.clone());
+    if options.config {
+        use_cli(options.command.as_ref(), device_did.did_document.id.clone());
         return Ok(());
     }
 
@@ -190,7 +146,7 @@ async fn main() -> std::io::Result<()> {
         fs::create_dir_all(&runtime_dir).unwrap_log();
         let sock_path = runtime_dir.clone().join("nodex.sock");
 
-        let uds_server = server::new_uds_server(&sock_path, transfer_client);
+        let uds_server = server::new_uds_server(transfer_client);
         let permissions = fs::Permissions::from_mode(0o766);
         fs::set_permissions(&sock_path, permissions)?;
 
@@ -277,7 +233,7 @@ async fn handle_signals(should_stop: Arc<AtomicBool>) {
     should_stop.store(true, Ordering::Relaxed);
 }
 
-fn use_cli(command: Option<Commands>, did: String) {
+fn use_cli(command: Option<&AgentCommands>, did: String) {
     let network_config = crate::network_config();
     let mut network_config = network_config.lock();
     const SECRET_KEY: &str = "secret_key";
@@ -285,11 +241,11 @@ fn use_cli(command: Option<Commands>, did: String) {
 
     if let Some(command) = command {
         match command {
-            Commands::Did {} => {
+            AgentCommands::Did {} => {
                 println!("Node ID: {}", did);
             }
-            Commands::Network { command } => match command {
-                NetworkSubCommands::Set { key, value } => match &*key {
+            AgentCommands::Network { command } => match command {
+                cli::NetworkSubCommands::Set { key, value } => match key.as_str() {
                     SECRET_KEY => {
                         network_config.save_secret_key(&value);
                         log::info!("Network {} is set", SECRET_KEY);
@@ -302,7 +258,7 @@ fn use_cli(command: Option<Commands>, did: String) {
                         log::info!("key is not found");
                     }
                 },
-                NetworkSubCommands::Get { key } => match &*key {
+                cli::NetworkSubCommands::Get { key } => match key.as_str() {
                     SECRET_KEY => {
                         if let Some(v) = network_config.get_secret_key() {
                             println!("Network {}: {}", SECRET_KEY, v);
@@ -391,16 +347,13 @@ fn log_init() {
     builder.init();
 }
 
+#[cfg(windows)]
 fn kill_other_self_process() {
     let current_pid = get_current_pid().unwrap_log();
     let mut system = System::new_all();
     system.refresh_all();
 
-    #[cfg(unix)]
-    let process_name = { "nodex-agent" };
-    #[cfg(windows)]
     let process_name = { "nodex-agent.exe" };
-
     for process in system.processes_by_exact_name(process_name) {
         if current_pid == process.pid() {
             continue;
@@ -414,18 +367,6 @@ fn kill_other_self_process() {
             log::error!("Failed to kill process with PID: {}. Error: {:?}", pid, e);
         }
     }
-}
-#[cfg(unix)]
-fn kill_process(pid: u32) -> Result<(), anyhow::Error> {
-    kill(Pid::from_raw(pid as i32), Signal::SIGTERM).map_err(|e| {
-        anyhow!(
-            "Failed to kill nodex process with PID: {}. Error: {}",
-            pid,
-            e
-        )
-    })?;
-    log::info!("nodex Process with PID: {} killed successfully.", pid);
-    Ok(())
 }
 
 #[cfg(windows)]

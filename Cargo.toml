@@ -1,6 +1,6 @@
 [workspace]
 exclude = ["e2e"]
-members = ["agent", "protocol"]
+members = ["agent", "bin", "controller", "protocol"]
 resolver = "2"
 
 [workspace.package]
