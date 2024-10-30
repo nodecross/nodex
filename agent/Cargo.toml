@@ -13,7 +13,7 @@ bytes = { workspace = true }
 chrono = { workspace = true }
 clap = { version = "4.5.20", features = ["cargo", "derive"] }
 cuid = { workspace = true }
-dirs = "5.0.1"
+dirs = { workspace = true }
 dotenvy = "0.15.7"
 env_logger = { workspace = true }
 hex = { workspace = true }

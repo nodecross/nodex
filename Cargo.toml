@@ -25,6 +25,7 @@ bytes = "1.6.1"
 chrono = { version = "0.4", features = ["serde"] }
 cuid = "1.3.2"
 data-encoding = "2.6.0"
+dirs = "5.0.1"
 env_logger = { version = "0.11.3", features = ["color"] }
 hex = "0.4.3"
 hmac = "0.12.1"
