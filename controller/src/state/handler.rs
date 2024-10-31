@@ -1,14 +1,14 @@
 use crate::runtime::{RuntimeInfo, State};
 use crate::state::{default::DefaultState, updating::UpdatingState};
 
-pub struct StateManager;
+pub struct StateHandler;
 
-impl StateManager {
+impl StateHandler {
     pub fn new() -> Self {
         Self {}
     }
 
-    pub fn handle_state(&self, runtime_info: &mut RuntimeInfo) {
+    pub fn handle(&self, runtime_info: &mut RuntimeInfo) {
         match runtime_info.state {
             State::Updating => {
                 let updating_state = UpdatingState {};

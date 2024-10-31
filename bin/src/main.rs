@@ -28,7 +28,7 @@ fn main() {
 
     match &cli.command {
         Some(Commands::Controller) => {
-            controller::run();
+            let _ = controller::run();
         }
         None => {
             if cli.agent_options.config || cli.agent_options.command.is_some() {

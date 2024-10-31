@@ -1,3 +1,3 @@
 mod default;
-pub mod manager;
+pub mod handler;
 mod updating;

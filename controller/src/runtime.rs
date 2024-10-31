@@ -1,8 +1,11 @@
 use chrono::{DateTime, FixedOffset};
+use nix::sys::signal::{self, Signal};
+use nix::unistd::Pid;
 use serde::{Deserialize, Serialize};
-use std::fs::{File, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RuntimeInfo {
@@ -10,7 +13,7 @@ pub struct RuntimeInfo {
     agent_infos: Vec<AgentInfo>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum State {
     Default,
     Updating,
@@ -31,12 +34,17 @@ impl RuntimeInfo {
         }
     }
 
-    pub fn load_or_default(path: &PathBuf) -> Self {
+    pub fn load_or_default(path: &PathBuf, lock: Arc<Mutex<()>>) -> Self {
+        let _guard = lock.lock().unwrap();
         Self::read(path).unwrap_or_else(|_| Self::default())
     }
 
     pub fn read(path: &PathBuf) -> Result<Self, String> {
-        let mut file = File::open(path).map_err(|e| format!("Failed to open file: {}", e))?;
+        let mut file = OpenOptions::new()
+            .read(true)
+            .open(path)
+            .map_err(|e| format!("Failed to open file: {}", e))?;
+
         let mut content = String::new();
         file.read_to_string(&mut content)
             .map_err(|e| format!("Failed to read file content: {}", e))?;
@@ -59,5 +67,19 @@ impl RuntimeInfo {
             serde_json::to_string(self).map_err(|e| format!("Failed to serialize JSON: {}", e))?;
         file.write_all(json_data.as_bytes())
             .map_err(|e| format!("Failed to write to file: {}", e))
+    }
+
+    pub fn terminate_all_agents(&mut self) {
+        for agent_info in &self.agent_infos {
+            agent_info.terminate();
+        }
+        self.agent_infos.clear();
+    }
+}
+
+impl AgentInfo {
+    fn terminate(&self) {
+        println!("Terminating agent with PID: {}", self.process_id);
+        let _ = signal::kill(Pid::from_raw(self.process_id as i32), Signal::SIGTERM);
     }
 }
