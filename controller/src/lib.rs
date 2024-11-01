@@ -24,11 +24,22 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'stat
         runtime_lock.clone(),
     )));
 
-    let shutdown_handle = start_shutdown_handler(
-        should_stop.clone(),
-        runtime_info.clone(),
-        runtime_info_path.clone(),
-    );
+    let shutdown_handle = tokio::spawn({
+        let should_stop = should_stop.clone();
+        let runtime_info = runtime_info.clone();
+        let runtime_info_path = runtime_info_path.clone();
+
+        async move {
+            handle_signals(should_stop).await;
+            let mut runtime_info_guard = runtime_info.lock().unwrap();
+            runtime_info_guard.terminate_all_agents();
+            runtime_info_guard
+                .write(&runtime_info_path)
+                .expect("Failed to write runtime info after termination.");
+
+            log::info!("All processes have been successfully terminated.");
+        }
+    });
 
     monitoring_loop(
         state_handler,
@@ -38,7 +49,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'stat
     )
     .await;
 
-    shutdown_handle.await;
+    let _ = shutdown_handle.await;
     log::info!("Shutdown handler completed successfully.");
 
     Ok(())
@@ -77,24 +88,6 @@ async fn monitoring_loop(
 
         time::sleep(Duration::from_secs(5)).await;
     }
-}
-
-async fn start_shutdown_handler(
-    stop_flag: Arc<AtomicBool>,
-    runtime_info: Arc<Mutex<RuntimeInfo>>,
-    runtime_info_path: PathBuf,
-) -> tokio::task::JoinHandle<()> {
-    tokio::spawn(async move {
-        handle_signals(stop_flag).await;
-
-        let mut runtime_info_guard = runtime_info.lock().unwrap();
-        runtime_info_guard.terminate_all_agents();
-        runtime_info_guard
-            .write(&runtime_info_path)
-            .expect("Failed to write runtime info after termination.");
-
-        log::info!("All processes have been successfully terminated.");
-    })
 }
 
 async fn handle_signals(should_stop: Arc<AtomicBool>) {
