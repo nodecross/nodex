@@ -85,13 +85,6 @@ impl RuntimeInfo {
     // }
 }
 
-// impl AgentInfo {
-//     fn terminate(&self) {
-//         println!("Terminating agent with PID: {}", self.process_id);
-//         let _ = signal::kill(Pid::from_raw(self.process_id as i32), Signal::SIGTERM);
-//     }
-// }
-
 impl AgentEventListener for RuntimeInfo {
     fn on_agent_started(&mut self, agent_info: AgentInfo) {
         println!("Agent started with PID: {}", agent_info.process_id);
