@@ -7,10 +7,12 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+use crate::process::agent::AgentEventListener;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RuntimeInfo {
     pub state: State,
-    agent_infos: Vec<AgentInfo>,
+    pub agent_infos: Vec<AgentInfo>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
@@ -52,6 +54,7 @@ impl RuntimeInfo {
     }
 
     pub fn add_agent_info(&mut self, agent_info: AgentInfo) {
+        println!("Adding agent info: {}", agent_info.process_id);
         self.agent_infos.push(agent_info);
     }
 
@@ -69,17 +72,34 @@ impl RuntimeInfo {
             .map_err(|e| format!("Failed to write to file: {}", e))
     }
 
-    pub fn terminate_all_agents(&mut self) {
-        for agent_info in &self.agent_infos {
-            agent_info.terminate();
-        }
-        self.agent_infos.clear();
+    pub fn remove_agent_info(&mut self, process_id: u32) {
+        self.agent_infos
+            .retain(|agent| agent.process_id != process_id);
     }
+
+    // pub fn terminate_all_agents(&mut self) {
+    //     for agent_info in &self.agent_infos {
+    //         agent_info.terminate();
+    //     }
+    //     self.agent_infos.clear();
+    // }
 }
 
-impl AgentInfo {
-    fn terminate(&self) {
-        println!("Terminating agent with PID: {}", self.process_id);
-        let _ = signal::kill(Pid::from_raw(self.process_id as i32), Signal::SIGTERM);
+// impl AgentInfo {
+//     fn terminate(&self) {
+//         println!("Terminating agent with PID: {}", self.process_id);
+//         let _ = signal::kill(Pid::from_raw(self.process_id as i32), Signal::SIGTERM);
+//     }
+// }
+
+impl AgentEventListener for RuntimeInfo {
+    fn on_agent_started(&mut self, agent_info: AgentInfo) {
+        println!("Agent started with PID: {}", agent_info.process_id);
+        self.add_agent_info(agent_info);
+    }
+
+    fn on_agent_terminated(&mut self, process_id: u32) {
+        println!("Agent terminated with PID: {}", process_id);
+        self.remove_agent_info(process_id);
     }
 }
