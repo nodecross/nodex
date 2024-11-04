@@ -122,14 +122,18 @@ impl AgentProcessManager {
             Ok((DEFAULT_FD, None))
         } else {
             if uds_path.exists() {
-                let listener = UnixListener::bind(uds_path).map_err(AgentProcessManagerError::BindUdsError)?;
-                let listener_fd = dup(listener.as_raw_fd()).map_err(AgentProcessManagerError::DuplicateFdError)?;
-        
+                let listener =
+                    UnixListener::bind(uds_path).map_err(AgentProcessManagerError::BindUdsError)?;
+                let listener_fd = dup(listener.as_raw_fd())
+                    .map_err(AgentProcessManagerError::DuplicateFdError)?;
+
                 Ok((listener_fd, Some(Arc::new(Mutex::new(listener)))))
             } else {
-                let listener = UnixListener::bind(uds_path).map_err(AgentProcessManagerError::BindUdsError)?;
-                let listener_fd = dup(listener.as_raw_fd()).map_err(AgentProcessManagerError::DuplicateFdError)?;
-        
+                let listener =
+                    UnixListener::bind(uds_path).map_err(AgentProcessManagerError::BindUdsError)?;
+                let listener_fd = dup(listener.as_raw_fd())
+                    .map_err(AgentProcessManagerError::DuplicateFdError)?;
+
                 Ok((listener_fd, Some(Arc::new(Mutex::new(listener)))))
             }
         }
