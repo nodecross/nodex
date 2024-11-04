@@ -9,7 +9,7 @@ use tokio::signal::unix::{signal, SignalKind};
 use tokio::time::{self, Duration};
 
 mod config;
-mod process;
+pub mod process;
 mod runtime;
 mod state;
 

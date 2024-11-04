@@ -15,6 +15,9 @@ use std::{
 use fs2::FileExt;
 use serde_json::{json, Value};
 use zip::ZipArchive;
+#[cfg(unix)]
+use daemonize::Daemonize;
+use controller::process::systemd::{check_manage_by_systemd, check_manage_socket_action};
 
 
 pub struct NodeX {
@@ -93,7 +96,10 @@ impl NodeX {
         self.extract_zip(content, &output_path)?;
 
         #[cfg(unix)]
-        self.update_state()?;
+        {
+            self.run_controller(&agent_path)?;
+            self.update_state()?;
+        }
 
         #[cfg(windows)]
         self.run_agent(&agent_path)?;
@@ -148,6 +154,23 @@ impl NodeX {
 
         file.unlock()?;
     
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    fn run_controller(&self, agent_path: &Path) -> anyhow::Result<()> {
+        // kill old controller
+        if check_manage_by_systemd() && check_manage_socket_action() {
+            return Ok(())
+        }
+        Command::new("chmod").arg("+x").arg(agent_path).status()?;
+
+        let daemonize = Daemonize::new();
+        daemonize.start().expect("Failed to update nodex process");
+        std::process::Command::new(agent_path)
+            .arg("controller")
+            .spawn()
+            .expect("Failed to execute command");
         Ok(())
     }
 

@@ -24,7 +24,7 @@ impl UpdatingState {
     pub fn handle(&self) -> Result<(), UpdatingError> {
         let download_path = self.find_download_path()?;
 
-        let bundles = self.download_bundles(&download_path);
+        let bundles = self.collect_downloaded_bundles(&download_path);
         let filtered_bundles = self.filter_bundles(&bundles)?;
         let yaml_content = fs::read_to_string("example.yaml").map_err(|e| UpdatingError::YamlReadError(e))?;
         let update_yaml: UpdateYaml = serde_yaml::from_str(&yaml_content).map_err(|e| UpdatingError::YamlParseError(e))?;
@@ -47,12 +47,12 @@ impl UpdatingState {
         Ok(download_path)
     }
 
-    fn download_binary(&self, download_path: &PathBuf) -> Result<(), UpdatingError> {
+    fn downloaded_binary_path(&self, download_path: &PathBuf) -> Result<(), UpdatingError> {
         // Implement the logic to download the binary here
         Ok(())
     }
 
-    fn download_bundles(&self, download_path: &PathBuf) -> Vec<PathBuf> {
+    fn collect_downloaded_bundles(&self, download_path: &PathBuf) -> Vec<PathBuf> {
         fs::read_dir(download_path.join("bundles"))
             .unwrap_or_else(|_| fs::read_dir(Path::new("")).unwrap())
             .filter_map(|entry| entry.ok())
