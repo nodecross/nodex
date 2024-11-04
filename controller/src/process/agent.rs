@@ -1,4 +1,4 @@
-use chrono::{DateTime, FixedOffset, Utc};
+use chrono::{FixedOffset, Utc};
 use log;
 use nix::sys::signal::{self, Signal};
 use nix::unistd::dup;

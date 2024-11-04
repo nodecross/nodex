@@ -1,6 +1,4 @@
 use chrono::{DateTime, FixedOffset};
-use nix::sys::signal::{self, Signal};
-use nix::unistd::Pid;
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
@@ -28,6 +26,15 @@ pub struct AgentInfo {
     pub version: String,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum RuntimeError {
+    #[error("Failed to open or access file: {0}")]
+    FileError(#[from] std::io::Error),
+
+    #[error("Failed to parse JSON content: {0}")]
+    JsonParseError(#[from] serde_json::Error),
+}
+
 impl RuntimeInfo {
     pub fn default() -> Self {
         RuntimeInfo {
@@ -41,16 +48,12 @@ impl RuntimeInfo {
         Self::read(path).unwrap_or_else(|_| Self::default())
     }
 
-    pub fn read(path: &PathBuf) -> Result<Self, String> {
-        let mut file = OpenOptions::new()
-            .read(true)
-            .open(path)
-            .map_err(|e| format!("Failed to open file: {}", e))?;
-
+    pub fn read(path: &PathBuf) -> Result<Self, RuntimeError> {
+        let mut file = OpenOptions::new().read(true).open(path)?;
         let mut content = String::new();
-        file.read_to_string(&mut content)
-            .map_err(|e| format!("Failed to read file content: {}", e))?;
-        serde_json::from_str(&content).map_err(|e| format!("Failed to parse JSON: {}", e))
+        file.read_to_string(&mut content)?;
+        let runtime_info = serde_json::from_str(&content)?;
+        Ok(runtime_info)
     }
 
     pub fn add_agent_info(&mut self, agent_info: AgentInfo) {
@@ -58,18 +61,16 @@ impl RuntimeInfo {
         self.agent_infos.push(agent_info);
     }
 
-    pub fn write(&self, path: &PathBuf) -> Result<(), String> {
+    pub fn write(&self, path: &PathBuf) -> Result<(), RuntimeError> {
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
-            .open(path)
-            .map_err(|e| format!("Failed to open file: {}", e))?;
+            .open(path)?;
 
-        let json_data =
-            serde_json::to_string(self).map_err(|e| format!("Failed to serialize JSON: {}", e))?;
-        file.write_all(json_data.as_bytes())
-            .map_err(|e| format!("Failed to write to file: {}", e))
+        let json_data = serde_json::to_string(self)?;
+        file.write_all(json_data.as_bytes())?;
+        Ok(())
     }
 
     pub fn remove_agent_info(&mut self, process_id: u32) {
