@@ -17,6 +17,7 @@ version.workspace = true
 [dependencies]
 chrono = { workspace = true }
 dirs = { workspace = true }
+fs2 = { workspace = true }
 lazy_static = "1.4"
 nix = { version = "0.29", features = ["fs", "signal", "process"] }
 serde = { workspace = true }
@@ -24,3 +25,4 @@ serde_json = { workspace = true }
 log = { workspace = true }
 tokio = { workspace = true }
 serde_yaml = "0.9.34"
+thiserror = { workspace = true }

@@ -1,8 +1,7 @@
 use chrono::{DateTime, FixedOffset};
-use nix::sys::signal::{self, Signal};
-use nix::unistd::Pid;
-use serde::{Deserialize, Serialize};
+use fs2::FileExt;
 use std::fs::OpenOptions;
+use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -65,32 +64,21 @@ impl RuntimeInfo {
             .truncate(true)
             .open(path)
             .map_err(|e| format!("Failed to open file: {}", e))?;
+        file.lock_exclusive().expect("Failed to lock the file");
 
         let json_data =
             serde_json::to_string(self).map_err(|e| format!("Failed to serialize JSON: {}", e))?;
         file.write_all(json_data.as_bytes())
-            .map_err(|e| format!("Failed to write to file: {}", e))
+            .map_err(|e| format!("Failed to write to file: {}", e))?;
+    
+        file.unlock().map_err(|e| format!("Failed to unlock the file: {}", e))
     }
 
     pub fn remove_agent_info(&mut self, process_id: u32) {
         self.agent_infos
             .retain(|agent| agent.process_id != process_id);
     }
-
-    // pub fn terminate_all_agents(&mut self) {
-    //     for agent_info in &self.agent_infos {
-    //         agent_info.terminate();
-    //     }
-    //     self.agent_infos.clear();
-    // }
 }
-
-// impl AgentInfo {
-//     fn terminate(&self) {
-//         println!("Terminating agent with PID: {}", self.process_id);
-//         let _ = signal::kill(Pid::from_raw(self.process_id as i32), Signal::SIGTERM);
-//     }
-// }
 
 impl AgentEventListener for RuntimeInfo {
     fn on_agent_started(&mut self, agent_info: AgentInfo) {

@@ -16,6 +16,30 @@ use crate::runtime::AgentInfo;
 
 static DEFAULT_FD: RawFd = 3;
 
+#[derive(Debug, thiserror::Error)]
+pub enum AgentProcessManagerError {
+    #[error("Failed to get current executable path")]
+    CurrentExecutablePathError(#[source] std::io::Error),
+    #[error("Failed to fork agent")]
+    ForkAgentError(#[source] std::io::Error),
+    #[error("LISTEN_FDS not set or invalid")]
+    ListenFdsError,
+    #[error("LISTEN_PID not set or invalid")]
+    ListenPidError,
+    #[error("LISTEN_PID ({listen_pid}) does not match current process ID ({current_pid})")]
+    ListenPidMismatch { listen_pid: i32, current_pid: i32 },
+    #[error("No file descriptors passed by systemd.")]
+    NoFileDescriptors,
+    #[error("Failed to remove existing UDS file: {0}")]
+    RemoveUdsFileError(#[source] std::io::Error),
+    #[error("Failed to bind UDS: {0}")]
+    BindUdsError(#[source] std::io::Error),
+    #[error("Failed to duplicate file descriptor")]
+    DuplicateFdError(#[source] nix::Error),
+    #[error("Failed to terminate process: {0}")]
+    TerminateProcessError(#[source] nix::Error),
+}
+
 pub trait AgentEventListener {
     fn on_agent_started(&mut self, agent_info: AgentInfo);
     fn on_agent_terminated(&mut self, process_id: u32);
@@ -44,15 +68,16 @@ impl AgentProcessManager {
         })
     }
 
-    pub fn launch_agent(&self) -> Result<(), &'static str> {
+    pub fn launch_agent(&self) -> Result<(), AgentProcessManagerError> {
         let current_exe =
-            env::current_exe().map_err(|_| "Failed to get current executable path")?;
+            env::current_exe().map_err(AgentProcessManagerError::CurrentExecutablePathError)?;
+
         let child = Command::new(current_exe)
             .env("LISTENER_FD", self.listener_fd.to_string())
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .spawn()
-            .map_err(|_| "Failed to fork agent")?;
+            .map_err(AgentProcessManagerError::ForkAgentError)?;
 
         let version = env!("CARGO_PKG_VERSION").to_string();
         let executed_at = Utc::now().with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap());
@@ -70,49 +95,50 @@ impl AgentProcessManager {
         Ok(())
     }
 
-    fn get_fd(uds_path: &PathBuf) -> Result<(RawFd, Option<Arc<Mutex<UnixListener>>>), String> {
+    fn get_fd(
+        uds_path: &PathBuf,
+    ) -> Result<(RawFd, Option<Arc<Mutex<UnixListener>>>), AgentProcessManagerError> {
         if check_manage_by_systemd() && check_manage_socket_action() {
             let listen_fds = env::var("LISTEN_FDS")
-                .map_err(|_| "LISTEN_FDS not set".to_string())?
+                .map_err(|_| AgentProcessManagerError::ListenFdsError)?
                 .parse::<i32>()
-                .map_err(|_| "Invalid LISTEN_FDS".to_string())?;
+                .map_err(|_| AgentProcessManagerError::ListenFdsError)?;
 
             let listen_pid = env::var("LISTEN_PID")
-                .map_err(|_| "LISTEN_PID not set".to_string())?
+                .map_err(|_| AgentProcessManagerError::ListenPidError)?
                 .parse::<i32>()
-                .map_err(|_| "Invalid LISTEN_PID".to_string())?;
+                .map_err(|_| AgentProcessManagerError::ListenPidError)?;
 
             let current_pid = std::process::id() as i32;
             if listen_pid != current_pid {
-                return Err(format!(
-                    "LISTEN_PID ({}) does not match current process ID ({})",
-                    listen_pid, current_pid
-                ));
+                return Err(AgentProcessManagerError::ListenPidMismatch {
+                    listen_pid,
+                    current_pid,
+                });
             } else if listen_fds <= 0 {
-                return Err("No file descriptors passed by systemd.".to_string());
+                return Err(AgentProcessManagerError::NoFileDescriptors);
             }
 
             Ok((DEFAULT_FD, None))
         } else {
             if Path::new(uds_path).exists() {
-                fs::remove_file(uds_path)
-                    .map_err(|e| format!("Failed to remove existing UDS file: {}", e))?;
+                fs::remove_file(uds_path).map_err(AgentProcessManagerError::RemoveUdsFileError)?;
             }
 
             let listener =
-                UnixListener::bind(uds_path).map_err(|e| format!("Failed to bind UDS: {}", e))?;
-            let listener_fd = dup(listener.as_raw_fd())
-                .map_err(|_| "Failed to duplicate file descriptor".to_string())?;
+                UnixListener::bind(uds_path).map_err(AgentProcessManagerError::BindUdsError)?;
+            let listener_fd =
+                dup(listener.as_raw_fd()).map_err(AgentProcessManagerError::DuplicateFdError)?;
 
             Ok((listener_fd, Some(Arc::new(Mutex::new(listener)))))
         }
     }
 
-    pub fn terminate_agent(&self, process_id: u32) -> Result<(), String> {
+    pub fn terminate_agent(&self, process_id: u32) -> Result<(), AgentProcessManagerError> {
         log::info!("Terminating agent with PID: {}", process_id);
 
         signal::kill(Pid::from_raw(process_id as i32), Signal::SIGTERM)
-            .map_err(|e| format!("Failed to terminate process: {}", e))?;
+            .map_err(AgentProcessManagerError::TerminateProcessError)?;
 
         self.event_listener
             .lock()
