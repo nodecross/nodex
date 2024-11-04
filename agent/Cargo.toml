@@ -11,7 +11,7 @@ actix-web = { workspace = true }
 anyhow = { workspace = true }
 bytes = { workspace = true }
 chrono = { workspace = true }
-clap = { version = "4.5.20", features = ["cargo", "derive"] }
+clap = { workspace = true }
 cuid = { workspace = true }
 dirs = { workspace = true }
 dotenvy = "0.15.7"
@@ -27,7 +27,7 @@ rumqttc = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
-shadow-rs = "0.35.1"
+shadow-rs = { workspace = true }
 sysinfo = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
