@@ -30,10 +30,15 @@ pub struct AgentInfo {
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
     #[error("Failed to open or access file: {0}")]
-    FileError(#[from] std::io::Error),
-
-    #[error("Failed to parse JSON content: {0}")]
-    JsonParseError(#[from] serde_json::Error),
+    FileOpenError(#[from] std::io::Error),
+    #[error("Failed to acquire exclusive file lock: {0}")]
+    FileLockError(#[from] std::io::Error),
+    #[error("Failed to write data to file: {0}")]
+    FileWriteError(#[from] std::io::Error),
+    #[error("Failed to unlock file: {0}")]
+    FileUnlockError(#[from] std::io::Error),
+    #[error("Failed to serialize runtime info to JSON: {0}")]
+    JsonSerializeError(#[from] serde_json::Error),
 }
 
 impl RuntimeInfo {
@@ -61,22 +66,21 @@ impl RuntimeInfo {
         println!("Adding agent info: {}", agent_info.process_id);
         self.agent_infos.push(agent_info);
     }
-
     pub fn write(&self, path: &PathBuf) -> Result<(), RuntimeError> {
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
             .open(path)
-            .map_err(|e| format!("Failed to open file: {}", e))?;
-        file.lock_exclusive().expect("Failed to lock the file");
+            .map_err(RuntimeError::FileOpenError)?;
 
-        let json_data =
-            serde_json::to_string(self).map_err(|e| format!("Failed to serialize JSON: {}", e))?;
-        file.write_all(json_data.as_bytes())
-            .map_err(|e| format!("Failed to write to file: {}", e))?;
-    
-        file.unlock().map_err(|e| format!("Failed to unlock the file: {}", e))
+        file.lock_exclusive().map_err(RuntimeError::FileLockError)?;
+
+        let json_data = serde_json::to_string(self).map_err(RuntimeError::JsonSerializeError)?;
+        
+        file.write_all(json_data.as_bytes()).map_err(RuntimeError::FileWriteError)?;
+
+        file.unlock().map_err(RuntimeError::FileUnlockError)
     }
 
     pub fn remove_agent_info(&mut self, process_id: u32) {
