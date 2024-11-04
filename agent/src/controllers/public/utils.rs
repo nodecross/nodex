@@ -1,8 +1,9 @@
-use actix_web::HttpResponse;
 use anyhow::Context as _;
+use chrono::{DateTime, Utc};
 
 use protocol::did::did_repository::DidRepositoryImpl;
 
+use crate::errors::{AgentError, AgentErrorCode};
 use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::repository::message_activity_repository::MessageActivityHttpError;
 use crate::server_config;
@@ -15,28 +16,33 @@ pub fn did_repository() -> DidRepositoryImpl<SideTreeClient> {
     DidRepositoryImpl::new(sidetree_client)
 }
 
-pub fn handle_status(e: MessageActivityHttpError) -> HttpResponse {
+pub fn handle_status(e: MessageActivityHttpError) -> AgentError {
     match e {
         MessageActivityHttpError::BadRequest(message) => {
             log::warn!("Bad Request: {}", message);
-            HttpResponse::BadRequest().body(message)
-        }
-        MessageActivityHttpError::Unauthorized(message) => {
-            log::warn!("Unauthorized: {}", message);
-            HttpResponse::Unauthorized().body(message)
+            AgentErrorCode::MessageActivityBadRequest.into()
         }
         MessageActivityHttpError::Forbidden(message) => {
             log::warn!("Forbidden: {}", message);
-            HttpResponse::Forbidden().body(message)
+            AgentErrorCode::MessageActivityForbidden.into()
+        }
+        MessageActivityHttpError::Unauthorized(message) => {
+            log::warn!("Unauthorized: {}", message);
+            AgentErrorCode::MessageActivityUnauthorized.into()
         }
         MessageActivityHttpError::NotFound(message) => {
             log::warn!("Not Found: {}", message);
-            HttpResponse::NotFound().body(message)
+            AgentErrorCode::MessageActivityNotFound.into()
         }
         MessageActivityHttpError::Conflict(message) => {
             log::warn!("Conflict: {}", message);
-            HttpResponse::Conflict().body(message)
+            AgentErrorCode::MessageActivityConflict.into()
         }
-        _ => HttpResponse::InternalServerError().finish(),
+        _ => AgentErrorCode::MessageActivityInternal.into(),
     }
+}
+
+pub fn str2time(value: &str) -> Option<DateTime<Utc>> {
+    let timestamp = value.parse::<i64>().ok()?;
+    DateTime::from_timestamp(timestamp, 0)
 }
