@@ -7,15 +7,15 @@ use bytes::Bytes;
 use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
 use protocol::did::sidetree::payload::DidResolutionResponse;
 use std::{
-    fs,
-    io::Cursor,
+    fs::{self, OpenOptions},
+    io::{Cursor, Write},
     path::{Path, PathBuf},
     process::Command,
 };
+use fs2::FileExt;
+use serde_json::{json, Value};
 use zip::ZipArchive;
 
-#[cfg(unix)]
-use daemonize::Daemonize;
 
 pub struct NodeX {
     did_repository: DidRepositoryImpl<SideTreeClient>,
@@ -92,6 +92,10 @@ impl NodeX {
         }
         self.extract_zip(content, &output_path)?;
 
+        #[cfg(unix)]
+        self.update_state()?;
+
+        #[cfg(windows)]
         self.run_agent(&agent_path)?;
 
         Ok(())
@@ -120,14 +124,30 @@ impl NodeX {
     }
 
     #[cfg(unix)]
-    fn run_agent(&self, agent_path: &Path) -> anyhow::Result<()> {
-        Command::new("chmod").arg("+x").arg(agent_path).status()?;
+    fn update_state(&self) -> anyhow::Result<()> {
+        let home_dir = dirs::home_dir().unwrap();
+        let config_dir = home_dir.join(".nodex");
+        let runtime_info_path = config_dir.join("runtime_info.json");
 
-        let daemonize = Daemonize::new();
-        daemonize.start().expect("Failed to update nodex process");
-        std::process::Command::new(agent_path)
-            .spawn()
-            .expect("Failed to execute command");
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&runtime_info_path)?;
+        file.lock_exclusive()?;
+
+        let mut data: Value = serde_json::from_str(&fs::read_to_string(&runtime_info_path)?)?;
+        if let Some(state) = data.get_mut("state") {
+            *state = json!("updating");
+        } else {
+            data["state"] = json!("updating");
+        }
+
+        let mut file = fs::File::create(&runtime_info_path)?;
+        file.write_all(serde_json::to_string_pretty(&data)?.as_bytes())?;
+
+        file.unlock()?;
+    
         Ok(())
     }
 

@@ -88,24 +88,28 @@ impl MessageReceiveUsecase {
                                 let binary_url = container["binary_url"]
                                     .as_str()
                                     .ok_or(anyhow!("the container doesn't have binary_url"))?;
-
-                                let tmp_path = {
-                                    #[cfg(unix)]
-                                    {
-                                        PathBuf::from("/tmp/nodex-agent")
-                                    }
-                                    #[cfg(windows)]
-                                    {
-                                        PathBuf::from("C:\\Temp\\nodex-agent")
-                                    }
+                                #[cfg(unix)]
+                                let output_path = {
+                                    let tmp_path = if PathBuf::from("/home/nodex/tmp").exists() {
+                                        PathBuf::from("/home/nodex/tmp")
+                                    } else {
+                                        PathBuf::from("/tmp/nodex-agent")   
+                                    };
+                                    tmp_path
                                 };
-                                let exe_path = env::current_exe()?;
-                                let working_dir = exe_path
-                                    .parent()
-                                    .map(|p| p.to_path_buf())
-                                    .unwrap_or(tmp_path);
 
-                                self.agent.update_version(binary_url, working_dir).await?;
+                                #[cfg(windows)]
+                                let output_path = {
+                                    let tmp_path = PathBuf::from("C:\\Temp\\nodex-agent");
+                                    let exe_path = env::current_exe()?;
+                                    let working_dir = exe_path
+                                        .parent()
+                                        .map(|p| p.to_path_buf())
+                                        .unwrap_or(tmp_path);
+                                    working_dir
+                                };
+
+                                self.agent.update_version(binary_url, output_path).await?;
                             }
                             Ok(OperationType::UpdateNetworkJson) => {
                                 self.studio.network().await?;

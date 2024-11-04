@@ -16,6 +16,7 @@ cuid = { workspace = true }
 dirs = { workspace = true }
 dotenvy = "0.15.7"
 env_logger = { workspace = true }
+fs2 = { workspace = true }
 hex = { workspace = true }
 hmac = { workspace = true }
 home-config = { version = "0.6.0", features = ["json", "toml", "yaml"] }
