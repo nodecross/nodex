@@ -29,16 +29,18 @@ pub struct AgentInfo {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
-    #[error("Failed to open or access file: {0}")]
-    FileOpenError(#[from] std::io::Error),
-    #[error("Failed to acquire exclusive file lock: {0}")]
-    FileLockError(#[from] std::io::Error),
+    #[error("Failed to open file: {0}")]
+    FileOpenError(#[source] std::io::Error),
+    #[error("Failed to read file: {0}")]
+    FileReadError(#[source] std::io::Error),
     #[error("Failed to write data to file: {0}")]
-    FileWriteError(#[from] std::io::Error),
+    FileWriteError(#[source] std::io::Error),
+    #[error("Failed to acquire exclusive file lock: {0}")]
+    FileLockError(#[source] std::io::Error),
     #[error("Failed to unlock file: {0}")]
-    FileUnlockError(#[from] std::io::Error),
+    FileUnlockError(#[source] std::io::Error),
     #[error("Failed to serialize runtime info to JSON: {0}")]
-    JsonSerializeError(#[from] serde_json::Error),
+    JsonSerializeError(#[source] serde_json::Error),
 }
 
 impl RuntimeInfo {
@@ -55,10 +57,15 @@ impl RuntimeInfo {
     }
 
     pub fn read(path: &PathBuf) -> Result<Self, RuntimeError> {
-        let mut file = OpenOptions::new().read(true).open(path)?;
+        let mut file = OpenOptions::new()
+            .read(true)
+            .open(path)
+            .map_err(RuntimeError::FileOpenError)?;
         let mut content = String::new();
-        file.read_to_string(&mut content)?;
-        let runtime_info = serde_json::from_str(&content)?;
+        file.read_to_string(&mut content)
+            .map_err(RuntimeError::FileReadError)?;
+        let runtime_info =
+            serde_json::from_str(&content).map_err(RuntimeError::JsonSerializeError)?;
         Ok(runtime_info)
     }
 
@@ -77,8 +84,9 @@ impl RuntimeInfo {
         file.lock_exclusive().map_err(RuntimeError::FileLockError)?;
 
         let json_data = serde_json::to_string(self).map_err(RuntimeError::JsonSerializeError)?;
-        
-        file.write_all(json_data.as_bytes()).map_err(RuntimeError::FileWriteError)?;
+
+        file.write_all(json_data.as_bytes())
+            .map_err(RuntimeError::FileWriteError)?;
 
         file.unlock().map_err(RuntimeError::FileUnlockError)
     }

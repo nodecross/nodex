@@ -93,7 +93,7 @@ impl MessageReceiveUsecase {
                                     let tmp_path = if PathBuf::from("/home/nodex/tmp").exists() {
                                         PathBuf::from("/home/nodex/tmp")
                                     } else {
-                                        PathBuf::from("/tmp/nodex-agent")   
+                                        PathBuf::from("/tmp/nodex-agent")
                                     };
                                     tmp_path
                                 };

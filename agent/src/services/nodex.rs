@@ -4,21 +4,20 @@ use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::{app_config, server_config};
 use anyhow;
 use bytes::Bytes;
+use controller::process::systemd::{check_manage_by_systemd, check_manage_socket_activation};
+#[cfg(unix)]
+use daemonize::Daemonize;
+use fs2::FileExt;
 use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
 use protocol::did::sidetree::payload::DidResolutionResponse;
+use serde_json::{json, Value};
 use std::{
     fs::{self, OpenOptions},
     io::{Cursor, Write},
     path::{Path, PathBuf},
     process::Command,
 };
-use fs2::FileExt;
-use serde_json::{json, Value};
 use zip::ZipArchive;
-#[cfg(unix)]
-use daemonize::Daemonize;
-use controller::process::systemd::{check_manage_by_systemd, check_manage_socket_action};
-
 
 pub struct NodeX {
     did_repository: DidRepositoryImpl<SideTreeClient>,
@@ -153,15 +152,18 @@ impl NodeX {
         file.write_all(serde_json::to_string_pretty(&data)?.as_bytes())?;
 
         file.unlock()?;
-    
+
         Ok(())
     }
 
     #[cfg(unix)]
     fn run_controller(&self, agent_path: &Path) -> anyhow::Result<()> {
+        // ToDo:
+        // backup
+        // move bin to current dir
         // kill old controller
-        if check_manage_by_systemd() && check_manage_socket_action() {
-            return Ok(())
+        if check_manage_by_systemd() && check_manage_socket_activation() {
+            return Ok(());
         }
         Command::new("chmod").arg("+x").arg(agent_path).status()?;
 
