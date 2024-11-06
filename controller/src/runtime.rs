@@ -1,4 +1,4 @@
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, FixedOffset, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
@@ -10,7 +10,7 @@ use crate::process::agent::AgentEventListener;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RuntimeInfo {
     pub state: State,
-    pub agent_infos: Vec<AgentInfo>,
+    pub process_infos: Vec<ProcessInfo>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
@@ -20,10 +20,17 @@ pub enum State {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct AgentInfo {
+pub struct ProcessInfo {
     pub process_id: u32,
     pub executed_at: DateTime<FixedOffset>,
     pub version: String,
+    pub feat_type: FeatType,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+pub enum FeatType {
+    Agent,
+    Controller,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -39,7 +46,7 @@ impl RuntimeInfo {
     pub fn default() -> Self {
         RuntimeInfo {
             state: State::Default,
-            agent_infos: vec![],
+            process_infos: vec![],
         }
     }
 
@@ -56,9 +63,9 @@ impl RuntimeInfo {
         Ok(runtime_info)
     }
 
-    pub fn add_agent_info(&mut self, agent_info: AgentInfo) {
-        println!("Adding agent info: {}", agent_info.process_id);
-        self.agent_infos.push(agent_info);
+    pub fn add_process_info(&mut self, process_info: ProcessInfo) {
+        println!("Adding agent info: {}", process_info.process_id);
+        self.process_infos.push(process_info);
     }
 
     pub fn write(&self, path: &PathBuf) -> Result<(), RuntimeError> {
@@ -73,27 +80,39 @@ impl RuntimeInfo {
         Ok(())
     }
 
-    pub fn remove_agent_info(&mut self, process_id: u32) {
-        self.agent_infos
-            .retain(|agent| agent.process_id != process_id);
+    pub fn remove_process_info(&mut self, process_id: u32) {
+        self.process_infos
+            .retain(|process_info| process_info.process_id != process_id);
     }
 
     // pub fn terminate_all_agents(&mut self) {
-    //     for agent_info in &self.agent_infos {
-    //         agent_info.terminate();
+    //     for process_info in &self.process_infos {
+    //         process_info.terminate();
     //     }
-    //     self.agent_infos.clear();
+    //     self.process_infos.clear();
     // }
 }
 
 impl AgentEventListener for RuntimeInfo {
-    fn on_agent_started(&mut self, agent_info: AgentInfo) {
-        println!("Agent started with PID: {}", agent_info.process_id);
-        self.add_agent_info(agent_info);
+    fn on_agent_started(&mut self, process_info: ProcessInfo) {
+        println!("Agent started with PID: {}", process_info.process_id);
+        self.add_process_info(process_info);
     }
 
     fn on_agent_terminated(&mut self, process_id: u32) {
         println!("Agent terminated with PID: {}", process_id);
-        self.remove_agent_info(process_id);
+        self.remove_process_info(process_id);
+    }
+}
+
+impl ProcessInfo {
+    pub fn new(p_id: u32, feat_type: FeatType) -> Self {
+        let now = Utc::now().with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap());
+        ProcessInfo {
+            process_id: p_id,
+            executed_at: now,
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            feat_type,
+        }
     }
 }

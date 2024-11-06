@@ -1,5 +1,5 @@
 use crate::process::agent::AgentProcessManager;
-use crate::runtime::{RuntimeInfo, State};
+use crate::runtime::State;
 use crate::state::{default::DefaultState, updating::UpdatingState};
 use std::sync::{Arc, Mutex};
 
@@ -13,7 +13,7 @@ impl StateHandler {
     pub fn handle(
         &self,
         current_state: &State,
-        agent_process_manager: &Arc<std::sync::Mutex<AgentProcessManager>>,
+        agent_process_manager: &Arc<Mutex<AgentProcessManager>>,
     ) {
         let result = match current_state {
             State::Updating => {
