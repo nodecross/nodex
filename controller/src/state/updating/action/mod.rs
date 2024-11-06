@@ -5,7 +5,6 @@ use crate::state::updating::action::{
     move_action::MoveOperationError, update_json::UpdateJsonOperationError,
 };
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UpdateAction {
@@ -14,7 +13,7 @@ pub struct UpdateAction {
     pub operations: Vec<Operation>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(tag = "action")]
 pub enum Operation {
     Move {
@@ -40,20 +39,17 @@ pub enum UpdateActionError {
 
 impl UpdateAction {
     pub fn run(&self) -> Result<(), UpdateActionError> {
-        for operation in self.operations {
-            let result = match operation {
+        for operation in &self.operations {
+            match operation {
                 Operation::Move { src, dest, .. } => {
-                    move_action::execute(&src, &dest)?;
+                    move_action::execute(src, dest)?;
                 }
                 Operation::UpdateJson {
                     file, field, value, ..
                 } => {
-                    update_json::execute(&file, &field, &value)?;
+                    update_json::execute(file, field, value)?;
                 }
             };
-            if let Err(e) = result {
-                return Err(UpdateActionError::from(e));
-            }
         }
         Ok(())
     }

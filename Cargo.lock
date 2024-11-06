@@ -810,6 +810,7 @@ dependencies = [
  "lazy_static",
  "log",
  "nix 0.29.0",
+ "semver",
  "serde",
  "serde_json",
  "serde_yaml",

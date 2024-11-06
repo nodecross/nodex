@@ -4,7 +4,7 @@ use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::{app_config, server_config};
 use anyhow;
 use bytes::Bytes;
-use controller::process::systemd::{check_manage_by_systemd, check_manage_socket_activation};
+use controller::process::systemd::{is_manage_by_systemd, is_manage_socket_activation};
 #[cfg(unix)]
 use daemonize::Daemonize;
 use fs2::FileExt;
@@ -162,7 +162,7 @@ impl NodeX {
         // backup
         // move bin to current dir
         // kill old controller
-        if check_manage_by_systemd() && check_manage_socket_activation() {
+        if is_manage_by_systemd() && is_manage_socket_activation() {
             return Ok(());
         }
         Command::new("chmod").arg("+x").arg(agent_path).status()?;

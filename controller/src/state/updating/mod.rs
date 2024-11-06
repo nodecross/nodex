@@ -1,18 +1,21 @@
-mod action;
+pub mod action;
 
 use crate::state::updating::action::UpdateAction;
-use std::error::Error;
+
+use glob::glob;
+use semver::Version;
+use serde_yaml::Error as SerdeYamlError;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf, Path};
 
 #[derive(Debug, thiserror::Error)]
 pub enum UpdatingError {
     #[error("Failed to read YAML file: {0}")]
     YamlReadError(#[source] std::io::Error),
     #[error("Failed to parse YAML: {0}")]
-    YamlParseError(#[source] serde_yaml::Error),
+    YamlParseError(#[source] SerdeYamlError),
     #[error("Failed to run actions: {0}")]
-    ActionError(#[source] Box<dyn Error>),
+    ActionError(#[source] Box<dyn std::error::Error>),
     #[error("Failed to find download path")]
     FindDownloadPathError,
     #[error("Failed to find bundle")]
@@ -30,23 +33,21 @@ impl UpdatingState {
         let bundles = self.collect_downloaded_bundles(&download_path);
         if bundles.is_empty() {
             return Err(UpdatingError::BundleNotFoundError);
-        };
+        }
 
         let update_actions = self.parse_bundles(&bundles)?;
-        if update_actions.is_empty() {
-            return Err(UpdatingError::YamlParseError);
-        };
-
         let pending_update_actions = self.extract_pending_update_actions(&update_actions)?;
         if pending_update_actions.is_empty() {
-            Ok(())
+            return Ok(());
         }
 
         for action in pending_update_actions {
-            action.run();
+            if let Err(e) = action.run() {
+                return Err(UpdatingError::ActionError(Box::new(e)));
+            }
         }
 
-        println!("downloading binary");
+        log::info!("downloading binary");
 
         Ok(())
     }
@@ -63,7 +64,7 @@ impl UpdatingState {
         Ok(download_path)
     }
 
-    fn parse_bundles(&self, bundles: &Vec<PathBuf>) -> Result<Vec<UpdateAction>, UpdatingError> {
+    fn parse_bundles(&self, bundles: &[PathBuf]) -> Result<Vec<UpdateAction>, UpdatingError> {
         bundles
             .iter()
             .map(|bundle| {
@@ -76,32 +77,27 @@ impl UpdatingState {
             .collect()
     }
 
-    fn downloaded_binary_path(&self, download_path: &PathBuf) -> Result<(), UpdatingError> {
-        // Implement the logic to download the binary here
-        Ok(())
-    }
-
-    fn collect_downloaded_bundles(&self, download_path: &PathBuf) -> Vec<PathBuf> {
+    fn collect_downloaded_bundles(&self, download_path: &Path) -> Vec<PathBuf> {
         let pattern = download_path
             .join("bundles")
             .join("*.yml")
             .to_string_lossy()
             .into_owned();
 
-        glob(&pattern)
-            .unwrap_or_else(|_| Vec::new().into_iter())
-            .filter_map(Result::ok)
-            .collect()
+        match glob(&pattern) {
+            Ok(paths) => paths.filter_map(Result::ok).collect(),
+            Err(_) => Vec::new(),
+        }
     }
 
-    fn extract_pending_update_actions(
-        &self,
-        update_actions: &[UpdateAction],
-    ) -> Result<Vec<&UpdateAction>, UpdatingError> {
-        let current_version =
-            Version::parse(build::VERSION).map_err(|_| UpdatingError::InvalidVersionFormat)?;
+    fn extract_pending_update_actions<'a>(
+        &'a self,
+        update_actions: &'a [UpdateAction],
+    ) -> Result<Vec<&'a UpdateAction>, UpdatingError> {
+        let current_version = Version::parse(env!("CARGO_PKG_VERSION"))
+            .map_err(|_| UpdatingError::InvalidVersionFormat)?;
 
-        let pending_actions: Vec<&UpdateAction> = update_actions
+        let pending_actions: Vec<&'a UpdateAction> = update_actions
             .iter()
             .filter_map(|action| {
                 let target_version = Version::parse(&action.version).ok()?;

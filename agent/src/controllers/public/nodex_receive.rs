@@ -2,7 +2,7 @@ use anyhow::anyhow;
 
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::{env, path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::Notify;
 
 use protocol::didcomm::encrypted::DidCommEncryptedService;
@@ -90,12 +90,11 @@ impl MessageReceiveUsecase {
                                     .ok_or(anyhow!("the container doesn't have binary_url"))?;
                                 #[cfg(unix)]
                                 let output_path = {
-                                    let tmp_path = if PathBuf::from("/home/nodex/tmp").exists() {
+                                    if PathBuf::from("/home/nodex/tmp").exists() {
                                         PathBuf::from("/home/nodex/tmp")
                                     } else {
                                         PathBuf::from("/tmp/nodex-agent")
-                                    };
-                                    tmp_path
+                                    }
                                 };
 
                                 #[cfg(windows)]

@@ -1,23 +1,24 @@
-use serde_json::Value;
-use std::error::Error;
+use serde_json::{error::Error as SerdeError, Value};
 use std::fs;
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum UpdateJsonOperationError {
     #[error("Failed to read JSON file '{0}': {1}")]
-    FileReadError(String, #[source] io::Error),
+    FileReadError(String, #[source] std::io::Error),
     #[error("Failed to parse JSON in file '{0}': {1}")]
     JsonParseError(String, #[source] SerdeError),
     #[error("Invalid field path '{0}'")]
     InvalidFieldPath(String),
     #[error("Failed to write JSON file '{0}': {1}")]
-    FileWriteError(String, #[source] io::Error),
+    FileWriteError(String, #[source] std::io::Error),
 }
 
-pub fn execute(file: &str, field: &str, value: &str) -> Result<(), UpdateJsonOperationError> {
-    println!(
+pub fn execute(file: &String, field: &String, value: &String) -> Result<(), UpdateJsonOperationError> {
+    log::info!(
         "Updating JSON file '{}' field '{}' with value '{}'",
-        file, field, value
+        file,
+        field,
+        value
     );
 
     let file_content = fs::read_to_string(file)

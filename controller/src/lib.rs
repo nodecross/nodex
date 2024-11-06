@@ -1,8 +1,9 @@
 use crate::config::get_config;
 use crate::process::agent::AgentProcessManager;
-use crate::runtime::{RuntimeInfo, State};
+use crate::runtime::{FeatType, ProcessInfo, RuntimeInfo, State};
 use crate::state::handler::StateHandler;
 use std::path::PathBuf;
+use std::process as stdProcess;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::signal::unix::{signal, SignalKind};
@@ -22,6 +23,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'stat
         &runtime_info_path,
         runtime_lock.clone(),
     )));
+    on_controller_started(&runtime_info);
 
     let uds_path = {
         let config = get_config().lock().unwrap();
@@ -40,9 +42,10 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'stat
 
         async move {
             handle_signals(should_stop).await;
+            // If we make it possible to shutdown, won't that conflict with the kill by agent that assumes a reboot by systemd?
             // let mut runtime_info_guard = runtime_info.lock().unwrap();
-            // for agent in runtime_info_guard.agent_infos.iter_mut() {
-            //     let pid = agent.process_id;
+            // for process_info in runtime_info_guard.process_infos.iter_mut() {
+            //     let pid = process_info.process_id;
             //     log::info!("Terminating process with PID: {}", pid);
             //     let mut manager = agent_process_manager.lock().unwrap();
             //     manager.terminate_agent(pid);
@@ -73,6 +76,7 @@ async fn monitoring_loop(
     agent_process_manager: Arc<Mutex<AgentProcessManager>>,
     should_stop: Arc<AtomicBool>,
 ) {
+    // Maybe instead of looping based on state, it would be better to loop if none of the running agents exist in runtime_info?
     let state_handler = StateHandler::new();
     let mut previous_state: Option<State> = None;
 
@@ -84,7 +88,7 @@ async fn monitoring_loop(
 
         let current_state = get_state(&runtime_info);
         if previous_state.as_ref() != Some(&current_state) {
-            state_handler.handle(&current_state, &agent_process_manager);
+            let _ = state_handler.handle(&current_state, &agent_process_manager);
 
             save_runtime_info(&runtime_info_path, &runtime_info);
 
@@ -100,22 +104,6 @@ fn get_runtime_info_path() -> PathBuf {
     config.config_dir.join("runtime_info.json")
 }
 
-async fn handle_signals(should_stop: Arc<AtomicBool>) {
-    let ctrl_c = tokio::signal::ctrl_c();
-    let mut sigterm = signal(SignalKind::terminate()).expect("Failed to bind to SIGTERM");
-
-    tokio::select! {
-        _ = ctrl_c => {
-            log::info!("Received SIGINT");
-            should_stop.store(true, Ordering::Relaxed);
-        },
-        _ = sigterm.recv() => {
-            log::info!("Received SIGTERM");
-            should_stop.store(true, Ordering::Relaxed);
-        },
-    }
-}
-
 fn get_state(runtime_info: &Arc<Mutex<RuntimeInfo>>) -> State {
     let runtime_info_guard = runtime_info.lock().unwrap();
     runtime_info_guard.state.clone()
@@ -126,4 +114,22 @@ fn save_runtime_info(runtime_info_path: &PathBuf, runtime_info: &Arc<Mutex<Runti
     runtime_info_guard
         .write(runtime_info_path)
         .expect("Failed to write runtime info");
+}
+
+fn on_controller_started(runtime_info: &Arc<Mutex<RuntimeInfo>>) {
+    let process_info = ProcessInfo::new(stdProcess::id(), FeatType::Controller);
+    let mut runtime_info_guard = runtime_info.lock().unwrap();
+    runtime_info_guard.add_process_info(process_info);
+}
+
+async fn handle_signals(should_stop: Arc<AtomicBool>) {
+    let ctrl_c = tokio::signal::ctrl_c();
+    let mut sigterm = signal(SignalKind::terminate()).expect("Failed to bind to SIGTERM");
+
+    tokio::select! {
+        _ = ctrl_c => log::info!("Received SIGINT"),
+        _ = sigterm.recv() => log::info!("Received SIGTERM"),
+    };
+
+    should_stop.store(true, Ordering::Relaxed);
 }
