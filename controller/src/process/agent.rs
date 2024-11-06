@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 
-use crate::process::systemd::{is_manage_socket_activation, is_managed_by_systemd};
+use crate::process::systemd::{is_manage_by_systemd, is_manage_socket_activation};
 use crate::runtime::{FeatType, ProcessInfo};
 
 static DEFAULT_FD: RawFd = 3;
@@ -53,11 +53,8 @@ impl AgentProcessManager {
     pub fn new(
         uds_path: &PathBuf,
         event_listener: Arc<Mutex<dyn AgentEventListener + Send>>,
-    ) -> Result<Self, &'static str> {
-        let (listener_fd, listener) = Self::initialize_listener_fd(uds_path).map_err(|e| {
-            log::error!("Error getting file descriptor: {}", e);
-            "Failed to get file descriptor"
-        })?;
+    ) -> Result<Self, AgentProcessManagerError> {
+        let (listener_fd, listener) = Self::initialize_listener_fd(uds_path)?;
 
         Ok(AgentProcessManager {
             listener_fd,
@@ -89,7 +86,7 @@ impl AgentProcessManager {
     fn initialize_listener_fd(
         uds_path: &PathBuf,
     ) -> Result<(RawFd, Option<Arc<Mutex<UnixListener>>>), AgentProcessManagerError> {
-        if is_managed_by_systemd() && is_manage_socket_activation() {
+        if is_manage_by_systemd() && is_manage_socket_activation() {
             let listen_fds = env::var("LISTEN_FDS")
                 .map_err(|_| AgentProcessManagerError::ListenFdsError)?
                 .parse::<i32>()

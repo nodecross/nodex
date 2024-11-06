@@ -1,6 +1,6 @@
 use std::env;
 
-pub fn is_managed_by_systemd() -> bool {
+pub fn is_manage_by_systemd() -> bool {
     env::var("INVOCATION_ID").is_ok()
 }
 

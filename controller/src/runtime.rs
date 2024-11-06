@@ -64,7 +64,7 @@ impl RuntimeInfo {
     }
 
     pub fn add_process_info(&mut self, process_info: ProcessInfo) {
-        println!("Adding agent info: {}", process_info.process_id);
+        log::info!("Adding agent info: {}", process_info.process_id);
         self.process_infos.push(process_info);
     }
 
@@ -95,12 +95,12 @@ impl RuntimeInfo {
 
 impl AgentEventListener for RuntimeInfo {
     fn on_agent_started(&mut self, process_info: ProcessInfo) {
-        println!("Agent started with PID: {}", process_info.process_id);
+        log::info!("Agent started with PID: {}", process_info.process_id);
         self.add_process_info(process_info);
     }
 
     fn on_agent_terminated(&mut self, process_id: u32) {
-        println!("Agent terminated with PID: {}", process_id);
+        log::info!("Agent terminated with PID: {}", process_id);
         self.remove_process_info(process_id);
     }
 }
