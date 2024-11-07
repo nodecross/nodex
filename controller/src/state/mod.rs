@@ -1,3 +1,5 @@
 mod default;
 pub mod handler;
-mod updating;
+pub mod updating;
+pub mod resource;
+pub mod rollback;

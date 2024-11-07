@@ -12,7 +12,7 @@ use tokio::time::{self, Duration};
 mod config;
 pub mod process;
 mod runtime;
-mod state;
+pub mod state;
 
 #[tokio::main]
 pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {

@@ -4,7 +4,10 @@ use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::{app_config, server_config};
 use anyhow;
 use bytes::Bytes;
+#[cfg(unix)]
 use controller::process::systemd::{is_manage_by_systemd, is_manage_socket_activation};
+#[cfg(unix)]
+use controller::state::resource::ResourceManager;
 #[cfg(unix)]
 use daemonize::Daemonize;
 use fs2::FileExt;
@@ -96,6 +99,8 @@ impl NodeX {
 
         #[cfg(unix)]
         {
+            let resource_manager = ResourceManager::new();
+            resource_manager.backup()?;
             self.run_controller(&agent_path)?;
             self.update_state()?;
         }

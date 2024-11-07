@@ -1,38 +1,39 @@
 pub mod action;
 
 use crate::state::updating::action::UpdateAction;
-
-use glob::glob;
+use crate::state::resource::ResourceManager;
 use semver::Version;
 use serde_yaml::Error as SerdeYamlError;
 use std::fs;
-use std::path::{PathBuf, Path};
+use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
 pub enum UpdatingError {
+    #[error("Failed to find bundle")]
+    BundleNotFound,
+    #[error("Failed to run actions: {0}")]
+    ActionError(#[source] Box<dyn std::error::Error>),
     #[error("Failed to read YAML file: {0}")]
     YamlReadError(#[source] std::io::Error),
     #[error("Failed to parse YAML: {0}")]
     YamlParseError(#[source] SerdeYamlError),
-    #[error("Failed to run actions: {0}")]
-    ActionError(#[source] Box<dyn std::error::Error>),
-    #[error("Failed to find download path")]
-    FindDownloadPathError,
-    #[error("Failed to find bundle")]
-    BundleNotFoundError,
     #[error("Invalid version format")]
     InvalidVersionFormat,
 }
 
-pub struct UpdatingState;
+pub struct UpdatingState {
+    resource_manager: ResourceManager,
+}
 
 impl UpdatingState {
-    pub fn handle(&self) -> Result<(), UpdatingError> {
-        let download_path = self.find_download_path()?;
+    pub fn new(resource_manager: ResourceManager) -> Self {
+        Self { resource_manager }
+    }
 
-        let bundles = self.collect_downloaded_bundles(&download_path);
+    pub fn handle(&self) -> Result<(), UpdatingError> {
+        let bundles = self.resource_manager.collect_downloaded_bundles();
         if bundles.is_empty() {
-            return Err(UpdatingError::BundleNotFoundError);
+            return Err(UpdatingError::BundleNotFound);
         }
 
         let update_actions = self.parse_bundles(&bundles)?;
@@ -52,19 +53,7 @@ impl UpdatingState {
         Ok(())
     }
 
-    fn find_download_path(&self) -> Result<PathBuf, UpdatingError> {
-        let download_path = if PathBuf::from("/home/nodex/tmp").exists() {
-            PathBuf::from("/home/nodex/tmp")
-        } else if PathBuf::from("/tmp/nodex/").exists() {
-            PathBuf::from("/tmp/nodex/")
-        } else {
-            return Err(UpdatingError::FindDownloadPathError);
-        };
-
-        Ok(download_path)
-    }
-
-    fn parse_bundles(&self, bundles: &[PathBuf]) -> Result<Vec<UpdateAction>, UpdatingError> {
+    pub fn parse_bundles(&self, bundles: &[PathBuf]) -> Result<Vec<UpdateAction>, UpdatingError> {
         bundles
             .iter()
             .map(|bundle| {
@@ -77,20 +66,7 @@ impl UpdatingState {
             .collect()
     }
 
-    fn collect_downloaded_bundles(&self, download_path: &Path) -> Vec<PathBuf> {
-        let pattern = download_path
-            .join("bundles")
-            .join("*.yml")
-            .to_string_lossy()
-            .into_owned();
-
-        match glob(&pattern) {
-            Ok(paths) => paths.filter_map(Result::ok).collect(),
-            Err(_) => Vec::new(),
-        }
-    }
-
-    fn extract_pending_update_actions<'a>(
+    pub fn extract_pending_update_actions<'a>(
         &'a self,
         update_actions: &'a [UpdateAction],
     ) -> Result<Vec<&'a UpdateAction>, UpdatingError> {

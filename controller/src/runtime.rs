@@ -18,6 +18,7 @@ pub struct RuntimeInfo {
 pub enum State {
     Default,
     Updating,
+    Rollback,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -50,7 +51,6 @@ pub enum RuntimeError {
     JsonSerialize(#[source] serde_json::Error),
 }
 
-
 impl RuntimeInfo {
     pub fn default() -> Self {
         RuntimeInfo {
@@ -72,8 +72,7 @@ impl RuntimeInfo {
         let mut content = String::new();
         file.read_to_string(&mut content)
             .map_err(RuntimeError::FileRead)?;
-        let runtime_info =
-            serde_json::from_str(&content).map_err(RuntimeError::JsonSerialize)?;
+        let runtime_info = serde_json::from_str(&content).map_err(RuntimeError::JsonSerialize)?;
         Ok(runtime_info)
     }
 

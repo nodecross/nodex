@@ -1,8 +1,8 @@
-mod move_action;
+mod move_resource;
 mod update_json;
 
 use crate::state::updating::action::{
-    move_action::MoveOperationError, update_json::UpdateJsonOperationError,
+    move_resource::MoveResourceError, update_json::UpdateJsonError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -10,12 +10,12 @@ use serde::{Deserialize, Serialize};
 pub struct UpdateAction {
     pub version: String,
     pub description: String,
-    pub operations: Vec<Operation>,
+    pub tasks: Vec<Task>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(tag = "action")]
-pub enum Operation {
+pub enum Task {
     Move {
         description: String,
         src: String,
@@ -31,20 +31,20 @@ pub enum Operation {
 
 #[derive(Debug, thiserror::Error)]
 pub enum UpdateActionError {
-    #[error("Move operation failed: {0}")]
-    Move(#[from] MoveOperationError),
+    #[error("Move task failed: {0}")]
+    Move(#[from] MoveResourceError),
     #[error("Update JSON operation failed: {0}")]
-    UpdateJson(#[from] UpdateJsonOperationError),
+    UpdateJson(#[from] UpdateJsonError),
 }
 
 impl UpdateAction {
     pub fn run(&self) -> Result<(), UpdateActionError> {
-        for operation in &self.operations {
-            match operation {
-                Operation::Move { src, dest, .. } => {
-                    move_action::execute(src, dest)?;
+        for task in &self.tasks {
+            match task {
+                Task::Move { src, dest, .. } => {
+                    move_resource::execute(src, dest)?;
                 }
-                Operation::UpdateJson {
+                Task::UpdateJson {
                     file, field, value, ..
                 } => {
                     update_json::execute(file, field, value)?;
