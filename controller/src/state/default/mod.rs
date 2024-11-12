@@ -1,14 +1,19 @@
 use crate::process::agent::{AgentProcessManager, AgentProcessManagerError};
 use std::sync::{Arc, Mutex};
 
-pub struct DefaultState;
+pub struct DefaultState<'a> {
+    agent_process_manager: &'a Arc<Mutex<AgentProcessManager>>,
+}
 
-impl DefaultState {
-    pub fn handle(
-        &self,
-        agent_process_manager: &Arc<Mutex<AgentProcessManager>>,
-    ) -> Result<(), AgentProcessManagerError> {
-        let manager = agent_process_manager.lock().unwrap();
+impl<'a> DefaultState<'a> {
+    pub fn new(agent_process_manager: &'a Arc<Mutex<AgentProcessManager>>) -> Self {
+        Self {
+            agent_process_manager,
+        }
+    }
+
+    pub fn handle(&self) -> Result<(), AgentProcessManagerError> {
+        let manager = self.agent_process_manager.lock().unwrap();
         manager.launch_agent()
     }
 }

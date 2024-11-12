@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 
+use crate::process::runtime::{FeatType, ProcessInfo};
 use crate::process::systemd::{is_manage_by_systemd, is_manage_socket_activation};
-use crate::runtime::{FeatType, ProcessInfo};
 
 static DEFAULT_FD: RawFd = 3;
 

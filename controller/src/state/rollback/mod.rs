@@ -16,9 +16,7 @@ impl RollbackState {
     pub fn new(resource_manager: ResourceManager) -> Self {
         Self { resource_manager }
     }
-    pub fn handle(
-        &self,
-    ) -> Result<(), RollbackError> {
+    pub fn handle(&self) -> Result<(), RollbackError> {
         let latest_backup = self.resource_manager.get_latest_backup();
         match latest_backup {
             Some(backup_file) => {

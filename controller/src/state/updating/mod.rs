@@ -1,11 +1,13 @@
 pub mod action;
 
-use crate::state::updating::action::UpdateAction;
+use crate::process::agent::{AgentProcessManager, AgentProcessManagerError};
 use crate::state::resource::ResourceManager;
+use crate::state::updating::action::UpdateAction;
 use semver::Version;
 use serde_yaml::Error as SerdeYamlError;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, thiserror::Error)]
 pub enum UpdatingError {
@@ -19,15 +21,24 @@ pub enum UpdatingError {
     YamlParseError(#[source] SerdeYamlError),
     #[error("Invalid version format")]
     InvalidVersionFormat,
+    #[error("agent process failed: {0}")]
+    AgentProcess(#[from] AgentProcessManagerError),
 }
 
-pub struct UpdatingState {
+pub struct UpdatingState<'a> {
     resource_manager: ResourceManager,
+    agent_process_manager: &'a Arc<Mutex<AgentProcessManager>>,
 }
 
-impl UpdatingState {
-    pub fn new(resource_manager: ResourceManager) -> Self {
-        Self { resource_manager }
+impl<'a> UpdatingState<'a> {
+    pub fn new(
+        resource_manager: ResourceManager,
+        agent_process_manager: &'a Arc<Mutex<AgentProcessManager>>,
+    ) -> Self {
+        Self {
+            resource_manager,
+            agent_process_manager,
+        }
     }
 
     pub fn handle(&self) -> Result<(), UpdatingError> {
@@ -48,7 +59,9 @@ impl UpdatingState {
             }
         }
 
-        log::info!("downloading binary");
+        self.launch_new_version_agent()?;
+        // monitor new version agent
+        // self.terminate_old_version_agent()?;
 
         Ok(())
     }
@@ -66,14 +79,14 @@ impl UpdatingState {
             .collect()
     }
 
-    pub fn extract_pending_update_actions<'a>(
-        &'a self,
-        update_actions: &'a [UpdateAction],
-    ) -> Result<Vec<&'a UpdateAction>, UpdatingError> {
+    pub fn extract_pending_update_actions<'b>(
+        &'b self,
+        update_actions: &'b [UpdateAction],
+    ) -> Result<Vec<&'b UpdateAction>, UpdatingError> {
         let current_version = Version::parse(env!("CARGO_PKG_VERSION"))
             .map_err(|_| UpdatingError::InvalidVersionFormat)?;
 
-        let pending_actions: Vec<&'a UpdateAction> = update_actions
+        let pending_actions: Vec<&'b UpdateAction> = update_actions
             .iter()
             .filter_map(|action| {
                 let target_version = Version::parse(&action.version).ok()?;
@@ -86,5 +99,19 @@ impl UpdatingState {
             .collect();
 
         Ok(pending_actions)
+    }
+
+    pub fn launch_new_version_agent(&self) -> Result<(), UpdatingError> {
+        let agent_process_manager = self.agent_process_manager.lock().unwrap();
+        agent_process_manager.launch_agent()?;
+
+        Ok(())
+    }
+
+    pub fn terminate_old_version_agent(&self, process_id: u32) -> Result<(), UpdatingError> {
+        let agent_process_manager = self.agent_process_manager.lock().unwrap();
+        agent_process_manager.terminate_agent(process_id)?;
+
+        Ok(())
     }
 }

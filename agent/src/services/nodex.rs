@@ -5,12 +5,18 @@ use crate::{app_config, server_config};
 use anyhow;
 use bytes::Bytes;
 #[cfg(unix)]
+use controller::process::runtime::{FeatType, RuntimeInfo, State};
+#[cfg(unix)]
 use controller::process::systemd::{is_manage_by_systemd, is_manage_socket_activation};
 #[cfg(unix)]
 use controller::state::resource::ResourceManager;
 #[cfg(unix)]
 use daemonize::Daemonize;
 use fs2::FileExt;
+#[cfg(unix)]
+use nix::sys::signal::{self, Signal};
+#[cfg(unix)]
+use nix::unistd::Pid;
 use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
 use protocol::did::sidetree::payload::DidResolutionResponse;
 use serde_json::{json, Value};
@@ -99,10 +105,14 @@ impl NodeX {
 
         #[cfg(unix)]
         {
+            let home_dir = dirs::home_dir().unwrap();
+            let path = home_dir.join(".nodex").join("runtime_info.json");
+            let mut runtime_info = RuntimeInfo::new(path);
+            runtime_info.read()?;
             let resource_manager = ResourceManager::new();
             resource_manager.backup()?;
-            self.run_controller(&agent_path)?;
-            self.update_state()?;
+            self.run_controller(&agent_path, &mut runtime_info)?;
+            runtime_info.update_state(State::Updating)?;
         }
 
         #[cfg(windows)]
@@ -134,50 +144,42 @@ impl NodeX {
     }
 
     #[cfg(unix)]
-    fn update_state(&self) -> anyhow::Result<()> {
-        let home_dir = dirs::home_dir().unwrap();
-        let config_dir = home_dir.join(".nodex");
-        let runtime_info_path = config_dir.join("runtime_info.json");
-
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(&runtime_info_path)?;
-        file.lock_exclusive()?;
-
-        let mut data: Value = serde_json::from_str(&fs::read_to_string(&runtime_info_path)?)?;
-        if let Some(state) = data.get_mut("state") {
-            *state = json!("updating");
-        } else {
-            data["state"] = json!("updating");
+    fn run_controller(
+        &self,
+        agent_path: &Path,
+        runtime_info: &mut RuntimeInfo,
+    ) -> anyhow::Result<()> {
+        let mut process_ids_to_remove = vec![];
+        for process_info in &runtime_info.process_infos {
+            if process_info.feat_type == FeatType::Controller {
+                signal::kill(
+                    Pid::from_raw(process_info.process_id as i32),
+                    Signal::SIGTERM,
+                )
+                .map_err(|e| {
+                    anyhow::anyhow!("Failed to kill process {}: {}", process_info.process_id, e)
+                })?;
+                process_ids_to_remove.push(process_info.process_id);
+            }
         }
 
-        let mut file = fs::File::create(&runtime_info_path)?;
-        file.write_all(serde_json::to_string_pretty(&data)?.as_bytes())?;
+        for process_id in process_ids_to_remove {
+            runtime_info.remove_process_info(process_id);
+        }
 
-        file.unlock()?;
-
-        Ok(())
-    }
-
-    #[cfg(unix)]
-    fn run_controller(&self, agent_path: &Path) -> anyhow::Result<()> {
-        // ToDo:
-        // backup
-        // move bin to current dir
-        // kill old controller
         if is_manage_by_systemd() && is_manage_socket_activation() {
             return Ok(());
         }
-        Command::new("chmod").arg("+x").arg(agent_path).status()?;
 
+        Command::new("chmod").arg("+x").arg(agent_path).status()?;
         let daemonize = Daemonize::new();
-        daemonize.start().expect("Failed to update nodex process");
+        daemonize
+            .start()
+            .map_err(|e| anyhow::anyhow!("Failed to update nodexe_pro process: {}", e))?;
         std::process::Command::new(agent_path)
             .arg("controller")
             .spawn()
-            .expect("Failed to execute command");
+            .map_err(|e| anyhow::anyhow!("Failed to execute command: {}", e))?;
         Ok(())
     }
 

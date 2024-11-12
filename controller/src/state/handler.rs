@@ -1,10 +1,10 @@
 use crate::process::agent::{AgentProcessManager, AgentProcessManagerError};
-use crate::runtime::State;
+use crate::process::runtime::State;
 use crate::state::{
     default::DefaultState,
-    updating::{UpdatingError, UpdatingState},
     resource::ResourceManager,
-    rollback::{RollbackState, RollbackError}
+    rollback::{RollbackError, RollbackState},
+    updating::{UpdatingError, UpdatingState},
 };
 use std::sync::{Arc, Mutex};
 
@@ -33,18 +33,18 @@ impl StateHandler {
         match current_state {
             State::Updating => {
                 let resource_manager = ResourceManager::new();
-                let updating_state = UpdatingState::new(resource_manager);
+                let updating_state = UpdatingState::new(resource_manager, agent_process_manager);
                 updating_state.handle()?
             }
             State::Rollback => {
                 let resource_manager = ResourceManager::new();
                 let rollback_state = RollbackState::new(resource_manager);
-                rollback_state.handle()?                
+                rollback_state.handle()?
             }
             State::Default => {
-                let default_state = DefaultState {};
-                default_state.handle(agent_process_manager)
-            }?,
+                let default_state = DefaultState::new(agent_process_manager);
+                default_state.handle()?
+            }
         }
 
         Ok(())

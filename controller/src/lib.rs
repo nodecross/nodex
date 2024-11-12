@@ -1,6 +1,6 @@
 use crate::config::get_config;
 use crate::process::agent::AgentProcessManager;
-use crate::runtime::{FeatType, ProcessInfo, RuntimeInfo, State};
+use crate::process::runtime::{FeatType, ProcessInfo, RuntimeInfo, State};
 use crate::state::handler::StateHandler;
 use std::path::PathBuf;
 use std::process as stdProcess;
@@ -11,17 +11,13 @@ use tokio::time::{self, Duration};
 
 mod config;
 pub mod process;
-mod runtime;
 pub mod state;
 
 #[tokio::main]
 pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-    let runtime_info_path = get_runtime_info_path();
     let should_stop = Arc::new(AtomicBool::new(false));
-    let runtime_lock = Arc::new(Mutex::new(()));
-    let runtime_info = Arc::new(Mutex::new(RuntimeInfo::load_or_default(
-        &runtime_info_path,
-        runtime_lock.clone(),
+    let runtime_info = Arc::new(Mutex::new(RuntimeInfo::new(
+        get_runtime_info_path(),
     )));
     on_controller_started(&runtime_info);
 
@@ -57,7 +53,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'stat
     });
 
     monitoring_loop(
-        runtime_info_path,
+        get_runtime_info_path(),
         runtime_info,
         agent_process_manager,
         should_stop,
@@ -89,9 +85,6 @@ async fn monitoring_loop(
         let current_state = get_state(&runtime_info);
         if previous_state.as_ref() != Some(&current_state) {
             let _ = state_handler.handle(&current_state, &agent_process_manager);
-
-            save_runtime_info(&runtime_info_path, &runtime_info);
-
             previous_state = Some(current_state);
         }
 
@@ -105,15 +98,9 @@ fn get_runtime_info_path() -> PathBuf {
 }
 
 fn get_state(runtime_info: &Arc<Mutex<RuntimeInfo>>) -> State {
-    let runtime_info_guard = runtime_info.lock().unwrap();
+    let mut runtime_info_guard = runtime_info.lock().unwrap();
+    runtime_info_guard.reload().expect("Failed to reload runtime info");
     runtime_info_guard.state.clone()
-}
-
-fn save_runtime_info(runtime_info_path: &PathBuf, runtime_info: &Arc<Mutex<RuntimeInfo>>) {
-    let runtime_info_guard = runtime_info.lock().unwrap();
-    runtime_info_guard
-        .write(runtime_info_path)
-        .expect("Failed to write runtime info");
 }
 
 fn on_controller_started(runtime_info: &Arc<Mutex<RuntimeInfo>>) {
