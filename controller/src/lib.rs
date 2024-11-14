@@ -20,6 +20,14 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'stat
     let should_stop = Arc::new(AtomicBool::new(false));
     let file_handler = FileHandler::new(get_runtime_info_path());
     let runtime_manager = RuntimeManager::new(file_handler);
+    let controller_processes = runtime_manager
+        .filter_process_info(FeatType::Controller)
+        .unwrap();
+    if !controller_processes.is_empty() {
+        log::error!("Controller already running");
+        return Ok(());
+    }
+
     on_controller_started(&runtime_manager).unwrap();
 
     let uds_path = {

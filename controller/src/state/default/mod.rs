@@ -1,5 +1,7 @@
-use crate::managers::agent::{AgentProcessManager, AgentProcessManagerError};
-use crate::managers::runtime::{RuntimeError, RuntimeManager};
+use crate::managers::{
+    agent::{AgentProcessManager, AgentProcessManagerError},
+    runtime::{RuntimeError, RuntimeManager},
+};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, thiserror::Error)]
@@ -20,15 +22,21 @@ impl<'a> DefaultState<'a> {
         agent_process_manager: &'a Arc<Mutex<AgentProcessManager>>,
         runtime_manager: &'a RuntimeManager,
     ) -> Self {
-        Self {
+        DefaultState {
             agent_process_manager,
             runtime_manager,
         }
     }
 
     pub fn handle(&self) -> Result<(), DefaultError> {
-        let manager = self.agent_process_manager.lock().unwrap();
-        let process_info = manager.launch_agent()?;
+        let agent_processes = self.runtime_manager.clean_and_get_running_agents()?;
+        if agent_processes.len() > 1 {
+            log::error!("Agent already running");
+            return Ok(());
+        }
+
+        let agent_manager = self.agent_process_manager.lock().unwrap();
+        let process_info = agent_manager.launch_agent()?;
         self.runtime_manager.add_process_info(process_info)?;
 
         Ok(())

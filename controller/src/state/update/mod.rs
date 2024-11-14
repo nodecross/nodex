@@ -33,20 +33,20 @@ pub enum UpdateError {
 }
 
 pub struct UpdateState<'a> {
-    resource_manager: ResourceManager,
     agent_process_manager: &'a Arc<Mutex<AgentProcessManager>>,
+    resource_manager: ResourceManager,
     runtime_manager: &'a RuntimeManager,
 }
 
 impl<'a> UpdateState<'a> {
     pub fn new(
-        resource_manager: ResourceManager,
         agent_process_manager: &'a Arc<Mutex<AgentProcessManager>>,
+        resource_manager: ResourceManager,
         runtime_manager: &'a RuntimeManager,
     ) -> Self {
         Self {
-            resource_manager,
             agent_process_manager,
+            resource_manager,
             runtime_manager,
         }
     }
@@ -116,8 +116,9 @@ impl<'a> UpdateState<'a> {
     }
 
     pub fn launch_new_version_agent(&self) -> Result<(), UpdateError> {
-        let agent_process_manager = self.agent_process_manager.lock().unwrap();
-        agent_process_manager.launch_agent()?;
+        let agent_manager = self.agent_process_manager.lock().unwrap();
+        let process_info = agent_manager.launch_agent()?;
+        self.runtime_manager.add_process_info(process_info)?;
 
         Ok(())
     }

@@ -20,7 +20,7 @@ mod unix_imports {
     };
     pub use controller::validator::{
         network::is_online,
-        systemd::{is_manage_by_systemd, is_manage_socket_activation},
+        process::{is_manage_by_systemd, is_manage_socket_activation},
     };
     pub use daemonize::Daemonize;
     pub use nix::sys::signal::{self, Signal};

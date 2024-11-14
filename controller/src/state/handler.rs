@@ -38,12 +38,13 @@ impl StateHandler {
             State::Update => {
                 let resource_manager = ResourceManager::new();
                 let update_state =
-                    UpdateState::new(resource_manager, agent_process_manager, runtime_manager);
+                    UpdateState::new(agent_process_manager, resource_manager, runtime_manager);
                 update_state.handle()?
             }
             State::Rollback => {
                 let resource_manager = ResourceManager::new();
-                let rollback_state = RollbackState::new(resource_manager);
+                let rollback_state =
+                    RollbackState::new(agent_process_manager, &resource_manager, runtime_manager);
                 rollback_state.handle()?
             }
             State::Default => {

@@ -9,7 +9,7 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 
 use crate::managers::runtime::{FeatType, ProcessInfo};
-use crate::validator::systemd::{is_manage_by_systemd, is_manage_socket_activation};
+use crate::validator::process::{is_manage_by_systemd, is_manage_socket_activation};
 
 static DEFAULT_FD: RawFd = 3;
 

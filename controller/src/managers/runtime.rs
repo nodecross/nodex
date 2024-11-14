@@ -1,3 +1,4 @@
+use crate::validator::process::is_running;
 use chrono::{DateTime, FixedOffset, Utc};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
@@ -156,6 +157,38 @@ impl RuntimeManager {
         let runtime_info = self.read_runtime_info()?;
 
         Ok(runtime_info.process_infos)
+    }
+
+    pub fn filter_process_info(
+        &self,
+        feat_type: FeatType,
+    ) -> Result<Vec<ProcessInfo>, RuntimeError> {
+        let process_infos = self.get_process_infos()?;
+        Ok(process_infos
+            .into_iter()
+            .filter(|process_info| process_info.feat_type == feat_type)
+            .collect::<Vec<ProcessInfo>>())
+    }
+
+    pub fn clean_and_get_running_agents(&self) -> Result<Vec<ProcessInfo>, RuntimeError> {
+        let mut agent_processes = self.filter_process_info(FeatType::Agent)?;
+
+        agent_processes.retain(|agent_process| {
+            if !is_running(agent_process.process_id) {
+                if let Err(e) = self.remove_process_info(agent_process.process_id) {
+                    log::error!(
+                        "Failed to remove process info for process ID {}: {}",
+                        agent_process.process_id,
+                        e
+                    );
+                }
+                false
+            } else {
+                true
+            }
+        });
+
+        Ok(agent_processes)
     }
 
     pub fn add_process_info(&self, process_info: ProcessInfo) -> Result<(), RuntimeError> {
