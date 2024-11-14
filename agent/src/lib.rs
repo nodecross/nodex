@@ -32,6 +32,7 @@ use usecase::metric_usecase::MetricUsecase;
 pub mod cli;
 mod config;
 mod controllers;
+mod errors;
 mod handlers;
 mod network;
 mod nodex;

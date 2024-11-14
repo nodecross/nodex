@@ -1,40 +1,38 @@
 use actix_web::{web, HttpRequest, HttpResponse};
-use chrono::DateTime;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    repository::event_repository::EventStoreRequest, usecase::event_usecase::EventUsecase,
+    errors::{AgentError, AgentErrorCode},
+    repository::event_repository::EventStoreRequest,
+    usecase::event_usecase::EventUsecase,
 };
+
+use super::utils::str2time;
 
 #[derive(Deserialize, Serialize)]
 pub struct MessageContainer {
+    #[serde(default)]
     key: String,
+    #[serde(default)]
     detail: String,
+    #[serde(default)]
     occurred_at: String,
 }
 
 pub async fn handler(
     _req: HttpRequest,
     web::Json(json): web::Json<MessageContainer>,
-) -> actix_web::Result<HttpResponse> {
+) -> actix_web::Result<HttpResponse, AgentError> {
     if json.key.is_empty() {
-        return Ok(HttpResponse::BadRequest().json("key is required"));
+        Err(AgentErrorCode::SendEventNoKey)?
     }
     if json.detail.is_empty() {
-        return Ok(HttpResponse::BadRequest().json("detail is required"));
+        Err(AgentErrorCode::SendEventNoDetail)?
     }
 
-    let occurred_at = match json.occurred_at.parse::<i64>() {
-        Ok(timestamp) => match DateTime::from_timestamp(timestamp, 0) {
-            Some(dt) => dt,
-            _ => {
-                return Ok(HttpResponse::BadRequest().json("occurred_at is invalid format"));
-            }
-        },
-        Err(_) => {
-            return Ok(HttpResponse::BadRequest().json("occurred_at is invalid format"));
-        }
-    };
+    let occurred_at =
+        str2time(&json.occurred_at).ok_or(AgentErrorCode::SendEventInvalidOccurredAt)?;
 
     let usecase = EventUsecase::new();
     match usecase
@@ -51,7 +49,7 @@ pub async fn handler(
         }
         Err(e) => {
             log::error!("{:?}", e);
-            Ok(HttpResponse::InternalServerError().json("internal server error"))
+            Err(AgentErrorCode::SendEventInternal)?
         }
     }
 }
