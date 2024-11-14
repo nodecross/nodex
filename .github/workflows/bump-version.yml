@@ -51,7 +51,7 @@ jobs:
 
       - id: cargo-set-version
         name: Set Version
-        run: cargo set-version --bump ${{ inputs.version }}
+        run: cargo set-version --bump ${{ inputs.version }} --exclude protocol
 
       - name: Set Crate Version as Environment Variable
         id: set_crate_version
