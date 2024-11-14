@@ -1,9 +1,7 @@
 mod move_resource;
 mod update_json;
 
-use crate::state::updating::action::{
-    move_resource::MoveResourceError, update_json::UpdateJsonError,
-};
+use crate::state::update::tasks::{move_resource::MoveResourceError, update_json::UpdateJsonError};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]

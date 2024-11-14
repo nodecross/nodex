@@ -3,30 +3,32 @@ use crate::nodex::keyring;
 use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::{app_config, server_config};
 use anyhow;
-use bytes::Bytes;
-#[cfg(unix)]
-use controller::process::runtime::{FeatType, RuntimeInfo, State};
-#[cfg(unix)]
-use controller::process::systemd::{is_manage_by_systemd, is_manage_socket_activation};
-#[cfg(unix)]
-use controller::state::resource::ResourceManager;
-#[cfg(unix)]
-use daemonize::Daemonize;
-use fs2::FileExt;
-#[cfg(unix)]
-use nix::sys::signal::{self, Signal};
-#[cfg(unix)]
-use nix::unistd::Pid;
+
 use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
 use protocol::did::sidetree::payload::DidResolutionResponse;
-use serde_json::{json, Value};
 use std::{
-    fs::{self, OpenOptions},
-    io::{Cursor, Write},
+    fs,
     path::{Path, PathBuf},
     process::Command,
 };
-use zip::ZipArchive;
+
+#[cfg(unix)]
+mod unix_imports {
+    pub use controller::managers::{
+        resource::ResourceManager,
+        runtime::{FeatType, FileHandler, RuntimeManager, State},
+    };
+    pub use controller::validator::{
+        network::is_online,
+        systemd::{is_manage_by_systemd, is_manage_socket_activation},
+    };
+    pub use daemonize::Daemonize;
+    pub use nix::sys::signal::{self, Signal};
+    pub use nix::unistd::Pid;
+}
+
+#[cfg(unix)]
+use unix_imports::*;
 
 pub struct NodeX {
     did_repository: DidRepositoryImpl<SideTreeClient>,
@@ -84,6 +86,10 @@ impl NodeX {
         binary_url: &str,
         output_path: PathBuf,
     ) -> anyhow::Result<()> {
+        if !is_online() {
+            return Err(anyhow::anyhow!("Not connected to the Internet"));
+        }
+
         anyhow::ensure!(
             binary_url.starts_with("https://github.com/nodecross/nodex/releases/download/"),
             "Invalid url"
@@ -93,26 +99,29 @@ impl NodeX {
         let agent_filename = { "nodex-agent" };
         #[cfg(windows)]
         let agent_filename = { "nodex-agent.exe" };
-
         let agent_path = output_path.join(agent_filename);
-
-        let response = reqwest::get(binary_url).await?;
-        let content = response.bytes().await?;
         if PathBuf::from(&agent_path).exists() {
             fs::remove_file(&agent_path)?;
         }
-        self.extract_zip(content, &output_path)?;
+
+        let resource_manager = ResourceManager::new();
+        resource_manager
+            .download_update_resources(binary_url, Some(&output_path))
+            .await
+            .map_err(|_| anyhow::anyhow!("Failed to download the file from {}", binary_url))?;
 
         #[cfg(unix)]
         {
             let home_dir = dirs::home_dir().unwrap();
             let path = home_dir.join(".nodex").join("runtime_info.json");
-            let mut runtime_info = RuntimeInfo::new(path);
-            runtime_info.read()?;
             let resource_manager = ResourceManager::new();
             resource_manager.backup()?;
-            self.run_controller(&agent_path, &mut runtime_info)?;
-            runtime_info.update_state(State::Updating)?;
+
+            let file_handler = FileHandler::new(path);
+            let runtime_manager = RuntimeManager::new(file_handler);
+
+            self.run_controller(&agent_path, &runtime_manager)?;
+            runtime_manager.update_state(State::Updating)?;
         }
 
         #[cfg(windows)]
@@ -121,36 +130,17 @@ impl NodeX {
         Ok(())
     }
 
-    fn extract_zip(&self, archive_data: Bytes, output_path: &Path) -> anyhow::Result<()> {
-        let cursor = Cursor::new(archive_data);
-        let mut archive = ZipArchive::new(cursor)?;
-
-        for i in 0..archive.len() {
-            let mut file = archive.by_index(i)?;
-            let file_path = output_path.join(file.mangled_name());
-
-            if file.is_file() {
-                if let Some(parent) = file_path.parent() {
-                    std::fs::create_dir_all(parent)?;
-                }
-                let mut output_file = fs::File::create(&file_path)?;
-                std::io::copy(&mut file, &mut output_file)?;
-            } else if file.is_dir() {
-                std::fs::create_dir_all(&file_path)?;
-            }
-        }
-
-        Ok(())
-    }
-
     #[cfg(unix)]
     fn run_controller(
         &self,
         agent_path: &Path,
-        runtime_info: &mut RuntimeInfo,
+        runtime_manager: &RuntimeManager,
     ) -> anyhow::Result<()> {
         let mut process_ids_to_remove = vec![];
-        for process_info in &runtime_info.process_infos {
+        let process_infos = runtime_manager
+            .get_process_infos()
+            .map_err(|e| anyhow::anyhow!("Failed to get process infos: {}", e))?;
+        for process_info in process_infos {
             if process_info.feat_type == FeatType::Controller {
                 signal::kill(
                     Pid::from_raw(process_info.process_id as i32),
@@ -164,7 +154,7 @@ impl NodeX {
         }
 
         for process_id in process_ids_to_remove {
-            runtime_info.remove_process_info(process_id);
+            let _ = runtime_manager.remove_process_info(process_id);
         }
 
         if is_manage_by_systemd() && is_manage_socket_activation() {

@@ -1,14 +1,26 @@
 use crate::config::get_config;
+use bytes::Bytes;
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use glob::glob;
 use std::{
     env,
     fs::{self, File},
-    io::{self, Write},
-    path::PathBuf,
+    io::{self, Cursor},
+    path::{Path, PathBuf},
     time::SystemTime,
 };
 use tar::{Archive, Builder};
+use zip::{result::ZipError, ZipArchive};
+
+#[derive(Debug, thiserror::Error)]
+pub enum ResourceError {
+    #[error("Failed to download the file from {0}")]
+    DownloadFailed(String),
+    #[error("Failed to write to output path: {0}")]
+    IoError(#[from] io::Error),
+    #[error("Failed to extract zip file")]
+    ZipError(#[from] ZipError),
+}
 
 pub struct ResourceManager {
     tmp_path: PathBuf,
@@ -27,6 +39,47 @@ impl ResourceManager {
         };
 
         Self { tmp_path }
+    }
+
+    pub async fn download_update_resources(
+        &self,
+        binary_url: &str,
+        output_path: Option<&PathBuf>,
+    ) -> Result<(), ResourceError> {
+        let download_path = output_path.unwrap_or(&self.tmp_path);
+
+        let response = reqwest::get(binary_url)
+            .await
+            .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
+        let content = response
+            .bytes()
+            .await
+            .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
+
+        self.extract_zip(content, download_path)?;
+        Ok(())
+    }
+
+    fn extract_zip(&self, archive_data: Bytes, output_path: &Path) -> Result<(), ResourceError> {
+        let cursor = Cursor::new(archive_data);
+        let mut archive = ZipArchive::new(cursor)?;
+
+        for i in 0..archive.len() {
+            let mut file = archive.by_index(i)?;
+            let file_path = output_path.join(file.mangled_name());
+
+            if file.is_file() {
+                if let Some(parent) = file_path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                let mut output_file = std::fs::File::create(&file_path)?;
+                std::io::copy(&mut file, &mut output_file)?;
+            } else if file.is_dir() {
+                std::fs::create_dir_all(&file_path)?;
+            }
+        }
+
+        Ok(())
     }
 
     pub fn collect_downloaded_bundles(&self) -> Vec<PathBuf> {
@@ -107,5 +160,11 @@ impl ResourceManager {
         archive.unpack("/")?;
         println!("Rollback completed from {:?}", backup_file);
         Ok(())
+    }
+}
+
+impl Default for ResourceManager {
+    fn default() -> Self {
+        Self::new()
     }
 }

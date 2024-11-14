@@ -1,6 +1,8 @@
 use crate::config::get_config;
-use crate::process::agent::AgentProcessManager;
-use crate::process::runtime::{FeatType, ProcessInfo, RuntimeInfo, State};
+use crate::managers::agent::AgentProcessManager;
+use crate::managers::runtime::{
+    FeatType, FileHandler, ProcessInfo, RuntimeError, RuntimeManager, State,
+};
 use crate::state::handler::StateHandler;
 use std::path::PathBuf;
 use std::process as stdProcess;
@@ -8,33 +10,26 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::time::{self, Duration};
-
 mod config;
-pub mod process;
+pub mod managers;
 pub mod state;
+pub mod validator;
 
 #[tokio::main]
 pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
     let should_stop = Arc::new(AtomicBool::new(false));
-    let runtime_info = Arc::new(Mutex::new(RuntimeInfo::new(
-        get_runtime_info_path(),
-    )));
-    on_controller_started(&runtime_info);
+    let file_handler = FileHandler::new(get_runtime_info_path());
+    let runtime_manager = RuntimeManager::new(file_handler);
+    on_controller_started(&runtime_manager).unwrap();
 
     let uds_path = {
         let config = get_config().lock().unwrap();
         config.uds_path.clone()
     };
-    let agent_process_manager = Arc::new(Mutex::new(AgentProcessManager::new(
-        &uds_path,
-        runtime_info.clone(),
-    )?));
+    let agent_process_manager = Arc::new(Mutex::new(AgentProcessManager::new(&uds_path)?));
 
     let shutdown_handle = tokio::spawn({
         let should_stop = should_stop.clone();
-        // let runtime_info = runtime_info.clone();
-        // let runtime_info_path = runtime_info_path.clone();
-        // let agent_process_manager = agent_process_manager.clone();
 
         async move {
             handle_signals(should_stop).await;
@@ -52,13 +47,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'stat
         }
     });
 
-    monitoring_loop(
-        get_runtime_info_path(),
-        runtime_info,
-        agent_process_manager,
-        should_stop,
-    )
-    .await;
+    monitoring_loop(&runtime_manager, agent_process_manager, should_stop).await;
 
     let _ = shutdown_handle.await;
     log::info!("Shutdown handler completed successfully.");
@@ -67,8 +56,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'stat
 }
 
 async fn monitoring_loop(
-    runtime_info_path: PathBuf,
-    runtime_info: Arc<Mutex<RuntimeInfo>>,
+    runtime_manager: &RuntimeManager,
     agent_process_manager: Arc<Mutex<AgentProcessManager>>,
     should_stop: Arc<AtomicBool>,
 ) {
@@ -82,9 +70,9 @@ async fn monitoring_loop(
             break;
         }
 
-        let current_state = get_state(&runtime_info);
+        let current_state = runtime_manager.get_state().unwrap();
         if previous_state.as_ref() != Some(&current_state) {
-            let _ = state_handler.handle(&current_state, &agent_process_manager);
+            let _ = state_handler.handle(runtime_manager, &agent_process_manager);
             previous_state = Some(current_state);
         }
 
@@ -97,16 +85,9 @@ fn get_runtime_info_path() -> PathBuf {
     config.config_dir.join("runtime_info.json")
 }
 
-fn get_state(runtime_info: &Arc<Mutex<RuntimeInfo>>) -> State {
-    let mut runtime_info_guard = runtime_info.lock().unwrap();
-    runtime_info_guard.reload().expect("Failed to reload runtime info");
-    runtime_info_guard.state.clone()
-}
-
-fn on_controller_started(runtime_info: &Arc<Mutex<RuntimeInfo>>) {
+fn on_controller_started(runtime_manager: &RuntimeManager) -> Result<(), RuntimeError> {
     let process_info = ProcessInfo::new(stdProcess::id(), FeatType::Controller);
-    let mut runtime_info_guard = runtime_info.lock().unwrap();
-    runtime_info_guard.add_process_info(process_info);
+    runtime_manager.add_process_info(process_info)
 }
 
 async fn handle_signals(should_stop: Arc<AtomicBool>) {

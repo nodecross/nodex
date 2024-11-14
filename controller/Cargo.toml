@@ -15,6 +15,7 @@ version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bytes = { workspace = true }
 chrono = { workspace = true }
 dirs = { workspace = true }
 fs2 = { workspace = true }
@@ -24,6 +25,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
 tokio = { workspace = true }
+sysinfo = { workspace = true }
 serde_yaml = "0.9.34"
 shadow-rs = { workspace = true }
 thiserror = { workspace = true }
@@ -31,6 +33,8 @@ glob = "0.3.1"
 semver = "1.0.23"
 tar = "0.4.43"
 flate2 = "1.0.34"
+reqwest = { workspace = true }
+zip = { workspace = true }
 
 [build-dependencies]
 shadow-rs = { workspace = true }

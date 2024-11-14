@@ -1,3 +1,3 @@
 pub mod agent;
+pub mod resource;
 pub mod runtime;
-pub mod systemd;

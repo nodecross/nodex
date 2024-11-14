@@ -803,6 +803,7 @@ checksum = "7c74b8349d32d297c9134b8c88677813a227df8f779daa29bfc29c183fe3dca6"
 name = "controller"
 version = "3.2.0"
 dependencies = [
+ "bytes",
  "chrono",
  "dirs 5.0.1",
  "flate2",
@@ -811,14 +812,17 @@ dependencies = [
  "lazy_static",
  "log",
  "nix 0.29.0",
+ "reqwest",
  "semver",
  "serde",
  "serde_json",
  "serde_yaml",
  "shadow-rs",
+ "sysinfo",
  "tar",
  "thiserror",
  "tokio",
+ "zip",
 ]
 
 [[package]]

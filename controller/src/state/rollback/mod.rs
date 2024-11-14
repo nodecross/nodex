@@ -1,4 +1,4 @@
-use crate::state::resource::ResourceManager;
+use crate::managers::resource::ResourceManager;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RollbackError {

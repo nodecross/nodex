@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 
-use crate::process::runtime::{FeatType, ProcessInfo};
-use crate::process::systemd::{is_manage_by_systemd, is_manage_socket_activation};
+use crate::managers::runtime::{FeatType, ProcessInfo};
+use crate::validator::systemd::{is_manage_by_systemd, is_manage_socket_activation};
 
 static DEFAULT_FD: RawFd = 3;
 
@@ -37,23 +37,14 @@ pub enum AgentProcessManagerError {
     ListenerFdParseError,
 }
 
-pub trait AgentEventListener {
-    fn on_agent_started(&mut self, process_info: ProcessInfo);
-    fn on_agent_terminated(&mut self, process_id: u32);
-}
-
 pub struct AgentProcessManager {
     listener_fd: RawFd,
     #[allow(dead_code)]
     listener: Option<Arc<Mutex<UnixListener>>>,
-    event_listener: Arc<Mutex<dyn AgentEventListener + Send>>,
 }
 
 impl AgentProcessManager {
-    pub fn new(
-        uds_path: &PathBuf,
-        event_listener: Arc<Mutex<dyn AgentEventListener + Send>>,
-    ) -> Result<Self, &'static str> {
+    pub fn new(uds_path: &PathBuf) -> Result<Self, &'static str> {
         let (listener_fd, listener) = Self::initialize_listener_fd(uds_path).map_err(|e| {
             log::error!("Error getting file descriptor: {}", e);
             "Failed to get file descriptor"
@@ -62,11 +53,10 @@ impl AgentProcessManager {
         Ok(AgentProcessManager {
             listener_fd,
             listener,
-            event_listener,
         })
     }
 
-    pub fn launch_agent(&self) -> Result<(), AgentProcessManagerError> {
+    pub fn launch_agent(&self) -> Result<ProcessInfo, AgentProcessManagerError> {
         let current_exe =
             env::current_exe().map_err(AgentProcessManagerError::CurrentExecutablePathError)?;
 
@@ -78,12 +68,8 @@ impl AgentProcessManager {
             .map_err(AgentProcessManagerError::ForkAgentError)?;
 
         let process_info = ProcessInfo::new(child.id(), FeatType::Agent);
-        self.event_listener
-            .lock()
-            .unwrap()
-            .on_agent_started(process_info);
 
-        Ok(())
+        Ok(process_info)
     }
 
     fn initialize_listener_fd(
@@ -131,17 +117,12 @@ impl AgentProcessManager {
         }
     }
 
-    #[allow(dead_code)]
     pub fn terminate_agent(&self, process_id: u32) -> Result<(), AgentProcessManagerError> {
         log::info!("Terminating agent with PID: {}", process_id);
 
         signal::kill(Pid::from_raw(process_id as i32), Signal::SIGTERM)
             .map_err(AgentProcessManagerError::TerminateProcessError)?;
 
-        self.event_listener
-            .lock()
-            .unwrap()
-            .on_agent_terminated(process_id);
         Ok(())
     }
 }

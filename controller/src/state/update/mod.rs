@@ -1,8 +1,11 @@
-pub mod action;
+pub mod tasks;
 
-use crate::process::agent::{AgentProcessManager, AgentProcessManagerError};
-use crate::state::resource::ResourceManager;
-use crate::state::updating::action::UpdateAction;
+use crate::managers::{
+    agent::{AgentProcessManager, AgentProcessManagerError},
+    resource::ResourceManager,
+    runtime::{RuntimeError, RuntimeManager, State},
+};
+use crate::state::update::tasks::UpdateAction;
 use semver::Version;
 use serde_yaml::Error as SerdeYamlError;
 use std::fs;
@@ -10,41 +13,52 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, thiserror::Error)]
-pub enum UpdatingError {
+pub enum UpdateError {
     #[error("Failed to find bundle")]
     BundleNotFound,
+    #[error("Invalid version format")]
+    InvalidVersionFormat,
     #[error("Failed to run actions: {0}")]
     ActionError(#[source] Box<dyn std::error::Error>),
     #[error("Failed to read YAML file: {0}")]
     YamlReadError(#[source] std::io::Error),
     #[error("Failed to parse YAML: {0}")]
     YamlParseError(#[source] SerdeYamlError),
-    #[error("Invalid version format")]
-    InvalidVersionFormat,
+    #[error("Failed to update state: {0}")]
+    UpdateStateFailed(#[source] RuntimeError),
     #[error("agent process failed: {0}")]
     AgentProcess(#[from] AgentProcessManagerError),
+    #[error("failed to get runtime info: {0}")]
+    RuntimeInfo(#[from] RuntimeError),
 }
 
-pub struct UpdatingState<'a> {
+pub struct UpdateState<'a> {
     resource_manager: ResourceManager,
     agent_process_manager: &'a Arc<Mutex<AgentProcessManager>>,
+    runtime_manager: &'a RuntimeManager,
 }
 
-impl<'a> UpdatingState<'a> {
+impl<'a> UpdateState<'a> {
     pub fn new(
         resource_manager: ResourceManager,
         agent_process_manager: &'a Arc<Mutex<AgentProcessManager>>,
+        runtime_manager: &'a RuntimeManager,
     ) -> Self {
         Self {
             resource_manager,
             agent_process_manager,
+            runtime_manager,
         }
     }
 
-    pub fn handle(&self) -> Result<(), UpdatingError> {
+    pub fn handle(&self) -> Result<(), UpdateError> {
+        self.runtime_manager
+            .update_state(State::Updating)
+            .map_err(UpdateError::UpdateStateFailed)?;
+
         let bundles = self.resource_manager.collect_downloaded_bundles();
         if bundles.is_empty() {
-            return Err(UpdatingError::BundleNotFound);
+            return Err(UpdateError::BundleNotFound);
         }
 
         let update_actions = self.parse_bundles(&bundles)?;
@@ -55,7 +69,7 @@ impl<'a> UpdatingState<'a> {
 
         for action in pending_update_actions {
             if let Err(e) = action.run() {
-                return Err(UpdatingError::ActionError(Box::new(e)));
+                return Err(UpdateError::ActionError(Box::new(e)));
             }
         }
 
@@ -66,14 +80,14 @@ impl<'a> UpdatingState<'a> {
         Ok(())
     }
 
-    pub fn parse_bundles(&self, bundles: &[PathBuf]) -> Result<Vec<UpdateAction>, UpdatingError> {
+    pub fn parse_bundles(&self, bundles: &[PathBuf]) -> Result<Vec<UpdateAction>, UpdateError> {
         bundles
             .iter()
             .map(|bundle| {
                 let yaml_content =
-                    fs::read_to_string(bundle).map_err(UpdatingError::YamlReadError)?;
+                    fs::read_to_string(bundle).map_err(UpdateError::YamlReadError)?;
                 let update_action: UpdateAction =
-                    serde_yaml::from_str(&yaml_content).map_err(UpdatingError::YamlParseError)?;
+                    serde_yaml::from_str(&yaml_content).map_err(UpdateError::YamlParseError)?;
                 Ok(update_action)
             })
             .collect()
@@ -82,9 +96,9 @@ impl<'a> UpdatingState<'a> {
     pub fn extract_pending_update_actions<'b>(
         &'b self,
         update_actions: &'b [UpdateAction],
-    ) -> Result<Vec<&'b UpdateAction>, UpdatingError> {
+    ) -> Result<Vec<&'b UpdateAction>, UpdateError> {
         let current_version = Version::parse(env!("CARGO_PKG_VERSION"))
-            .map_err(|_| UpdatingError::InvalidVersionFormat)?;
+            .map_err(|_| UpdateError::InvalidVersionFormat)?;
 
         let pending_actions: Vec<&'b UpdateAction> = update_actions
             .iter()
@@ -101,16 +115,17 @@ impl<'a> UpdatingState<'a> {
         Ok(pending_actions)
     }
 
-    pub fn launch_new_version_agent(&self) -> Result<(), UpdatingError> {
+    pub fn launch_new_version_agent(&self) -> Result<(), UpdateError> {
         let agent_process_manager = self.agent_process_manager.lock().unwrap();
         agent_process_manager.launch_agent()?;
 
         Ok(())
     }
 
-    pub fn terminate_old_version_agent(&self, process_id: u32) -> Result<(), UpdatingError> {
+    pub fn terminate_old_version_agent(&self, process_id: u32) -> Result<(), UpdateError> {
         let agent_process_manager = self.agent_process_manager.lock().unwrap();
         agent_process_manager.terminate_agent(process_id)?;
+        self.runtime_manager.remove_process_info(process_id)?;
 
         Ok(())
     }
