@@ -4,12 +4,15 @@ use crate::managers::runtime::{
     FeatType, FileHandler, ProcessInfo, RuntimeError, RuntimeManager, State,
 };
 use crate::state::handler::StateHandler;
+use nix::sys::signal::{self as nix_signal, Signal};
+use nix::unistd::Pid;
 use std::path::PathBuf;
 use std::process as stdProcess;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::time::{self, Duration};
+
 mod config;
 pub mod managers;
 pub mod state;
@@ -17,40 +20,29 @@ pub mod validator;
 
 #[tokio::main]
 pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+    let runtime_manager = initialize_runtime_manager();
     let should_stop = Arc::new(AtomicBool::new(false));
-    let file_handler = FileHandler::new(get_runtime_info_path());
-    let runtime_manager = RuntimeManager::new(file_handler);
-    let controller_processes = runtime_manager
-        .filter_process_info(FeatType::Controller)
-        .unwrap();
-    if !controller_processes.is_empty() {
+
+    if !runtime_manager
+        .filter_process_info(FeatType::Controller)?
+        .is_empty()
+    {
         log::error!("Controller already running");
         return Ok(());
     }
 
-    on_controller_started(&runtime_manager).unwrap();
+    on_controller_started(&runtime_manager)?;
 
-    let uds_path = {
-        let config = get_config().lock().unwrap();
-        config.uds_path.clone()
-    };
+    let uds_path = get_config().lock().unwrap().uds_path.clone();
     let agent_process_manager = Arc::new(Mutex::new(AgentProcessManager::new(&uds_path)?));
 
     let shutdown_handle = tokio::spawn({
-        let should_stop = should_stop.clone();
+        let should_stop = Arc::clone(&should_stop);
+        let agent_process_manager = Arc::clone(&agent_process_manager);
+        let runtime_manager = runtime_manager.clone();
 
         async move {
-            handle_signals(should_stop).await;
-            // If we make it possible to shutdown, won't that conflict with the kill by agent that assumes a reboot by systemd?
-            // let mut runtime_info_guard = runtime_info.lock().unwrap();
-            // for process_info in runtime_info_guard.process_infos.iter_mut() {
-            //     let pid = process_info.process_id;
-            //     log::info!("Terminating process with PID: {}", pid);
-            //     let mut manager = agent_process_manager.lock().unwrap();
-            //     manager.terminate_agent(pid);
-            // }
-            // save_runtime_info(&runtime_info_path, &runtime_info);
-
+            handle_signals(should_stop, agent_process_manager, runtime_manager).await;
             log::info!("All processes have been successfully terminated.");
         }
     });
@@ -68,7 +60,6 @@ async fn monitoring_loop(
     agent_process_manager: Arc<Mutex<AgentProcessManager>>,
     should_stop: Arc<AtomicBool>,
 ) {
-    // Maybe instead of looping based on state, it would be better to loop if none of the running agents exist in runtime_info?
     let state_handler = StateHandler::new();
     let mut previous_state: Option<State> = None;
 
@@ -80,7 +71,9 @@ async fn monitoring_loop(
 
         let current_state = runtime_manager.get_state().unwrap();
         if previous_state.as_ref() != Some(&current_state) {
-            let _ = state_handler.handle(runtime_manager, &agent_process_manager);
+            if let Err(e) = state_handler.handle(runtime_manager, &agent_process_manager) {
+                log::error!("Failed to handle state change: {}", e);
+            }
             previous_state = Some(current_state);
         }
 
@@ -88,9 +81,17 @@ async fn monitoring_loop(
     }
 }
 
+fn initialize_runtime_manager() -> Arc<RuntimeManager> {
+    let file_handler = FileHandler::new(get_runtime_info_path());
+    Arc::new(RuntimeManager::new(file_handler))
+}
+
 fn get_runtime_info_path() -> PathBuf {
-    let config = get_config().lock().unwrap();
-    config.config_dir.join("runtime_info.json")
+    get_config()
+        .lock()
+        .unwrap()
+        .config_dir
+        .join("runtime_info.json")
 }
 
 fn on_controller_started(runtime_manager: &RuntimeManager) -> Result<(), RuntimeError> {
@@ -98,14 +99,50 @@ fn on_controller_started(runtime_manager: &RuntimeManager) -> Result<(), Runtime
     runtime_manager.add_process_info(process_info)
 }
 
-async fn handle_signals(should_stop: Arc<AtomicBool>) {
+async fn handle_signals(
+    should_stop: Arc<AtomicBool>,
+    agent_process_manager: Arc<Mutex<AgentProcessManager>>,
+    runtime_manager: Arc<RuntimeManager>,
+) {
     let ctrl_c = tokio::signal::ctrl_c();
     let mut sigterm = signal(SignalKind::terminate()).expect("Failed to bind to SIGTERM");
 
     tokio::select! {
-        _ = ctrl_c => log::info!("Received SIGINT"),
+        _ = ctrl_c => {
+            if let Err(e) = handle_ctrl_c(agent_process_manager.clone(), runtime_manager.clone()).await {
+                log::error!("Failed to handle CTRL+C: {}", e);
+            }
+        },
         _ = sigterm.recv() => log::info!("Received SIGTERM"),
     };
 
     should_stop.store(true, Ordering::Relaxed);
+}
+
+async fn handle_ctrl_c(
+    agent_process_manager: Arc<Mutex<AgentProcessManager>>,
+    runtime_manager: Arc<RuntimeManager>,
+) -> Result<(), RuntimeError> {
+    let current_pid = std::process::id();
+    let process_infos = runtime_manager.get_process_infos()?;
+
+    for process_info in process_infos.iter() {
+        if process_info.process_id != current_pid {
+            log::info!("Terminating process with PID: {}", process_info.process_id);
+            let manager = agent_process_manager.lock().unwrap();
+            if let Err(e) = manager.terminate_agent(process_info.process_id) {
+                log::error!(
+                    "Failed to terminate agent process {}: {}",
+                    process_info.process_id,
+                    e
+                );
+            }
+
+            runtime_manager.remove_process_info(process_info.process_id)?;
+        }
+    }
+
+    runtime_manager.update_state(State::Default)?;
+
+    Ok(())
 }
