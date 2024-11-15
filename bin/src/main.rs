@@ -1,5 +1,4 @@
 extern crate env_logger;
-use chrono;
 use clap::{Parser, Subcommand};
 use shadow_rs::shadow;
 
@@ -50,7 +49,14 @@ fn main() {
 
     match &cli.command {
         Some(Commands::Controller) => {
-            let _ = controller::run();
+            #[cfg(unix)]
+            {
+                let _ = controller::run();
+            }
+            #[cfg(not(unix))]
+            {
+                log::error!("Controller is not supported on this platform.");
+            }
         }
         None => {
             if cli.agent_options.config || cli.agent_options.command.is_some() {
