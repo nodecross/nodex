@@ -1,7 +1,7 @@
 use crate::managers::{
     agent::{AgentProcessManager, AgentProcessManagerError},
     resource::ResourceManager,
-    runtime::{RuntimeError, RuntimeManager},
+    runtime::{FeatType, RuntimeError, RuntimeManager},
 };
 use std::sync::{Arc, Mutex};
 
@@ -41,7 +41,13 @@ impl<'a> RollbackState<'a> {
             Some(backup_file) => {
                 self.resource_manager.rollback(&backup_file)?;
 
-                let agent_processes = self.runtime_manager.clean_and_get_running_agents()?;
+                let mut agent_processes =
+                    self.runtime_manager.filter_process_info(FeatType::Agent)?;
+                agent_processes.retain(|agent_process| {
+                    self.runtime_manager
+                        .remove_and_filter_running_process(agent_process)
+                });
+
                 if agent_processes.is_empty() {
                     let agent_manager = self.agent_process_manager.lock().unwrap();
                     let process_info = agent_manager.launch_agent()?;

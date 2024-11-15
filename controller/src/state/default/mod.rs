@@ -1,6 +1,6 @@
 use crate::managers::{
     agent::{AgentProcessManager, AgentProcessManagerError},
-    runtime::{RuntimeError, RuntimeManager},
+    runtime::{FeatType, RuntimeError, RuntimeManager},
 };
 use std::sync::{Arc, Mutex};
 
@@ -29,7 +29,11 @@ impl<'a> DefaultState<'a> {
     }
 
     pub fn handle(&self) -> Result<(), DefaultError> {
-        let agent_processes = self.runtime_manager.clean_and_get_running_agents()?;
+        let mut agent_processes = self.runtime_manager.filter_process_info(FeatType::Agent)?;
+        agent_processes.retain(|agent_process| {
+            self.runtime_manager
+                .remove_and_filter_running_process(agent_process)
+        });
         if agent_processes.len() > 1 {
             log::error!("Agent already running");
             return Ok(());

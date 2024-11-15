@@ -4,8 +4,6 @@ use crate::managers::runtime::{
     FeatType, FileHandler, ProcessInfo, RuntimeError, RuntimeManager, State,
 };
 use crate::state::handler::StateHandler;
-use nix::sys::signal::{self as nix_signal, Signal};
-use nix::unistd::Pid;
 use std::path::PathBuf;
 use std::process as stdProcess;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -23,18 +21,23 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'stat
     let runtime_manager = initialize_runtime_manager();
     let should_stop = Arc::new(AtomicBool::new(false));
 
-    if !runtime_manager
-        .filter_process_info(FeatType::Controller)?
-        .is_empty()
-    {
+    let mut controller_processes = runtime_manager
+        .filter_process_info(FeatType::Controller)
+        .expect("failed filter controller process");
+
+    controller_processes.retain(|controller_process| {
+        runtime_manager.remove_and_filter_running_process(controller_process)
+    });
+
+    if !controller_processes.is_empty() {
         log::error!("Controller already running");
         return Ok(());
     }
 
-    on_controller_started(&runtime_manager)?;
+    on_controller_started(&runtime_manager).expect("failed controller start");
 
     let uds_path = get_config().lock().unwrap().uds_path.clone();
-    let agent_process_manager = Arc::new(Mutex::new(AgentProcessManager::new(&uds_path)?));
+    let agent_process_manager = Arc::new(Mutex::new(AgentProcessManager::new(uds_path)?));
 
     let shutdown_handle = tokio::spawn({
         let should_stop = Arc::clone(&should_stop);
@@ -69,7 +72,7 @@ async fn monitoring_loop(
             break;
         }
 
-        let current_state = runtime_manager.get_state().unwrap();
+        let current_state = runtime_manager.get_state().expect("failed get state");
         if previous_state.as_ref() != Some(&current_state) {
             if let Err(e) = state_handler.handle(runtime_manager, &agent_process_manager) {
                 log::error!("Failed to handle state change: {}", e);
@@ -99,50 +102,71 @@ fn on_controller_started(runtime_manager: &RuntimeManager) -> Result<(), Runtime
     runtime_manager.add_process_info(process_info)
 }
 
-async fn handle_signals(
+pub async fn handle_signals(
     should_stop: Arc<AtomicBool>,
     agent_process_manager: Arc<Mutex<AgentProcessManager>>,
     runtime_manager: Arc<RuntimeManager>,
 ) {
     let ctrl_c = tokio::signal::ctrl_c();
     let mut sigterm = signal(SignalKind::terminate()).expect("Failed to bind to SIGTERM");
+    let mut sigabrt = signal(SignalKind::user_defined1()).expect("Failed to bind to SIGABRT");
 
     tokio::select! {
         _ = ctrl_c => {
-            if let Err(e) = handle_ctrl_c(agent_process_manager.clone(), runtime_manager.clone()).await {
+            if let Err(e) = handle_cleanup(agent_process_manager, runtime_manager).await {
                 log::error!("Failed to handle CTRL+C: {}", e);
             }
+            should_stop.store(true, Ordering::Relaxed);
         },
-        _ = sigterm.recv() => log::info!("Received SIGTERM"),
+        _ = sigterm.recv() => {
+            log::info!("Received SIGTERM. Gracefully stopping application.");
+            handle_sigterm(should_stop.clone());
+        },
+        _ = sigabrt.recv() => {
+            if let Err(e) = handle_cleanup(agent_process_manager, runtime_manager).await {
+                log::error!("Failed to handle SIGABRT: {}", e);
+            }
+            should_stop.store(true, Ordering::Relaxed);
+        },
     };
-
-    should_stop.store(true, Ordering::Relaxed);
 }
 
-async fn handle_ctrl_c(
+async fn handle_cleanup(
     agent_process_manager: Arc<Mutex<AgentProcessManager>>,
     runtime_manager: Arc<RuntimeManager>,
-) -> Result<(), RuntimeError> {
+) -> Result<(), String> {
+    log::info!("Received CTRL+C. Initiating shutdown.");
+
     let current_pid = std::process::id();
-    let process_infos = runtime_manager.get_process_infos()?;
+    let process_infos = runtime_manager
+        .get_process_infos()
+        .map_err(|e| e.to_string())?;
 
     for process_info in process_infos.iter() {
         if process_info.process_id != current_pid {
             log::info!("Terminating process with PID: {}", process_info.process_id);
-            let manager = agent_process_manager.lock().unwrap();
-            if let Err(e) = manager.terminate_agent(process_info.process_id) {
-                log::error!(
-                    "Failed to terminate agent process {}: {}",
-                    process_info.process_id,
-                    e
-                );
-            }
-
-            runtime_manager.remove_process_info(process_info.process_id)?;
+            let manager = agent_process_manager.lock().map_err(|e| e.to_string())?;
+            manager
+                .terminate_agent(process_info.process_id)
+                .map_err(|e| e.to_string())?;
         }
+        runtime_manager
+            .remove_process_info(process_info.process_id)
+            .map_err(|e| e.to_string())?;
     }
 
-    runtime_manager.update_state(State::Default)?;
+    runtime_manager
+        .update_state(crate::managers::runtime::State::Default)
+        .map_err(|e| e.to_string())?;
 
+    let manager = agent_process_manager.lock().map_err(|e| e.to_string())?;
+    manager.cleanup_uds_file().map_err(|e| e.to_string())?;
+
+    log::info!("cleanup successfully.");
     Ok(())
+}
+
+fn handle_sigterm(should_stop: Arc<AtomicBool>) {
+    log::info!("Received SIGTERM. Setting stop flag.");
+    should_stop.store(true, Ordering::Relaxed);
 }

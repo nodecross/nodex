@@ -16,7 +16,6 @@ clap = { workspace = true }
 cuid = { workspace = true }
 dirs = { workspace = true }
 dotenvy = "0.15.7"
-env_logger = { workspace = true }
 fs2 = { workspace = true }
 hex = { workspace = true }
 hmac = { workspace = true }

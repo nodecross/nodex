@@ -1,5 +1,3 @@
-extern crate env_logger;
-
 use crate::controllers::public::nodex_receive;
 use cli::AgentCommands;
 use dotenvy::dotenv;
@@ -49,8 +47,6 @@ pub use crate::network::network_config;
 pub async fn run(options: &cli::AgentOptions) -> std::io::Result<()> {
     dotenv().ok();
 
-    std::env::set_var("RUST_LOG", "info");
-    log_init();
     #[cfg(windows)]
     {
         kill_other_self_process();
@@ -321,24 +317,6 @@ async fn send_device_info() {
         )
         .await
         .unwrap_log();
-}
-
-fn log_init() {
-    let mut builder = env_logger::Builder::from_default_env();
-    builder.format(|buf, record| {
-        use std::io::Write;
-        writeln!(
-            buf,
-            "{} [{}] - {} - {} - {}:{}",
-            chrono::Utc::now().to_rfc3339(),
-            record.level(),
-            record.target(),
-            record.args(),
-            record.file().unwrap_or(""),
-            record.line().unwrap_or(0),
-        )
-    });
-    builder.init();
 }
 
 #[cfg(windows)]

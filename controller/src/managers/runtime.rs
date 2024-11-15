@@ -3,7 +3,7 @@ use chrono::{DateTime, FixedOffset, Utc};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
-use std::io::{Read, Write};
+use std::io::{Read, Seek, Write};
 use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -95,6 +95,7 @@ impl FileHandler {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
+            .create(true)
             .open(&self.path)
             .map_err(RuntimeError::FileOpen)?;
         file.lock_exclusive().map_err(RuntimeError::FileLock)?;
@@ -105,7 +106,15 @@ impl FileHandler {
         let mut content = String::new();
         file.read_to_string(&mut content)
             .map_err(RuntimeError::FileRead)?;
-        serde_json::from_str(&content).map_err(RuntimeError::JsonDeserialize)
+
+        if content.trim().is_empty() {
+            Ok(RuntimeInfo {
+                state: State::Default,
+                process_infos: vec![],
+            })
+        } else {
+            serde_json::from_str(&content).map_err(RuntimeError::JsonDeserialize)
+        }
     }
 
     pub fn write_locked(
@@ -113,10 +122,18 @@ impl FileHandler {
         file: &mut std::fs::File,
         runtime_info: &RuntimeInfo,
     ) -> Result<(), RuntimeError> {
-        let json_data = serde_json::to_string(runtime_info).map_err(RuntimeError::JsonSerialize)?;
+        let json_data =
+            serde_json::to_string_pretty(runtime_info).map_err(RuntimeError::JsonSerialize)?;
+
         file.set_len(0).map_err(RuntimeError::FileWrite)?;
+
+        file.seek(std::io::SeekFrom::Start(0))
+            .map_err(RuntimeError::FileWrite)?;
+
         file.write_all(json_data.as_bytes())
             .map_err(RuntimeError::FileWrite)?;
+
+        log::info!("File written successfully");
         Ok(())
     }
 
@@ -170,25 +187,19 @@ impl RuntimeManager {
             .collect::<Vec<ProcessInfo>>())
     }
 
-    pub fn clean_and_get_running_agents(&self) -> Result<Vec<ProcessInfo>, RuntimeError> {
-        let mut agent_processes = self.filter_process_info(FeatType::Agent)?;
-
-        agent_processes.retain(|agent_process| {
-            if !is_running(agent_process.process_id) {
-                if let Err(e) = self.remove_process_info(agent_process.process_id) {
-                    log::error!(
-                        "Failed to remove process info for process ID {}: {}",
-                        agent_process.process_id,
-                        e
-                    );
-                }
-                false
-            } else {
-                true
+    pub fn remove_and_filter_running_process(&self, process_info: &ProcessInfo) -> bool {
+        if !is_running(process_info.process_id) {
+            if let Err(e) = self.remove_process_info(process_info.process_id) {
+                log::error!(
+                    "Failed to remove process info for process ID {}: {}",
+                    process_info.process_id,
+                    e
+                );
             }
-        });
-
-        Ok(agent_processes)
+            false
+        } else {
+            true
+        }
     }
 
     pub fn add_process_info(&self, process_info: ProcessInfo) -> Result<(), RuntimeError> {
