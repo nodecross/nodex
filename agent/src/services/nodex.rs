@@ -121,7 +121,7 @@ impl NodeX {
             let runtime_manager = RuntimeManager::new(file_handler);
 
             self.run_controller(&agent_path, &runtime_manager)?;
-            runtime_manager.update_state(State::Updating)?;
+            runtime_manager.update_state(State::Update)?;
         }
 
         #[cfg(windows)]

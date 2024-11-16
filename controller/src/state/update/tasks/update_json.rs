@@ -13,7 +13,7 @@ pub enum UpdateJsonError {
     FileWriteError(String, #[source] std::io::Error),
 }
 
-pub fn execute(file: &String, field: &String, value: &String) -> Result<(), UpdateJsonError> {
+pub fn run(file: &String, field: &String, value: &String) -> Result<(), UpdateJsonError> {
     log::info!(
         "Updating JSON file '{}' field '{}' with value '{}'",
         file,

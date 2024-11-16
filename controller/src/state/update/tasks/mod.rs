@@ -36,16 +36,16 @@ pub enum UpdateActionError {
 }
 
 impl UpdateAction {
-    pub fn run(&self) -> Result<(), UpdateActionError> {
+    pub fn handle(&self) -> Result<(), UpdateActionError> {
         for task in &self.tasks {
             match task {
                 Task::Move { src, dest, .. } => {
-                    move_resource::execute(src, dest)?;
+                    move_resource::run(src, dest)?;
                 }
                 Task::UpdateJson {
                     file, field, value, ..
                 } => {
-                    update_json::execute(file, field, value)?;
+                    update_json::run(file, field, value)?;
                 }
             };
         }

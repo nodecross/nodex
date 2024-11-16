@@ -28,7 +28,7 @@ impl<'a> DefaultState<'a> {
         }
     }
 
-    pub fn handle(&self) -> Result<(), DefaultError> {
+    pub fn execute(&self) -> Result<(), DefaultError> {
         let mut agent_processes = self.runtime_manager.filter_process_info(FeatType::Agent)?;
         agent_processes.retain(|agent_process| {
             self.runtime_manager

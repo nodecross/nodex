@@ -39,17 +39,17 @@ impl StateHandler {
                 let resource_manager = ResourceManager::new();
                 let update_state =
                     UpdateState::new(agent_process_manager, resource_manager, runtime_manager);
-                update_state.handle()?
+                update_state.execute()?
             }
             State::Rollback => {
                 let resource_manager = ResourceManager::new();
                 let rollback_state =
                     RollbackState::new(agent_process_manager, &resource_manager, runtime_manager);
-                rollback_state.handle()?
+                rollback_state.execute()?
             }
             State::Default => {
                 let default_state = DefaultState::new(agent_process_manager, runtime_manager);
-                default_state.handle()?
+                default_state.execute()?
             }
             _ => {
                 log::info!("No state change required.");

@@ -15,7 +15,7 @@ pub enum MoveResourceError {
     FileMoveError(PathBuf, PathBuf, #[source] std::io::Error),
 }
 
-pub fn execute(src: &String, dest: &String) -> Result<(), MoveResourceError> {
+pub fn run(src: &String, dest: &String) -> Result<(), MoveResourceError> {
     let src_path = Path::new(src).to_path_buf();
     if !src_path.exists() || !src_path.is_file() {
         return Err(MoveResourceError::SourceNotFoundError(src_path));

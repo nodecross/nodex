@@ -17,7 +17,7 @@ pub mod state;
 pub mod validator;
 
 #[tokio::main]
-pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+pub async fn run() -> std::io::Result<()> {
     let runtime_manager = initialize_runtime_manager();
     let should_stop = Arc::new(AtomicBool::new(false));
 
@@ -34,10 +34,10 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'stat
         return Ok(());
     }
 
-    on_controller_started(&runtime_manager).expect("failed controller start");
+    on_controller_started(&runtime_manager).expect("Failed to record controller start in runtime manager");
 
     let uds_path = get_config().lock().unwrap().uds_path.clone();
-    let agent_process_manager = Arc::new(Mutex::new(AgentProcessManager::new(uds_path)?));
+    let agent_process_manager = Arc::new(Mutex::new(AgentProcessManager::new(uds_path).expect("Failed to create AgentProcessManager")));
 
     let shutdown_handle = tokio::spawn({
         let should_stop = Arc::clone(&should_stop);

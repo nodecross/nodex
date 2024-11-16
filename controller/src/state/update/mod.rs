@@ -51,16 +51,12 @@ impl<'a> UpdateState<'a> {
         }
     }
 
-    pub fn handle(&self) -> Result<(), UpdateError> {
+    pub fn execute(&self) -> Result<(), UpdateError> {
         self.runtime_manager
             .update_state(State::Updating)
             .map_err(UpdateError::UpdateStateFailed)?;
 
         let bundles = self.resource_manager.collect_downloaded_bundles();
-        if bundles.is_empty() {
-            return Err(UpdateError::BundleNotFound);
-        }
-
         let update_actions = self.parse_bundles(&bundles)?;
         let pending_update_actions = self.extract_pending_update_actions(&update_actions)?;
         if pending_update_actions.is_empty() {
@@ -68,7 +64,7 @@ impl<'a> UpdateState<'a> {
         }
 
         for action in pending_update_actions {
-            if let Err(e) = action.run() {
+            if let Err(e) = action.handle() {
                 return Err(UpdateError::ActionError(Box::new(e)));
             }
         }
