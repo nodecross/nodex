@@ -1,5 +1,5 @@
 use crate::managers::{
-    agent::AgentProcessManager,
+    agent::AgentManager,
     resource::ResourceManager,
     runtime::{RuntimeError, RuntimeManager, State},
 };
@@ -8,12 +8,13 @@ use crate::state::{
     rollback::{RollbackError, RollbackState},
     update::{UpdateError, UpdateState},
 };
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StateHandlerError {
-    #[error("updating failed: {0}")]
-    Updating(#[from] UpdateError),
+    #[error("update failed: {0}")]
+    Update(#[from] UpdateError),
     #[error("rollback failed: {0}")]
     Rollback(#[from] RollbackError),
     #[error("default failed: {0}")]
@@ -29,27 +30,33 @@ impl StateHandler {
         Self {}
     }
 
-    pub fn handle(
+    pub async fn handle(
         &self,
-        runtime_manager: &RuntimeManager,
-        agent_process_manager: &Arc<Mutex<AgentProcessManager>>,
+        runtime_manager: &Arc<RuntimeManager>,
+        agent_manager: &Arc<Mutex<AgentManager>>,
     ) -> Result<(), StateHandlerError> {
         match runtime_manager.get_state()? {
             State::Update => {
                 let resource_manager = ResourceManager::new();
-                let update_state =
-                    UpdateState::new(agent_process_manager, resource_manager, runtime_manager);
-                update_state.execute()?
+                {
+                    let update_state =
+                        UpdateState::new(agent_manager, resource_manager, runtime_manager);
+
+                    if let Err(e) = update_state.execute().await {
+                        log::error!("Failed to update state: {}", e);
+                        self.handle_update_failed(runtime_manager, e)?;
+                    }
+                }
             }
             State::Rollback => {
                 let resource_manager = ResourceManager::new();
                 let rollback_state =
-                    RollbackState::new(agent_process_manager, &resource_manager, runtime_manager);
-                rollback_state.execute()?
+                    RollbackState::new(agent_manager, &resource_manager, runtime_manager);
+                rollback_state.execute().await?;
             }
             State::Default => {
-                let default_state = DefaultState::new(agent_process_manager, runtime_manager);
-                default_state.execute()?
+                let default_state = DefaultState::new(agent_manager, runtime_manager);
+                default_state.execute().await?;
             }
             _ => {
                 log::info!("No state change required.");
@@ -57,6 +64,33 @@ impl StateHandler {
         }
 
         Ok(())
+    }
+
+    fn handle_update_failed(
+        &self,
+        runtime_manager: &Arc<RuntimeManager>,
+        update_error: UpdateError,
+    ) -> Result<(), StateHandlerError> {
+        if update_error.requires_rollback() {
+            runtime_manager
+                .update_state(State::Rollback)
+                .map_err(|runtime_err| {
+                    log::error!(
+                        "Failed to transition to Rollback state: {}. Original error: {}",
+                        runtime_err,
+                        update_error
+                    );
+                    StateHandlerError::RuntimeInfo(runtime_err)
+                })?;
+
+            log::info!("Successfully transitioned to Rollback state.");
+        } else {
+            log::warn!(
+                "Skipping rollback state transition due to ignored update error: {}",
+                update_error
+            );
+        }
+        Err(StateHandlerError::Update(update_error))
     }
 }
 

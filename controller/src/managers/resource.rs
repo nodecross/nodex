@@ -20,6 +20,10 @@ pub enum ResourceError {
     IoError(#[from] io::Error),
     #[error("Failed to extract zip file")]
     ZipError(#[from] ZipError),
+    #[error("Failed to create tarball: {0}")]
+    TarError(String),
+    #[error("Failed to delete files in {0}")]
+    RemoveFailed(String),
 }
 
 pub struct ResourceManager {
@@ -28,9 +32,7 @@ pub struct ResourceManager {
 
 impl ResourceManager {
     pub fn new() -> Self {
-        let tmp_path = if PathBuf::from("/home/nodex/tmp").exists()
-            || fs::create_dir_all("/home/nodex/tmp").is_ok()
-        {
+        let tmp_path = if PathBuf::from("/home/nodex/tmp").exists() {
             PathBuf::from("/home/nodex/tmp")
         } else if PathBuf::from("/tmp/nodex").exists() || fs::create_dir_all("/tmp/nodex").is_ok() {
             PathBuf::from("/tmp/nodex")
@@ -96,7 +98,7 @@ impl ResourceManager {
         }
     }
 
-    pub fn backup(&self) -> Result<(), std::io::Error> {
+    pub fn backup(&self) -> Result<(), ResourceError> {
         let paths_to_backup = if PathBuf::from("/home/nodex").exists() {
             vec![PathBuf::from("/home/nodex")]
         } else {
@@ -113,28 +115,65 @@ impl ResourceManager {
         Ok(())
     }
 
-    fn create_tar_gz(&self, src_paths: Vec<PathBuf>) -> Result<(), io::Error> {
+    fn create_tar_gz(&self, src_paths: Vec<PathBuf>) -> Result<(), ResourceError> {
         let timestamp = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
+            .map_err(|e| {
+                ResourceError::TarError(format!("Failed to get current timestamp: {}", e))
+            })?
             .as_secs();
+
         let dest_path = self
             .tmp_path
             .join(format!("nodex_backup_{}.tar.gz", timestamp));
 
-        let tar_gz = File::create(dest_path)?;
-        let enc = GzEncoder::new(tar_gz, Compression::default());
-        let mut tar = Builder::new(enc);
+        let tar_gz_file = File::create(&dest_path)
+            .map_err(|e| ResourceError::IoError(io::Error::new(io::ErrorKind::Other, e)))?;
+        let encoder = GzEncoder::new(tar_gz_file, Compression::default());
+        let mut tar_builder = Builder::new(encoder);
 
         for path in src_paths {
-            if path.is_dir() {
-                tar.append_dir_all(path.file_name().unwrap(), &path)?;
-            } else if path.is_file() {
-                tar.append_path_with_name(&path, path.file_name().unwrap())?;
-            }
+            self.add_path_to_tar(&mut tar_builder, &path)?;
         }
 
-        tar.finish()?;
+        tar_builder
+            .finish()
+            .map_err(|e| ResourceError::TarError(format!("Failed to finish tarball: {}", e)))?;
+
+        log::info!("Tarball created at {:?}", dest_path);
+        Ok(())
+    }
+
+    fn add_path_to_tar<W: std::io::Write>(
+        &self,
+        tar_builder: &mut Builder<W>,
+        path: &Path,
+    ) -> Result<(), ResourceError> {
+        if path.is_dir() {
+            tar_builder
+                .append_dir_all(
+                    path.file_name().ok_or_else(|| {
+                        ResourceError::TarError("Invalid directory name".to_string())
+                    })?,
+                    path,
+                )
+                .map_err(|e| {
+                    ResourceError::TarError(format!("Failed to append directory: {}", e))
+                })?;
+        } else if path.is_file() {
+            tar_builder
+                .append_path_with_name(
+                    path,
+                    path.file_name()
+                        .ok_or_else(|| ResourceError::TarError("Invalid file name".to_string()))?,
+                )
+                .map_err(|e| ResourceError::TarError(format!("Failed to append file: {}", e)))?;
+        } else {
+            return Err(ResourceError::TarError(format!(
+                "Invalid path type: {:?}",
+                path
+            )));
+        }
         Ok(())
     }
 
@@ -150,6 +189,28 @@ impl ResourceManager {
                     .and_then(|meta| meta.modified())
                     .unwrap_or(SystemTime::UNIX_EPOCH)
             })
+    }
+
+    pub fn remove(&self) -> Result<(), ResourceError> {
+        for entry in fs::read_dir(&self.tmp_path)
+            .map_err(|e| ResourceError::RemoveFailed(format!("Failed to read directory: {}", e)))?
+        {
+            let entry = entry.map_err(|e| {
+                ResourceError::RemoveFailed(format!("Failed to access entry: {}", e))
+            })?;
+            let entry_path = entry.path();
+
+            if entry_path.is_dir() {
+                fs::remove_dir_all(&entry_path).map_err(|e| {
+                    ResourceError::RemoveFailed(format!("Failed to remove directory: {}", e))
+                })?;
+            } else if entry_path.is_file() {
+                fs::remove_file(&entry_path).map_err(|e| {
+                    ResourceError::RemoveFailed(format!("Failed to remove file: {}", e))
+                })?;
+            }
+        }
+        Ok(())
     }
 
     pub fn rollback(&self, backup_file: &PathBuf) -> Result<(), io::Error> {

@@ -176,7 +176,7 @@ impl RuntimeManager {
         Ok(runtime_info.process_infos)
     }
 
-    pub fn filter_process_info(
+    pub fn filter_process_infos(
         &self,
         feat_type: FeatType,
     ) -> Result<Vec<ProcessInfo>, RuntimeError> {
@@ -189,13 +189,15 @@ impl RuntimeManager {
 
     pub fn remove_and_filter_running_process(&self, process_info: &ProcessInfo) -> bool {
         if !is_running(process_info.process_id) {
-            if let Err(e) = self.remove_process_info(process_info.process_id) {
-                log::error!(
-                    "Failed to remove process info for process ID {}: {}",
-                    process_info.process_id,
-                    e
-                );
-            }
+            self.remove_process_info(process_info.process_id)
+                .map_err(|e| {
+                    log::error!(
+                        "Failed to remove process for process ID {}: {}",
+                        process_info.process_id,
+                        e
+                    )
+                })
+                .ok();
             false
         } else {
             true

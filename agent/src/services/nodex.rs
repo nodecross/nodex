@@ -4,6 +4,7 @@ use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::{app_config, server_config};
 use anyhow;
 
+use controller::validator::storage::check_storage;
 use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
 use protocol::did::sidetree::payload::DidResolutionResponse;
 use std::{
@@ -88,6 +89,8 @@ impl NodeX {
     ) -> anyhow::Result<()> {
         if !is_online() {
             return Err(anyhow::anyhow!("Not connected to the Internet"));
+        } else if !check_storage(&output_path) {
+            return Err(anyhow::anyhow!("Not enough storage space"));
         }
 
         anyhow::ensure!(
