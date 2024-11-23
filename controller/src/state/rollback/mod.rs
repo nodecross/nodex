@@ -1,6 +1,6 @@
 use crate::managers::{
     agent::{AgentManager, AgentManagerError},
-    resource::ResourceManager,
+    resource::{ResourceError, ResourceManager},
     runtime::{FeatType, RuntimeError, RuntimeManager},
 };
 use std::sync::Arc;
@@ -9,13 +9,13 @@ use tokio::sync::Mutex;
 #[derive(Debug, thiserror::Error)]
 pub enum RollbackError {
     #[error("agent process failed: {0}")]
-    AgentProcess(#[from] AgentManagerError),
+    AgentError(#[from] AgentManagerError),
     #[error("Failed to find backup")]
     BackupNotFound,
-    #[error("Failed to perform rollback: {0}")]
-    RollbackFailed(#[from] std::io::Error),
+    #[error("resource operation failed: {0}")]
+    ResourceError(#[from] ResourceError),
     #[error("failed to get runtime info: {0}")]
-    RuntimeInfo(#[from] RuntimeError),
+    RuntimeError(#[from] RuntimeError),
 }
 
 pub struct RollbackState<'a> {
@@ -42,13 +42,14 @@ impl<'a> RollbackState<'a> {
         let latest_backup = self.resource_manager.get_latest_backup();
         match latest_backup {
             Some(backup_file) => {
+                log::info!("Found backup: {}", backup_file.display());
                 self.resource_manager.rollback(&backup_file)?;
 
                 let mut agent_processes =
                     self.runtime_manager.filter_process_infos(FeatType::Agent)?;
                 agent_processes.retain(|agent_process| {
                     self.runtime_manager
-                        .remove_and_filter_running_process(agent_process)
+                        .is_running_or_remove_if_stopped(agent_process)
                 });
 
                 if agent_processes.is_empty() {
@@ -56,6 +57,8 @@ impl<'a> RollbackState<'a> {
                     let process_info = agent_manager.launch_agent()?;
                     self.runtime_manager.add_process_info(process_info)?;
                 }
+
+                self.resource_manager.remove()?;
                 log::info!("Rollback completed");
 
                 Ok(())

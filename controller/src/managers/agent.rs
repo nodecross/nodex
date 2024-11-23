@@ -5,9 +5,10 @@ use hyper_util::client::legacy::{Client, Error as LegacyClientError};
 use hyperlocal::{UnixClientExt, UnixConnector, Uri};
 use nix::{
     sys::signal::{self, Signal},
-    unistd::{dup, Pid},
+    unistd::{dup, execvp, fork, setsid, ForkResult, Pid},
 };
 use serde::de::DeserializeOwned;
+use std::ffi::CString;
 use std::{
     env,
     os::unix::{
@@ -15,7 +16,6 @@ use std::{
         net::UnixListener,
     },
     path::PathBuf,
-    process::{Command, Stdio},
     sync::{Arc, Mutex},
 };
 
@@ -81,16 +81,50 @@ impl AgentManager {
         let current_exe =
             env::current_exe().map_err(AgentManagerError::CurrentExecutablePathError)?;
 
-        let child = Command::new(current_exe)
-            .env("LISTENER_FD", self.listener_fd.to_string())
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .map_err(AgentManagerError::ForkAgentError)?;
+        match unsafe { fork() } {
+            Ok(ForkResult::Parent { child }) => {
+                let process_info = ProcessInfo::new(
+                    child.as_raw().try_into().map_err(|_| {
+                        AgentManagerError::ForkAgentError(std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            "Failed to convert child process ID to u32",
+                        ))
+                    })?,
+                    FeatType::Agent,
+                );
+                Ok(process_info)
+            }
+            Ok(ForkResult::Child) => {
+                setsid().map_err(|e| {
+                    AgentManagerError::ForkAgentError(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        e,
+                    ))
+                })?;
 
-        let process_info = ProcessInfo::new(child.id(), FeatType::Agent);
+                let cmd = CString::new(current_exe.to_string_lossy().as_ref()).map_err(|e| {
+                    AgentManagerError::ForkAgentError(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        e,
+                    ))
+                })?;
+                let args = vec![cmd.clone()];
 
-        Ok(process_info)
+                std::env::set_var("LISTENER_FD", self.listener_fd.to_string());
+
+                execvp(&cmd, &args).map_err(|e| {
+                    AgentManagerError::ForkAgentError(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        e,
+                    ))
+                })?;
+                unreachable!();
+            }
+            Err(e) => Err(AgentManagerError::ForkAgentError(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                e,
+            ))),
+        }
     }
 
     pub fn terminate_agent(&self, process_id: u32) -> Result<(), AgentManagerError> {

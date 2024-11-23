@@ -24,6 +24,8 @@ pub enum ResourceError {
     TarError(String),
     #[error("Failed to delete files in {0}")]
     RemoveFailed(String),
+    #[error("Rollback failed: {0}")]
+    RollbackFailed(String),
 }
 
 pub struct ResourceManager {
@@ -103,11 +105,7 @@ impl ResourceManager {
             vec![PathBuf::from("/home/nodex")]
         } else {
             let config = get_config().lock().unwrap();
-            vec![
-                env::current_exe()?,
-                config.config_dir.clone(),
-                config.runtime_dir.clone(),
-            ]
+            vec![env::current_exe()?, config.config_dir.clone()]
         };
 
         self.create_tar_gz(paths_to_backup)?;
@@ -132,8 +130,18 @@ impl ResourceManager {
         let encoder = GzEncoder::new(tar_gz_file, Compression::default());
         let mut tar_builder = Builder::new(encoder);
 
-        for path in src_paths {
-            self.add_path_to_tar(&mut tar_builder, &path)?;
+        for path in &src_paths {
+            if path == &env::current_exe()? {
+                let original_path = path.strip_prefix("/").unwrap_or(path);
+                tar_builder
+                    .append_path_with_name(path, original_path)
+                    .map_err(|e| {
+                        ResourceError::TarError(format!("Failed to add nodex-agent to tar: {}", e))
+                    })?;
+            } else {
+                let base_dir = path.parent().unwrap_or_else(|| Path::new(""));
+                self.add_path_to_tar(&mut tar_builder, base_dir, path)?;
+            }
         }
 
         tar_builder
@@ -147,26 +155,22 @@ impl ResourceManager {
     fn add_path_to_tar<W: std::io::Write>(
         &self,
         tar_builder: &mut Builder<W>,
+        base_dir: &Path,
         path: &Path,
     ) -> Result<(), ResourceError> {
+        let relative_path = path.strip_prefix(base_dir).map_err(|_| {
+            ResourceError::TarError(format!("Failed to calculate relative path for {:?}", path))
+        })?;
+
         if path.is_dir() {
             tar_builder
-                .append_dir_all(
-                    path.file_name().ok_or_else(|| {
-                        ResourceError::TarError("Invalid directory name".to_string())
-                    })?,
-                    path,
-                )
+                .append_dir_all(relative_path, path)
                 .map_err(|e| {
                     ResourceError::TarError(format!("Failed to append directory: {}", e))
                 })?;
         } else if path.is_file() {
             tar_builder
-                .append_path_with_name(
-                    path,
-                    path.file_name()
-                        .ok_or_else(|| ResourceError::TarError("Invalid file name".to_string()))?,
-                )
+                .append_path_with_name(path, relative_path)
                 .map_err(|e| ResourceError::TarError(format!("Failed to append file: {}", e)))?;
         } else {
             return Err(ResourceError::TarError(format!(
@@ -213,13 +217,24 @@ impl ResourceManager {
         Ok(())
     }
 
-    pub fn rollback(&self, backup_file: &PathBuf) -> Result<(), io::Error> {
-        let file = File::open(backup_file)?;
+    pub fn rollback(&self, backup_file: &PathBuf) -> Result<(), ResourceError> {
+        let file = File::open(backup_file).map_err(|e| {
+            ResourceError::RollbackFailed(format!(
+                "Failed to open backup file {:?}: {}",
+                backup_file, e
+            ))
+        })?;
+
         let decompressed = GzDecoder::new(file);
         let mut archive = Archive::new(decompressed);
 
-        archive.unpack("/")?;
-        println!("Rollback completed from {:?}", backup_file);
+        archive.unpack("/").map_err(|e| {
+            ResourceError::RollbackFailed(format!(
+                "Failed to unpack backup archive from {:?}: {}",
+                backup_file, e
+            ))
+        })?;
+
         Ok(())
     }
 }

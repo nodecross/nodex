@@ -22,13 +22,17 @@ pub async fn run() -> std::io::Result<()> {
     let runtime_manager = initialize_runtime_manager();
     let should_stop = Arc::new(AtomicBool::new(false));
 
-    let mut controller_processes = runtime_manager
-        .filter_process_infos(FeatType::Controller)
-        .expect("failed filter controller process");
+    let process_infos = runtime_manager
+        .get_process_infos()
+        .expect("get process infos");
 
-    controller_processes.retain(|controller_process| {
-        runtime_manager.remove_and_filter_running_process(controller_process)
-    });
+    let controller_processes = process_infos
+        .iter()
+        .filter(|process_info| {
+            runtime_manager.is_running_or_remove_if_stopped(process_info)
+                && process_info.feat_type == FeatType::Controller
+        })
+        .collect::<Vec<&ProcessInfo>>();
 
     if !controller_processes.is_empty() {
         log::error!("Controller already running");

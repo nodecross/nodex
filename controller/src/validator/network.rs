@@ -1,8 +1,16 @@
-use sysinfo::Networks;
+use reqwest::Client;
+use std::time::Duration;
 
-pub fn is_online() -> bool {
-    let networks = Networks::new();
-    networks
-        .iter()
-        .any(|(_, network)| network.received() > 0 || network.transmitted() > 0)
+pub async fn can_connect_to_download_server(url: &str) -> bool {
+    let client = Client::builder().timeout(Duration::from_secs(5)).build();
+
+    let client = match client {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+
+    match client.get(url).send().await {
+        Ok(response) => response.status().is_success(),
+        Err(_) => false,
+    }
 }

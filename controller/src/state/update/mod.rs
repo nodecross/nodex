@@ -38,6 +38,8 @@ pub enum UpdateError {
     RuntimeError(#[from] RuntimeError),
     #[error("resource operation failed: {0}")]
     ResourceError(#[from] ResourceError),
+    #[error("Agent not running")]
+    AgentNotRunning,
 }
 
 impl UpdateError {
@@ -70,6 +72,14 @@ impl<'a> UpdateState<'a> {
 
     pub async fn execute(&self) -> Result<(), UpdateError> {
         log::info!("Starting update");
+
+        if self
+            .runtime_manager
+            .filter_process_infos(FeatType::Agent)?
+            .is_empty()
+        {
+            return Err(UpdateError::AgentNotRunning);
+        }
 
         self.runtime_manager
             .update_state(State::Updating)

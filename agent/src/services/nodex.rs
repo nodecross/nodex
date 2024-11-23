@@ -20,12 +20,14 @@ mod unix_imports {
         runtime::{FeatType, FileHandler, RuntimeManager, State},
     };
     pub use controller::validator::{
-        network::is_online,
+        network::can_connect_to_download_server,
         process::{is_manage_by_systemd, is_manage_socket_activation},
     };
-    pub use daemonize::Daemonize;
-    pub use nix::sys::signal::{self, Signal};
-    pub use nix::unistd::Pid;
+    pub use nix::{
+        sys::signal::{self, Signal},
+        unistd::{execvp, fork, setsid, ForkResult, Pid},
+    };
+    pub use std::ffi::CString;
 }
 
 #[cfg(unix)]
@@ -87,16 +89,16 @@ impl NodeX {
         binary_url: &str,
         output_path: PathBuf,
     ) -> anyhow::Result<()> {
-        if !is_online() {
-            return Err(anyhow::anyhow!("Not connected to the Internet"));
-        } else if !check_storage(&output_path) {
+        if !check_storage(&output_path) {
+            log::error!("Not enough storage space");
             return Err(anyhow::anyhow!("Not enough storage space"));
+        } else if !can_connect_to_download_server("https://github.com").await {
+            log::error!("Not connected to the Internet");
+            return Err(anyhow::anyhow!("Not connected to the Internet"));
+        } else if !binary_url.starts_with("https://github.com/nodecross/nodex/releases/download/") {
+            log::error!("Invalid url");
+            return Err(anyhow::anyhow!("Invalid url"));
         }
-
-        anyhow::ensure!(
-            binary_url.starts_with("https://github.com/nodecross/nodex/releases/download/"),
-            "Invalid url"
-        );
 
         #[cfg(unix)]
         let agent_filename = { "nodex-agent" };
@@ -111,15 +113,21 @@ impl NodeX {
         resource_manager
             .download_update_resources(binary_url, Some(&output_path))
             .await
-            .map_err(|_| anyhow::anyhow!("Failed to download the file from {}", binary_url))?;
+            .map_err(|e| anyhow::anyhow!(e))?;
 
         #[cfg(unix)]
         {
             let home_dir = dirs::home_dir().unwrap();
-            let path = home_dir.join(".nodex").join("runtime_info.json");
             let resource_manager = ResourceManager::new();
-            resource_manager.backup()?;
+            resource_manager.backup().map_err(|e| {
+                log::error!("Failed to backup: {}", e);
+                anyhow::anyhow!(e)
+            })?;
 
+            let path = home_dir
+                .join(".config")
+                .join("nodex")
+                .join("runtime_info.json");
             let file_handler = FileHandler::new(path);
             let runtime_manager = RuntimeManager::new(file_handler);
 
@@ -134,46 +142,67 @@ impl NodeX {
     }
 
     #[cfg(unix)]
+    fn kill_current_controller(&self, runtime_manager: &RuntimeManager) -> anyhow::Result<()> {
+        let controller_processes = runtime_manager
+            .filter_process_infos(FeatType::Controller)
+            .map_err(|e| anyhow::anyhow!("Failed to get process infos: {}", e))?;
+        for controller_process in controller_processes {
+            signal::kill(
+                Pid::from_raw(controller_process.process_id as i32),
+                Signal::SIGTERM,
+            )
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to kill process {}: {}",
+                    controller_process.process_id,
+                    e
+                )
+            })?;
+        }
+        Ok(())
+    }
+
+    #[cfg(unix)]
     fn run_controller(
         &self,
         agent_path: &Path,
         runtime_manager: &RuntimeManager,
     ) -> anyhow::Result<()> {
-        let mut process_ids_to_remove = vec![];
-        let process_infos = runtime_manager
-            .get_process_infos()
-            .map_err(|e| anyhow::anyhow!("Failed to get process infos: {}", e))?;
-        for process_info in process_infos {
-            if process_info.feat_type == FeatType::Controller {
-                signal::kill(
-                    Pid::from_raw(process_info.process_id as i32),
-                    Signal::SIGTERM,
-                )
-                .map_err(|e| {
-                    anyhow::anyhow!("Failed to kill process {}: {}", process_info.process_id, e)
-                })?;
-                process_ids_to_remove.push(process_info.process_id);
-            }
-        }
-
-        for process_id in process_ids_to_remove {
-            let _ = runtime_manager.remove_process_info(process_id);
-        }
-
+        self.kill_current_controller(runtime_manager)?;
         if is_manage_by_systemd() && is_manage_socket_activation() {
             return Ok(());
         }
 
         Command::new("chmod").arg("+x").arg(agent_path).status()?;
-        let daemonize = Daemonize::new();
-        daemonize
-            .start()
-            .map_err(|e| anyhow::anyhow!("Failed to update nodexe_pro process: {}", e))?;
-        std::process::Command::new(agent_path)
-            .arg("controller")
-            .spawn()
-            .map_err(|e| anyhow::anyhow!("Failed to execute command: {}", e))?;
-        Ok(())
+
+        let agent_path_str = agent_path.to_str().ok_or_else(|| {
+            anyhow::anyhow!("Invalid path: failed to convert agent_path to string")
+        })?;
+        let cmd = CString::new(agent_path_str)
+            .map_err(|e| anyhow::anyhow!("Failed to create command CString: {}", e))?;
+        let args = vec![
+            cmd.clone(),
+            CString::new("controller")
+                .map_err(|e| anyhow::anyhow!("Failed to create argument CString: {}", e))?,
+        ];
+
+        match unsafe { fork() } {
+            Ok(ForkResult::Parent { child }) => {
+                log::info!("Parent process launched child with PID: {}", child);
+                Ok(())
+            }
+            Ok(ForkResult::Child) => {
+                setsid().map_err(|e| {
+                    anyhow::anyhow!("Failed to create new session using setsid: {}", e)
+                })?;
+
+                execvp(&cmd, &args).map_err(|e| {
+                    anyhow::anyhow!("Failed to execute command using execvp: {}", e)
+                })?;
+                unreachable!();
+            }
+            Err(e) => Err(anyhow::anyhow!("Failed to fork process: {}", e)),
+        }
     }
 
     #[cfg(windows)]

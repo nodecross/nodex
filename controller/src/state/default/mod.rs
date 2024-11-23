@@ -8,9 +8,9 @@ use tokio::sync::Mutex;
 #[derive(Debug, thiserror::Error)]
 pub enum DefaultError {
     #[error("agent process failed: {0}")]
-    AgentProcess(#[from] AgentManagerError),
+    AgentError(#[from] AgentManagerError),
     #[error("failed to get runtime info: {0}")]
-    RuntimeInfo(#[from] RuntimeError),
+    RuntimeError(#[from] RuntimeError),
 }
 
 pub struct DefaultState<'a> {
@@ -33,7 +33,7 @@ impl<'a> DefaultState<'a> {
         let mut agent_processes = self.runtime_manager.filter_process_infos(FeatType::Agent)?;
         agent_processes.retain(|agent_process| {
             self.runtime_manager
-                .remove_and_filter_running_process(agent_process)
+                .is_running_or_remove_if_stopped(agent_process)
         });
         if agent_processes.len() > 1 {
             log::error!("Agent already running");

@@ -5,6 +5,7 @@ use std::sync::Mutex;
 
 pub struct Config {
     pub config_dir: PathBuf,
+    pub nodex_dir: PathBuf,
     pub runtime_dir: PathBuf,
     pub uds_path: PathBuf,
 }
@@ -12,8 +13,11 @@ pub struct Config {
 impl Config {
     pub fn new() -> Self {
         let home_dir = dirs::home_dir().expect("Failed to get home directory");
-        let config_dir = home_dir.join(".nodex");
-        let runtime_dir = config_dir.join("run");
+        let config_dir = home_dir.join(".config").join("nodex");
+        fs::create_dir_all(&config_dir).expect("Failed to create config directory");
+
+        let nodex_dir = home_dir.join(".nodex");
+        let runtime_dir = nodex_dir.join("run");
 
         fs::create_dir_all(&runtime_dir).expect("Failed to create runtime directory");
 
@@ -21,6 +25,7 @@ impl Config {
 
         Config {
             config_dir,
+            nodex_dir,
             runtime_dir,
             uds_path: sock_path,
         }

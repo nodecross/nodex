@@ -187,7 +187,7 @@ impl RuntimeManager {
             .collect::<Vec<ProcessInfo>>())
     }
 
-    pub fn remove_and_filter_running_process(&self, process_info: &ProcessInfo) -> bool {
+    pub fn is_running_or_remove_if_stopped(&self, process_info: &ProcessInfo) -> bool {
         if !is_running(process_info.process_id) {
             self.remove_process_info(process_info.process_id)
                 .map_err(|e| {
