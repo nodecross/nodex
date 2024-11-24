@@ -306,9 +306,9 @@ impl ResourceManager {
             let temp_path = temp_dir.join(relative_path);
             if temp_path.exists() {
                 if original_path.exists() {
-                    std::fs::remove_file(original_path).map_err(|e| {
+                    self.remove_directory(original_path).map_err(|e| {
                         ResourceError::RollbackFailed(format!(
-                            "Failed to remove existing file {:?}: {}",
+                            "Failed to remove existing path {:?}: {}",
                             original_path, e
                         ))
                     })?;
@@ -324,6 +324,29 @@ impl ResourceManager {
         Ok(())
     }
 
+    fn remove_directory(&self, path: &Path) -> Result<(), io::Error> {
+        if !path.exists() {
+            return Ok(());
+        }
+
+        if path.is_dir() {
+            fs::remove_dir_all(path).map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    format!("Failed to remove directory {:?}: {}", path, e),
+                )
+            })?;
+        } else {
+            fs::remove_file(path).map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    format!("Failed to remove file {:?}: {}", path, e),
+                )
+            })?;
+        }
+        Ok(())
+    }
+
     pub fn remove(&self) -> Result<(), ResourceError> {
         for entry in fs::read_dir(&self.tmp_path)
             .map_err(|e| ResourceError::RemoveFailed(format!("Failed to read directory: {}", e)))?
@@ -333,15 +356,12 @@ impl ResourceManager {
             })?;
             let entry_path = entry.path();
 
-            if entry_path.is_dir() {
-                fs::remove_dir_all(&entry_path).map_err(|e| {
-                    ResourceError::RemoveFailed(format!("Failed to remove directory: {}", e))
-                })?;
-            } else if entry_path.is_file() {
-                fs::remove_file(&entry_path).map_err(|e| {
-                    ResourceError::RemoveFailed(format!("Failed to remove file: {}", e))
-                })?;
-            }
+            self.remove_directory(&entry_path).map_err(|e| {
+                ResourceError::RemoveFailed(format!(
+                    "Failed to remove path {:?}: {}",
+                    entry_path, e
+                ))
+            })?;
         }
         Ok(())
     }
