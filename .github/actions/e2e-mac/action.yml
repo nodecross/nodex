@@ -27,7 +27,7 @@ runs:
         prism mock -h localhost -p 8020 test_resource/studio.yaml > studio.txt 2>&1 &
         sleep 5
 
-        ${{ inputs.binary-path }} > log.txt 2>&1 &
+        ${{ inputs.binary-path }} controller > log.txt 2>&1 &
         sleep 5
 
         cd e2e
