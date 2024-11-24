@@ -102,7 +102,7 @@ fn get_runtime_info_path() -> PathBuf {
     get_config()
         .lock()
         .unwrap()
-        .config_dir
+        .runtime_dir
         .join("runtime_info.json")
 }
 

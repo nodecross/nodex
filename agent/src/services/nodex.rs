@@ -124,11 +124,11 @@ impl NodeX {
                 anyhow::anyhow!(e)
             })?;
 
-            let path = home_dir
-                .join(".config")
-                .join("nodex")
+            let runtime_info_path = home_dir
+                .join(".nodex")
+                .join("run")
                 .join("runtime_info.json");
-            let file_handler = FileHandler::new(path);
+            let file_handler = FileHandler::new(runtime_info_path);
             let runtime_manager = RuntimeManager::new(file_handler);
 
             self.run_controller(&agent_path, &runtime_manager)?;
