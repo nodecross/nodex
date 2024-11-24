@@ -43,7 +43,6 @@ impl StateHandler {
                         UpdateState::new(agent_manager, resource_manager, runtime_manager);
 
                     if let Err(e) = update_state.execute().await {
-                        log::error!("Failed to update state: {}", e);
                         self.handle_update_failed(runtime_manager, e)?;
                     }
                 }
@@ -71,26 +70,42 @@ impl StateHandler {
         runtime_manager: &Arc<RuntimeManager>,
         update_error: UpdateError,
     ) -> Result<(), StateHandlerError> {
-        if update_error.requires_rollback() {
-            runtime_manager
-                .update_state(State::Rollback)
-                .map_err(|runtime_err| {
-                    log::error!(
-                        "Failed to transition to Rollback state: {}. Original error: {}",
-                        runtime_err,
-                        update_error
-                    );
-                    StateHandlerError::RuntimeInfo(runtime_err)
-                })?;
-
-            log::info!("Successfully transitioned to Rollback state.");
+        log::error!("Failed to update state: {}", update_error);
+        if let Some(target_state) = self.get_target_state(&update_error) {
+            self.transition_to_state(runtime_manager, target_state)?;
         } else {
             log::warn!(
                 "Skipping rollback state transition due to ignored update error: {}",
                 update_error
             );
         }
+
         Err(StateHandlerError::Update(update_error))
+    }
+
+    fn get_target_state(&self, update_error: &UpdateError) -> Option<State> {
+        if update_error.requires_rollback() {
+            Some(State::Rollback)
+        } else if update_error.required_restore_state() {
+            Some(State::Default)
+        } else {
+            None
+        }
+    }
+
+    fn transition_to_state(
+        &self,
+        runtime_manager: &Arc<RuntimeManager>,
+        target_state: State,
+    ) -> Result<(), StateHandlerError> {
+        runtime_manager
+            .update_state(target_state)
+            .map_err(|runtime_err| {
+                log::error!("Failed to transition to state: {}", runtime_err,);
+                StateHandlerError::RuntimeInfo(runtime_err)
+            })?;
+
+        Ok(())
     }
 }
 

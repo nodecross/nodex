@@ -43,6 +43,10 @@ pub enum UpdateError {
 }
 
 impl UpdateError {
+    pub fn required_restore_state(&self) -> bool {
+        !matches!(self, UpdateError::AgentNotRunning)
+    }
+
     pub fn requires_rollback(&self) -> bool {
         !matches!(
             self,
