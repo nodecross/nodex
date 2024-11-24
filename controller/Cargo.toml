@@ -43,6 +43,7 @@ hyper-util = { version = "0.1.3", features = [
 ] }
 hyperlocal = { git = "https://github.com/softprops/hyperlocal.git", rev = "34dc857" }
 zip = { workspace = true }
+users = "0.11.0"
 
 [build-dependencies]
 shadow-rs = { workspace = true }

@@ -9,7 +9,8 @@ use std::{
     path::{Path, PathBuf},
     time::SystemTime,
 };
-use tar::{Archive, Builder};
+use tar::{Archive, Builder, Header};
+use users::{get_current_gid, get_current_uid};
 use zip::{result::ZipError, ZipArchive};
 
 #[derive(Debug, thiserror::Error)]
@@ -100,20 +101,54 @@ impl ResourceManager {
         }
     }
 
-    pub fn backup(&self) -> Result<(), ResourceError> {
-        let paths_to_backup = if PathBuf::from("/home/nodex").exists() {
-            vec![PathBuf::from("/home/nodex")]
-        } else {
-            let config = get_config().lock().unwrap();
-            vec![env::current_exe()?, config.config_dir.clone()]
-        };
+    pub fn get_latest_backup(&self) -> Option<PathBuf> {
+        fs::read_dir(&self.tmp_path)
+            .ok()?
+            .filter_map(|entry| entry.ok().map(|e| e.path()))
+            .filter(|path| {
+                path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("gz")
+            })
+            .max_by_key(|path| {
+                path.metadata()
+                    .and_then(|meta| meta.modified())
+                    .unwrap_or(SystemTime::UNIX_EPOCH)
+            })
+    }
 
-        self.create_tar_gz(paths_to_backup)?;
-        log::info!("Backup created successfully");
+    pub fn backup(&self) -> Result<(), ResourceError> {
+        let paths_to_backup = self.get_paths_to_backup()?;
+        let metadata = self.generate_metadata(&paths_to_backup)?;
+        let tar_gz_path = self.create_tar_gz_with_metadata(&metadata)?;
+        log::info!("Backup created successfully at {:?}", tar_gz_path);
         Ok(())
     }
 
-    fn create_tar_gz(&self, src_paths: Vec<PathBuf>) -> Result<(), ResourceError> {
+    fn get_paths_to_backup(&self) -> Result<Vec<PathBuf>, ResourceError> {
+        if PathBuf::from("/home/nodex").exists() {
+            Ok(vec![PathBuf::from("/home/nodex")])
+        } else {
+            let config = get_config().lock().unwrap();
+            Ok(vec![env::current_exe()?, config.config_dir.clone()])
+        }
+    }
+
+    fn generate_metadata(
+        &self,
+        src_paths: &[PathBuf],
+    ) -> Result<Vec<(PathBuf, PathBuf)>, ResourceError> {
+        src_paths
+            .iter()
+            .map(|path| {
+                let relative_path = path.strip_prefix("/").unwrap_or(path).to_path_buf();
+                Ok((path.clone(), relative_path))
+            })
+            .collect()
+    }
+
+    fn create_tar_gz_with_metadata(
+        &self,
+        metadata: &[(PathBuf, PathBuf)],
+    ) -> Result<PathBuf, ResourceError> {
         let timestamp = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .map_err(|e| {
@@ -127,72 +162,166 @@ impl ResourceManager {
 
         let tar_gz_file = File::create(&dest_path)
             .map_err(|e| ResourceError::IoError(io::Error::new(io::ErrorKind::Other, e)))?;
-        let encoder = GzEncoder::new(tar_gz_file, Compression::default());
-        let mut tar_builder = Builder::new(encoder);
+        let mut encoder = GzEncoder::new(tar_gz_file, Compression::default());
+        {
+            let mut tar_builder = Builder::new(&mut encoder);
 
-        for path in &src_paths {
-            if path == &env::current_exe()? {
-                let original_path = path.strip_prefix("/").unwrap_or(path);
-                tar_builder
-                    .append_path_with_name(path, original_path)
-                    .map_err(|e| {
-                        ResourceError::TarError(format!("Failed to add nodex-agent to tar: {}", e))
-                    })?;
-            } else {
-                let base_dir = path.parent().unwrap_or_else(|| Path::new(""));
-                self.add_path_to_tar(&mut tar_builder, base_dir, path)?;
-            }
+            self.add_files_to_tar(&mut tar_builder, metadata)?;
+            self.add_metadata_to_tar(&mut tar_builder, metadata, timestamp)?;
+            tar_builder
+                .finish()
+                .map_err(|e| ResourceError::TarError(format!("Failed to finish tarball: {}", e)))?;
         }
 
-        tar_builder
-            .finish()
-            .map_err(|e| ResourceError::TarError(format!("Failed to finish tarball: {}", e)))?;
-
-        log::info!("Tarball created at {:?}", dest_path);
-        Ok(())
-    }
-
-    fn add_path_to_tar<W: std::io::Write>(
-        &self,
-        tar_builder: &mut Builder<W>,
-        base_dir: &Path,
-        path: &Path,
-    ) -> Result<(), ResourceError> {
-        let relative_path = path.strip_prefix(base_dir).map_err(|_| {
-            ResourceError::TarError(format!("Failed to calculate relative path for {:?}", path))
+        encoder.try_finish().map_err(|e| {
+            ResourceError::TarError(format!("Failed to finalize tar.gz file: {}", e))
         })?;
 
-        if path.is_dir() {
-            tar_builder
-                .append_dir_all(relative_path, path)
-                .map_err(|e| {
-                    ResourceError::TarError(format!("Failed to append directory: {}", e))
-                })?;
-        } else if path.is_file() {
-            tar_builder
-                .append_path_with_name(path, relative_path)
-                .map_err(|e| ResourceError::TarError(format!("Failed to append file: {}", e)))?;
-        } else {
-            return Err(ResourceError::TarError(format!(
-                "Invalid path type: {:?}",
-                path
-            )));
+        Ok(dest_path)
+    }
+
+    fn add_files_to_tar<W: std::io::Write>(
+        &self,
+        tar_builder: &mut Builder<W>,
+        metadata: &[(PathBuf, PathBuf)],
+    ) -> Result<(), ResourceError> {
+        for (original_path, relative_path) in metadata {
+            if original_path.is_dir() {
+                tar_builder
+                    .append_dir_all(relative_path, original_path)
+                    .map_err(|e| {
+                        ResourceError::TarError(format!(
+                            "Failed to append directory {:?}: {}",
+                            original_path, e
+                        ))
+                    })?;
+            } else if original_path.is_file() {
+                tar_builder
+                    .append_path_with_name(original_path, relative_path)
+                    .map_err(|e| {
+                        ResourceError::TarError(format!(
+                            "Failed to append file {:?}: {}",
+                            original_path, e
+                        ))
+                    })?;
+            }
         }
         Ok(())
     }
 
-    pub fn get_latest_backup(&self) -> Option<PathBuf> {
-        fs::read_dir(&self.tmp_path)
-            .ok()?
-            .filter_map(|entry| entry.ok().map(|e| e.path()))
-            .filter(|path| {
-                path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("gz")
-            })
-            .max_by_key(|path| {
-                path.metadata()
-                    .and_then(|meta| meta.modified())
-                    .unwrap_or(SystemTime::UNIX_EPOCH)
-            })
+    fn add_metadata_to_tar<W: std::io::Write>(
+        &self,
+        tar_builder: &mut Builder<W>,
+        metadata: &[(PathBuf, PathBuf)],
+        timestamp: u64,
+    ) -> Result<(), ResourceError> {
+        let uid = get_current_uid();
+        let gid = get_current_gid();
+
+        let metadata_json = serde_json::to_string(metadata)
+            .map_err(|e| ResourceError::TarError(format!("Failed to serialize metadata: {}", e)))?;
+
+        let mut header = Header::new_gnu();
+        header
+            .set_path("backup_metadata.json")
+            .map_err(|e| ResourceError::TarError(format!("Failed to set header path: {}", e)))?;
+        header.set_size(metadata_json.len() as u64);
+        header.set_mode(0o644);
+        header.set_mtime(timestamp);
+        header.set_uid(uid as u64);
+        header.set_gid(gid as u64);
+        header.set_cksum();
+
+        tar_builder
+            .append_data(
+                &mut header,
+                "backup_metadata.json",
+                metadata_json.as_bytes(),
+            )
+            .map_err(|e| ResourceError::TarError(format!("Failed to add metadata: {}", e)))?;
+
+        Ok(())
+    }
+
+    pub fn rollback(&self, backup_file: &PathBuf) -> Result<(), ResourceError> {
+        let temp_dir = self.extract_tar_to_temp(backup_file)?;
+        let metadata = self.read_metadata(&temp_dir)?;
+        self.move_files_to_original_paths(&temp_dir, &metadata)?;
+
+        log::info!("Rollback completed successfully from {:?}", backup_file);
+        Ok(())
+    }
+
+    fn extract_tar_to_temp(&self, backup_file: &Path) -> Result<PathBuf, ResourceError> {
+        let file = File::open(backup_file).map_err(|e| {
+            ResourceError::RollbackFailed(format!(
+                "Failed to open backup file {:?}: {}",
+                backup_file, e
+            ))
+        })?;
+        let decompressed = GzDecoder::new(file);
+        let mut archive = Archive::new(decompressed);
+
+        let temp_dir = PathBuf::from("/tmp/restore_temp");
+        std::fs::create_dir_all(&temp_dir).map_err(|e| {
+            ResourceError::RollbackFailed(format!(
+                "Failed to create temp directory {:?}: {}",
+                temp_dir, e
+            ))
+        })?;
+
+        archive.unpack(&temp_dir).map_err(|e| {
+            ResourceError::RollbackFailed(format!(
+                "Failed to unpack backup archive to temp directory {:?}: {}",
+                temp_dir, e
+            ))
+        })?;
+
+        Ok(temp_dir)
+    }
+
+    fn read_metadata(&self, temp_dir: &Path) -> Result<Vec<(PathBuf, PathBuf)>, ResourceError> {
+        let metadata_file = temp_dir.join("backup_metadata.json");
+        let metadata_contents = std::fs::read_to_string(&metadata_file).map_err(|e| {
+            ResourceError::RollbackFailed(format!(
+                "Failed to read metadata file {:?}: {}",
+                metadata_file, e
+            ))
+        })?;
+        let metadata = serde_json::from_str(&metadata_contents).map_err(|e| {
+            ResourceError::RollbackFailed(format!(
+                "Failed to parse metadata file {:?}: {}",
+                metadata_file, e
+            ))
+        })?;
+        Ok(metadata)
+    }
+
+    fn move_files_to_original_paths(
+        &self,
+        temp_dir: &Path,
+        metadata: &[(PathBuf, PathBuf)],
+    ) -> Result<(), ResourceError> {
+        for (original_path, relative_path) in metadata {
+            let temp_path = temp_dir.join(relative_path);
+            if temp_path.exists() {
+                if original_path.exists() {
+                    std::fs::remove_file(original_path).map_err(|e| {
+                        ResourceError::RollbackFailed(format!(
+                            "Failed to remove existing file {:?}: {}",
+                            original_path, e
+                        ))
+                    })?;
+                }
+                std::fs::rename(&temp_path, original_path).map_err(|e| {
+                    ResourceError::RollbackFailed(format!(
+                        "Failed to move file from {:?} to {:?}: {}",
+                        temp_path, original_path, e
+                    ))
+                })?;
+            }
+        }
+        Ok(())
     }
 
     pub fn remove(&self) -> Result<(), ResourceError> {
@@ -214,27 +343,6 @@ impl ResourceManager {
                 })?;
             }
         }
-        Ok(())
-    }
-
-    pub fn rollback(&self, backup_file: &PathBuf) -> Result<(), ResourceError> {
-        let file = File::open(backup_file).map_err(|e| {
-            ResourceError::RollbackFailed(format!(
-                "Failed to open backup file {:?}: {}",
-                backup_file, e
-            ))
-        })?;
-
-        let decompressed = GzDecoder::new(file);
-        let mut archive = Archive::new(decompressed);
-
-        archive.unpack("/").map_err(|e| {
-            ResourceError::RollbackFailed(format!(
-                "Failed to unpack backup archive from {:?}: {}",
-                backup_file, e
-            ))
-        })?;
-
         Ok(())
     }
 }
