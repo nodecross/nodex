@@ -124,12 +124,8 @@ impl ResourceManager {
     }
 
     fn get_paths_to_backup(&self) -> Result<Vec<PathBuf>, ResourceError> {
-        if PathBuf::from("/home/nodex").exists() {
-            Ok(vec![PathBuf::from("/home/nodex")])
-        } else {
-            let config = get_config().lock().unwrap();
-            Ok(vec![env::current_exe()?, config.config_dir.clone()])
-        }
+        let config = get_config().lock().unwrap();
+        Ok(vec![env::current_exe()?, config.config_dir.clone()])
     }
 
     fn generate_metadata(
@@ -245,6 +241,7 @@ impl ResourceManager {
 
     pub fn rollback(&self, backup_file: &PathBuf) -> Result<(), ResourceError> {
         let temp_dir = self.extract_tar_to_temp(backup_file)?;
+        // Might be safer to check for the existence of config.json and binary
         let metadata = self.read_metadata(&temp_dir)?;
         self.move_files_to_original_paths(&temp_dir, &metadata)?;
 
