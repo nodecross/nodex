@@ -24,7 +24,7 @@ pub async fn run() -> std::io::Result<()> {
 
     let process_infos = runtime_manager
         .get_process_infos()
-        .expect("get process infos");
+        .expect("Failed to read runtime_info.json");
 
     let controller_processes = process_infos
         .iter()
@@ -80,7 +80,7 @@ async fn monitoring_loop(
             break;
         }
 
-        let current_state = runtime_manager.get_state().expect("failed get state");
+        let current_state = runtime_manager.get_state().unwrap_or(State::Default);
         if previous_state.as_ref() != Some(&current_state) {
             if let Err(e) = state_handler.handle(&runtime_manager, &agent_manager).await {
                 log::error!("Failed to handle state change: {}", e);
