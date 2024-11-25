@@ -1,7 +1,11 @@
 use crate::managers::{
     agent::{AgentManager, AgentManagerError},
     resource::{ResourceError, ResourceManager},
-    runtime::{FeatType, RuntimeError, RuntimeManager},
+    runtime::{RuntimeError, RuntimeManager},
+};
+pub use nix::{
+    sys::signal::{self, Signal},
+    unistd::Pid,
 };
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -16,9 +20,12 @@ pub enum RollbackError {
     ResourceError(#[from] ResourceError),
     #[error("failed to get runtime info: {0}")]
     RuntimeError(#[from] RuntimeError),
+    #[error("failed to kill process: {0}")]
+    FailedKillOwnProcess(String),
 }
 
 pub struct RollbackState<'a> {
+    #[allow(dead_code)]
     agent_manager: &'a Arc<Mutex<AgentManager>>,
     resource_manager: &'a ResourceManager,
     runtime_manager: &'a RuntimeManager,
@@ -44,22 +51,15 @@ impl<'a> RollbackState<'a> {
             Some(backup_file) => {
                 log::info!("Found backup: {}", backup_file.display());
                 self.resource_manager.rollback(&backup_file)?;
-
-                let mut agent_processes =
-                    self.runtime_manager.filter_process_infos(FeatType::Agent)?;
-                agent_processes.retain(|agent_process| {
-                    self.runtime_manager
-                        .is_running_or_remove_if_stopped(agent_process)
-                });
-
-                if agent_processes.is_empty() {
-                    let agent_manager = self.agent_manager.lock().await;
-                    let process_info = agent_manager.launch_agent()?;
-                    self.runtime_manager.add_process_info(process_info)?;
-                }
-
                 self.resource_manager.remove()?;
+                self.runtime_manager
+                    .update_state(crate::managers::runtime::State::Default)?;
                 log::info!("Rollback completed");
+
+                log::info!("Restarting controller by SIGINT");
+                let current_pid = std::process::id();
+                signal::kill(Pid::from_raw(current_pid as i32), Signal::SIGINT)
+                    .map_err(|e| RollbackError::FailedKillOwnProcess(e.to_string()))?;
 
                 Ok(())
             }
