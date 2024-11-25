@@ -1,7 +1,6 @@
 [package]
-name = "bin"
-build = "build.rs"
 authors.workspace = true
+build = "build.rs"
 categories.workspace = true
 description.workspace = true
 documentation.workspace = true
@@ -9,6 +8,7 @@ edition.workspace = true
 homepage.workspace = true
 keywords.workspace = true
 license-file.workspace = true
+name = "bin"
 readme.workspace = true
 repository.workspace = true
 version.workspace = true
@@ -21,11 +21,11 @@ path = "src/main.rs"
 
 [dependencies]
 agent = { path = "../agent" }
-clap = { workspace = true }
 chrono = { workspace = true }
-shadow-rs = { workspace = true }
+clap = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
+shadow-rs = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 controller = { path = "../controller" }
