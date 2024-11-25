@@ -33,7 +33,7 @@ runs:
         cd e2e
         cargo test
 
-        pgrep -f nodex-agent | xargs kill -SIGINT
+        pgrep -f "nodex-agent controller" | xargs kill -SIGINT
         sleep 5
 
         if !grep -q "SIGINT" log.txt; then
@@ -41,7 +41,7 @@ runs:
           exit 1
         fi
 
-        pids=$(pgrep -f nodex-agent || true)
+        pids=$(pgrep -f "nodex-agent controller" || true)
         # When executing pgrep, if the process does not exist, it exits; therefore, a solution for that is needed.
         if [ -z "$pids" ]; then
           echo "Process not found, as expected."

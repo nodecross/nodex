@@ -34,7 +34,7 @@ runs:
       shell: bash
       run: |
         container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
-        pid=$(docker exec $container_id pgrep -f nodex-agent)
+        pid=$(docker exec $container_id pgrep -f "nodex-agent controller")
         docker exec $container_id kill -SIGINT $pid
         sleep 3
 
@@ -53,7 +53,7 @@ runs:
       if: steps.check_logs_for_sigint.outputs.stopped_found == 'true'
       run: |
         container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
-        if ! docker exec $container_id pgrep -f /tmp/nodex-agent; then
+        if ! docker exec $container_id pgrep -f "/tmp/nodex-agent controller"; then
           echo "Process not found, as expected."
         else
           echo "Process is still running, which is not expected."
@@ -70,7 +70,7 @@ runs:
       shell: bash
       run: |
         container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
-        pid=$(docker exec $container_id pgrep -f nodex-agent)
+        pid=$(docker exec $container_id pgrep -f "nodex-agent controller")
         docker exec $container_id kill -SIGTERM $pid
         sleep 3
 
@@ -89,7 +89,7 @@ runs:
       if: steps.check_logs_for_sigterm.outputs.stopped_found == 'true'
       run: |
         container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
-        if ! docker exec $container_id pgrep -f /tmp/nodex-agent; then
+        if ! docker exec $container_id pgrep -f "/tmp/nodex-agentc controller"; then
           echo "Process not found, as expected."
         else
           echo "Process is still running, which is not expected."
