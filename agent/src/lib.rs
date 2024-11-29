@@ -200,15 +200,26 @@ async fn handle_signals(should_stop: Arc<AtomicBool>) {
     use tokio::signal::unix::{signal, SignalKind};
 
     let ctrl_c = tokio::signal::ctrl_c();
+
+    use std::os::unix::io::{FromRawFd, RawFd};
+    use std::os::unix::net::UnixListener;
+
     let mut sigterm = signal(SignalKind::terminate()).expect("Failed to bind to SIGTERM");
+    let listener_fd: RawFd = env::var("LISTENER_FD")
+        .expect("LISTENER_FD not set")
+        .parse::<i32>()
+        .expect("Invalid LISTENER_FD");
+    let listener: UnixListener = unsafe { UnixListener::from_raw_fd(listener_fd) };
 
     tokio::select! {
         _ = ctrl_c => {
             log::info!("Received SIGINT");
+            std::mem::drop(listener);
             should_stop.store(true, Ordering::Relaxed);
         },
         _ = sigterm.recv() => {
             log::info!("Received SIGTERM");
+            std::mem::drop(listener);
             should_stop.store(true, Ordering::Relaxed);
         },
     }
