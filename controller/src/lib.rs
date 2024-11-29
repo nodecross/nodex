@@ -4,6 +4,7 @@ use crate::managers::runtime::{
     FeatType, FileHandler, ProcessInfo, RuntimeError, RuntimeManager, State,
 };
 use crate::state::handler::StateHandler;
+use std::env;
 use std::path::PathBuf;
 use std::process as stdProcess;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -11,6 +12,8 @@ use std::sync::Arc;
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::Mutex;
 use tokio::time::{self, Duration};
+use std::os::unix::io::{FromRawFd, RawFd};
+use std::os::unix::net::UnixListener;
 
 mod config;
 pub mod managers;
@@ -119,6 +122,11 @@ pub async fn handle_signals(
     let ctrl_c = tokio::signal::ctrl_c();
     let mut sigterm = signal(SignalKind::terminate()).expect("Failed to bind to SIGTERM");
     let mut sigabrt = signal(SignalKind::user_defined1()).expect("Failed to bind to SIGABRT");
+    let listener_fd: RawFd = env::var("LISTENER_FD")
+        .expect("LISTENER_FD not set")
+        .parse::<i32>()
+        .expect("Invalid LISTENER_FD");
+    let listener: UnixListener = unsafe { UnixListener::from_raw_fd(listener_fd) };
 
     tokio::select! {
         _ = ctrl_c => {
@@ -129,7 +137,7 @@ pub async fn handle_signals(
         },
         _ = sigterm.recv() => {
             log::info!("Received SIGTERM. Gracefully stopping application.");
-            handle_sigterm(should_stop.clone());
+            handle_sigterm(should_stop.clone(), listener);
         },
         _ = sigabrt.recv() => {
             if let Err(e) = handle_cleanup(agent_manager, runtime_manager).await {
@@ -175,7 +183,9 @@ async fn handle_cleanup(
     Ok(())
 }
 
-fn handle_sigterm(should_stop: Arc<AtomicBool>) {
+fn handle_sigterm(should_stop: Arc<AtomicBool>, listener: UnixListener) {
+    log::info!("Dropping listener.");
+    std::mem::drop(listener);
     log::info!("Received SIGTERM. Setting stop flag.");
     should_stop.store(true, Ordering::Relaxed);
 }
