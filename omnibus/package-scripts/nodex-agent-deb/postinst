@@ -42,12 +42,8 @@ else
     echo "Bin directory ${BIN_INSTALL_DIR} already exists."
 fi
 
-if [ ! -f "${BIN_INSTALL_DIR}/nodex-agent" ]; then
-    echo "Moving nodex-agent to bin directory ${BIN_INSTALL_DIR}..."
-    mv ${INIT_INSTALL_DIR}/bin/nodex-agent ${BIN_INSTALL_DIR}
-else
-    echo "${BIN_INSTALL_DIR}/nodex-agent already exists."
-fi
+echo "Moving nodex-agent to bin directory ${BIN_INSTALL_DIR}..."
+mv ${INIT_INSTALL_DIR}/bin/nodex-agent ${BIN_INSTALL_DIR}
 
 if [ ! -d "${HOME_DIR}/.config" ]; then
     echo "Creating config directory ${HOME_DIR}/.config..."
