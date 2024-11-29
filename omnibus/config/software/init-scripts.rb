@@ -10,6 +10,7 @@ build do
       dest: "#{systemd_directory}/nodex-agent.socket",
       mode: 0644,
       vars: { install_dir: install_dir, etc_dir: etc_dir }
+    project.extra_package_file "#{systemd_directory}/nodex-agent.socket"
     erb source: "systemd.service.erb",
       dest: "#{systemd_directory}/nodex-agent.service",
       mode: 0644,

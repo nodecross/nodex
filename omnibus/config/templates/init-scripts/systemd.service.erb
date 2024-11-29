@@ -4,12 +4,19 @@ Description=Nodex Agent Service
 Wants=network-online.target
 After=network-online.target
 Requires=nodex-agent.socket
+After=nodex-agent.socket
 
 [Service]
 Type=simple
 
 # Core service execution settings.
 ExecStart=/home/nodex/bin/nodex-agent controller
+
+# Custom kill signal handling.
+KillSignal=SIGINT
+
+# Socket Activation settings.
+StandardInput=socket
 
 # Restart behavior: restarts on failure, with a 10-second delay between attempts.
 # Limits restarts to 5 attempts within a 300-second period to avoid excessive restarts.

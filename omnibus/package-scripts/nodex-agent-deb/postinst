@@ -5,7 +5,7 @@
 #
 
 INIT_INSTALL_DIR=/opt/nodex-agent
-SERVICE_NAME=nodex-agent
+SERVICE_NAME=nodex-agent.service
 SOCKET_NAME=nodex-agent.socket
 HOME_DIR=/home/nodex
 BIN_INSTALL_DIR=$HOME_DIR/bin
@@ -94,11 +94,9 @@ fi
 echo "Enabling and starting socket $SOCKET_NAME"
 if command -v systemctl >/dev/null 2>&1; then
     systemctl enable $SOCKET_NAME
-    systemctl start $SOCKET_NAME
 fi
 echo "Enabling service $SERVICE_NAME"
 if command -v systemctl >/dev/null 2>&1; then
-    systemctl daemon-reload
     systemctl enable $SERVICE_NAME
 fi
 
