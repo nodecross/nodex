@@ -149,7 +149,7 @@ impl AgentManager {
             ))),
         }
     }
-    #[cfg(unix)]
+    #[cfg(windows)]
     pub fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {}
 
     #[cfg(unix)]
