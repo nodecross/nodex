@@ -29,6 +29,7 @@ use unix_imports::*;
 use crate::managers::runtime::{FeatType, ProcessInfo};
 use crate::validator::process::{is_manage_by_systemd, is_manage_socket_activation};
 
+#[cfg(unix)]
 static DEFAULT_FD: RawFd = 3;
 
 #[derive(Debug, thiserror::Error)]

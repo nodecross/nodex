@@ -1,4 +1,6 @@
+#[cfg(unix)]
 use nix::sys::signal;
+#[cfg(unix)]
 use nix::unistd::Pid;
 use std::env;
 
@@ -10,6 +12,7 @@ pub fn is_manage_socket_activation() -> bool {
     env::var("LISTEN_PID").is_ok() && env::var("LISTEN_FDS").is_ok()
 }
 
+#[cfg(unix)]
 pub fn is_running(process_id: u32) -> bool {
     let pid = Pid::from_raw(process_id as i32);
     match signal::kill(pid, None) {
@@ -18,3 +21,6 @@ pub fn is_running(process_id: u32) -> bool {
         Err(_) => false,
     }
 }
+
+#[cfg(windows)]
+pub fn is_running(process_id: u32) -> bool {}
