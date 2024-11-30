@@ -163,6 +163,7 @@ pub async fn handle_signals(
     agent_manager: Arc<Mutex<AgentManager>>,
     runtime_manager: Arc<RuntimeManager>,
 ) {
+    unimplemented!("implemented for Windows.");
 }
 
 #[cfg(unix)]

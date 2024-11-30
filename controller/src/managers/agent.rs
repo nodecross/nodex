@@ -150,8 +150,11 @@ impl AgentManager {
             ))),
         }
     }
+
     #[cfg(windows)]
-    pub fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {}
+    pub fn launch_agent(&self) -> Result<(), AgentManagerError> {
+        unimplemented!("implemented for Windows.");
+    }
 
     #[cfg(unix)]
     pub fn terminate_agent(&self, process_id: u32) -> Result<(), AgentManagerError> {
@@ -164,7 +167,9 @@ impl AgentManager {
     }
 
     #[cfg(windows)]
-    pub fn terminate_agent(&self, process_id: u32) -> Result<(), AgentManagerError> {}
+    pub fn terminate_agent(&self, process_id: u32) -> Result<(), AgentManagerError> {
+        unimplemented!("implemented for Windows.");
+    }
 
     #[cfg(unix)]
     pub async fn get_request<T>(&self, endpoint: &str) -> Result<T, AgentManagerError>

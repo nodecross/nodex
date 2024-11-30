@@ -199,12 +199,14 @@ impl<'a> UpdateState<'a> {
             .await
             .map_err(|e| UpdateError::AgentVersionCheckFailed(e.to_string()))
     }
+
     #[cfg(windows)]
     async fn check_version(
         &self,
         agent_manager: &'a Arc<Mutex<AgentManager>>,
         expected_version: &Version,
     ) -> Result<bool, UpdateError> {
+        unimplemented!("implemented for Windows.");
     }
 
     async fn terminate_old_version_agent(

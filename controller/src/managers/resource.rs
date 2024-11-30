@@ -246,6 +246,7 @@ impl ResourceManager {
         Ok(())
     }
 
+    #[cfg(unix)]
     pub fn rollback(&self, backup_file: &PathBuf) -> Result<(), ResourceError> {
         let temp_dir = self.extract_tar_to_temp(backup_file)?;
         // Might be safer to check for the existence of config.json and binary
@@ -254,6 +255,11 @@ impl ResourceManager {
 
         log::info!("Rollback completed successfully from {:?}", backup_file);
         Ok(())
+    }
+
+    #[cfg(windows)]
+    pub fn rollback(&self, backup_file: &PathBuf) -> Result<(), ResourceError> {
+        unimplemented!("implemented for Windows.");
     }
 
     #[cfg(unix)]

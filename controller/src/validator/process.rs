@@ -23,4 +23,6 @@ pub fn is_running(process_id: u32) -> bool {
 }
 
 #[cfg(windows)]
-pub fn is_running(process_id: u32) -> bool {}
+pub fn is_running(process_id: u32) -> bool {
+    unimplemented!("implemented for Windows.");
+}
