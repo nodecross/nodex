@@ -1,8 +1,11 @@
 use crate::{controllers, handlers::TransferClient};
 use actix_web::{dev::Server, middleware, web, App, HttpServer};
 use std::env;
-use std::os::unix::io::{FromRawFd, RawFd};
-use std::os::unix::net::UnixListener;
+#[cfg(unix)]
+use std::os::unix::{
+    io::{FromRawFd, RawFd},
+    net::UnixListener,
+};
 use tokio::sync::Mutex as TokioMutex;
 
 pub struct Context<C: TransferClient> {

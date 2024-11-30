@@ -6,6 +6,7 @@ use crate::managers::{
     runtime::{FeatType, RuntimeError, RuntimeManager, State},
 };
 use crate::state::update::tasks::{UpdateAction, UpdateActionError};
+#[cfg(unix)]
 use crate::validator::agent::is_latest_version;
 use semver::Version;
 use serde_yaml::Error as SerdeYamlError;

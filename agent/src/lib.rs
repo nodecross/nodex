@@ -19,10 +19,17 @@ use tokio::sync::RwLock;
 use tokio::time::Duration;
 
 #[cfg(windows)]
-use windows::Win32::{
-    Foundation::{CloseHandle, GetLastError},
-    System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE},
-};
+mod windows_imports {
+    pub use anyhow::anyhow;
+    pub use sysinfo::{get_current_pid, System};
+    pub use windows::Win32::{
+        Foundation::{CloseHandle, GetLastError},
+        System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE},
+    };
+}
+
+#[cfg(windows)]
+use windows_imports::*;
 
 use nodex::utils::UnwrapLog;
 use usecase::metric_usecase::MetricUsecase;
