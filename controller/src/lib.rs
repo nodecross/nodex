@@ -9,11 +9,19 @@ use std::path::PathBuf;
 use std::process as stdProcess;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::Mutex;
 use tokio::time::{self, Duration};
-use std::os::unix::io::{FromRawFd, RawFd};
-use std::os::unix::net::UnixListener;
+
+#[cfg(unix)]
+mod unix_imports {
+    pub use std::os::unix::{
+        io::{FromRawFd, RawFd},
+        net::UnixListener,
+    };
+    pub use tokio::signal::unix::{signal, SignalKind};
+}
+#[cfg(unix)]
+use unix_imports::*;
 
 mod config;
 pub mod managers;
@@ -114,6 +122,7 @@ fn on_controller_started(runtime_manager: &RuntimeManager) -> Result<(), Runtime
     runtime_manager.add_process_info(process_info)
 }
 
+#[cfg(unix)]
 pub async fn handle_signals(
     should_stop: Arc<AtomicBool>,
     agent_manager: Arc<Mutex<AgentManager>>,
@@ -146,6 +155,14 @@ pub async fn handle_signals(
             should_stop.store(true, Ordering::Relaxed);
         },
     };
+}
+
+#[cfg(windows)]
+pub async fn handle_signals(
+    should_stop: Arc<AtomicBool>,
+    agent_manager: Arc<Mutex<AgentManager>>,
+    runtime_manager: Arc<RuntimeManager>,
+) {
 }
 
 async fn handle_cleanup(

@@ -4,7 +4,6 @@ use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::{app_config, server_config};
 use anyhow;
 
-use controller::validator::storage::check_storage;
 use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
 use protocol::did::sidetree::payload::DidResolutionResponse;
 use std::{
@@ -22,6 +21,7 @@ mod unix_imports {
     pub use controller::validator::{
         network::can_connect_to_download_server,
         process::{is_manage_by_systemd, is_manage_socket_activation},
+        storage::check_storage,
     };
     pub use nix::{
         sys::signal::{self, Signal},

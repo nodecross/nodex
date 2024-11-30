@@ -3,21 +3,28 @@ use http_body_util::{BodyExt, Full};
 use hyper::{body::Incoming, Response};
 use hyper_util::client::legacy::{Client, Error as LegacyClientError};
 use hyperlocal::{UnixClientExt, UnixConnector, Uri};
-use nix::{
-    sys::signal::{self, Signal},
-    unistd::{dup, execvp, fork, setsid, ForkResult, Pid},
-};
 use serde::de::DeserializeOwned;
-use std::ffi::CString;
 use std::{
     env,
-    os::unix::{
-        io::{AsRawFd, FromRawFd, RawFd},
-        net::UnixListener,
-    },
     path::PathBuf,
     sync::{Arc, Mutex},
 };
+
+#[cfg(unix)]
+mod unix_imports {
+    pub use nix::{
+        sys::signal::{self, Signal},
+        unistd::{dup, execvp, fork, setsid, ForkResult, Pid},
+    };
+    pub use std::ffi::CString;
+    pub use std::os::unix::{
+        io::{AsRawFd, FromRawFd, RawFd},
+        net::UnixListener,
+    };
+}
+
+#[cfg(unix)]
+use unix_imports::*;
 
 use crate::managers::runtime::{FeatType, ProcessInfo};
 use crate::validator::process::{is_manage_by_systemd, is_manage_socket_activation};
@@ -26,6 +33,8 @@ static DEFAULT_FD: RawFd = 3;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AgentManagerError {
+    #[error["Failed to initialize listener"]]
+    FailedInitialize,
     #[error("Failed to get current executable path")]
     CurrentExecutablePathError(#[source] std::io::Error),
     #[error("Failed to fork agent")]
@@ -56,6 +65,7 @@ pub enum AgentManagerError {
     Utf8Error(#[source] std::str::Utf8Error),
 }
 
+#[cfg(unix)]
 pub struct AgentManager {
     pub uds_path: PathBuf,
     listener_fd: RawFd,
@@ -63,11 +73,12 @@ pub struct AgentManager {
     listener: Option<Arc<Mutex<UnixListener>>>,
 }
 
+#[cfg(unix)]
 impl AgentManager {
-    pub fn new(uds_path: PathBuf) -> Result<Self, &'static str> {
+    pub fn new(uds_path: PathBuf) -> Result<Self, AgentManagerError> {
         let (listener_fd, listener) = Self::setup_listener(&uds_path).map_err(|e| {
             log::error!("Error initializing listener: {}", e);
-            "Failed to initialize listener"
+            AgentManagerError::FailedInitialize
         })?;
 
         Ok(AgentManager {
