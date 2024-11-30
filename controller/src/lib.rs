@@ -165,6 +165,7 @@ pub async fn handle_signals(
 ) {
 }
 
+#[cfg(unix)]
 async fn handle_cleanup(
     agent_manager: Arc<Mutex<AgentManager>>,
     runtime_manager: Arc<RuntimeManager>,
@@ -193,13 +194,17 @@ async fn handle_cleanup(
         .update_state(crate::managers::runtime::State::Default)
         .map_err(|e| e.to_string())?;
 
-    let manager = agent_manager.lock().await;
-    manager.cleanup_uds_file().map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    {
+        let manager = agent_manager.lock().await;
+        manager.cleanup_uds_file().map_err(|e| e.to_string())?;
+    }
 
     log::info!("cleanup successfully.");
     Ok(())
 }
 
+#[cfg(unix)]
 fn handle_sigterm(should_stop: Arc<AtomicBool>, listener: UnixListener) {
     log::info!("Dropping listener.");
     std::mem::drop(listener);

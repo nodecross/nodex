@@ -49,8 +49,10 @@ pub enum AgentManagerError {
     NoFileDescriptors,
     #[error("Failed to bind UDS: {0}")]
     BindUdsError(#[source] std::io::Error),
+    #[cfg(unix)]
     #[error("Failed to duplicate file descriptor")]
     DuplicateFdError(#[source] nix::Error),
+    #[cfg(unix)]
     #[error("Failed to terminate process: {0}")]
     TerminateProcessError(#[source] nix::Error),
     #[error("Failed to parse LISTENER_FD")]
@@ -147,6 +149,8 @@ impl AgentManager {
             ))),
         }
     }
+    #[cfg(unix)]
+    pub fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {}
 
     #[cfg(unix)]
     pub fn terminate_agent(&self, process_id: u32) -> Result<(), AgentManagerError> {
@@ -157,6 +161,9 @@ impl AgentManager {
 
         Ok(())
     }
+
+    #[cfg(windows)]
+    pub fn terminate_agent(&self, process_id: u32) -> Result<(), AgentManagerError> {}
 
     #[cfg(unix)]
     pub async fn get_request<T>(&self, endpoint: &str) -> Result<T, AgentManagerError>

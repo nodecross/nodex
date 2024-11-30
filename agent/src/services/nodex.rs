@@ -4,6 +4,15 @@ use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::{app_config, server_config};
 use anyhow;
 
+use controller::managers::{
+    resource::ResourceManager,
+    runtime::{FeatType, FileHandler, RuntimeManager, State},
+};
+use controller::validator::{
+    network::can_connect_to_download_server,
+    process::{is_manage_by_systemd, is_manage_socket_activation},
+    storage::check_storage,
+};
 use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
 use protocol::did::sidetree::payload::DidResolutionResponse;
 use std::{
@@ -14,15 +23,6 @@ use std::{
 
 #[cfg(unix)]
 mod unix_imports {
-    pub use controller::managers::{
-        resource::ResourceManager,
-        runtime::{FeatType, FileHandler, RuntimeManager, State},
-    };
-    pub use controller::validator::{
-        network::can_connect_to_download_server,
-        process::{is_manage_by_systemd, is_manage_socket_activation},
-        storage::check_storage,
-    };
     pub use nix::{
         sys::signal::{self, Signal},
         unistd::{execvp, fork, setsid, ForkResult, Pid},
@@ -90,7 +90,7 @@ impl NodeX {
         output_path: PathBuf,
     ) -> anyhow::Result<()> {
         if !check_storage(&output_path) {
-            log::error!("Not enough storage space");
+            log::error!("Not enough storage space: {:?}", output_path);
             return Err(anyhow::anyhow!("Not enough storage space"));
         } else if !can_connect_to_download_server("https://github.com").await {
             log::error!("Not connected to the Internet");

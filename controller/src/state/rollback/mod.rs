@@ -3,6 +3,7 @@ use crate::managers::{
     resource::{ResourceError, ResourceManager},
     runtime::{RuntimeError, RuntimeManager},
 };
+#[cfg(unix)]
 pub use nix::{
     sys::signal::{self, Signal},
     unistd::Pid,
@@ -57,9 +58,12 @@ impl<'a> RollbackState<'a> {
                 log::info!("Rollback completed");
 
                 log::info!("Restarting controller by SIGINT");
-                let current_pid = std::process::id();
-                signal::kill(Pid::from_raw(current_pid as i32), Signal::SIGINT)
-                    .map_err(|e| RollbackError::FailedKillOwnProcess(e.to_string()))?;
+                #[cfg(unix)]
+                {
+                    let current_pid = std::process::id();
+                    signal::kill(Pid::from_raw(current_pid as i32), Signal::SIGINT)
+                        .map_err(|e| RollbackError::FailedKillOwnProcess(e.to_string()))?;
+                }
 
                 Ok(())
             }
