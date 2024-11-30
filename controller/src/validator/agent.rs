@@ -6,6 +6,7 @@ pub struct VersionResponse {
     pub version: String,
 }
 
+#[cfg(unix)]
 pub async fn is_latest_version(
     agent_manager: &AgentManager,
     expected_version: String,

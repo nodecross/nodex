@@ -131,11 +131,6 @@ pub async fn handle_signals(
     let ctrl_c = tokio::signal::ctrl_c();
     let mut sigterm = signal(SignalKind::terminate()).expect("Failed to bind to SIGTERM");
     let mut sigabrt = signal(SignalKind::user_defined1()).expect("Failed to bind to SIGABRT");
-    let listener_fd: RawFd = env::var("LISTENER_FD")
-        .expect("LISTENER_FD not set")
-        .parse::<i32>()
-        .expect("Invalid LISTENER_FD");
-    let listener: UnixListener = unsafe { UnixListener::from_raw_fd(listener_fd) };
 
     tokio::select! {
         _ = ctrl_c => {
@@ -146,6 +141,11 @@ pub async fn handle_signals(
         },
         _ = sigterm.recv() => {
             log::info!("Received SIGTERM. Gracefully stopping application.");
+            let listener_fd: RawFd = env::var("LISTENER_FD")
+                .expect("LISTENER_FD not set")
+                .parse::<i32>()
+                .expect("Invalid LISTENER_FD");
+            let listener: UnixListener = unsafe { UnixListener::from_raw_fd(listener_fd) };
             handle_sigterm(should_stop.clone(), listener);
         },
         _ = sigabrt.recv() => {

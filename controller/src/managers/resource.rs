@@ -10,6 +10,7 @@ use std::{
     time::SystemTime,
 };
 use tar::{Archive, Builder, Header};
+#[cfg(unix)]
 use users::{get_current_gid, get_current_uid};
 use zip::{result::ZipError, ZipArchive};
 
@@ -115,6 +116,7 @@ impl ResourceManager {
             })
     }
 
+    #[cfg(unix)]
     pub fn backup(&self) -> Result<(), ResourceError> {
         let paths_to_backup = self.get_paths_to_backup()?;
         let metadata = self.generate_metadata(&paths_to_backup)?;
@@ -123,11 +125,13 @@ impl ResourceManager {
         Ok(())
     }
 
+    #[cfg(unix)]
     fn get_paths_to_backup(&self) -> Result<Vec<PathBuf>, ResourceError> {
         let config = get_config().lock().unwrap();
         Ok(vec![env::current_exe()?, config.config_dir.clone()])
     }
 
+    #[cfg(unix)]
     fn generate_metadata(
         &self,
         src_paths: &[PathBuf],
@@ -141,6 +145,7 @@ impl ResourceManager {
             .collect()
     }
 
+    #[cfg(unix)]
     fn create_tar_gz_with_metadata(
         &self,
         metadata: &[(PathBuf, PathBuf)],
@@ -176,6 +181,7 @@ impl ResourceManager {
         Ok(dest_path)
     }
 
+    #[cfg(unix)]
     fn add_files_to_tar<W: std::io::Write>(
         &self,
         tar_builder: &mut Builder<W>,
@@ -205,6 +211,7 @@ impl ResourceManager {
         Ok(())
     }
 
+    #[cfg(unix)]
     fn add_metadata_to_tar<W: std::io::Write>(
         &self,
         tar_builder: &mut Builder<W>,
@@ -249,6 +256,7 @@ impl ResourceManager {
         Ok(())
     }
 
+    #[cfg(unix)]
     fn extract_tar_to_temp(&self, backup_file: &Path) -> Result<PathBuf, ResourceError> {
         let file = File::open(backup_file).map_err(|e| {
             ResourceError::RollbackFailed(format!(
@@ -277,6 +285,7 @@ impl ResourceManager {
         Ok(temp_dir)
     }
 
+    #[cfg(unix)]
     fn read_metadata(&self, temp_dir: &Path) -> Result<Vec<(PathBuf, PathBuf)>, ResourceError> {
         let metadata_file = temp_dir.join("backup_metadata.json");
         let metadata_contents = std::fs::read_to_string(&metadata_file).map_err(|e| {
@@ -294,6 +303,7 @@ impl ResourceManager {
         Ok(metadata)
     }
 
+    #[cfg(unix)]
     fn move_files_to_original_paths(
         &self,
         temp_dir: &Path,

@@ -2,7 +2,6 @@ use bytes::Bytes;
 use http_body_util::{BodyExt, Full};
 use hyper::{body::Incoming, Response};
 use hyper_util::client::legacy::{Client, Error as LegacyClientError};
-use hyperlocal::{UnixClientExt, UnixConnector, Uri};
 use serde::de::DeserializeOwned;
 use std::{
     env,
@@ -12,6 +11,7 @@ use std::{
 
 #[cfg(unix)]
 mod unix_imports {
+    pub use hyperlocal::{UnixClientExt, UnixConnector, Uri};
     pub use nix::{
         sys::signal::{self, Signal},
         unistd::{dup, execvp, fork, setsid, ForkResult, Pid},
@@ -65,29 +65,39 @@ pub enum AgentManagerError {
     Utf8Error(#[source] std::str::Utf8Error),
 }
 
-#[cfg(unix)]
 pub struct AgentManager {
+    #[cfg(unix)]
     pub uds_path: PathBuf,
+    #[cfg(unix)]
     listener_fd: RawFd,
+    #[cfg(unix)]
     #[allow(dead_code)]
     listener: Option<Arc<Mutex<UnixListener>>>,
 }
 
-#[cfg(unix)]
 impl AgentManager {
     pub fn new(uds_path: PathBuf) -> Result<Self, AgentManagerError> {
-        let (listener_fd, listener) = Self::setup_listener(&uds_path).map_err(|e| {
-            log::error!("Error initializing listener: {}", e);
-            AgentManagerError::FailedInitialize
-        })?;
+        #[cfg(unix)]
+        {
+            let (listener_fd, listener) = Self::setup_listener(&uds_path).map_err(|e| {
+                log::error!("Error initializing listener: {}", e);
+                AgentManagerError::FailedInitialize
+            })?;
 
-        Ok(AgentManager {
-            uds_path,
-            listener_fd,
-            listener,
-        })
+            Ok(AgentManager {
+                uds_path,
+                listener_fd,
+                listener,
+            })
+        }
+
+        #[cfg(windows)]
+        {
+            Ok(AgentManager {})
+        }
     }
 
+    #[cfg(unix)]
     pub fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {
         let current_exe =
             env::current_exe().map_err(AgentManagerError::CurrentExecutablePathError)?;
@@ -138,6 +148,7 @@ impl AgentManager {
         }
     }
 
+    #[cfg(unix)]
     pub fn terminate_agent(&self, process_id: u32) -> Result<(), AgentManagerError> {
         log::info!("Terminating agent with PID: {}", process_id);
 
@@ -147,6 +158,7 @@ impl AgentManager {
         Ok(())
     }
 
+    #[cfg(unix)]
     pub async fn get_request<T>(&self, endpoint: &str) -> Result<T, AgentManagerError>
     where
         T: DeserializeOwned,
@@ -159,6 +171,7 @@ impl AgentManager {
         self.parse_response_body(response).await
     }
 
+    #[cfg(unix)]
     async fn parse_response_body<T>(
         &self,
         response: Response<Incoming>,
@@ -179,6 +192,7 @@ impl AgentManager {
         serde_json::from_str(string_body).map_err(AgentManagerError::JsonParseError)
     }
 
+    #[cfg(unix)]
     fn setup_listener(
         uds_path: &PathBuf,
     ) -> Result<(RawFd, Option<Arc<Mutex<UnixListener>>>), AgentManagerError> {
@@ -191,6 +205,7 @@ impl AgentManager {
         }
     }
 
+    #[cfg(unix)]
     fn get_fd_from_systemd() -> Result<(RawFd, Option<Arc<Mutex<UnixListener>>>), AgentManagerError>
     {
         let listen_fds = env::var("LISTEN_FDS")
@@ -216,6 +231,7 @@ impl AgentManager {
         Ok((DEFAULT_FD, None))
     }
 
+    #[cfg(unix)]
     fn duplicate_fd(
         listener_fd_str: String,
     ) -> Result<(RawFd, Option<Arc<Mutex<UnixListener>>>), AgentManagerError> {
@@ -229,6 +245,7 @@ impl AgentManager {
         Ok((duplicated_fd, Some(Arc::new(Mutex::new(listener)))))
     }
 
+    #[cfg(unix)]
     fn bind_new_uds(
         uds_path: &PathBuf,
     ) -> Result<(RawFd, Option<Arc<Mutex<UnixListener>>>), AgentManagerError> {
@@ -243,6 +260,7 @@ impl AgentManager {
         Ok((listener_fd, Some(Arc::new(Mutex::new(listener)))))
     }
 
+    #[cfg(unix)]
     pub fn cleanup_uds_file(&self) -> Result<(), std::io::Error> {
         if self.uds_path.exists() {
             log::warn!("Removing UDS file: {:?}", self.uds_path);

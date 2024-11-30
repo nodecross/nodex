@@ -21,9 +21,9 @@ path = "src/main.rs"
 
 [dependencies]
 agent = { path = "../agent" }
-controller = { path = "../controller" }
 chrono = { workspace = true }
 clap = { workspace = true }
+controller = { path = "../controller" }
 env_logger = { workspace = true }
 log = { workspace = true }
 shadow-rs = { workspace = true }
