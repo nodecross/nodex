@@ -40,9 +40,11 @@ impl<'a> DefaultState<'a> {
             return Ok(());
         }
 
-        let agent_manager = self.agent_manager.lock().await;
-        let process_info = agent_manager.launch_agent()?;
-        self.runtime_manager.add_process_info(process_info)?;
+        #[cfg(unix)] {
+            let agent_manager = self.agent_manager.lock().await;
+            let process_info = agent_manager.launch_agent()?;
+            self.runtime_manager.add_process_info(process_info)?;
+        }
 
         Ok(())
     }

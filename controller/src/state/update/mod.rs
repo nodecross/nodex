@@ -146,12 +146,18 @@ impl<'a> UpdateState<'a> {
         Ok(pending_actions)
     }
 
+    #[cfg(unix)]
     async fn launch_new_version_agent(&self) -> Result<(), UpdateError> {
         let agent_manager = self.agent_manager.lock().await;
         let process_info = agent_manager.launch_agent()?;
         self.runtime_manager.add_process_info(process_info)?;
 
         Ok(())
+    }
+
+    #[cfg(windows)]
+    async fn launch_new_version_agent(&self) -> Result<(), UpdateError> {
+        unimplemented!("implemented for Windows.");
     }
 
     async fn monitor_agent_version(
