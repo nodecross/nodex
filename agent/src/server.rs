@@ -89,7 +89,7 @@ fn config_app<C: TransferClient + 'static>(
                 web::post().to(controllers::public::send_event::handler),
             )
             .route(
-                "/custom_metrics",
+                "/custom-metrics",
                 web::post().to(controllers::public::send_custom_metric::handler),
             )
             .route(
