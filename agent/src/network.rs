@@ -22,6 +22,7 @@ impl SingletonNetworkConfig {
     }
 }
 
+#[allow(static_mut_refs)]
 pub fn network_config() -> Box<SingletonNetworkConfig> {
     static mut SINGLETON: Option<Box<SingletonNetworkConfig>> = None;
     static ONCE: Once = Once::new();
@@ -58,7 +59,11 @@ pub struct Network {
 
 impl Network {
     fn touch(path: &Path) -> io::Result<()> {
-        let mut file = OpenOptions::new().create(true).write(true).open(path)?;
+        let mut file = OpenOptions::new()
+            .truncate(true)
+            .create(true)
+            .write(true)
+            .open(path)?;
         file.write_all(b"{}")?;
         Ok(())
     }

@@ -56,7 +56,6 @@ shadow!(build);
 
 #[derive(Parser, Debug)]
 #[clap(name = "nodex-agent")]
-#[clap(name = "nodex-agent")]
 #[clap(
     version = shadow_rs::formatcp!("v{} ({} {})\n{} @ {}", build::PKG_VERSION, build::SHORT_COMMIT, build::BUILD_TIME_3339, build::RUST_VERSION, build::BUILD_TARGET),
     about,
