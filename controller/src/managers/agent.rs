@@ -202,7 +202,6 @@ impl AgentManagerTrait for UnixAgentManager {
 #[cfg(unix)]
 impl UnixAgentManager {
     pub fn new(uds_path: PathBuf) -> Result<Self, AgentManagerError> {
-        // Setup UDS listener logic
         let (listener_fd, listener) = Self::setup_listener(&uds_path).map_err(|e| {
             log::error!("Error initializing listener: {}", e);
             AgentManagerError::FailedInitialize
@@ -289,10 +288,6 @@ pub struct WindowsAgentManager;
 #[cfg(windows)]
 #[async_trait]
 impl AgentManagerTrait for WindowsAgentManager {
-    pub fn new() -> Result<Self, AgentManagerError> {
-        Ok(WindowsAgentManager)
-    }
-
     fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {
         unimplemented!()
     }
@@ -320,5 +315,12 @@ impl AgentManagerTrait for WindowsAgentManager {
 
     fn cleanup(&self) -> Result<(), std::io::Error> {
         unimplemented!()
+    }
+}
+
+#[cfg(windows)]
+impl WindowsAgentManager {
+    pub fn new() -> Result<Self, AgentManagerError> {
+        Ok(WindowsAgentManager {})
     }
 }

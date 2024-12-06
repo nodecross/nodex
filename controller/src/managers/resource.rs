@@ -415,8 +415,8 @@ impl ResourceManagerTrait for WindowsResourceManager {
 
 #[cfg(windows)]
 impl WindowsResourceManager {
-    fn new() -> Self {
-        unimplemented!()
+    pub fn new() -> Self {
+        WindowsResourceManager {}
     }
 }
 

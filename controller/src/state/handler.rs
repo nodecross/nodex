@@ -16,7 +16,6 @@ use crate::managers::resource::UnixResourceManager;
 #[cfg(windows)]
 use crate::managers::resource::WindowsResourceManager;
 
-
 #[derive(Debug, thiserror::Error)]
 pub enum StateHandlerError {
     #[error("update failed: {0}")]
@@ -52,13 +51,11 @@ impl StateHandler {
 
         match runtime_manager.get_state()? {
             State::Update => {
-                {
-                    let update_state =
-                        UpdateState::new(agent_manager, resource_manager, runtime_manager);
+                let update_state =
+                    UpdateState::new(agent_manager, resource_manager, runtime_manager);
 
-                    if let Err(e) = update_state.execute().await {
-                        self.handle_update_failed(runtime_manager, e)?;
-                    }
+                if let Err(e) = update_state.execute().await {
+                    self.handle_update_failed(runtime_manager, e)?;
                 }
             }
             State::Rollback => {
