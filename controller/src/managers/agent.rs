@@ -280,6 +280,7 @@ impl UnixAgentManager {
     }
 }
 
+#[cfg(unix)]
 unsafe impl Sync for UnixAgentManager {}
 
 #[cfg(windows)]
@@ -288,8 +289,8 @@ pub struct WindowsAgentManager;
 #[cfg(windows)]
 #[async_trait]
 impl AgentManagerTrait for WindowsAgentManager {
-    pub fn new(uds_path: PathBuf) -> Result<Self, AgentManagerError> {
-        unimplemented!()
+    pub fn new() -> Result<Self, AgentManagerError> {
+        Ok(WindowsAgentManager)
     }
 
     fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {

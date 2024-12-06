@@ -385,6 +385,7 @@ impl UnixResourceManager {
     }
 }
 
+#[cfg(unix)]
 impl Default for UnixResourceManager {
     fn default() -> Self {
         Self::new()
