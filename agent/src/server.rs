@@ -3,6 +3,7 @@ use actix_web::{dev::Server, middleware, web, App, HttpServer};
 use std::path::PathBuf;
 use tokio::sync::Mutex as TokioMutex;
 
+#[allow(dead_code)]
 pub struct Context<C: TransferClient> {
     pub sender: TokioMutex<C>,
 }

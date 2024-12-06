@@ -127,7 +127,8 @@ impl NodeX {
         daemonize.start().expect("Failed to update nodex process");
         std::process::Command::new(agent_path)
             .spawn()
-            .expect("Failed to execute command");
+            .expect("Failed to execute command")
+            .wait()?;
         Ok(())
     }
 
