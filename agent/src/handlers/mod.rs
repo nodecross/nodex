@@ -10,6 +10,7 @@ pub enum Command {
     Send { value: Value, resp: Responder },
 }
 
+#[allow(dead_code)]
 #[trait_variant::make(Send)]
 pub trait TransferClient: Sync {
     async fn send(&self, value: Value) -> anyhow::Result<bool>;

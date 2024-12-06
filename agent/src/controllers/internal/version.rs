@@ -15,7 +15,7 @@ pub struct MessageContainer {
 
 pub async fn handler_get(_req: HttpRequest) -> actix_web::Result<HttpResponse> {
     let current_version = env!("CARGO_PKG_VERSION");
-    Ok(HttpResponse::Ok().json(&json!({ "version": current_version })))
+    Ok(HttpResponse::Ok().json(json!({ "version": current_version })))
 }
 
 pub async fn handler_update(

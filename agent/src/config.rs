@@ -103,6 +103,7 @@ impl SingletonAppConfig {
     }
 }
 
+#[allow(static_mut_refs)]
 pub fn app_config() -> Box<SingletonAppConfig> {
     static mut SINGLETON: Option<Box<SingletonAppConfig>> = None;
     static ONCE: Once = Once::new();
@@ -147,7 +148,11 @@ fn load_key_pair<U, V, T: KeyPair<U, V>>(kind: &Option<KeyPairHex>) -> Option<T>
 
 impl AppConfig {
     fn touch(path: &Path) -> io::Result<()> {
-        let mut file = OpenOptions::new().create(true).write(true).open(path)?;
+        let mut file = OpenOptions::new()
+            .truncate(true)
+            .create(true)
+            .write(true)
+            .open(path)?;
         file.write_all(b"{}")?;
         Ok(())
     }
