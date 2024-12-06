@@ -407,7 +407,7 @@ impl ResourceManagerTrait for WindowsResourceManager {
         unimplemented!()
     }
 
-    fn rollback(&self, backup_file: &PathBuf) -> Result<(), ResourceError> {
+    fn rollback(&self, backup_file: &Path) -> Result<(), ResourceError> {
         unimplemented!()
     }
 }

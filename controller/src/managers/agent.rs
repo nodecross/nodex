@@ -307,6 +307,16 @@ impl AgentManagerTrait for WindowsAgentManager {
         unimplemented!()
     }
 
+    async fn parse_response_body<T>(
+        &self,
+        response: Response<Incoming>,
+    ) -> Result<T, AgentManagerError>
+    where
+        T: DeserializeOwned,
+    {
+        unimplemented!()
+    }
+
     fn cleanup(&self) -> Result<(), std::io::Error> {
         unimplemented!()
     }

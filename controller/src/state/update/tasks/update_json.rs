@@ -14,7 +14,7 @@ pub enum UpdateJsonError {
 }
 
 pub fn run(file: &String, field: &String, value: &String) -> Result<(), UpdateJsonError> {
-    // Array updates are not supported. 
+    // Array updates are not supported.
     // It's unclear whether the operation is an addition or a completely new write.
 
     log::info!(

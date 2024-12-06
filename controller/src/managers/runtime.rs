@@ -96,6 +96,7 @@ impl FileHandler {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&self.path)
             .map_err(RuntimeError::FileOpen)?;
         file.lock_exclusive().map_err(RuntimeError::FileLock)?;

@@ -5,6 +5,7 @@ use std::sync::Mutex;
 
 pub struct Config {
     pub config_dir: PathBuf,
+    #[allow(dead_code)]
     pub nodex_dir: PathBuf,
     pub runtime_dir: PathBuf,
     pub uds_path: PathBuf,
