@@ -416,7 +416,9 @@ impl ResourceManagerTrait for WindowsResourceManager {
 #[cfg(windows)]
 impl WindowsResourceManager {
     pub fn new() -> Self {
-        WindowsResourceManager {}
+        // provisional implementation
+        let tmp_path = PathBuf::from("C:\\Temp\\nodex-agent");
+        Self { tmp_path }
     }
 }
 
