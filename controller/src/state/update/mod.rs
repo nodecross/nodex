@@ -1,8 +1,8 @@
 pub mod tasks;
 
 use crate::managers::{
-    agent::{AgentManager, AgentManagerError},
-    resource::{ResourceError, ResourceManager},
+    agent::{AgentManagerError, AgentManagerTrait},
+    resource::{ResourceError, ResourceManagerTrait},
     runtime::{FeatType, RuntimeError, RuntimeManager, State},
 };
 use crate::state::update::tasks::{UpdateAction, UpdateActionError};
@@ -56,16 +56,24 @@ impl UpdateError {
     }
 }
 
-pub struct UpdateState<'a> {
-    agent_manager: &'a Arc<Mutex<AgentManager>>,
-    resource_manager: ResourceManager,
+pub struct UpdateState<'a, A, R>
+where
+    A: AgentManagerTrait + Sync,
+    R: ResourceManagerTrait,
+{
+    agent_manager: &'a Arc<Mutex<A>>,
+    resource_manager: R,
     runtime_manager: &'a RuntimeManager,
 }
 
-impl<'a> UpdateState<'a> {
+impl<'a, A, R> UpdateState<'a, A, R>
+where
+    A: AgentManagerTrait + Sync,
+    R: ResourceManagerTrait,
+{
     pub fn new(
-        agent_manager: &'a Arc<Mutex<AgentManager>>,
-        resource_manager: ResourceManager,
+        agent_manager: &'a Arc<Mutex<A>>,
+        resource_manager: R,
         runtime_manager: &'a RuntimeManager,
     ) -> Self {
         Self {
@@ -102,8 +110,7 @@ impl<'a> UpdateState<'a> {
         }
 
         self.launch_new_version_agent().await?;
-        self.monitor_agent_version(self.agent_manager, &current_version)
-            .await?;
+        self.monitor_agent_version(&current_version).await?;
         self.terminate_old_version_agent(current_version.to_string())
             .await?;
 
@@ -160,11 +167,7 @@ impl<'a> UpdateState<'a> {
         unimplemented!("implemented for Windows.");
     }
 
-    async fn monitor_agent_version(
-        &self,
-        agent_manager: &'a Arc<Mutex<AgentManager>>,
-        expected_version: &Version,
-    ) -> Result<(), UpdateError> {
+    async fn monitor_agent_version(&self, expected_version: &Version) -> Result<(), UpdateError> {
         let timeout = Duration::from_secs(180);
         let interval = Duration::from_secs(3);
 
@@ -174,7 +177,7 @@ impl<'a> UpdateState<'a> {
         while start.elapsed() < timeout {
             interval_timer.tick().await;
 
-            match self.check_version(agent_manager, expected_version).await {
+            match self.check_version(expected_version).await {
                 Ok(true) => {
                     log::info!("Expected version received: {}", expected_version);
                     return Ok(());
@@ -195,23 +198,15 @@ impl<'a> UpdateState<'a> {
     }
 
     #[cfg(unix)]
-    async fn check_version(
-        &self,
-        agent_manager: &'a Arc<Mutex<AgentManager>>,
-        expected_version: &Version,
-    ) -> Result<bool, UpdateError> {
-        let manager = agent_manager.lock().await;
-        is_latest_version(&manager, expected_version.to_string())
+    async fn check_version(&self, expected_version: &Version) -> Result<bool, UpdateError> {
+        let manager = self.agent_manager.lock().await;
+        is_latest_version(&*manager, expected_version.to_string())
             .await
             .map_err(|e| UpdateError::AgentVersionCheckFailed(e.to_string()))
     }
 
     #[cfg(windows)]
-    async fn check_version(
-        &self,
-        agent_manager: &'a Arc<Mutex<AgentManager>>,
-        expected_version: &Version,
-    ) -> Result<bool, UpdateError> {
+    async fn check_version(&self, expected_version: &Version) -> Result<bool, UpdateError> {
         unimplemented!("implemented for Windows.");
     }
 

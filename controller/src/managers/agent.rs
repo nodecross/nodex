@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full};
 use hyper::{body::Incoming, Response};
@@ -68,40 +69,38 @@ pub enum AgentManagerError {
     Utf8Error(#[source] std::str::Utf8Error),
 }
 
-pub struct AgentManager {
-    #[cfg(unix)]
-    pub uds_path: PathBuf,
-    #[cfg(unix)]
+#[async_trait]
+pub trait AgentManagerTrait: Send {
+    fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError>;
+
+    fn terminate_agent(&self, process_id: u32) -> Result<(), AgentManagerError>;
+
+    async fn get_request<T>(&self, endpoint: &str) -> Result<T, AgentManagerError>
+    where
+        T: serde::de::DeserializeOwned + Send;
+
+    async fn parse_response_body<T>(
+        &self,
+        response: Response<Incoming>,
+    ) -> Result<T, AgentManagerError>
+    where
+        T: DeserializeOwned;
+
+    fn cleanup(&self) -> Result<(), std::io::Error>;
+}
+
+#[cfg(unix)]
+pub struct UnixAgentManager {
+    uds_path: PathBuf,
     listener_fd: RawFd,
-    #[cfg(unix)]
     #[allow(dead_code)]
     listener: Option<Arc<Mutex<UnixListener>>>,
 }
 
-impl AgentManager {
-    pub fn new(uds_path: PathBuf) -> Result<Self, AgentManagerError> {
-        #[cfg(unix)]
-        {
-            let (listener_fd, listener) = Self::setup_listener(&uds_path).map_err(|e| {
-                log::error!("Error initializing listener: {}", e);
-                AgentManagerError::FailedInitialize
-            })?;
-
-            Ok(AgentManager {
-                uds_path,
-                listener_fd,
-                listener,
-            })
-        }
-
-        #[cfg(windows)]
-        {
-            Ok(AgentManager {})
-        }
-    }
-
-    #[cfg(unix)]
-    pub fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {
+#[cfg(unix)]
+#[async_trait]
+impl AgentManagerTrait for UnixAgentManager {
+    fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {
         let current_exe =
             env::current_exe().map_err(AgentManagerError::CurrentExecutablePathError)?;
 
@@ -151,13 +150,7 @@ impl AgentManager {
         }
     }
 
-    #[cfg(windows)]
-    pub fn launch_agent(&self) -> Result<(), AgentManagerError> {
-        unimplemented!("implemented for Windows.");
-    }
-
-    #[cfg(unix)]
-    pub fn terminate_agent(&self, process_id: u32) -> Result<(), AgentManagerError> {
+    fn terminate_agent(&self, process_id: u32) -> Result<(), AgentManagerError> {
         log::info!("Terminating agent with PID: {}", process_id);
 
         signal::kill(Pid::from_raw(process_id as i32), Signal::SIGTERM)
@@ -166,15 +159,9 @@ impl AgentManager {
         Ok(())
     }
 
-    #[cfg(windows)]
-    pub fn terminate_agent(&self, process_id: u32) -> Result<(), AgentManagerError> {
-        unimplemented!("implemented for Windows.");
-    }
-
-    #[cfg(unix)]
-    pub async fn get_request<T>(&self, endpoint: &str) -> Result<T, AgentManagerError>
+    async fn get_request<T>(&self, endpoint: &str) -> Result<T, AgentManagerError>
     where
-        T: DeserializeOwned,
+        T: serde::de::DeserializeOwned + Send,
     {
         let client: Client<UnixConnector, Full<Bytes>> = Client::unix();
         let uri = Uri::new(&self.uds_path, endpoint).into();
@@ -184,7 +171,6 @@ impl AgentManager {
         self.parse_response_body(response).await
     }
 
-    #[cfg(unix)]
     async fn parse_response_body<T>(
         &self,
         response: Response<Incoming>,
@@ -205,7 +191,30 @@ impl AgentManager {
         serde_json::from_str(string_body).map_err(AgentManagerError::JsonParseError)
     }
 
-    #[cfg(unix)]
+    fn cleanup(&self) -> Result<(), std::io::Error> {
+        if self.uds_path.exists() {
+            std::fs::remove_file(&self.uds_path)?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(unix)]
+impl UnixAgentManager {
+    pub fn new(uds_path: PathBuf) -> Result<Self, AgentManagerError> {
+        // Setup UDS listener logic
+        let (listener_fd, listener) = Self::setup_listener(&uds_path).map_err(|e| {
+            log::error!("Error initializing listener: {}", e);
+            AgentManagerError::FailedInitialize
+        })?;
+
+        Ok(UnixAgentManager {
+            uds_path,
+            listener_fd,
+            listener,
+        })
+    }
+
     fn setup_listener(
         uds_path: &PathBuf,
     ) -> Result<(RawFd, Option<Arc<Mutex<UnixListener>>>), AgentManagerError> {
@@ -218,7 +227,6 @@ impl AgentManager {
         }
     }
 
-    #[cfg(unix)]
     fn get_fd_from_systemd() -> Result<(RawFd, Option<Arc<Mutex<UnixListener>>>), AgentManagerError>
     {
         let listen_fds = env::var("LISTEN_FDS")
@@ -244,7 +252,6 @@ impl AgentManager {
         Ok((DEFAULT_FD, None))
     }
 
-    #[cfg(unix)]
     fn duplicate_fd(
         listener_fd_str: String,
     ) -> Result<(RawFd, Option<Arc<Mutex<UnixListener>>>), AgentManagerError> {
@@ -258,7 +265,6 @@ impl AgentManager {
         Ok((duplicated_fd, Some(Arc::new(Mutex::new(listener)))))
     }
 
-    #[cfg(unix)]
     fn bind_new_uds(
         uds_path: &PathBuf,
     ) -> Result<(RawFd, Option<Arc<Mutex<UnixListener>>>), AgentManagerError> {
@@ -272,16 +278,36 @@ impl AgentManager {
 
         Ok((listener_fd, Some(Arc::new(Mutex::new(listener)))))
     }
+}
 
-    #[cfg(unix)]
-    pub fn cleanup_uds_file(&self) -> Result<(), std::io::Error> {
-        if self.uds_path.exists() {
-            log::warn!("Removing UDS file: {:?}", self.uds_path);
-            std::fs::remove_file(&self.uds_path)?;
-            log::info!("UDS file removed successfully.");
-        } else {
-            log::info!("No UDS file to remove at {:?}", self.uds_path);
-        }
-        Ok(())
+unsafe impl Sync for UnixAgentManager {}
+
+#[cfg(windows)]
+pub struct WindowsAgentManager;
+
+#[cfg(windows)]
+#[async_trait]
+impl AgentManagerTrait for WindowsAgentManager {
+    pub fn new(uds_path: PathBuf) -> Result<Self, AgentManagerError> {
+        unimplemented!()
+    }
+
+    fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {
+        unimplemented!()
+    }
+
+    fn terminate_agent(&self, process_id: u32) -> Result<(), AgentManagerError> {
+        unimplemented!()
+    }
+
+    async fn get_request<T>(&self, endpoint: &str) -> Result<T, AgentManagerError>
+    where
+        T: DeserializeOwned,
+    {
+        unimplemented!()
+    }
+
+    fn cleanup(&self) -> Result<(), std::io::Error> {
+        unimplemented!()
     }
 }

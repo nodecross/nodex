@@ -1,6 +1,6 @@
 use crate::managers::{
-    agent::{AgentManager, AgentManagerError},
-    resource::{ResourceError, ResourceManager},
+    agent::{AgentManagerError, AgentManagerTrait},
+    resource::{ResourceError, ResourceManagerTrait},
     runtime::{RuntimeError, RuntimeManager},
 };
 #[cfg(unix)]
@@ -9,7 +9,6 @@ pub use nix::{
     unistd::Pid,
 };
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RollbackError {
@@ -25,17 +24,25 @@ pub enum RollbackError {
     FailedKillOwnProcess(String),
 }
 
-pub struct RollbackState<'a> {
+pub struct RollbackState<'a, A, R>
+where
+    A: AgentManagerTrait,
+    R: ResourceManagerTrait,
+{
     #[allow(dead_code)]
-    agent_manager: &'a Arc<Mutex<AgentManager>>,
-    resource_manager: &'a ResourceManager,
+    agent_manager: &'a Arc<tokio::sync::Mutex<A>>,
+    resource_manager: &'a R,
     runtime_manager: &'a RuntimeManager,
 }
 
-impl<'a> RollbackState<'a> {
+impl<'a, A, R> RollbackState<'a, A, R>
+where
+    A: AgentManagerTrait,
+    R: ResourceManagerTrait,
+{
     pub fn new(
-        agent_manager: &'a Arc<Mutex<AgentManager>>,
-        resource_manager: &'a ResourceManager,
+        agent_manager: &'a Arc<tokio::sync::Mutex<A>>,
+        resource_manager: &'a R,
         runtime_manager: &'a RuntimeManager,
     ) -> Self {
         RollbackState {
@@ -44,6 +51,7 @@ impl<'a> RollbackState<'a> {
             runtime_manager,
         }
     }
+
     pub async fn execute(&self) -> Result<(), RollbackError> {
         log::info!("Starting rollback");
 

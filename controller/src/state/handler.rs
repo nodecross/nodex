@@ -1,6 +1,6 @@
 use crate::managers::{
-    agent::AgentManager,
-    resource::ResourceManager,
+    agent::AgentManagerTrait,
+    resource::UnixResourceManager,
     runtime::{RuntimeError, RuntimeManager, State},
 };
 use crate::state::{
@@ -30,14 +30,17 @@ impl StateHandler {
         Self {}
     }
 
-    pub async fn handle(
+    pub async fn handle<A>(
         &self,
         runtime_manager: &Arc<RuntimeManager>,
-        agent_manager: &Arc<Mutex<AgentManager>>,
-    ) -> Result<(), StateHandlerError> {
+        agent_manager: &Arc<Mutex<A>>,
+    ) -> Result<(), StateHandlerError>
+    where
+        A: AgentManagerTrait + Sync + Send,
+    {
         match runtime_manager.get_state()? {
             State::Update => {
-                let resource_manager = ResourceManager::new();
+                let resource_manager = UnixResourceManager::new();
                 {
                     let update_state =
                         UpdateState::new(agent_manager, resource_manager, runtime_manager);
@@ -48,7 +51,7 @@ impl StateHandler {
                 }
             }
             State::Rollback => {
-                let resource_manager = ResourceManager::new();
+                let resource_manager = UnixResourceManager::new();
                 let rollback_state =
                     RollbackState::new(agent_manager, &resource_manager, runtime_manager);
                 rollback_state.execute().await?;

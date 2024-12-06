@@ -1,5 +1,5 @@
 use crate::config::get_config;
-use crate::managers::agent::AgentManager;
+use crate::managers::agent::AgentManagerTrait;
 use crate::managers::runtime::{
     FeatType, FileHandler, ProcessInfo, RuntimeError, RuntimeManager, State,
 };
@@ -14,6 +14,7 @@ use tokio::time::{self, Duration};
 
 #[cfg(unix)]
 mod unix_imports {
+    pub use crate::managers::agent::UnixAgentManager;
     pub use std::os::unix::{
         io::{FromRawFd, RawFd},
         net::UnixListener,
@@ -22,6 +23,11 @@ mod unix_imports {
 }
 #[cfg(unix)]
 use unix_imports::*;
+
+#[cfg(windows)]
+mod windows_imports {
+    pub use crate::managers::agent::WindowsAgentManager;
+}
 
 mod config;
 pub mod managers;
@@ -54,8 +60,15 @@ pub async fn run() -> std::io::Result<()> {
         .expect("Failed to record controller start in runtime manager");
 
     let uds_path = get_config().lock().unwrap().uds_path.clone();
+
+    #[cfg(unix)]
     let agent_manager = Arc::new(Mutex::new(
-        AgentManager::new(uds_path).expect("Failed to create AgentManager"),
+        UnixAgentManager::new(uds_path).expect("Failed to create AgentManager"),
+    ));
+
+    #[cfg(windows)]
+    let agent_manager = Arc::new(Mutex::new(
+        WindowsAgentManager::new().expect("Failed to create AgentManager"),
     ));
 
     let shutdown_handle = tokio::spawn({
@@ -77,11 +90,13 @@ pub async fn run() -> std::io::Result<()> {
     Ok(())
 }
 
-async fn monitoring_loop(
+async fn monitoring_loop<A>(
     runtime_manager: Arc<RuntimeManager>,
-    agent_manager: Arc<Mutex<AgentManager>>,
+    agent_manager: Arc<Mutex<A>>,
     should_stop: Arc<AtomicBool>,
-) {
+) where
+    A: AgentManagerTrait + Sync + Send + 'static,
+{
     let state_handler = StateHandler::new();
     let mut previous_state: Option<State> = None;
 
@@ -123,18 +138,20 @@ fn on_controller_started(runtime_manager: &RuntimeManager) -> Result<(), Runtime
 }
 
 #[cfg(unix)]
-pub async fn handle_signals(
+pub async fn handle_signals<A>(
     should_stop: Arc<AtomicBool>,
-    agent_manager: Arc<Mutex<AgentManager>>,
+    agent_manager: Arc<Mutex<A>>,
     runtime_manager: Arc<RuntimeManager>,
-) {
+) where
+    A: AgentManagerTrait + Sync + Send + 'static,
+{
     let ctrl_c = tokio::signal::ctrl_c();
     let mut sigterm = signal(SignalKind::terminate()).expect("Failed to bind to SIGTERM");
     let mut sigabrt = signal(SignalKind::user_defined1()).expect("Failed to bind to SIGABRT");
 
     tokio::select! {
         _ = ctrl_c => {
-            if let Err(e) = handle_cleanup(agent_manager, runtime_manager).await {
+            if let Err(e) = handle_cleanup(&agent_manager, &runtime_manager).await {
                 log::error!("Failed to handle CTRL+C: {}", e);
             }
             should_stop.store(true, Ordering::Relaxed);
@@ -149,28 +166,33 @@ pub async fn handle_signals(
             handle_sigterm(should_stop.clone(), listener);
         },
         _ = sigabrt.recv() => {
-            if let Err(e) = handle_cleanup(agent_manager, runtime_manager).await {
+            if let Err(e) = handle_cleanup(&agent_manager, &runtime_manager).await {
                 log::error!("Failed to handle SIGABRT: {}", e);
             }
             should_stop.store(true, Ordering::Relaxed);
-        },
+        }
     };
 }
 
 #[cfg(windows)]
-pub async fn handle_signals(
+pub async fn handle_signals<A>(
     should_stop: Arc<AtomicBool>,
-    agent_manager: Arc<Mutex<AgentManager>>,
+    agent_manager: Arc<Mutex<A>>,
     runtime_manager: Arc<RuntimeManager>,
-) {
+) where
+    A: AgentManagerTrait + Sync + Send,
+{
     unimplemented!("implemented for Windows.");
 }
 
 #[cfg(unix)]
-async fn handle_cleanup(
-    agent_manager: Arc<Mutex<AgentManager>>,
-    runtime_manager: Arc<RuntimeManager>,
-) -> Result<(), String> {
+async fn handle_cleanup<A>(
+    agent_manager: &Arc<Mutex<A>>,
+    runtime_manager: &Arc<RuntimeManager>,
+) -> Result<(), String>
+where
+    A: AgentManagerTrait + Sync + Send,
+{
     log::info!("Received CTRL+C. Initiating shutdown.");
 
     let current_pid = std::process::id();
@@ -198,7 +220,7 @@ async fn handle_cleanup(
     #[cfg(unix)]
     {
         let manager = agent_manager.lock().await;
-        manager.cleanup_uds_file().map_err(|e| e.to_string())?;
+        manager.cleanup().map_err(|e| e.to_string())?;
     }
 
     log::info!("cleanup successfully.");

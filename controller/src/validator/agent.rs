@@ -1,4 +1,4 @@
-use crate::managers::agent::{AgentManager, AgentManagerError};
+use crate::managers::agent::{AgentManagerError, AgentManagerTrait};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -6,11 +6,13 @@ pub struct VersionResponse {
     pub version: String,
 }
 
-#[cfg(unix)]
-pub async fn is_latest_version(
-    agent_manager: &AgentManager,
+pub async fn is_latest_version<A>(
+    agent_manager: &A,
     expected_version: String,
-) -> Result<bool, AgentManagerError> {
+) -> Result<bool, AgentManagerError>
+where
+    A: AgentManagerTrait + Sync,
+{
     let version_response: VersionResponse =
         agent_manager.get_request("/internal/version/get").await?;
 

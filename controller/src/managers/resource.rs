@@ -1,4 +1,5 @@
 use crate::config::get_config;
+use async_trait::async_trait;
 use bytes::Bytes;
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use glob::glob;
@@ -30,29 +31,20 @@ pub enum ResourceError {
     RollbackFailed(String),
 }
 
-pub struct ResourceManager {
-    tmp_path: PathBuf,
-}
+#[async_trait]
+pub trait ResourceManagerTrait: Send + Sync {
+    fn backup(&self) -> Result<(), ResourceError>;
 
-impl ResourceManager {
-    pub fn new() -> Self {
-        let tmp_path = if PathBuf::from("/home/nodex/tmp").exists() {
-            PathBuf::from("/home/nodex/tmp")
-        } else if PathBuf::from("/tmp/nodex").exists() || fs::create_dir_all("/tmp/nodex").is_ok() {
-            PathBuf::from("/tmp/nodex")
-        } else {
-            PathBuf::from("/tmp")
-        };
+    fn rollback(&self, backup_file: &Path) -> Result<(), ResourceError>;
 
-        Self { tmp_path }
-    }
+    fn tmp_path(&self) -> &PathBuf;
 
-    pub async fn download_update_resources(
+    async fn download_update_resources(
         &self,
         binary_url: &str,
         output_path: Option<&PathBuf>,
     ) -> Result<(), ResourceError> {
-        let download_path = output_path.unwrap_or(&self.tmp_path);
+        let download_path = output_path.unwrap_or(self.tmp_path());
 
         let response = reqwest::get(binary_url)
             .await
@@ -66,31 +58,14 @@ impl ResourceManager {
         Ok(())
     }
 
-    fn extract_zip(&self, archive_data: Bytes, output_path: &Path) -> Result<(), ResourceError> {
-        let cursor = Cursor::new(archive_data);
-        let mut archive = ZipArchive::new(cursor)?;
-
-        for i in 0..archive.len() {
-            let mut file = archive.by_index(i)?;
-            let file_path = output_path.join(file.mangled_name());
-
-            if file.is_file() {
-                if let Some(parent) = file_path.parent() {
-                    std::fs::create_dir_all(parent)?;
-                }
-                let mut output_file = std::fs::File::create(&file_path)?;
-                std::io::copy(&mut file, &mut output_file)?;
-            } else if file.is_dir() {
-                std::fs::create_dir_all(&file_path)?;
-            }
-        }
-
-        Ok(())
+    fn get_paths_to_backup(&self) -> Result<Vec<PathBuf>, ResourceError> {
+        let config = get_config().lock().unwrap();
+        Ok(vec![env::current_exe()?, config.config_dir.clone()])
     }
 
-    pub fn collect_downloaded_bundles(&self) -> Vec<PathBuf> {
+    fn collect_downloaded_bundles(&self) -> Vec<PathBuf> {
         let pattern = self
-            .tmp_path
+            .tmp_path()
             .join("bundles")
             .join("*.yml")
             .to_string_lossy()
@@ -102,8 +77,8 @@ impl ResourceManager {
         }
     }
 
-    pub fn get_latest_backup(&self) -> Option<PathBuf> {
-        fs::read_dir(&self.tmp_path)
+    fn get_latest_backup(&self) -> Option<PathBuf> {
+        fs::read_dir(self.tmp_path())
             .ok()?
             .filter_map(|entry| entry.ok().map(|e| e.path()))
             .filter(|path| {
@@ -116,8 +91,84 @@ impl ResourceManager {
             })
     }
 
-    #[cfg(unix)]
-    pub fn backup(&self) -> Result<(), ResourceError> {
+    fn extract_zip(&self, archive_data: Bytes, output_path: &Path) -> Result<(), ResourceError> {
+        let cursor = Cursor::new(archive_data);
+        let mut archive = ZipArchive::new(cursor)?;
+
+        for i in 0..archive.len() {
+            let mut file = archive.by_index(i)?;
+            let file_path = output_path.join(file.mangled_name());
+
+            if file.is_file() {
+                if let Some(parent) = file_path.parent() {
+                    fs::create_dir_all(parent)?;
+                }
+                let mut output_file = File::create(&file_path)?;
+                io::copy(&mut file, &mut output_file)?;
+            } else if file.is_dir() {
+                fs::create_dir_all(&file_path)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn remove_directory(&self, path: &Path) -> Result<(), io::Error> {
+        if !path.exists() {
+            return Ok(());
+        }
+
+        if path.is_dir() {
+            fs::remove_dir_all(path).map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    format!("Failed to remove directory {:?}: {}", path, e),
+                )
+            })?;
+        } else {
+            fs::remove_file(path).map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    format!("Failed to remove file {:?}: {}", path, e),
+                )
+            })?;
+        }
+        Ok(())
+    }
+
+    fn remove(&self) -> Result<(), ResourceError> {
+        for entry in fs::read_dir(self.tmp_path())
+            .map_err(|e| ResourceError::RemoveFailed(format!("Failed to read directory: {}", e)))?
+        {
+            let entry = entry.map_err(|e| {
+                ResourceError::RemoveFailed(format!("Failed to access entry: {}", e))
+            })?;
+            let entry_path = entry.path();
+
+            self.remove_directory(&entry_path).map_err(|e| {
+                ResourceError::RemoveFailed(format!(
+                    "Failed to remove path {:?}: {}",
+                    entry_path, e
+                ))
+            })?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(unix)]
+pub struct UnixResourceManager {
+    tmp_path: PathBuf,
+}
+
+#[cfg(unix)]
+#[async_trait]
+impl ResourceManagerTrait for UnixResourceManager {
+    fn tmp_path(&self) -> &PathBuf {
+        &self.tmp_path
+    }
+
+    fn backup(&self) -> Result<(), ResourceError> {
         let paths_to_backup = self.get_paths_to_backup()?;
         let metadata = self.generate_metadata(&paths_to_backup)?;
         let tar_gz_path = self.create_tar_gz_with_metadata(&metadata)?;
@@ -125,13 +176,31 @@ impl ResourceManager {
         Ok(())
     }
 
-    #[cfg(unix)]
-    fn get_paths_to_backup(&self) -> Result<Vec<PathBuf>, ResourceError> {
-        let config = get_config().lock().unwrap();
-        Ok(vec![env::current_exe()?, config.config_dir.clone()])
+    fn rollback(&self, backup_file: &Path) -> Result<(), ResourceError> {
+        let temp_dir = self.extract_tar_to_temp(backup_file)?;
+        // Might be safer to check for the existence of config.json and binary
+        let metadata = self.read_metadata(&temp_dir)?;
+        self.move_files_to_original_paths(&temp_dir, &metadata)?;
+
+        log::info!("Rollback completed successfully from {:?}", backup_file);
+        Ok(())
+    }
+}
+
+#[cfg(unix)]
+impl UnixResourceManager {
+    pub fn new() -> Self {
+        let tmp_path = if PathBuf::from("/home/nodex/tmp").exists() {
+            PathBuf::from("/home/nodex/tmp")
+        } else if PathBuf::from("/tmp/nodex").exists() || fs::create_dir_all("/tmp/nodex").is_ok() {
+            PathBuf::from("/tmp/nodex")
+        } else {
+            PathBuf::from("/tmp")
+        };
+
+        Self { tmp_path }
     }
 
-    #[cfg(unix)]
     fn generate_metadata(
         &self,
         src_paths: &[PathBuf],
@@ -145,7 +214,6 @@ impl ResourceManager {
             .collect()
     }
 
-    #[cfg(unix)]
     fn create_tar_gz_with_metadata(
         &self,
         metadata: &[(PathBuf, PathBuf)],
@@ -181,7 +249,6 @@ impl ResourceManager {
         Ok(dest_path)
     }
 
-    #[cfg(unix)]
     fn add_files_to_tar<W: std::io::Write>(
         &self,
         tar_builder: &mut Builder<W>,
@@ -211,7 +278,6 @@ impl ResourceManager {
         Ok(())
     }
 
-    #[cfg(unix)]
     fn add_metadata_to_tar<W: std::io::Write>(
         &self,
         tar_builder: &mut Builder<W>,
@@ -246,23 +312,6 @@ impl ResourceManager {
         Ok(())
     }
 
-    #[cfg(unix)]
-    pub fn rollback(&self, backup_file: &PathBuf) -> Result<(), ResourceError> {
-        let temp_dir = self.extract_tar_to_temp(backup_file)?;
-        // Might be safer to check for the existence of config.json and binary
-        let metadata = self.read_metadata(&temp_dir)?;
-        self.move_files_to_original_paths(&temp_dir, &metadata)?;
-
-        log::info!("Rollback completed successfully from {:?}", backup_file);
-        Ok(())
-    }
-
-    #[cfg(windows)]
-    pub fn rollback(&self, backup_file: &PathBuf) -> Result<(), ResourceError> {
-        unimplemented!("implemented for Windows.");
-    }
-
-    #[cfg(unix)]
     fn extract_tar_to_temp(&self, backup_file: &Path) -> Result<PathBuf, ResourceError> {
         let file = File::open(backup_file).map_err(|e| {
             ResourceError::RollbackFailed(format!(
@@ -291,7 +340,6 @@ impl ResourceManager {
         Ok(temp_dir)
     }
 
-    #[cfg(unix)]
     fn read_metadata(&self, temp_dir: &Path) -> Result<Vec<(PathBuf, PathBuf)>, ResourceError> {
         let metadata_file = temp_dir.join("backup_metadata.json");
         let metadata_contents = std::fs::read_to_string(&metadata_file).map_err(|e| {
@@ -309,7 +357,6 @@ impl ResourceManager {
         Ok(metadata)
     }
 
-    #[cfg(unix)]
     fn move_files_to_original_paths(
         &self,
         temp_dir: &Path,
@@ -336,51 +383,44 @@ impl ResourceManager {
         }
         Ok(())
     }
+}
 
-    fn remove_directory(&self, path: &Path) -> Result<(), io::Error> {
-        if !path.exists() {
-            return Ok(());
-        }
-
-        if path.is_dir() {
-            fs::remove_dir_all(path).map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    format!("Failed to remove directory {:?}: {}", path, e),
-                )
-            })?;
-        } else {
-            fs::remove_file(path).map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    format!("Failed to remove file {:?}: {}", path, e),
-                )
-            })?;
-        }
-        Ok(())
-    }
-
-    pub fn remove(&self) -> Result<(), ResourceError> {
-        for entry in fs::read_dir(&self.tmp_path)
-            .map_err(|e| ResourceError::RemoveFailed(format!("Failed to read directory: {}", e)))?
-        {
-            let entry = entry.map_err(|e| {
-                ResourceError::RemoveFailed(format!("Failed to access entry: {}", e))
-            })?;
-            let entry_path = entry.path();
-
-            self.remove_directory(&entry_path).map_err(|e| {
-                ResourceError::RemoveFailed(format!(
-                    "Failed to remove path {:?}: {}",
-                    entry_path, e
-                ))
-            })?;
-        }
-        Ok(())
+impl Default for UnixResourceManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
-impl Default for ResourceManager {
+#[cfg(windows)]
+pub struct WindowsResourceManager {
+    tmp_path: PathBuf,
+}
+
+#[cfg(windows)]
+#[async_trait]
+impl ResourceManagerTrait for WindowsResourceManager {
+    fn tmp_path(&self) -> &PathBuf {
+        &self.tmp_path
+    }
+
+    fn backup(&self) -> Result<(), ResourceError> {
+        unimplemented!()
+    }
+
+    fn rollback(&self, backup_file: &PathBuf) -> Result<(), ResourceError> {
+        unimplemented!()
+    }
+}
+
+#[cfg(windows)]
+impl WindowsResourceManager {
+    fn new() -> Self {
+        unimplemented!()
+    }
+}
+
+#[cfg(windows)]
+impl Default for WindowsResourceManager {
     fn default() -> Self {
         Self::new()
     }

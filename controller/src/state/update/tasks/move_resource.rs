@@ -17,8 +17,10 @@ pub enum MoveResourceError {
 
 pub fn run(src: &String, dest: &String) -> Result<(), MoveResourceError> {
     let src_path = Path::new(src).to_path_buf();
-    if !src_path.exists() || !src_path.is_file() {
+    if !src_path.exists() {
         return Err(MoveResourceError::SourceNotFoundError(src_path));
+    } else if src_path.is_dir() {
+        return Err(MoveResourceError::InvalidSourceFileName(src_path));
     }
 
     let dest_path = Path::new(dest).to_path_buf();
@@ -39,6 +41,7 @@ pub fn run(src: &String, dest: &String) -> Result<(), MoveResourceError> {
     let dest_file_path = dest_path.join(file_name);
 
     log::info!("Moving file from {} to {}", src, dest_file_path.display());
+
     fs::rename(&src_path, &dest_file_path)
         .map_err(|e| MoveResourceError::FileMoveError(src_path, dest_file_path, e))?;
 

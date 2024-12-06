@@ -5,7 +5,7 @@ use crate::{app_config, server_config};
 use anyhow;
 
 use controller::managers::{
-    resource::ResourceManager,
+    resource::{ResourceManagerTrait, UnixResourceManager},
     runtime::{FeatType, FileHandler, RuntimeManager, State},
 };
 use controller::validator::{
@@ -109,7 +109,11 @@ impl NodeX {
             fs::remove_file(&agent_path)?;
         }
 
-        let resource_manager = ResourceManager::new();
+        #[cfg(unix)]
+        let resource_manager = UnixResourceManager::new();
+        #[cfg(windows)]
+        let resource_manager = WindowsResourceManager::new();
+
         resource_manager
             .download_update_resources(binary_url, Some(&output_path))
             .await
@@ -118,7 +122,6 @@ impl NodeX {
         #[cfg(unix)]
         {
             let home_dir = dirs::home_dir().unwrap();
-            let resource_manager = ResourceManager::new();
             resource_manager.backup().map_err(|e| {
                 log::error!("Failed to backup: {}", e);
                 anyhow::anyhow!(e)

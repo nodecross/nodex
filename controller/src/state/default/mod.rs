@@ -1,5 +1,5 @@
 use crate::managers::{
-    agent::{AgentManager, AgentManagerError},
+    agent::{AgentManagerError, AgentManagerTrait},
     runtime::{FeatType, RuntimeError, RuntimeManager},
 };
 use std::sync::Arc;
@@ -13,16 +13,19 @@ pub enum DefaultError {
     RuntimeError(#[from] RuntimeError),
 }
 
-pub struct DefaultState<'a> {
-    agent_manager: &'a Arc<Mutex<AgentManager>>,
+pub struct DefaultState<'a, A>
+where
+    A: AgentManagerTrait,
+{
+    agent_manager: &'a Arc<Mutex<A>>,
     runtime_manager: &'a RuntimeManager,
 }
 
-impl<'a> DefaultState<'a> {
-    pub fn new(
-        agent_manager: &'a Arc<Mutex<AgentManager>>,
-        runtime_manager: &'a RuntimeManager,
-    ) -> Self {
+impl<'a, A> DefaultState<'a, A>
+where
+    A: AgentManagerTrait,
+{
+    pub fn new(agent_manager: &'a Arc<Mutex<A>>, runtime_manager: &'a RuntimeManager) -> Self {
         DefaultState {
             agent_manager,
             runtime_manager,
