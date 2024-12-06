@@ -321,3 +321,126 @@ impl AgentManagerTrait for WindowsAgentManager {
         unimplemented!()
     }
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use tempfile::tempdir;
+//     use std::sync::Arc;
+//     use std::sync::Mutex;
+
+//     #[test]
+//     fn test_new_agent_manager() {
+//         let temp_dir = tempdir().expect("Failed to create temporary directory");
+//         let uds_path = temp_dir.path().join("test_agent_manager.sock");
+
+//         let agent_manager = AgentManager::new(uds_path.clone());
+//         assert!(agent_manager.is_ok(), "Failed to create AgentManager");
+//         let agent_manager = agent_manager.unwrap();
+
+//         #[cfg(unix)]
+//         assert_eq!(agent_manager.uds_path, uds_path, "UDS path mismatch");
+//     }
+
+//     #[cfg(unix)]
+//     #[test]
+//     fn test_bind_new_uds() {
+//         let temp_dir = tempdir().expect("Failed to create temporary directory");
+//         let uds_path = temp_dir.path().join("test_bind_new_uds.sock");
+
+//         let result = AgentManager::bind_new_uds(&uds_path);
+//         assert!(result.is_ok(), "Failed to bind new UDS");
+//         let (listener_fd, listener) = result.unwrap();
+
+//         assert!(uds_path.exists(), "UDS file was not created");
+//         assert!(listener.is_some(), "Listener should be initialized");
+//         assert!(listener_fd >= 0, "Listener FD should be valid");
+
+//         // Cleanup
+//         std::fs::remove_file(&uds_path).unwrap();
+//     }
+
+//     #[cfg(unix)]
+//     #[test]
+//     fn test_cleanup_uds_file() {
+//         let temp_dir = tempdir().expect("Failed to create temporary directory");
+//         let uds_path = temp_dir.path().join("test_cleanup_uds_file.sock");
+
+//         // Create a dummy UDS file
+//         let _listener = UnixListener::bind(&uds_path).expect("Failed to bind UDS");
+
+//         let agent_manager = AgentManager::new(uds_path.clone()).unwrap();
+//         assert!(uds_path.exists(), "UDS file should exist before cleanup");
+
+//         agent_manager.cleanup_uds_file().expect("Failed to cleanup UDS file");
+//         assert!(
+//             !uds_path.exists(),
+//             "UDS file should not exist after cleanup"
+//         );
+//     }
+
+//     #[cfg(unix)]
+//     #[test]
+//     fn test_launch_agent() {
+//         let temp_dir = tempdir().expect("Failed to create temporary directory");
+//         let uds_path = temp_dir.path().join("test_launch_agent.sock");
+
+//         let agent_manager = AgentManager::new(uds_path).unwrap();
+
+//         // Fork and execute a dummy agent process
+//         let process_info = agent_manager.launch_agent();
+//         assert!(process_info.is_ok(), "Failed to launch agent");
+//         let process_info = process_info.unwrap();
+
+//         assert!(process_info.process_id > 0, "Process ID should be valid");
+//         assert_eq!(process_info.feat_type, FeatType::Agent, "Feature type mismatch");
+
+//         // Terminate the process
+//         agent_manager
+//             .terminate_agent(process_info.process_id)
+//             .expect("Failed to terminate agent");
+//     }
+
+//     #[cfg(unix)]
+//     #[tokio::test]
+//     async fn test_get_request() {
+//         let temp_dir = tempdir().expect("Failed to create temporary directory");
+//         let uds_path = temp_dir.path().join("test_get_request.sock");
+
+//         // Start a mock UDS server
+//         let listener = UnixListener::bind(&uds_path).expect("Failed to bind UDS");
+//         let listener = Arc::new(Mutex::new(listener));
+
+//         tokio::spawn({
+//             let listener = Arc::clone(&listener);
+//             async move {
+//                 let listener = listener.lock().unwrap();
+//                 let (stream, _) = listener.accept().unwrap();
+
+//                 let response = Response::new(Full::from(Bytes::from_static(b"{\"status\":\"ok\"}")));
+//                 hyper::server::conn::http1::Builder::new()
+//                     .serve_connection(stream, hyper::service::service_fn(|_| async {
+//                         Ok::<_, hyper::Error>(response)
+//                     }))
+//                     .await
+//                     .unwrap();
+//             }
+//         });
+
+//         // Create AgentManager and make a request
+//         let agent_manager = AgentManager::new(uds_path.clone()).unwrap();
+//         let response: serde_json::Value = agent_manager
+//             .get_request("/status")
+//             .await
+//             .expect("Failed to send request");
+
+//         assert_eq!(
+//             response["status"], "ok",
+//             "Unexpected response: {:?}",
+//             response
+//         );
+
+//         // Cleanup
+//         agent_manager.cleanup_uds_file().unwrap();
+//     }
+// }

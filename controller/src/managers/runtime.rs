@@ -240,3 +240,141 @@ impl ProcessInfo {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::{self, File};
+    use tempfile::tempdir;
+
+    fn setup_temp_file() -> (RuntimeManager, tempfile::TempDir, PathBuf) {
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let temp_file_path = temp_dir.path().join("runtime_info.json");
+
+        File::create(&temp_file_path).expect("Failed to create temporary runtime_info.json");
+
+        assert!(
+            temp_file_path.exists(),
+            "Temporary file was not created: {:?}",
+            temp_file_path
+        );
+
+        let file_handler = FileHandler::new(temp_file_path.clone());
+        let runtime_manager = RuntimeManager::new(file_handler);
+
+        (runtime_manager, temp_dir, temp_file_path)
+    }
+
+    #[test]
+    fn test_read_write_runtime_info() {
+        let (runtime_manager, _temp_dir, temp_file_path) = setup_temp_file();
+
+        let initial_runtime_info = RuntimeInfo {
+            state: State::Default,
+            process_infos: vec![],
+        };
+
+        let file_handler = FileHandler::new(temp_file_path.clone());
+
+        file_handler
+            .write_locked(
+                &mut File::create(&temp_file_path).unwrap(),
+                &initial_runtime_info,
+            )
+            .unwrap();
+
+        let read_runtime_info = runtime_manager.read_runtime_info().unwrap();
+        assert_eq!(read_runtime_info.state, State::Default);
+        assert_eq!(read_runtime_info.process_infos.len(), 0);
+    }
+
+    #[test]
+    fn test_add_process_info() {
+        let (runtime_manager, _temp_dir, _) = setup_temp_file();
+
+        let process_info = ProcessInfo::new(12345, FeatType::Agent);
+        runtime_manager
+            .add_process_info(process_info.clone())
+            .unwrap();
+
+        let process_infos = runtime_manager.get_process_infos().unwrap();
+        assert_eq!(process_infos.len(), 1);
+        assert_eq!(process_infos[0].process_id, 12345);
+        assert_eq!(process_infos[0].feat_type, FeatType::Agent);
+    }
+
+    #[test]
+    fn test_remove_process_info() {
+        let (runtime_manager, _temp_dir, _) = setup_temp_file();
+
+        let process_info1 = ProcessInfo::new(12345, FeatType::Agent);
+        let process_info2 = ProcessInfo::new(67890, FeatType::Controller);
+
+        runtime_manager
+            .add_process_info(process_info1.clone())
+            .unwrap();
+        runtime_manager
+            .add_process_info(process_info2.clone())
+            .unwrap();
+
+        runtime_manager.remove_process_info(12345).unwrap();
+
+        let process_infos = runtime_manager.get_process_infos().unwrap();
+        assert_eq!(process_infos.len(), 1);
+        assert_eq!(process_infos[0].process_id, 67890);
+    }
+
+    #[test]
+    fn test_update_state() {
+        let (runtime_manager, _temp_dir, _) = setup_temp_file();
+
+        runtime_manager.update_state(State::Updating).unwrap();
+
+        let state = runtime_manager.get_state().unwrap();
+        assert_eq!(state, State::Updating);
+    }
+
+    #[test]
+    fn test_filter_process_infos() {
+        let (runtime_manager, _temp_dir, _) = setup_temp_file();
+
+        let process_info1 = ProcessInfo::new(12345, FeatType::Agent);
+        let process_info2 = ProcessInfo::new(67890, FeatType::Controller);
+
+        runtime_manager
+            .add_process_info(process_info1.clone())
+            .unwrap();
+        runtime_manager
+            .add_process_info(process_info2.clone())
+            .unwrap();
+
+        let agents = runtime_manager
+            .filter_process_infos(FeatType::Agent)
+            .unwrap();
+        assert_eq!(agents.len(), 1);
+        assert_eq!(agents[0].process_id, 12345);
+
+        let controllers = runtime_manager
+            .filter_process_infos(FeatType::Controller)
+            .unwrap();
+        assert_eq!(controllers.len(), 1);
+        assert_eq!(controllers[0].process_id, 67890);
+    }
+
+    #[test]
+    fn test_is_running_or_remove_if_stopped() {
+        let (runtime_manager, _temp_dir, _) = setup_temp_file();
+
+        let process_info = ProcessInfo::new(12345, FeatType::Agent);
+
+        runtime_manager
+            .add_process_info(process_info.clone())
+            .unwrap();
+
+        let result = runtime_manager.is_running_or_remove_if_stopped(&process_info);
+        assert!(!result);
+
+        let process_infos = runtime_manager.get_process_infos().unwrap();
+        assert!(process_infos.is_empty());
+    }
+}

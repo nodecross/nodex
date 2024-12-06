@@ -425,3 +425,154 @@ impl Default for WindowsResourceManager {
         Self::new()
     }
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use mockito::mock;
+//     use std::fs::{self, File};
+//     use std::io::Write;
+//     use tempfile::{tempdir, NamedTempFile};
+//     use zip::{write::FileOptions, CompressionMethod, ZipWriter};
+//     use std::time::{Duration, SystemTime};
+//     use filetime;
+
+//     fn create_sample_zip() -> NamedTempFile {
+//         let file = NamedTempFile::new().unwrap();
+//         let mut zip = ZipWriter::new(file.reopen().unwrap());
+
+//         let options: FileOptions = FileOptions::default()
+//             .compression_method(CompressionMethod::Stored)
+//             .unix_permissions(0o644);
+
+//         zip.start_file("sample.txt", options).unwrap();
+//         zip.write_all(b"This is a test file.").unwrap();
+//         zip.finish().unwrap();
+
+//         file
+//     }
+
+//     #[tokio::test]
+//     async fn test_download_update_resources() {
+//         let sample_zip = create_sample_zip();
+//         let zip_data = fs::read(sample_zip.path()).unwrap();
+
+//         let mock_url = &mockito::server_url();
+
+//         let _mock = mock("GET", "/test.zip")
+//             .with_status(200)
+//             .with_header("content-type", "application/zip")
+//             .with_body(zip_data)
+//             .create();
+
+//         let resource_manager = ResourceManager::default();
+//         let temp_dir = tempdir().unwrap();
+//         let output_path = temp_dir.path().to_path_buf();
+
+//         let result = resource_manager
+//             .download_update_resources(&format!("{}/test.zip", mock_url), Some(&output_path))
+//             .await;
+
+//         assert!(result.is_ok(), "Expected download_update_resources to succeed");
+
+//         let extracted_file = output_path.join("sample.txt");
+//         assert!(extracted_file.exists(), "Expected extracted file to exist");
+
+//         let content = fs::read_to_string(extracted_file).unwrap();
+//         assert_eq!(content.trim(), "This is a test file.", "File content mismatch");
+//     }
+
+//     #[test]
+//     fn test_collect_downloaded_bundles() {
+//         let temp_dir = tempdir().unwrap();
+//         let bundles_dir = temp_dir.path().join("bundles");
+//         fs::create_dir_all(&bundles_dir).unwrap();
+
+//         let bundle_file = bundles_dir.join("bundle1.yml");
+//         File::create(&bundle_file).unwrap();
+
+//         let mut resource_manager = ResourceManager::default();
+//         resource_manager.tmp_path = temp_dir.path().to_path_buf();
+
+//         let collected_bundles = resource_manager.collect_downloaded_bundles();
+
+//         assert_eq!(collected_bundles.len(), 1, "Expected exactly one bundle file");
+//         assert_eq!(collected_bundles[0], bundle_file, "Unexpected bundle file path");
+//     }
+
+//     #[test]
+//     fn test_get_latest_backup() {
+//         let temp_dir = tempdir().unwrap();
+
+//         let old_file = temp_dir.path().join("old_backup.gz");
+//         let new_file = temp_dir.path().join("new_backup.gz");
+
+//         File::create(&old_file).unwrap();
+//         File::create(&new_file).unwrap();
+//         let new_time = SystemTime::now();
+//         let old_time = new_time - Duration::from_secs(60);
+
+//         filetime::set_file_mtime(&old_file, filetime::FileTime::from_system_time(old_time)).unwrap();
+//         filetime::set_file_mtime(&new_file, filetime::FileTime::from_system_time(new_time)).unwrap();
+
+//         let mut resource_manager = ResourceManager::default();
+//         resource_manager.tmp_path = temp_dir.path().to_path_buf();
+
+//         let latest_backup = resource_manager.get_latest_backup();
+
+//         assert_eq!(latest_backup, Some(new_file), "Expected new_backup.gz to be the latest");
+//     }
+
+//     #[cfg(unix)]
+//     #[test]
+//     fn test_backup() {
+//         let temp_dir = tempdir().unwrap();
+
+//         let mut resource_manager = ResourceManager::default();
+//         resource_manager.tmp_path = temp_dir.path().to_path_buf();
+
+//         let result = resource_manager.backup();
+//         assert!(result.is_ok(), "Expected backup to succeed");
+
+//         let backups: Vec<_> = fs::read_dir(temp_dir.path())
+//             .unwrap()
+//             .filter_map(|entry| entry.ok())
+//             .filter(|entry| entry.path().extension().and_then(|e| e.to_str()) == Some("gz"))
+//             .collect();
+
+//         assert_eq!(backups.len(), 1, "Expected exactly one backup file");
+//     }
+
+//     #[cfg(unix)]
+//     #[test]
+//     fn test_rollback() {
+//         let temp_dir = tempdir().unwrap();
+
+//         let mut resource_manager = ResourceManager::default();
+//         resource_manager.tmp_path = temp_dir.path().to_path_buf();
+
+//         let backup_path = temp_dir.path().join("test_backup.tar.gz");
+//         File::create(&backup_path).unwrap();
+
+//         let result = resource_manager.rollback(&backup_path);
+//         assert!(result.is_ok(), "Expected rollback to succeed");
+//     }
+
+//     #[test]
+//     fn test_remove() {
+//         let temp_dir = tempdir().unwrap();
+
+//         let mut resource_manager = ResourceManager::default();
+//         resource_manager.tmp_path = temp_dir.path().to_path_buf();
+
+//         let dummy_file = temp_dir.path().join("dummy_file.txt");
+//         File::create(&dummy_file).unwrap();
+
+//         assert!(dummy_file.exists(), "Dummy file should exist before removal");
+
+//         let result = resource_manager.remove();
+//         assert!(result.is_ok(), "Expected remove to succeed");
+
+//         assert!(!dummy_file.exists(), "Dummy file should be removed");
+//     }
+// }
