@@ -8,6 +8,16 @@ build do
   end
   copy "#{nodex_dir}/agent/*", "#{project_dir}/agent/"
 
+  unless Dir.exist?("#{project_dir}/bin")
+    mkdir "#{project_dir}/bin"
+  end
+  copy "#{nodex_dir}/bin/*", "#{project_dir}/bin/"
+
+  unless Dir.exist?("#{project_dir}/controller")
+    mkdir "#{project_dir}/controller"
+  end
+  copy "#{nodex_dir}/controller/*", "#{project_dir}/controller/"
+
   unless Dir.exist?("#{project_dir}/protocol")
     mkdir "#{project_dir}/protocol"
   end

@@ -1,0 +1,32 @@
+[package]
+authors.workspace = true
+build = "build.rs"
+categories.workspace = true
+description.workspace = true
+documentation.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license-file.workspace = true
+name = "bin"
+readme.workspace = true
+repository.workspace = true
+version.workspace = true
+
+[[bin]]
+name = "nodex-agent"
+path = "src/main.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+agent = { path = "../agent" }
+chrono = { workspace = true }
+clap = { workspace = true }
+controller = { path = "../controller" }
+env_logger = { workspace = true }
+log = { workspace = true }
+shadow-rs = { workspace = true }
+
+[build-dependencies]
+shadow-rs = { workspace = true }

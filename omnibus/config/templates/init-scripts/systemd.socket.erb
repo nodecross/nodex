@@ -1,0 +1,9 @@
+[Unit]
+Description=Nodex Agent Socket
+
+[Socket]
+ListenStream=/home/nodex/run/nodex.sock
+SocketMode=0660
+
+[Install]
+WantedBy=sockets.target

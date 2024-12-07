@@ -1,6 +1,11 @@
 use crate::{controllers, handlers::TransferClient};
 use actix_web::{dev::Server, middleware, web, App, HttpServer};
-use std::path::PathBuf;
+use std::env;
+#[cfg(unix)]
+use std::os::unix::{
+    io::{FromRawFd, RawFd},
+    net::UnixListener,
+};
 use tokio::sync::Mutex as TokioMutex;
 
 #[allow(dead_code)]
@@ -9,10 +14,15 @@ pub struct Context<C: TransferClient> {
 }
 
 #[cfg(unix)]
-pub fn new_uds_server<C: TransferClient + 'static>(sock_path: &PathBuf, sender: C) -> Server {
+pub fn new_uds_server<C: TransferClient + 'static>(sender: C) -> Server {
     let context = web::Data::new(Context {
         sender: TokioMutex::new(sender),
     });
+    let listener_fd: RawFd = env::var("LISTENER_FD")
+        .expect("LISTENER_FD not set")
+        .parse::<i32>()
+        .expect("Invalid LISTENER_FD");
+    let listener: UnixListener = unsafe { UnixListener::from_raw_fd(listener_fd) };
 
     HttpServer::new(move || {
         App::new()
@@ -21,7 +31,7 @@ pub fn new_uds_server<C: TransferClient + 'static>(sock_path: &PathBuf, sender: 
             .wrap(middleware::Logger::default())
             .configure(config_app(&context))
     })
-    .bind_uds(sock_path)
+    .listen_uds(listener)
     .unwrap()
     .workers(1)
     .run()

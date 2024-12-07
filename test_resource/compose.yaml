@@ -59,7 +59,7 @@ services:
       - ./config:/root/.config/nodex/
       - agent_socket:/root/.nodex/
       - ./nodex-agent:/tmp/nodex-agent
-    command: /tmp/nodex-agent
+    command: /tmp/nodex-agent controller
     environment:
       NODEX_DID_HTTP_ENDPOINT: http://sidetree_prism:4010
       NODEX_DID_ATTACHMENT_LINK: http://sidetree_prism:4010

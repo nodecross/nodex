@@ -3,19 +3,44 @@ use crate::nodex::keyring;
 use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::{app_config, server_config};
 use anyhow;
-use bytes::Bytes;
+
+use controller::managers::{
+    resource::ResourceManagerTrait,
+    runtime::{FeatType, FileHandler, RuntimeManager, State},
+};
+use controller::validator::{
+    network::can_connect_to_download_server,
+    process::{is_manage_by_systemd, is_manage_socket_activation},
+    storage::check_storage,
+};
 use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
 use protocol::did::sidetree::payload::DidResolutionResponse;
 use std::{
     fs,
-    io::Cursor,
     path::{Path, PathBuf},
     process::Command,
 };
-use zip::ZipArchive;
 
 #[cfg(unix)]
-use daemonize::Daemonize;
+mod unix_imports {
+    pub use controller::managers::resource::UnixResourceManager;
+    pub use nix::{
+        sys::signal::{self, Signal},
+        unistd::{execvp, fork, setsid, ForkResult, Pid},
+    };
+    pub use std::ffi::CString;
+}
+
+#[cfg(unix)]
+use unix_imports::*;
+
+#[cfg(windows)]
+mod windows_imports {
+    pub use controller::managers::resource::WindowsResourceManager;
+}
+
+#[cfg(windows)]
+use windows_imports::*;
 
 pub struct NodeX {
     did_repository: DidRepositoryImpl<SideTreeClient>,
@@ -73,63 +98,123 @@ impl NodeX {
         binary_url: &str,
         output_path: PathBuf,
     ) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            binary_url.starts_with("https://github.com/nodecross/nodex/releases/download/"),
-            "Invalid url"
-        );
+        if !check_storage(&output_path) {
+            log::error!("Not enough storage space: {:?}", output_path);
+            return Err(anyhow::anyhow!("Not enough storage space"));
+        } else if !can_connect_to_download_server("https://github.com").await {
+            log::error!("Not connected to the Internet");
+            return Err(anyhow::anyhow!("Not connected to the Internet"));
+        } else if !binary_url.starts_with("https://github.com/nodecross/nodex/releases/download/") {
+            log::error!("Invalid url");
+            return Err(anyhow::anyhow!("Invalid url"));
+        }
 
         #[cfg(unix)]
         let agent_filename = { "nodex-agent" };
         #[cfg(windows)]
         let agent_filename = { "nodex-agent.exe" };
-
         let agent_path = output_path.join(agent_filename);
-
-        let response = reqwest::get(binary_url).await?;
-        let content = response.bytes().await?;
         if PathBuf::from(&agent_path).exists() {
             fs::remove_file(&agent_path)?;
         }
-        self.extract_zip(content, &output_path)?;
 
+        #[cfg(unix)]
+        let resource_manager = UnixResourceManager::new();
+        #[cfg(windows)]
+        let resource_manager = WindowsResourceManager::new();
+
+        resource_manager
+            .download_update_resources(binary_url, Some(&output_path))
+            .await
+            .map_err(|e| anyhow::anyhow!(e))?;
+
+        #[cfg(unix)]
+        {
+            let home_dir = dirs::home_dir().unwrap();
+            resource_manager.backup().map_err(|e| {
+                log::error!("Failed to backup: {}", e);
+                anyhow::anyhow!(e)
+            })?;
+
+            let runtime_info_path = home_dir
+                .join(".nodex")
+                .join("run")
+                .join("runtime_info.json");
+            let file_handler = FileHandler::new(runtime_info_path);
+            let runtime_manager = RuntimeManager::new(file_handler);
+
+            self.run_controller(&agent_path, &runtime_manager)?;
+            runtime_manager.update_state(State::Update)?;
+        }
+
+        #[cfg(windows)]
         self.run_agent(&agent_path)?;
 
         Ok(())
     }
 
-    fn extract_zip(&self, archive_data: Bytes, output_path: &Path) -> anyhow::Result<()> {
-        let cursor = Cursor::new(archive_data);
-        let mut archive = ZipArchive::new(cursor)?;
-
-        for i in 0..archive.len() {
-            let mut file = archive.by_index(i)?;
-            let file_path = output_path.join(file.mangled_name());
-
-            if file.is_file() {
-                if let Some(parent) = file_path.parent() {
-                    std::fs::create_dir_all(parent)?;
-                }
-                let mut output_file = fs::File::create(&file_path)?;
-                std::io::copy(&mut file, &mut output_file)?;
-            } else if file.is_dir() {
-                std::fs::create_dir_all(&file_path)?;
-            }
+    #[cfg(unix)]
+    fn kill_current_controller(&self, runtime_manager: &RuntimeManager) -> anyhow::Result<()> {
+        let controller_processes = runtime_manager
+            .filter_process_infos(FeatType::Controller)
+            .map_err(|e| anyhow::anyhow!("Failed to get process infos: {}", e))?;
+        for controller_process in controller_processes {
+            signal::kill(
+                Pid::from_raw(controller_process.process_id as i32),
+                Signal::SIGTERM,
+            )
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to kill process {}: {}",
+                    controller_process.process_id,
+                    e
+                )
+            })?;
         }
-
         Ok(())
     }
 
     #[cfg(unix)]
-    fn run_agent(&self, agent_path: &Path) -> anyhow::Result<()> {
+    fn run_controller(
+        &self,
+        agent_path: &Path,
+        runtime_manager: &RuntimeManager,
+    ) -> anyhow::Result<()> {
+        self.kill_current_controller(runtime_manager)?;
+        if is_manage_by_systemd() && is_manage_socket_activation() {
+            return Ok(());
+        }
+
         Command::new("chmod").arg("+x").arg(agent_path).status()?;
 
-        let daemonize = Daemonize::new();
-        daemonize.start().expect("Failed to update nodex process");
-        std::process::Command::new(agent_path)
-            .spawn()
-            .expect("Failed to execute command")
-            .wait()?;
-        Ok(())
+        let agent_path_str = agent_path.to_str().ok_or_else(|| {
+            anyhow::anyhow!("Invalid path: failed to convert agent_path to string")
+        })?;
+        let cmd = CString::new(agent_path_str)
+            .map_err(|e| anyhow::anyhow!("Failed to create command CString: {}", e))?;
+        let args = vec![
+            cmd.clone(),
+            CString::new("controller")
+                .map_err(|e| anyhow::anyhow!("Failed to create argument CString: {}", e))?,
+        ];
+
+        match unsafe { fork() } {
+            Ok(ForkResult::Parent { child }) => {
+                log::info!("Parent process launched child with PID: {}", child);
+                Ok(())
+            }
+            Ok(ForkResult::Child) => {
+                setsid().map_err(|e| {
+                    anyhow::anyhow!("Failed to create new session using setsid: {}", e)
+                })?;
+
+                execvp(&cmd, &args).map_err(|e| {
+                    anyhow::anyhow!("Failed to execute command using execvp: {}", e)
+                })?;
+                unreachable!();
+            }
+            Err(e) => Err(anyhow::anyhow!("Failed to fork process: {}", e)),
+        }
     }
 
     #[cfg(windows)]
