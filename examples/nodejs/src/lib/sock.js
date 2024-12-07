@@ -8,26 +8,35 @@ const call = async (method, path, json) => {
   let response;
   const URL = [base, path].join(":");
   console.log(`calling ${method} ${URL}`);
-  switch (method) {
-    case "get":
-      response = await got
-        .get(URL, {
-          enableUnixSockets: true,
-        })
-        .json();
-      break;
-    case "post":
-      response = await got
-        .post(URL, {
-          enableUnixSockets: true,
-          json,
-        })
-        .json();
-      break;
-    default:
-      throw new Error(`Unsupported method: ${method}`);
+
+  try {
+    switch (method) {
+      case "get":
+        response = await got
+          .get(URL, {
+            enableUnixSockets: true,
+          })
+          .json();
+        break;
+      case "post":
+        response = await got
+          .post(URL, {
+            enableUnixSockets: true,
+            json,
+          })
+          .json();
+        break;
+      default:
+        throw new Error(`Unsupported method: ${method}`);
+    }
+    return JSON.stringify(response, null, 4);
+  } catch (error) {
+    console.error("Error in API call:", error.message);
+    if (error.response) {
+      console.error("Error response:", error.response.body);
+    }
+    throw error;
   }
-  return JSON.stringify(response, null, 4);
 };
 
 export const get = async (path) => call("get", path, null);
