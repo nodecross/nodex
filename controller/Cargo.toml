@@ -55,6 +55,7 @@ shadow-rs = { workspace = true }
 filename = "0.1.1"
 filetime = "0.2.25"
 httpmock = "0.7.0"
+libc = "0.2.167"
 mockito = "1.6.1"
 serial_test = "3.2.0"
 tempfile = "3.14.0"

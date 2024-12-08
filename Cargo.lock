@@ -1091,6 +1091,7 @@ dependencies = [
  "hyper-util",
  "hyperlocal",
  "lazy_static",
+ "libc",
  "log",
  "mockito",
  "nix 0.29.0",
@@ -2759,9 +2760,9 @@ checksum = "884609db30d6c40a6bd8e0e22b0b5002546e4dcb53295d33fc700b1644b8a656"
 
 [[package]]
 name = "libc"
-version = "0.2.162"
+version = "0.2.167"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18d287de67fe55fd7e1581fe933d965a5a9477b38e949cfa9f8574ef01506398"
+checksum = "09d6582e104315a817dff97f75133544b2e094ee22447d2acf4a74e189ba06fc"
 
 [[package]]
 name = "libgit2-sys"

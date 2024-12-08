@@ -1,6 +1,5 @@
 use crate::managers::{
     agent::AgentManagerTrait,
-    resource::UnixResourceManager,
     runtime::{RuntimeError, RuntimeManager, State},
 };
 use crate::state::{
@@ -10,6 +9,12 @@ use crate::state::{
 };
 use std::sync::Arc;
 use tokio::sync::Mutex;
+
+#[cfg(unix)]
+use crate::managers::resource::UnixResourceManager;
+
+#[cfg(windows)]
+use crate::managers::resource::WindowsResourceManager;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StateHandlerError {
@@ -38,20 +43,22 @@ impl StateHandler {
     where
         A: AgentManagerTrait + Sync + Send,
     {
+        #[cfg(unix)]
+        let resource_manager = UnixResourceManager::new();
+
+        #[cfg(windows)]
+        let resource_manager = WindowsResourceManager::new();
+
         match runtime_manager.get_state()? {
             State::Update => {
-                let resource_manager = UnixResourceManager::new();
-                {
-                    let update_state =
-                        UpdateState::new(agent_manager, resource_manager, runtime_manager);
+                let update_state =
+                    UpdateState::new(agent_manager, resource_manager, runtime_manager);
 
-                    if let Err(e) = update_state.execute().await {
-                        self.handle_update_failed(runtime_manager, e)?;
-                    }
+                if let Err(e) = update_state.execute().await {
+                    self.handle_update_failed(runtime_manager, e)?;
                 }
             }
             State::Rollback => {
-                let resource_manager = UnixResourceManager::new();
                 let rollback_state =
                     RollbackState::new(agent_manager, &resource_manager, runtime_manager);
                 rollback_state.execute().await?;

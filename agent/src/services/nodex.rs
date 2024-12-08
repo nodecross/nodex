@@ -5,7 +5,7 @@ use crate::{app_config, server_config};
 use anyhow;
 
 use controller::managers::{
-    resource::{ResourceManagerTrait, UnixResourceManager},
+    resource::ResourceManagerTrait,
     runtime::{FeatType, FileHandler, RuntimeManager, State},
 };
 use controller::validator::{
@@ -23,6 +23,7 @@ use std::{
 
 #[cfg(unix)]
 mod unix_imports {
+    pub use controller::managers::resource::UnixResourceManager;
     pub use nix::{
         sys::signal::{self, Signal},
         unistd::{execvp, fork, setsid, ForkResult, Pid},
@@ -32,6 +33,14 @@ mod unix_imports {
 
 #[cfg(unix)]
 use unix_imports::*;
+
+#[cfg(windows)]
+mod windows_imports {
+    pub use controller::managers::resource::WindowsResourceManager;
+}
+
+#[cfg(windows)]
+use windows_imports::*;
 
 pub struct NodeX {
     did_repository: DidRepositoryImpl<SideTreeClient>,

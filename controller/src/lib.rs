@@ -29,6 +29,9 @@ mod windows_imports {
     pub use crate::managers::agent::WindowsAgentManager;
 }
 
+#[cfg(windows)]
+use windows_imports::*;
+
 mod config;
 pub mod managers;
 pub mod state;
