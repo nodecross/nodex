@@ -92,7 +92,7 @@ mod tests {
             where
                 T: serde::de::DeserializeOwned + Send,
             {
-                Err(AgentManagerError::RequestFailed("Invalid path".to_string()))
+                Err(AgentManagerError::RequestFailed("Request failed".to_string()))
             }
 
             fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {
