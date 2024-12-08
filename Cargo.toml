@@ -28,7 +28,7 @@ data-encoding = "2.6.0"
 env_logger = { version = "0.11.3", features = ["color"] }
 hex = "0.4.3"
 hmac = "0.12.1"
-http = "1.1.0"
+http = "1.2.0"
 k256 = { version = "0.13.3", features = ["ecdh", "ecdsa", "serde", "sha256"] }
 log = "0.4.21"
 mac_address = "1.1.5"
