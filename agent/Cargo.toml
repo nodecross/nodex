@@ -5,21 +5,18 @@ edition = { workspace = true }
 name = "agent"
 version = { workspace = true }
 
-[[bin]]
-name = "nodex-agent"
-path = "src/main.rs"
-
 [dependencies]
 actix-rt = { workspace = true }
 actix-web = { workspace = true }
 anyhow = { workspace = true }
 bytes = { workspace = true }
 chrono = { workspace = true }
-clap = { version = "4.5.21", features = ["cargo", "derive"] }
+clap = { workspace = true }
+controller = { workspace = true }
 cuid = { workspace = true }
-dirs = "5.0.1"
+dirs = { workspace = true }
 dotenvy = "0.15.7"
-env_logger = { workspace = true }
+fs2 = { workspace = true }
 hex = { workspace = true }
 hmac = { workspace = true }
 home-config = { version = "0.6.0", features = ["json", "toml", "yaml"] }
@@ -31,7 +28,7 @@ rumqttc = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
-shadow-rs = "0.36.0"
+shadow-rs = { workspace = true }
 sysinfo = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
@@ -47,7 +44,6 @@ windows = { version = "0.58.0", features = [
 ] }
 
 [target.'cfg(unix)'.dependencies]
-daemonize = "0.5.0"
 nix = { version = "0.29.0", features = ["signal"] }
 
 [build-dependencies]
