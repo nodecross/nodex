@@ -146,7 +146,6 @@ impl FileHandler {
 
 pub struct RuntimeManager {
     file_handler: FileHandler,
-    #[allow(dead_code)]
     state_sender: watch::Sender<State>,
     state_receiver: watch::Receiver<State>,
 }
@@ -234,7 +233,10 @@ impl RuntimeManager {
         self.file_handler.apply_with_lock(|runtime_info| {
             runtime_info.state = state;
             Ok(())
-        })
+        })?;
+        let _ = self.state_sender.send(state);
+
+        Ok(())
     }
 
     pub fn get_state_receiver(&self) -> watch::Receiver<State> {
