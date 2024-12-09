@@ -170,6 +170,15 @@ impl NodeX {
                     e
                 )
             })?;
+            runtime_manager
+                .remove_process_info(controller_process.process_id)
+                .map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to remove process info {}: {}",
+                        controller_process.process_id,
+                        e
+                    )
+                })?;
         }
         Ok(())
     }

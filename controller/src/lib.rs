@@ -4,7 +4,6 @@ use crate::managers::runtime::{
     FeatType, FileHandler, ProcessInfo, RuntimeError, RuntimeManager, State,
 };
 use crate::state::handler::StateHandler;
-use std::env;
 use std::path::PathBuf;
 use std::process as stdProcess;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -15,10 +14,6 @@ use tokio::time::{self, Duration};
 #[cfg(unix)]
 mod unix_imports {
     pub use crate::managers::agent::UnixAgentManager;
-    pub use std::os::unix::{
-        io::{FromRawFd, RawFd},
-        net::UnixListener,
-    };
     pub use tokio::signal::unix::{signal, SignalKind};
 }
 #[cfg(unix)]
@@ -160,13 +155,7 @@ pub async fn handle_signals<A>(
             should_stop.store(true, Ordering::Relaxed);
         },
         _ = sigterm.recv() => {
-            log::info!("Received SIGTERM. Gracefully stopping application.");
-            let listener_fd: RawFd = env::var("LISTENER_FD")
-                .expect("LISTENER_FD not set")
-                .parse::<i32>()
-                .expect("Invalid LISTENER_FD");
-            let listener: UnixListener = unsafe { UnixListener::from_raw_fd(listener_fd) };
-            handle_sigterm(should_stop.clone(), listener);
+            log::info!("Received SIGTERM. Gracefully stopping application.");            handle_sigterm(should_stop.clone());
         },
         _ = sigabrt.recv() => {
             if let Err(e) = handle_cleanup(&agent_manager, &runtime_manager).await {
@@ -231,9 +220,9 @@ where
 }
 
 #[cfg(unix)]
-fn handle_sigterm(should_stop: Arc<AtomicBool>, listener: UnixListener) {
-    log::info!("Dropping listener.");
-    std::mem::drop(listener);
+fn handle_sigterm(should_stop: Arc<AtomicBool>) {
+    // log::info!("Dropping listener.");
+    // std::mem::drop(listener);
     log::info!("Received SIGTERM. Setting stop flag.");
     should_stop.store(true, Ordering::Relaxed);
 }
