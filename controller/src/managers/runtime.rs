@@ -20,7 +20,7 @@ pub enum State {
     Rollback,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct ProcessInfo {
     pub process_id: u32,
     pub executed_at: DateTime<FixedOffset>,
