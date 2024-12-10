@@ -1,6 +1,6 @@
 use crate::managers::{
     agent::AgentManagerTrait,
-    runtime::{RuntimeError, RuntimeManager, State},
+    runtime::{RuntimeError, RuntimeInfoStorage, RuntimeManager, State},
 };
 use crate::state::{
     default::{DefaultError, DefaultState},
@@ -35,13 +35,14 @@ impl StateHandler {
         Self {}
     }
 
-    pub async fn handle<A>(
+    pub async fn handle<A, H>(
         &self,
-        runtime_manager: &Arc<RuntimeManager>,
+        runtime_manager: &Arc<RuntimeManager<H>>,
         agent_manager: &Arc<Mutex<A>>,
     ) -> Result<(), StateHandlerError>
     where
         A: AgentManagerTrait + Sync + Send,
+        H: RuntimeInfoStorage + Sync + Send,
     {
         #[cfg(unix)]
         let resource_manager = UnixResourceManager::new();
@@ -75,11 +76,14 @@ impl StateHandler {
         Ok(())
     }
 
-    fn handle_update_failed(
+    fn handle_update_failed<H>(
         &self,
-        runtime_manager: &Arc<RuntimeManager>,
+        runtime_manager: &Arc<RuntimeManager<H>>,
         update_error: UpdateError,
-    ) -> Result<(), StateHandlerError> {
+    ) -> Result<(), StateHandlerError>
+    where
+        H: RuntimeInfoStorage + Sync + Send,
+    {
         log::error!("Failed to update state: {}", update_error);
         if let Some(target_state) = self.get_target_state(&update_error) {
             self.transition_to_state(runtime_manager, target_state)?;
@@ -103,11 +107,14 @@ impl StateHandler {
         }
     }
 
-    fn transition_to_state(
+    fn transition_to_state<H>(
         &self,
-        runtime_manager: &Arc<RuntimeManager>,
+        runtime_manager: &Arc<RuntimeManager<H>>,
         target_state: State,
-    ) -> Result<(), StateHandlerError> {
+    ) -> Result<(), StateHandlerError>
+    where
+        H: RuntimeInfoStorage + Sync + Send,
+    {
         runtime_manager
             .update_state(target_state)
             .map_err(|runtime_err| {

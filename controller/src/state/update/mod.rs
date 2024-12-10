@@ -3,7 +3,7 @@ pub mod tasks;
 use crate::managers::{
     agent::{AgentManagerError, AgentManagerTrait},
     resource::{ResourceError, ResourceManagerTrait},
-    runtime::{FeatType, RuntimeError, RuntimeManager, State},
+    runtime::{FeatType, RuntimeError, RuntimeInfoStorage, RuntimeManager, State},
 };
 use crate::state::update::tasks::{UpdateAction, UpdateActionError};
 #[cfg(unix)]
@@ -56,25 +56,27 @@ impl UpdateError {
     }
 }
 
-pub struct UpdateState<'a, A, R>
+pub struct UpdateState<'a, A, R, H>
 where
     A: AgentManagerTrait + Sync,
     R: ResourceManagerTrait,
+    H: RuntimeInfoStorage + Sync,
 {
     agent_manager: &'a Arc<Mutex<A>>,
     resource_manager: R,
-    runtime_manager: &'a RuntimeManager,
+    runtime_manager: &'a RuntimeManager<H>,
 }
 
-impl<'a, A, R> UpdateState<'a, A, R>
+impl<'a, A, R, H> UpdateState<'a, A, R, H>
 where
     A: AgentManagerTrait + Sync,
     R: ResourceManagerTrait,
+    H: RuntimeInfoStorage + Sync,
 {
     pub fn new(
         agent_manager: &'a Arc<Mutex<A>>,
         resource_manager: R,
-        runtime_manager: &'a RuntimeManager,
+        runtime_manager: &'a RuntimeManager<H>,
     ) -> Self {
         Self {
             agent_manager,

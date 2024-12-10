@@ -55,16 +55,22 @@ pub enum RuntimeError {
     MutexPoisoned,
 }
 
+pub trait RuntimeInfoStorage {
+    fn read(&self) -> Result<Option<RuntimeInfo>, RuntimeError>;
+    fn apply_with_lock<F>(&self, operation: F) -> Result<(), RuntimeError>
+    where
+        F: FnOnce(&mut RuntimeInfo) -> Result<(), RuntimeError>;
+}
+
 pub struct FileHandler {
     path: PathBuf,
 }
 
-impl FileHandler {
-    pub fn new(path: PathBuf) -> Self {
-        FileHandler { path }
-    }
-
-    pub fn read(&self) -> Result<RuntimeInfo, RuntimeError> {
+impl RuntimeInfoStorage for FileHandler {
+    fn read(&self) -> Result<Option<RuntimeInfo>, RuntimeError> {
+        if !self.path.exists() {
+            return Ok(None);
+        }
         let mut file = OpenOptions::new()
             .read(true)
             .open(&self.path)
@@ -74,10 +80,12 @@ impl FileHandler {
         file.read_to_string(&mut content)
             .map_err(RuntimeError::FileRead)?;
 
-        serde_json::from_str(&content).map_err(RuntimeError::JsonDeserialize)
+        serde_json::from_str(&content)
+            .map(Some)
+            .map_err(RuntimeError::JsonDeserialize)
     }
 
-    pub fn apply_with_lock<F>(&self, operation: F) -> Result<(), RuntimeError>
+    fn apply_with_lock<F>(&self, operation: F) -> Result<(), RuntimeError>
     where
         F: FnOnce(&mut RuntimeInfo) -> Result<(), RuntimeError>,
     {
@@ -90,6 +98,12 @@ impl FileHandler {
         self.unlock_file(&mut file)?;
 
         Ok(())
+    }
+}
+
+impl FileHandler {
+    pub fn new(path: PathBuf) -> Self {
+        FileHandler { path }
     }
 
     pub fn lock_file(&self) -> Result<std::fs::File, RuntimeError> {
@@ -144,14 +158,14 @@ impl FileHandler {
     }
 }
 
-pub struct RuntimeManager {
-    file_handler: FileHandler,
+pub struct RuntimeManager<H: RuntimeInfoStorage> {
+    file_handler: H,
     state_sender: watch::Sender<State>,
     state_receiver: watch::Receiver<State>,
 }
 
-impl RuntimeManager {
-    pub fn new(file_handler: FileHandler) -> Self {
+impl<H: RuntimeInfoStorage> RuntimeManager<H> {
+    pub fn new(file_handler: H) -> Self {
         let (state_sender, state_receiver) = watch::channel(State::Default);
         RuntimeManager {
             file_handler,
@@ -161,14 +175,10 @@ impl RuntimeManager {
     }
 
     pub fn read_runtime_info(&self) -> Result<RuntimeInfo, RuntimeError> {
-        let runtime_info = if self.file_handler.path.exists() {
-            self.file_handler.read()?
-        } else {
-            RuntimeInfo {
-                state: State::Default,
-                process_infos: vec![],
-            }
-        };
+        let runtime_info = self.file_handler.read()?.unwrap_or(RuntimeInfo {
+            state: State::Default,
+            process_infos: vec![],
+        });
 
         Ok(runtime_info)
     }

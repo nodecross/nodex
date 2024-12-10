@@ -6,7 +6,7 @@ use anyhow;
 
 use controller::managers::{
     resource::ResourceManagerTrait,
-    runtime::{FeatType, FileHandler, RuntimeManager, State},
+    runtime::{FeatType, FileHandler, RuntimeInfoStorage, RuntimeManager, State},
 };
 use controller::validator::{
     network::can_connect_to_download_server,
@@ -100,13 +100,13 @@ impl NodeX {
     ) -> anyhow::Result<()> {
         if !check_storage(&output_path) {
             log::error!("Not enough storage space: {:?}", output_path);
-            return Err(anyhow::anyhow!("Not enough storage space"));
+            anyhow::bail!("Not enough storage space");
         } else if !can_connect_to_download_server("https://github.com").await {
             log::error!("Not connected to the Internet");
-            return Err(anyhow::anyhow!("Not connected to the Internet"));
+            anyhow::bail!("Not connected to the Internet");
         } else if !binary_url.starts_with("https://github.com/nodecross/nodex/releases/download/") {
             log::error!("Invalid url");
-            return Err(anyhow::anyhow!("Invalid url"));
+            anyhow::bail!("Invalid url");
         }
 
         #[cfg(unix)]
@@ -154,7 +154,10 @@ impl NodeX {
     }
 
     #[cfg(unix)]
-    fn kill_current_controller(&self, runtime_manager: &RuntimeManager) -> anyhow::Result<()> {
+    fn kill_current_controller<H: RuntimeInfoStorage>(
+        &self,
+        runtime_manager: &RuntimeManager<H>,
+    ) -> anyhow::Result<()> {
         let controller_processes = runtime_manager
             .filter_process_infos(FeatType::Controller)
             .map_err(|e| anyhow::anyhow!("Failed to get process infos: {}", e))?;
@@ -184,10 +187,10 @@ impl NodeX {
     }
 
     #[cfg(unix)]
-    fn run_controller(
+    fn run_controller<H: RuntimeInfoStorage>(
         &self,
         agent_path: &Path,
-        runtime_manager: &RuntimeManager,
+        runtime_manager: &RuntimeManager<H>,
     ) -> anyhow::Result<()> {
         self.kill_current_controller(runtime_manager)?;
         if is_manage_by_systemd() && is_manage_socket_activation() {

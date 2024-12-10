@@ -1,7 +1,7 @@
 use crate::managers::{
     agent::{AgentManagerError, AgentManagerTrait},
     resource::{ResourceError, ResourceManagerTrait},
-    runtime::{RuntimeError, RuntimeManager},
+    runtime::{RuntimeError, RuntimeInfoStorage, RuntimeManager},
 };
 #[cfg(unix)]
 pub use nix::{
@@ -24,26 +24,28 @@ pub enum RollbackError {
     FailedKillOwnProcess(String),
 }
 
-pub struct RollbackState<'a, A, R>
+pub struct RollbackState<'a, A, R, H>
 where
     A: AgentManagerTrait,
     R: ResourceManagerTrait,
+    H: RuntimeInfoStorage,
 {
     #[allow(dead_code)]
     agent_manager: &'a Arc<tokio::sync::Mutex<A>>,
     resource_manager: &'a R,
-    runtime_manager: &'a RuntimeManager,
+    runtime_manager: &'a RuntimeManager<H>,
 }
 
-impl<'a, A, R> RollbackState<'a, A, R>
+impl<'a, A, R, H> RollbackState<'a, A, R, H>
 where
     A: AgentManagerTrait,
     R: ResourceManagerTrait,
+    H: RuntimeInfoStorage,
 {
     pub fn new(
         agent_manager: &'a Arc<tokio::sync::Mutex<A>>,
         resource_manager: &'a R,
-        runtime_manager: &'a RuntimeManager,
+        runtime_manager: &'a RuntimeManager<H>,
     ) -> Self {
         RollbackState {
             agent_manager,

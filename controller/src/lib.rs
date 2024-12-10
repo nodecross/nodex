@@ -1,7 +1,7 @@
 use crate::config::get_config;
 use crate::managers::agent::AgentManagerTrait;
 use crate::managers::runtime::{
-    FeatType, FileHandler, ProcessInfo, RuntimeError, RuntimeManager, State,
+    FeatType, FileHandler, ProcessInfo, RuntimeError, RuntimeInfoStorage, RuntimeManager, State,
 };
 use crate::state::handler::StateHandler;
 use std::path::PathBuf;
@@ -87,26 +87,28 @@ pub async fn run() -> std::io::Result<()> {
     Ok(())
 }
 
-async fn state_monitoring_worker<A>(
-    runtime_manager: Arc<RuntimeManager>,
+async fn state_monitoring_worker<A, H>(
+    runtime_manager: Arc<RuntimeManager<H>>,
     agent_manager: Arc<tokio::sync::Mutex<A>>,
     should_stop: Arc<AtomicBool>,
 ) where
     A: AgentManagerTrait + Send + Sync + 'static,
+    H: RuntimeInfoStorage + Send + Sync + 'static,
 {
     let mut state_rx = runtime_manager.get_state_receiver();
 
     tokio::spawn(async move {
         let state_handler = StateHandler::new();
 
-        async fn process_state<A>(
+        async fn process_state<A, H>(
             state_handler: &StateHandler,
-            runtime_manager: &Arc<RuntimeManager>,
+            runtime_manager: &Arc<RuntimeManager<H>>,
             agent_manager: &Arc<tokio::sync::Mutex<A>>,
             state: State,
             description: &str,
         ) where
             A: AgentManagerTrait + Send + Sync + 'static,
+            H: RuntimeInfoStorage + Send + Sync + 'static,
         {
             log::info!("Worker: {}: {:?}", description, state);
 
@@ -142,7 +144,7 @@ async fn state_monitoring_worker<A>(
     });
 }
 
-fn initialize_runtime_manager() -> Arc<RuntimeManager> {
+fn initialize_runtime_manager() -> Arc<RuntimeManager<FileHandler>> {
     let file_handler = FileHandler::new(get_runtime_info_path());
     Arc::new(RuntimeManager::new(file_handler))
 }
@@ -155,18 +157,21 @@ fn get_runtime_info_path() -> PathBuf {
         .join("runtime_info.json")
 }
 
-fn on_controller_started(runtime_manager: &RuntimeManager) -> Result<(), RuntimeError> {
+fn on_controller_started<H: RuntimeInfoStorage>(
+    runtime_manager: &RuntimeManager<H>,
+) -> Result<(), RuntimeError> {
     let process_info = ProcessInfo::new(stdProcess::id(), FeatType::Controller);
     runtime_manager.add_process_info(process_info)
 }
 
 #[cfg(unix)]
-pub async fn handle_signals<A>(
+pub async fn handle_signals<A, H>(
     should_stop: Arc<AtomicBool>,
     agent_manager: Arc<Mutex<A>>,
-    runtime_manager: Arc<RuntimeManager>,
+    runtime_manager: Arc<RuntimeManager<H>>,
 ) where
     A: AgentManagerTrait + Sync + Send + 'static,
+    H: RuntimeInfoStorage + Send + Sync + 'static,
 {
     let ctrl_c = tokio::signal::ctrl_c();
     let mut sigterm = signal(SignalKind::terminate()).expect("Failed to bind to SIGTERM");
@@ -204,12 +209,13 @@ pub async fn handle_signals<A>(
 }
 
 #[cfg(unix)]
-async fn handle_cleanup<A>(
+async fn handle_cleanup<A, H>(
     agent_manager: &Arc<Mutex<A>>,
-    runtime_manager: &Arc<RuntimeManager>,
+    runtime_manager: &Arc<RuntimeManager<H>>,
 ) -> Result<(), String>
 where
     A: AgentManagerTrait + Sync + Send,
+    H: RuntimeInfoStorage + Send + Sync + 'static,
 {
     log::info!("Received CTRL+C. Initiating shutdown.");
 
