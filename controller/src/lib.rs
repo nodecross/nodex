@@ -4,21 +4,15 @@ use crate::managers::runtime::{
     FeatType, FileHandler, ProcessInfo, RuntimeError, RuntimeManager, State,
 };
 use crate::state::handler::StateHandler;
-use std::env;
 use std::path::PathBuf;
 use std::process as stdProcess;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tokio::time::{self, Duration};
 
 #[cfg(unix)]
 mod unix_imports {
     pub use crate::managers::agent::UnixAgentManager;
-    pub use std::os::unix::{
-        io::{FromRawFd, RawFd},
-        net::UnixListener,
-    };
     pub use tokio::signal::unix::{signal, SignalKind};
 }
 #[cfg(unix)]
@@ -85,7 +79,7 @@ pub async fn run() -> std::io::Result<()> {
         }
     });
 
-    monitoring_loop(runtime_manager, agent_manager, should_stop).await;
+    state_monitoring_worker(runtime_manager, agent_manager, should_stop).await;
 
     let _ = shutdown_handle.await;
     log::info!("Shutdown handler completed successfully.");
@@ -93,33 +87,59 @@ pub async fn run() -> std::io::Result<()> {
     Ok(())
 }
 
-async fn monitoring_loop<A>(
+async fn state_monitoring_worker<A>(
     runtime_manager: Arc<RuntimeManager>,
-    agent_manager: Arc<Mutex<A>>,
+    agent_manager: Arc<tokio::sync::Mutex<A>>,
     should_stop: Arc<AtomicBool>,
 ) where
-    A: AgentManagerTrait + Sync + Send + 'static,
+    A: AgentManagerTrait + Send + Sync + 'static,
 {
-    let state_handler = StateHandler::new();
-    let mut previous_state: Option<State> = None;
+    let mut state_rx = runtime_manager.get_state_receiver();
 
-    loop {
-        if should_stop.load(Ordering::Relaxed) {
-            log::info!("Exiting monitoring loop due to SIGTERM or SIGINT.");
-            break;
-        }
+    tokio::spawn(async move {
+        let state_handler = StateHandler::new();
 
-        let current_state = runtime_manager.get_state().unwrap_or(State::Default);
-        if previous_state.as_ref() != Some(&current_state) {
-            if let Err(e) = state_handler.handle(&runtime_manager, &agent_manager).await {
-                log::error!("Failed to handle state change: {}", e);
-                continue;
+        async fn process_state<A>(
+            state_handler: &StateHandler,
+            runtime_manager: &Arc<RuntimeManager>,
+            agent_manager: &Arc<tokio::sync::Mutex<A>>,
+            state: State,
+            description: &str,
+        ) where
+            A: AgentManagerTrait + Send + Sync + 'static,
+        {
+            log::info!("Worker: {}: {:?}", description, state);
+
+            let agent_manager = Arc::clone(agent_manager);
+            if let Err(e) = state_handler.handle(runtime_manager, &agent_manager).await {
+                log::error!("Worker: Failed to handle {}: {}", description, e);
             }
-            previous_state = Some(current_state);
         }
 
-        time::sleep(Duration::from_secs(5)).await;
-    }
+        let initial_state = *state_rx.borrow();
+        process_state(
+            &state_handler,
+            &runtime_manager,
+            &agent_manager,
+            initial_state,
+            "Initial state",
+        )
+        .await;
+
+        while !should_stop.load(Ordering::Relaxed) {
+            if let Ok(()) = state_rx.changed().await {
+                let current_state = *state_rx.borrow();
+                process_state(
+                    &state_handler,
+                    &runtime_manager,
+                    &agent_manager,
+                    current_state,
+                    "State change",
+                )
+                .await;
+            }
+        }
+    });
 }
 
 fn initialize_runtime_manager() -> Arc<RuntimeManager> {
@@ -161,12 +181,7 @@ pub async fn handle_signals<A>(
         },
         _ = sigterm.recv() => {
             log::info!("Received SIGTERM. Gracefully stopping application.");
-            let listener_fd: RawFd = env::var("LISTENER_FD")
-                .expect("LISTENER_FD not set")
-                .parse::<i32>()
-                .expect("Invalid LISTENER_FD");
-            let listener: UnixListener = unsafe { UnixListener::from_raw_fd(listener_fd) };
-            handle_sigterm(should_stop.clone(), listener);
+            handle_sigterm(should_stop.clone());
         },
         _ = sigabrt.recv() => {
             if let Err(e) = handle_cleanup(&agent_manager, &runtime_manager).await {
@@ -231,9 +246,9 @@ where
 }
 
 #[cfg(unix)]
-fn handle_sigterm(should_stop: Arc<AtomicBool>, listener: UnixListener) {
-    log::info!("Dropping listener.");
-    std::mem::drop(listener);
+fn handle_sigterm(should_stop: Arc<AtomicBool>) {
+    // log::info!("Dropping listener.");
+    // std::mem::drop(listener);
     log::info!("Received SIGTERM. Setting stop flag.");
     should_stop.store(true, Ordering::Relaxed);
 }

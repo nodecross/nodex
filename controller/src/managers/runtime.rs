@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::{Read, Seek, Write};
 use std::path::PathBuf;
+use tokio::sync::watch;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RuntimeInfo {
@@ -12,7 +13,7 @@ pub struct RuntimeInfo {
     pub process_infos: Vec<ProcessInfo>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
 pub enum State {
     Default,
     Update,
@@ -145,11 +146,18 @@ impl FileHandler {
 
 pub struct RuntimeManager {
     file_handler: FileHandler,
+    state_sender: watch::Sender<State>,
+    state_receiver: watch::Receiver<State>,
 }
 
 impl RuntimeManager {
     pub fn new(file_handler: FileHandler) -> Self {
-        RuntimeManager { file_handler }
+        let (state_sender, state_receiver) = watch::channel(State::Default);
+        RuntimeManager {
+            file_handler,
+            state_sender,
+            state_receiver,
+        }
     }
 
     pub fn read_runtime_info(&self) -> Result<RuntimeInfo, RuntimeError> {
@@ -225,7 +233,14 @@ impl RuntimeManager {
         self.file_handler.apply_with_lock(|runtime_info| {
             runtime_info.state = state;
             Ok(())
-        })
+        })?;
+        let _ = self.state_sender.send(state);
+
+        Ok(())
+    }
+
+    pub fn get_state_receiver(&self) -> watch::Receiver<State> {
+        self.state_receiver.clone()
     }
 }
 

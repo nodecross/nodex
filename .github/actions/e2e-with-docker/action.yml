@@ -89,7 +89,7 @@ runs:
       if: steps.check_logs_for_sigterm.outputs.stopped_found == 'true'
       run: |
         container_id=$(docker compose -f test_resource/compose.yaml -f test_resource/overrides/${{ inputs.docker-image }}.yaml --profile e2e ps -q e2e_agent)
-        if ! docker exec $container_id pgrep -f "/tmp/nodex-agentc controller"; then
+        if ! docker exec $container_id pgrep -f "/tmp/nodex-agent controller"; then
           echo "Process not found, as expected."
         else
           echo "Process is still running, which is not expected."
