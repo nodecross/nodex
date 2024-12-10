@@ -49,15 +49,12 @@ impl StateHandler {
 
         #[cfg(windows)]
         let resource_manager = WindowsResourceManager::new();
-        dbg!(&runtime_manager);
         let state = {
             let mut _manager = runtime_manager.lock().await;
             _manager.get_state()?
         };
-        dbg!(&runtime_manager);
         match state {
             State::Update => {
-                dbg!(&runtime_manager);
                 let update_state =
                     UpdateState::new(agent_manager, resource_manager, runtime_manager);
 
@@ -66,7 +63,6 @@ impl StateHandler {
                 }
             }
             State::Rollback => {
-                dbg!(&runtime_manager);
                 let rollback_state =
                     RollbackState::new(agent_manager, &resource_manager, runtime_manager);
                 rollback_state.execute().await?;
@@ -123,7 +119,6 @@ impl StateHandler {
     where
         H: RuntimeInfoStorage + Sync + Send,
     {
-        dbg!("transition ");
         runtime_manager
             .lock()
             .await

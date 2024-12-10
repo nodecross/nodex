@@ -40,7 +40,6 @@ where
     pub async fn execute(&self) -> Result<(), DefaultError> {
         {
             let mut _runtime_manager = self.runtime_manager.lock().await;
-            dbg!(&_runtime_manager);
             let mut agent_processes = _runtime_manager.filter_process_infos(FeatType::Agent)?;
             agent_processes.retain(|agent_process| {
                 _runtime_manager.is_running_or_remove_if_stopped(agent_process)
@@ -55,7 +54,6 @@ where
         {
             let agent_manager = self.agent_manager.lock().await;
             let process_info = agent_manager.launch_agent()?;
-            dbg!("execute 2");
             self.runtime_manager
                 .lock()
                 .await

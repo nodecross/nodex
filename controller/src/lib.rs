@@ -56,7 +56,6 @@ pub async fn run() -> std::io::Result<()> {
         on_controller_started(&mut _runtime_manager)
             .expect("Failed to record controller start in runtime manager");
     }
-    dbg!(&runtime_manager);
 
     let uds_path = get_config().lock().unwrap().uds_path.clone();
 
@@ -98,7 +97,6 @@ async fn state_monitoring_worker<A, H>(
     H: RuntimeInfoStorage + Send + Sync + 'static,
 {
     let mut state_rx = runtime_manager.lock().await.get_state_receiver();
-    dbg!(&runtime_manager);
 
     tokio::spawn(async move {
         let state_handler = StateHandler::new();
@@ -116,13 +114,11 @@ async fn state_monitoring_worker<A, H>(
             log::info!("Worker: {}: {:?}", description, state);
 
             let agent_manager = Arc::clone(agent_manager);
-            dbg!(&runtime_manager);
             if let Err(e) = state_handler.handle(runtime_manager, &agent_manager).await {
                 log::error!("Worker: Failed to handle {}: {}", description, e);
             }
         }
 
-        dbg!(&runtime_manager);
         let initial_state = *state_rx.borrow();
         process_state(
             &state_handler,
@@ -132,10 +128,8 @@ async fn state_monitoring_worker<A, H>(
             "Initial state",
         )
         .await;
-        dbg!(&runtime_manager);
 
         while !should_stop.load(Ordering::Relaxed) {
-            dbg!(&runtime_manager);
             if let Ok(()) = state_rx.changed().await {
                 let current_state = *state_rx.borrow();
                 process_state(
@@ -148,7 +142,6 @@ async fn state_monitoring_worker<A, H>(
                 .await;
             }
         }
-        dbg!("end!!!!!!!!!!!!!!");
     });
 }
 
@@ -228,13 +221,11 @@ where
     log::info!("Received CTRL+C. Initiating shutdown.");
 
     let current_pid = std::process::id();
-    dbg!(runtime_manager.clone());
     let process_infos = runtime_manager
         .lock()
         .await
         .get_process_infos()
         .map_err(|e| e.to_string())?;
-    dbg!(&process_infos);
 
     for process_info in process_infos.iter() {
         if process_info.process_id != current_pid {
