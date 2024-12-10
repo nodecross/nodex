@@ -19,7 +19,7 @@ where
     H: RuntimeInfoStorage,
 {
     agent_manager: &'a Arc<Mutex<A>>,
-    runtime_manager: &'a RuntimeManager<H>,
+    runtime_manager: &'a Arc<Mutex<RuntimeManager<H>>>,
 }
 
 impl<'a, A, H> DefaultState<'a, A, H>
@@ -27,7 +27,10 @@ where
     A: AgentManagerTrait,
     H: RuntimeInfoStorage,
 {
-    pub fn new(agent_manager: &'a Arc<Mutex<A>>, runtime_manager: &'a RuntimeManager<H>) -> Self {
+    pub fn new(
+        agent_manager: &'a Arc<Mutex<A>>,
+        runtime_manager: &'a Arc<Mutex<RuntimeManager<H>>>,
+    ) -> Self {
         DefaultState {
             agent_manager,
             runtime_manager,
@@ -35,21 +38,28 @@ where
     }
 
     pub async fn execute(&self) -> Result<(), DefaultError> {
-        let mut agent_processes = self.runtime_manager.filter_process_infos(FeatType::Agent)?;
-        agent_processes.retain(|agent_process| {
-            self.runtime_manager
-                .is_running_or_remove_if_stopped(agent_process)
-        });
-        if agent_processes.len() > 1 {
-            log::error!("Agent already running");
-            return Ok(());
+        {
+            let mut _runtime_manager = self.runtime_manager.lock().await;
+            dbg!(&_runtime_manager);
+            let mut agent_processes = _runtime_manager.filter_process_infos(FeatType::Agent)?;
+            agent_processes.retain(|agent_process| {
+                _runtime_manager.is_running_or_remove_if_stopped(agent_process)
+            });
+            if agent_processes.len() > 1 {
+                log::error!("Agent already running");
+                return Ok(());
+            }
         }
 
         #[cfg(unix)]
         {
             let agent_manager = self.agent_manager.lock().await;
             let process_info = agent_manager.launch_agent()?;
-            self.runtime_manager.add_process_info(process_info)?;
+            dbg!("execute 2");
+            self.runtime_manager
+                .lock()
+                .await
+                .add_process_info(process_info)?;
         }
 
         Ok(())

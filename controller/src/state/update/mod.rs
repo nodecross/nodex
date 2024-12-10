@@ -64,7 +64,7 @@ where
 {
     agent_manager: &'a Arc<Mutex<A>>,
     resource_manager: R,
-    runtime_manager: &'a RuntimeManager<H>,
+    runtime_manager: &'a Arc<Mutex<RuntimeManager<H>>>,
 }
 
 impl<'a, A, R, H> UpdateState<'a, A, R, H>
@@ -76,7 +76,7 @@ where
     pub fn new(
         agent_manager: &'a Arc<Mutex<A>>,
         resource_manager: R,
-        runtime_manager: &'a RuntimeManager<H>,
+        runtime_manager: &'a Arc<Mutex<RuntimeManager<H>>>,
     ) -> Self {
         Self {
             agent_manager,
@@ -90,6 +90,8 @@ where
 
         if self
             .runtime_manager
+            .lock()
+            .await
             .filter_process_infos(FeatType::Agent)?
             .is_empty()
         {
@@ -97,6 +99,8 @@ where
         }
 
         self.runtime_manager
+            .lock()
+            .await
             .update_state(State::Updating)
             .map_err(UpdateError::UpdateStateFailed)?;
 
@@ -159,7 +163,10 @@ where
     async fn launch_new_version_agent(&self) -> Result<(), UpdateError> {
         let agent_manager = self.agent_manager.lock().await;
         let process_info = agent_manager.launch_agent()?;
-        self.runtime_manager.add_process_info(process_info)?;
+        self.runtime_manager
+            .lock()
+            .await
+            .add_process_info(process_info)?;
 
         Ok(())
     }
@@ -216,7 +223,11 @@ where
         &self,
         current_version: String,
     ) -> Result<(), UpdateError> {
-        let agent_processes = self.runtime_manager.filter_process_infos(FeatType::Agent)?;
+        let agent_processes = self
+            .runtime_manager
+            .lock()
+            .await
+            .filter_process_infos(FeatType::Agent)?;
 
         for agent_process in agent_processes {
             if agent_process.version == current_version {
@@ -225,6 +236,8 @@ where
             let agent_manager = self.agent_manager.lock().await;
             agent_manager.terminate_agent(agent_process.process_id)?;
             self.runtime_manager
+                .lock()
+                .await
                 .remove_process_info(agent_process.process_id)?;
         }
 

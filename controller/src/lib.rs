@@ -33,28 +33,30 @@ pub mod validator;
 
 #[tokio::main]
 pub async fn run() -> std::io::Result<()> {
-    let runtime_manager = initialize_runtime_manager();
+    let runtime_manager = initialize_runtime_manager().expect("Failed to create RuntimeManager");
     let should_stop = Arc::new(AtomicBool::new(false));
 
-    let process_infos = runtime_manager
-        .get_process_infos()
-        .expect("Failed to read runtime_info.json");
+    {
+        let mut _runtime_manager = runtime_manager.lock().await;
+        let process_infos = _runtime_manager
+            .get_process_infos()
+            .expect("Failed to read runtime_info.json");
 
-    let controller_processes = process_infos
-        .iter()
-        .filter(|process_info| {
-            runtime_manager.is_running_or_remove_if_stopped(process_info)
-                && process_info.feat_type == FeatType::Controller
-        })
-        .collect::<Vec<&ProcessInfo>>();
-
-    if !controller_processes.is_empty() {
-        log::error!("Controller already running");
-        return Ok(());
+        let controller_processes = process_infos
+            .iter()
+            .filter(|process_info| {
+                _runtime_manager.is_running_or_remove_if_stopped(process_info)
+                    && process_info.feat_type == FeatType::Controller
+            })
+            .collect::<Vec<&ProcessInfo>>();
+        if !controller_processes.is_empty() {
+            log::error!("Controller already running");
+            return Ok(());
+        }
+        on_controller_started(&mut _runtime_manager)
+            .expect("Failed to record controller start in runtime manager");
     }
-
-    on_controller_started(&runtime_manager)
-        .expect("Failed to record controller start in runtime manager");
+    dbg!(&runtime_manager);
 
     let uds_path = get_config().lock().unwrap().uds_path.clone();
 
@@ -88,21 +90,22 @@ pub async fn run() -> std::io::Result<()> {
 }
 
 async fn state_monitoring_worker<A, H>(
-    runtime_manager: Arc<RuntimeManager<H>>,
+    runtime_manager: Arc<Mutex<RuntimeManager<H>>>,
     agent_manager: Arc<tokio::sync::Mutex<A>>,
     should_stop: Arc<AtomicBool>,
 ) where
     A: AgentManagerTrait + Send + Sync + 'static,
     H: RuntimeInfoStorage + Send + Sync + 'static,
 {
-    let mut state_rx = runtime_manager.get_state_receiver();
+    let mut state_rx = runtime_manager.lock().await.get_state_receiver();
+    dbg!(&runtime_manager);
 
     tokio::spawn(async move {
         let state_handler = StateHandler::new();
 
         async fn process_state<A, H>(
             state_handler: &StateHandler,
-            runtime_manager: &Arc<RuntimeManager<H>>,
+            runtime_manager: &Arc<Mutex<RuntimeManager<H>>>,
             agent_manager: &Arc<tokio::sync::Mutex<A>>,
             state: State,
             description: &str,
@@ -113,11 +116,13 @@ async fn state_monitoring_worker<A, H>(
             log::info!("Worker: {}: {:?}", description, state);
 
             let agent_manager = Arc::clone(agent_manager);
+            dbg!(&runtime_manager);
             if let Err(e) = state_handler.handle(runtime_manager, &agent_manager).await {
                 log::error!("Worker: Failed to handle {}: {}", description, e);
             }
         }
 
+        dbg!(&runtime_manager);
         let initial_state = *state_rx.borrow();
         process_state(
             &state_handler,
@@ -127,8 +132,10 @@ async fn state_monitoring_worker<A, H>(
             "Initial state",
         )
         .await;
+        dbg!(&runtime_manager);
 
         while !should_stop.load(Ordering::Relaxed) {
+            dbg!(&runtime_manager);
             if let Ok(()) = state_rx.changed().await {
                 let current_state = *state_rx.borrow();
                 process_state(
@@ -141,12 +148,13 @@ async fn state_monitoring_worker<A, H>(
                 .await;
             }
         }
+        dbg!("end!!!!!!!!!!!!!!");
     });
 }
 
-fn initialize_runtime_manager() -> Arc<RuntimeManager<FileHandler>> {
-    let file_handler = FileHandler::new(get_runtime_info_path());
-    Arc::new(RuntimeManager::new(file_handler))
+fn initialize_runtime_manager() -> Result<Arc<Mutex<RuntimeManager<FileHandler>>>, RuntimeError> {
+    let file_handler = FileHandler::new(get_runtime_info_path())?;
+    Ok(Arc::new(Mutex::new(RuntimeManager::new(file_handler))))
 }
 
 fn get_runtime_info_path() -> PathBuf {
@@ -158,7 +166,7 @@ fn get_runtime_info_path() -> PathBuf {
 }
 
 fn on_controller_started<H: RuntimeInfoStorage>(
-    runtime_manager: &RuntimeManager<H>,
+    runtime_manager: &mut RuntimeManager<H>,
 ) -> Result<(), RuntimeError> {
     let process_info = ProcessInfo::new(stdProcess::id(), FeatType::Controller);
     runtime_manager.add_process_info(process_info)
@@ -168,7 +176,7 @@ fn on_controller_started<H: RuntimeInfoStorage>(
 pub async fn handle_signals<A, H>(
     should_stop: Arc<AtomicBool>,
     agent_manager: Arc<Mutex<A>>,
-    runtime_manager: Arc<RuntimeManager<H>>,
+    runtime_manager: Arc<Mutex<RuntimeManager<H>>>,
 ) where
     A: AgentManagerTrait + Sync + Send + 'static,
     H: RuntimeInfoStorage + Send + Sync + 'static,
@@ -211,7 +219,7 @@ pub async fn handle_signals<A>(
 #[cfg(unix)]
 async fn handle_cleanup<A, H>(
     agent_manager: &Arc<Mutex<A>>,
-    runtime_manager: &Arc<RuntimeManager<H>>,
+    runtime_manager: &Arc<Mutex<RuntimeManager<H>>>,
 ) -> Result<(), String>
 where
     A: AgentManagerTrait + Sync + Send,
@@ -220,9 +228,13 @@ where
     log::info!("Received CTRL+C. Initiating shutdown.");
 
     let current_pid = std::process::id();
+    dbg!(runtime_manager.clone());
     let process_infos = runtime_manager
+        .lock()
+        .await
         .get_process_infos()
         .map_err(|e| e.to_string())?;
+    dbg!(&process_infos);
 
     for process_info in process_infos.iter() {
         if process_info.process_id != current_pid {
@@ -233,11 +245,15 @@ where
                 .map_err(|e| e.to_string())?;
         }
         runtime_manager
+            .lock()
+            .await
             .remove_process_info(process_info.process_id)
             .map_err(|e| e.to_string())?;
     }
 
     runtime_manager
+        .lock()
+        .await
         .update_state(crate::managers::runtime::State::Default)
         .map_err(|e| e.to_string())?;
 

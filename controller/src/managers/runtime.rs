@@ -2,10 +2,11 @@ use crate::validator::process::is_running;
 use chrono::{DateTime, FixedOffset, Utc};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
-use std::fs::OpenOptions;
+use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::path::PathBuf;
 use tokio::sync::watch;
+// use memmap2::MmapMut;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RuntimeInfo {
@@ -37,6 +38,10 @@ pub enum FeatType {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
+    // #[error("Failed to crate memory mapped io: {0}")]
+    // MmapCreate(#[source] std::io::Error),
+    // #[error("Failed to flush memory mapped io: {0}")]
+    // MmapFlush(#[source] std::io::Error),
     #[error("Failed to open file: {0}")]
     FileOpen(#[source] std::io::Error),
     #[error("Failed to read file: {0}")]
@@ -55,72 +60,146 @@ pub enum RuntimeError {
     MutexPoisoned,
 }
 
-pub trait RuntimeInfoStorage {
-    fn read(&self) -> Result<Option<RuntimeInfo>, RuntimeError>;
-    fn apply_with_lock<F>(&self, operation: F) -> Result<(), RuntimeError>
+pub trait RuntimeInfoStorage: std::fmt::Debug {
+    fn read(&mut self) -> Result<RuntimeInfo, RuntimeError>;
+    fn apply_with_lock<F>(&mut self, operation: F) -> Result<(), RuntimeError>
     where
         F: FnOnce(&mut RuntimeInfo) -> Result<(), RuntimeError>;
 }
 
+// pub struct MmapHandler {
+//     mmap: MmapMut,
+// }
+
+// impl MmapHandler {
+//     pub fn new(length: usize) -> Result<Self, RuntimeError>  {
+//         let mmap = MmapMut::map_anon(length).map_err(RuntimeError::MmapCreate)?;
+//         Ok(MmapHandler { mmap })
+//     }
+
+//     // pub fn lock_file(&self) -> Result<std::fs::File, RuntimeError> {
+//     //     let file = OpenOptions::new()
+//     //         .read(true)
+//     //         .write(true)
+//     //         .create(true)
+//     //         .truncate(false)
+//     //         .open(&self.path)
+//     //         .map_err(RuntimeError::FileOpen)?;
+//     //     file.lock_exclusive().map_err(RuntimeError::FileLock)?;
+//     //     Ok(file)
+//     // }
+
+//     // pub fn read_locked(&self, file: &mut std::fs::File) -> Result<RuntimeInfo, RuntimeError> {
+//     //     let mut content = String::new();
+//     //     file.read_to_string(&mut content)
+//     //         .map_err(RuntimeError::FileRead)?;
+
+//     //     if content.trim().is_empty() {
+//     //         Ok(RuntimeInfo {
+//     //             state: State::Default,
+//     //             process_infos: vec![],
+//     //         })
+//     //     } else {
+//     //         serde_json::from_str(&content).map_err(RuntimeError::JsonDeserialize)
+//     //     }
+//     // }
+
+//     // pub fn write_locked(
+//     //     &self,
+//     //     file: &mut std::fs::File,
+//     //     runtime_info: &RuntimeInfo,
+//     // ) -> Result<(), RuntimeError> {
+//     //     let json_data =
+//     //         serde_json::to_string_pretty(runtime_info).map_err(RuntimeError::JsonSerialize)?;
+
+//     //     file.set_len(0).map_err(RuntimeError::FileWrite)?;
+
+//     //     file.seek(std::io::SeekFrom::Start(0))
+//     //         .map_err(RuntimeError::FileWrite)?;
+
+//     //     file.write_all(json_data.as_bytes())
+//     //         .map_err(RuntimeError::FileWrite)?;
+
+//     //     log::info!("File written successfully");
+//     //     Ok(())
+//     // }
+
+//     // pub fn unlock_file(&self, file: &mut std::fs::File) -> Result<(), RuntimeError> {
+//     //     file.unlock().map_err(RuntimeError::FileUnlock)
+//     // }
+// }
+
+// impl RuntimeInfoStorage for MmapHandler {
+//     fn read(&self) -> Result<RuntimeInfo, RuntimeError> {
+//         self.mmap.lock();
+//         (&mut self.mmap[..]).read_to_end()
+//         self.mmap.flush()?;
+//         self.mmap.unlock();
+//     }
+
+//     fn apply_with_lock<F>(&self, operation: F) -> Result<(), RuntimeError>
+//     where
+//         F: FnOnce(&mut RuntimeInfo) -> Result<(), RuntimeError>,
+//     {
+//         self.mmap.lock();
+
+//         self.mmap.unlock();
+//         Ok(())
+//     }
+// }
+
+#[derive(Debug)]
 pub struct FileHandler {
-    path: PathBuf,
+    file: File,
 }
 
 impl RuntimeInfoStorage for FileHandler {
-    fn read(&self) -> Result<Option<RuntimeInfo>, RuntimeError> {
-        if !self.path.exists() {
-            return Ok(None);
-        }
-        let mut file = OpenOptions::new()
-            .read(true)
-            .open(&self.path)
-            .map_err(RuntimeError::FileOpen)?;
-
+    fn read(&mut self) -> Result<RuntimeInfo, RuntimeError> {
         let mut content = String::new();
-        file.read_to_string(&mut content)
+        self.file
+            .read_to_string(&mut content)
             .map_err(RuntimeError::FileRead)?;
-
-        serde_json::from_str(&content)
-            .map(Some)
-            .map_err(RuntimeError::JsonDeserialize)
+        if content.is_empty() {
+            return Ok(RuntimeInfo {
+                state: State::Default,
+                process_infos: vec![],
+            });
+        }
+        serde_json::from_str(&content).map_err(RuntimeError::JsonDeserialize)
     }
 
-    fn apply_with_lock<F>(&self, operation: F) -> Result<(), RuntimeError>
+    fn apply_with_lock<F>(&mut self, operation: F) -> Result<(), RuntimeError>
     where
         F: FnOnce(&mut RuntimeInfo) -> Result<(), RuntimeError>,
     {
-        let mut file = self.lock_file()?;
-        let mut runtime_info = self.read_locked(&mut file)?;
+        self.file.lock_exclusive().map_err(RuntimeError::FileLock)?;
+        let mut runtime_info = self.read_locked()?;
 
         operation(&mut runtime_info)?;
 
-        self.write_locked(&mut file, &runtime_info)?;
-        self.unlock_file(&mut file)?;
+        self.write_locked(&runtime_info)?;
+        self.file.unlock().map_err(RuntimeError::FileUnlock)?;
 
         Ok(())
     }
 }
 
 impl FileHandler {
-    pub fn new(path: PathBuf) -> Self {
-        FileHandler { path }
-    }
-
-    pub fn lock_file(&self) -> Result<std::fs::File, RuntimeError> {
+    pub fn new(path: PathBuf) -> Result<Self, RuntimeError> {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .truncate(false)
-            .open(&self.path)
+            .open(&path)
             .map_err(RuntimeError::FileOpen)?;
-        file.lock_exclusive().map_err(RuntimeError::FileLock)?;
-        Ok(file)
+        Ok(FileHandler { file })
     }
 
-    pub fn read_locked(&self, file: &mut std::fs::File) -> Result<RuntimeInfo, RuntimeError> {
+    pub fn read_locked(&mut self) -> Result<RuntimeInfo, RuntimeError> {
         let mut content = String::new();
-        file.read_to_string(&mut content)
+        self.file
+            .read_to_string(&mut content)
             .map_err(RuntimeError::FileRead)?;
 
         if content.trim().is_empty() {
@@ -133,31 +212,26 @@ impl FileHandler {
         }
     }
 
-    pub fn write_locked(
-        &self,
-        file: &mut std::fs::File,
-        runtime_info: &RuntimeInfo,
-    ) -> Result<(), RuntimeError> {
+    pub fn write_locked(&mut self, runtime_info: &RuntimeInfo) -> Result<(), RuntimeError> {
         let json_data =
             serde_json::to_string_pretty(runtime_info).map_err(RuntimeError::JsonSerialize)?;
 
-        file.set_len(0).map_err(RuntimeError::FileWrite)?;
+        self.file.set_len(0).map_err(RuntimeError::FileWrite)?;
 
-        file.seek(std::io::SeekFrom::Start(0))
+        self.file
+            .seek(std::io::SeekFrom::Start(0))
             .map_err(RuntimeError::FileWrite)?;
 
-        file.write_all(json_data.as_bytes())
+        self.file
+            .write_all(json_data.as_bytes())
             .map_err(RuntimeError::FileWrite)?;
 
         log::info!("File written successfully");
         Ok(())
     }
-
-    pub fn unlock_file(&self, file: &mut std::fs::File) -> Result<(), RuntimeError> {
-        file.unlock().map_err(RuntimeError::FileUnlock)
-    }
 }
 
+#[derive(Debug)]
 pub struct RuntimeManager<H: RuntimeInfoStorage> {
     file_handler: H,
     state_sender: watch::Sender<State>,
@@ -174,29 +248,26 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
         }
     }
 
-    pub fn read_runtime_info(&self) -> Result<RuntimeInfo, RuntimeError> {
-        let runtime_info = self.file_handler.read()?.unwrap_or(RuntimeInfo {
-            state: State::Default,
-            process_infos: vec![],
-        });
+    pub fn read_runtime_info(&mut self) -> Result<RuntimeInfo, RuntimeError> {
+        let runtime_info = self.file_handler.read()?;
 
         Ok(runtime_info)
     }
 
-    pub fn get_state(&self) -> Result<State, RuntimeError> {
+    pub fn get_state(&mut self) -> Result<State, RuntimeError> {
         let runtime_info = self.read_runtime_info()?;
 
         Ok(runtime_info.state)
     }
 
-    pub fn get_process_infos(&self) -> Result<Vec<ProcessInfo>, RuntimeError> {
+    pub fn get_process_infos(&mut self) -> Result<Vec<ProcessInfo>, RuntimeError> {
         let runtime_info = self.read_runtime_info()?;
 
         Ok(runtime_info.process_infos)
     }
 
     pub fn filter_process_infos(
-        &self,
+        &mut self,
         feat_type: FeatType,
     ) -> Result<Vec<ProcessInfo>, RuntimeError> {
         let process_infos = self.get_process_infos()?;
@@ -206,7 +277,7 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
             .collect::<Vec<ProcessInfo>>())
     }
 
-    pub fn is_running_or_remove_if_stopped(&self, process_info: &ProcessInfo) -> bool {
+    pub fn is_running_or_remove_if_stopped(&mut self, process_info: &ProcessInfo) -> bool {
         if !is_running(process_info.process_id) {
             self.remove_process_info(process_info.process_id)
                 .map_err(|e| {
@@ -223,14 +294,14 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
         }
     }
 
-    pub fn add_process_info(&self, process_info: ProcessInfo) -> Result<(), RuntimeError> {
+    pub fn add_process_info(&mut self, process_info: ProcessInfo) -> Result<(), RuntimeError> {
         self.file_handler.apply_with_lock(|runtime_info| {
             runtime_info.process_infos.push(process_info);
             Ok(())
         })
     }
 
-    pub fn remove_process_info(&self, process_id: u32) -> Result<(), RuntimeError> {
+    pub fn remove_process_info(&mut self, process_id: u32) -> Result<(), RuntimeError> {
         self.file_handler.apply_with_lock(|runtime_info| {
             runtime_info
                 .process_infos
@@ -239,7 +310,7 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
         })
     }
 
-    pub fn update_state(&self, state: State) -> Result<(), RuntimeError> {
+    pub fn update_state(&mut self, state: State) -> Result<(), RuntimeError> {
         self.file_handler.apply_with_lock(|runtime_info| {
             runtime_info.state = state;
             Ok(())

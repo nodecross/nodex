@@ -140,10 +140,10 @@ impl NodeX {
                 .join(".nodex")
                 .join("run")
                 .join("runtime_info.json");
-            let file_handler = FileHandler::new(runtime_info_path);
-            let runtime_manager = RuntimeManager::new(file_handler);
+            let file_handler = FileHandler::new(runtime_info_path)?;
+            let mut runtime_manager = RuntimeManager::new(file_handler);
 
-            self.run_controller(&agent_path, &runtime_manager)?;
+            self.run_controller(&agent_path, &mut runtime_manager)?;
             runtime_manager.update_state(State::Update)?;
         }
 
@@ -156,7 +156,7 @@ impl NodeX {
     #[cfg(unix)]
     fn kill_current_controller<H: RuntimeInfoStorage>(
         &self,
-        runtime_manager: &RuntimeManager<H>,
+        runtime_manager: &mut RuntimeManager<H>,
     ) -> anyhow::Result<()> {
         let controller_processes = runtime_manager
             .filter_process_infos(FeatType::Controller)
@@ -190,7 +190,7 @@ impl NodeX {
     fn run_controller<H: RuntimeInfoStorage>(
         &self,
         agent_path: &Path,
-        runtime_manager: &RuntimeManager<H>,
+        runtime_manager: &mut RuntimeManager<H>,
     ) -> anyhow::Result<()> {
         self.kill_current_controller(runtime_manager)?;
         if is_manage_by_systemd() && is_manage_socket_activation() {

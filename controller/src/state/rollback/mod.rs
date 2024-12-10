@@ -33,7 +33,7 @@ where
     #[allow(dead_code)]
     agent_manager: &'a Arc<tokio::sync::Mutex<A>>,
     resource_manager: &'a R,
-    runtime_manager: &'a RuntimeManager<H>,
+    runtime_manager: &'a Arc<tokio::sync::Mutex<RuntimeManager<H>>>,
 }
 
 impl<'a, A, R, H> RollbackState<'a, A, R, H>
@@ -45,7 +45,7 @@ where
     pub fn new(
         agent_manager: &'a Arc<tokio::sync::Mutex<A>>,
         resource_manager: &'a R,
-        runtime_manager: &'a RuntimeManager<H>,
+        runtime_manager: &'a Arc<tokio::sync::Mutex<RuntimeManager<H>>>,
     ) -> Self {
         RollbackState {
             agent_manager,
@@ -64,6 +64,8 @@ where
                 self.resource_manager.rollback(&backup_file)?;
                 self.resource_manager.remove()?;
                 self.runtime_manager
+                    .lock()
+                    .await
                     .update_state(crate::managers::runtime::State::Default)?;
                 log::info!("Rollback completed");
 
