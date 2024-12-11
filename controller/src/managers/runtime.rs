@@ -6,7 +6,6 @@ use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::path::PathBuf;
 use tokio::sync::watch;
-// use memmap2::MmapMut;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RuntimeInfo {
@@ -38,10 +37,6 @@ pub enum FeatType {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
-    // #[error("Failed to crate memory mapped io: {0}")]
-    // MmapCreate(#[source] std::io::Error),
-    // #[error("Failed to flush memory mapped io: {0}")]
-    // MmapFlush(#[source] std::io::Error),
     #[error("Failed to open file: {0}")]
     FileOpen(#[source] std::io::Error),
     #[error("Failed to read file: {0}")]
@@ -67,87 +62,6 @@ pub trait RuntimeInfoStorage: std::fmt::Debug {
         F: FnOnce(&mut RuntimeInfo) -> Result<(), RuntimeError>;
 }
 
-// pub struct MmapHandler {
-//     mmap: MmapMut,
-// }
-
-// impl MmapHandler {
-//     pub fn new(length: usize) -> Result<Self, RuntimeError>  {
-//         let mmap = MmapMut::map_anon(length).map_err(RuntimeError::MmapCreate)?;
-//         Ok(MmapHandler { mmap })
-//     }
-
-//     // pub fn lock_file(&self) -> Result<std::fs::File, RuntimeError> {
-//     //     let file = OpenOptions::new()
-//     //         .read(true)
-//     //         .write(true)
-//     //         .create(true)
-//     //         .truncate(false)
-//     //         .open(&self.path)
-//     //         .map_err(RuntimeError::FileOpen)?;
-//     //     file.lock_exclusive().map_err(RuntimeError::FileLock)?;
-//     //     Ok(file)
-//     // }
-
-//     // pub fn read_locked(&self, file: &mut std::fs::File) -> Result<RuntimeInfo, RuntimeError> {
-//     //     let mut content = String::new();
-//     //     file.read_to_string(&mut content)
-//     //         .map_err(RuntimeError::FileRead)?;
-
-//     //     if content.trim().is_empty() {
-//     //         Ok(RuntimeInfo {
-//     //             state: State::Default,
-//     //             process_infos: vec![],
-//     //         })
-//     //     } else {
-//     //         serde_json::from_str(&content).map_err(RuntimeError::JsonDeserialize)
-//     //     }
-//     // }
-
-//     // pub fn write_locked(
-//     //     &self,
-//     //     file: &mut std::fs::File,
-//     //     runtime_info: &RuntimeInfo,
-//     // ) -> Result<(), RuntimeError> {
-//     //     let json_data =
-//     //         serde_json::to_string_pretty(runtime_info).map_err(RuntimeError::JsonSerialize)?;
-
-//     //     file.set_len(0).map_err(RuntimeError::FileWrite)?;
-
-//     //     file.seek(std::io::SeekFrom::Start(0))
-//     //         .map_err(RuntimeError::FileWrite)?;
-
-//     //     file.write_all(json_data.as_bytes())
-//     //         .map_err(RuntimeError::FileWrite)?;
-
-//     //     log::info!("File written successfully");
-//     //     Ok(())
-//     // }
-
-//     // pub fn unlock_file(&self, file: &mut std::fs::File) -> Result<(), RuntimeError> {
-//     //     file.unlock().map_err(RuntimeError::FileUnlock)
-//     // }
-// }
-
-// impl RuntimeInfoStorage for MmapHandler {
-//     fn read(&self) -> Result<RuntimeInfo, RuntimeError> {
-//         self.mmap.lock();
-//         (&mut self.mmap[..]).read_to_end()
-//         self.mmap.flush()?;
-//         self.mmap.unlock();
-//     }
-
-//     fn apply_with_lock<F>(&self, operation: F) -> Result<(), RuntimeError>
-//     where
-//         F: FnOnce(&mut RuntimeInfo) -> Result<(), RuntimeError>,
-//     {
-//         self.mmap.lock();
-
-//         self.mmap.unlock();
-//         Ok(())
-//     }
-// }
-
 #[derive(Debug)]
 pub struct FileHandler {
     file: File,
@@ -159,7 +73,7 @@ impl RuntimeInfoStorage for FileHandler {
         self.file
             .read_to_string(&mut content)
             .map_err(RuntimeError::FileRead)?;
-        if content.is_empty() {
+        if content.trim().is_empty() {
             return Ok(RuntimeInfo {
                 state: State::Default,
                 process_infos: vec![],
@@ -172,12 +86,16 @@ impl RuntimeInfoStorage for FileHandler {
     where
         F: FnOnce(&mut RuntimeInfo) -> Result<(), RuntimeError>,
     {
-        self.file.lock_exclusive().map_err(RuntimeError::FileLock)?;
-        let mut runtime_info = self.read_locked()?;
+        self.file
+            .lock_exclusive()
+            .map_err(self.handle_err(RuntimeError::FileLock))?;
 
-        operation(&mut runtime_info)?;
+        let mut runtime_info = self.read().map_err(self.handle_err(|x| x))?;
 
-        self.write_locked(&runtime_info)?;
+        operation(&mut runtime_info).map_err(self.handle_err(|x| x))?;
+
+        self.write_locked(&runtime_info)
+            .map_err(self.handle_err(|x| x))?;
         self.file.unlock().map_err(RuntimeError::FileUnlock)?;
 
         Ok(())
@@ -196,19 +114,16 @@ impl FileHandler {
         Ok(FileHandler { file })
     }
 
-    pub fn read_locked(&mut self) -> Result<RuntimeInfo, RuntimeError> {
-        let mut content = String::new();
-        self.file
-            .read_to_string(&mut content)
-            .map_err(RuntimeError::FileRead)?;
-
-        if content.trim().is_empty() {
-            Ok(RuntimeInfo {
-                state: State::Default,
-                process_infos: vec![],
-            })
-        } else {
-            serde_json::from_str(&content).map_err(RuntimeError::JsonDeserialize)
+    fn handle_err<'a, E>(
+        &'a mut self,
+        error: impl Fn(E) -> RuntimeError + 'a,
+    ) -> impl Fn(E) -> RuntimeError + 'a {
+        move |e| {
+            let res = self.file.unlock().map_err(RuntimeError::FileUnlock);
+            if let Err(res) = res {
+                return res;
+            }
+            error(e)
         }
     }
 

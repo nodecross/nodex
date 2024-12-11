@@ -1,5 +1,6 @@
 pub mod tasks;
 
+use crate::managers::runtime::ProcessInfo;
 use crate::managers::{
     agent::{AgentManagerError, AgentManagerTrait},
     resource::{ResourceError, ResourceManagerTrait},
@@ -115,10 +116,9 @@ where
             action.handle()?;
         }
 
-        self.launch_new_version_agent().await?;
-        self.monitor_agent_version(&current_version).await?;
-        self.terminate_old_version_agent(current_version.to_string())
-            .await?;
+        let latest = self.launch_new_version_agent().await?;
+        // self.monitor_agent_version(&current_version).await?;
+        self.terminate_old_version_agent(latest).await?;
 
         self.resource_manager.remove()?;
 
@@ -160,15 +160,15 @@ where
     }
 
     #[cfg(unix)]
-    async fn launch_new_version_agent(&self) -> Result<(), UpdateError> {
+    async fn launch_new_version_agent(&self) -> Result<ProcessInfo, UpdateError> {
         let agent_manager = self.agent_manager.lock().await;
         let process_info = agent_manager.launch_agent()?;
         self.runtime_manager
             .lock()
             .await
-            .add_process_info(process_info)?;
+            .add_process_info(process_info.clone())?;
 
-        Ok(())
+        Ok(process_info)
     }
 
     #[cfg(windows)]
@@ -219,10 +219,7 @@ where
         unimplemented!("implemented for Windows.");
     }
 
-    async fn terminate_old_version_agent(
-        &self,
-        current_version: String,
-    ) -> Result<(), UpdateError> {
+    async fn terminate_old_version_agent(&self, latest: ProcessInfo) -> Result<(), UpdateError> {
         let agent_processes = self
             .runtime_manager
             .lock()
@@ -230,7 +227,7 @@ where
             .filter_process_infos(FeatType::Agent)?;
 
         for agent_process in agent_processes {
-            if agent_process.version == current_version {
+            if agent_process.process_id == latest.process_id {
                 continue;
             }
             let agent_manager = self.agent_manager.lock().await;

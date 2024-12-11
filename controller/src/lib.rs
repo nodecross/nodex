@@ -1,7 +1,8 @@
 use crate::config::get_config;
 use crate::managers::agent::AgentManagerTrait;
+use crate::managers::mmap_storage::MmapHandler;
 use crate::managers::runtime::{
-    FeatType, FileHandler, ProcessInfo, RuntimeError, RuntimeInfoStorage, RuntimeManager, State,
+    FeatType, ProcessInfo, RuntimeError, RuntimeInfoStorage, RuntimeManager, State,
 };
 use crate::state::handler::StateHandler;
 use std::path::PathBuf;
@@ -40,7 +41,7 @@ pub async fn run() -> std::io::Result<()> {
         let mut _runtime_manager = runtime_manager.lock().await;
         let process_infos = _runtime_manager
             .get_process_infos()
-            .expect("Failed to read runtime_info.json");
+            .expect("Failed to read runtime_info");
 
         let controller_processes = process_infos
             .iter()
@@ -145,9 +146,10 @@ async fn state_monitoring_worker<A, H>(
     });
 }
 
-fn initialize_runtime_manager() -> Result<Arc<Mutex<RuntimeManager<FileHandler>>>, RuntimeError> {
-    let file_handler = FileHandler::new(get_runtime_info_path())?;
-    Ok(Arc::new(Mutex::new(RuntimeManager::new(file_handler))))
+fn initialize_runtime_manager() -> Result<Arc<Mutex<RuntimeManager<MmapHandler>>>, RuntimeError> {
+    let handler = MmapHandler::new("runtime_info", core::num::NonZero::new(10000).unwrap())?;
+    std::env::set_var("MMAP_SIZE", 10000.to_string());
+    Ok(Arc::new(Mutex::new(RuntimeManager::new(handler))))
 }
 
 fn get_runtime_info_path() -> PathBuf {

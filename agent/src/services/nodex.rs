@@ -5,6 +5,7 @@ use crate::{app_config, server_config};
 use anyhow;
 
 use controller::managers::{
+    mmap_storage::MmapHandler,
     resource::ResourceManagerTrait,
     runtime::{FeatType, FileHandler, RuntimeInfoStorage, RuntimeManager, State},
 };
@@ -136,12 +137,19 @@ impl NodeX {
                 anyhow::anyhow!(e)
             })?;
 
-            let runtime_info_path = home_dir
-                .join(".nodex")
-                .join("run")
-                .join("runtime_info.json");
-            let file_handler = FileHandler::new(runtime_info_path)?;
-            let mut runtime_manager = RuntimeManager::new(file_handler);
+            // let runtime_info_path = home_dir
+            //     .join(".nodex")
+            //     .join("run")
+            //     .join("runtime_info.json");
+            // let file_handler = FileHandler::new(runtime_info_path)?;
+
+            let len = std::env::var("MMAP_SIZE")
+                .ok()
+                .and_then(|x| x.parse::<usize>().ok())
+                .ok_or(anyhow::anyhow!("Incompatible size"))?;
+            let len = core::num::NonZero::new(len).ok_or(anyhow::anyhow!("Incompatible size"))?;
+            let handler = MmapHandler::new_from_shm("runtime_info", len)?;
+            let mut runtime_manager = RuntimeManager::new(handler);
 
             self.run_controller(&agent_path, &mut runtime_manager)?;
             runtime_manager.update_state(State::Update)?;
