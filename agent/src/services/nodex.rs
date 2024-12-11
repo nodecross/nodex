@@ -151,7 +151,7 @@ impl NodeX {
             let handler = MmapHandler::new_from_shm("runtime_info", len)?;
             let mut runtime_manager = RuntimeManager::new(handler);
 
-            self.run_controller(&agent_path, &mut runtime_manager)?;
+            runtime_manager.run_controller(&agent_path)?;
             runtime_manager.update_state(State::Update)?;
         }
 
@@ -159,82 +159,6 @@ impl NodeX {
         self.run_agent(&agent_path)?;
 
         Ok(())
-    }
-
-    #[cfg(unix)]
-    fn kill_current_controller<H: RuntimeInfoStorage>(
-        &self,
-        runtime_manager: &mut RuntimeManager<H>,
-    ) -> anyhow::Result<()> {
-        let controller_processes = runtime_manager
-            .filter_process_infos(FeatType::Controller)
-            .map_err(|e| anyhow::anyhow!("Failed to get process infos: {}", e))?;
-        for controller_process in controller_processes {
-            signal::kill(
-                Pid::from_raw(controller_process.process_id as i32),
-                Signal::SIGTERM,
-            )
-            .map_err(|e| {
-                anyhow::anyhow!(
-                    "Failed to kill process {}: {}",
-                    controller_process.process_id,
-                    e
-                )
-            })?;
-            runtime_manager
-                .remove_process_info(controller_process.process_id)
-                .map_err(|e| {
-                    anyhow::anyhow!(
-                        "Failed to remove process info {}: {}",
-                        controller_process.process_id,
-                        e
-                    )
-                })?;
-        }
-        Ok(())
-    }
-
-    #[cfg(unix)]
-    fn run_controller<H: RuntimeInfoStorage>(
-        &self,
-        agent_path: &Path,
-        runtime_manager: &mut RuntimeManager<H>,
-    ) -> anyhow::Result<()> {
-        self.kill_current_controller(runtime_manager)?;
-        if is_manage_by_systemd() && is_manage_socket_activation() {
-            return Ok(());
-        }
-
-        Command::new("chmod").arg("+x").arg(agent_path).status()?;
-
-        let agent_path_str = agent_path.to_str().ok_or_else(|| {
-            anyhow::anyhow!("Invalid path: failed to convert agent_path to string")
-        })?;
-        let cmd = CString::new(agent_path_str)
-            .map_err(|e| anyhow::anyhow!("Failed to create command CString: {}", e))?;
-        let args = vec![
-            cmd.clone(),
-            CString::new("controller")
-                .map_err(|e| anyhow::anyhow!("Failed to create argument CString: {}", e))?,
-        ];
-
-        match unsafe { fork() } {
-            Ok(ForkResult::Parent { child }) => {
-                log::info!("Parent process launched child with PID: {}", child);
-                Ok(())
-            }
-            Ok(ForkResult::Child) => {
-                setsid().map_err(|e| {
-                    anyhow::anyhow!("Failed to create new session using setsid: {}", e)
-                })?;
-
-                execvp(&cmd, &args).map_err(|e| {
-                    anyhow::anyhow!("Failed to execute command using execvp: {}", e)
-                })?;
-                unreachable!();
-            }
-            Err(e) => Err(anyhow::anyhow!("Failed to fork process: {}", e)),
-        }
     }
 
     #[cfg(windows)]

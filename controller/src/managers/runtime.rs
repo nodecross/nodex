@@ -1,11 +1,25 @@
 use crate::validator::process::is_running;
+use crate::validator::process::{is_manage_by_systemd, is_manage_socket_activation};
 use chrono::{DateTime, FixedOffset, Utc};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 use tokio::sync::watch;
+
+#[cfg(unix)]
+mod unix_imports {
+    pub use nix::{
+        sys::signal::{self, Signal},
+        unistd::{execvp, fork, setsid, ForkResult, Pid},
+    };
+    pub use std::ffi::CString;
+}
+
+#[cfg(unix)]
+use unix_imports::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RuntimeInfo {
@@ -53,6 +67,12 @@ pub enum RuntimeError {
     JsonDeserialize(#[source] serde_json::Error),
     #[error("Mutex poisoned")]
     MutexPoisoned,
+    #[error("Failed to kill processes")]
+    Kill(Vec<std::io::Error>),
+    #[error("Failed to create command: {0}")]
+    Command(#[source] std::io::Error),
+    #[error("Failed to fork: {0}")]
+    Fork(#[source] std::io::Error),
 }
 
 pub trait RuntimeInfoStorage: std::fmt::Debug {
@@ -237,6 +257,74 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
 
     pub fn get_state_receiver(&self) -> watch::Receiver<State> {
         self.state_receiver.clone()
+    }
+
+    #[cfg(unix)]
+    fn kill_current_controller(&mut self) -> Result<(), RuntimeError> {
+        let controller_processes = self.filter_process_infos(FeatType::Controller)?;
+        let mut errs = vec![];
+        for controller_process in controller_processes {
+            let res = signal::kill(
+                Pid::from_raw(controller_process.process_id as i32),
+                Signal::SIGTERM,
+            );
+            if let Err(e) = res {
+                errs.push(e.into());
+            } else {
+                self.remove_process_info(controller_process.process_id)?;
+            }
+        }
+        if errs.is_empty() {
+            Ok(())
+        } else {
+            Err(RuntimeError::Kill(errs))
+        }
+    }
+
+    #[cfg(unix)]
+    pub fn run_controller(&mut self, agent_path: impl AsRef<Path>) -> Result<(), RuntimeError> {
+        self.kill_current_controller()?;
+        if is_manage_by_systemd() && is_manage_socket_activation() {
+            return Ok(());
+        }
+
+        let agent_path =
+            agent_path
+                .as_ref()
+                .to_str()
+                .ok_or(RuntimeError::Command(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "Invalid path: failed to convert agent_path to string",
+                )))?;
+        Command::new("chmod")
+            .arg("+x")
+            .arg(agent_path)
+            .status()
+            .map_err(RuntimeError::Command)?;
+
+        let cmd = CString::new(agent_path).map_err(|x| RuntimeError::Command(x.into()))?;
+        let args = vec![cmd.clone(), CString::new("controller").unwrap()];
+
+        match unsafe { fork() } {
+            Ok(ForkResult::Parent { child }) => {
+                log::info!("Parent process launched child with PID: {}", child);
+                Ok(())
+            }
+            Ok(ForkResult::Child) => {
+                setsid().map_err(|no| {
+                    RuntimeError::Fork(std::io::Error::from_raw_os_error(no as core::ffi::c_int))
+                })?;
+
+                execvp(&cmd, &args).map_err(|no| {
+                    RuntimeError::Fork(std::io::Error::from_raw_os_error(no as core::ffi::c_int))
+                })?;
+                unreachable!();
+            }
+            Err(e) => Err(RuntimeError::Fork(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to fork process: {}", e),
+            ))),
+        }
     }
 }
 
