@@ -44,7 +44,7 @@ where
             agent_processes.retain(|agent_process| {
                 _runtime_manager.is_running_or_remove_if_stopped(agent_process)
             });
-            if agent_processes.len() > 1 {
+            if agent_processes.len() >= 1 {
                 log::error!("Agent already running");
                 return Ok(());
             }
