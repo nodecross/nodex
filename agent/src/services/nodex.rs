@@ -148,7 +148,7 @@ impl NodeX {
                 .and_then(|x| x.parse::<usize>().ok())
                 .ok_or(anyhow::anyhow!("Incompatible size"))?;
             let len = core::num::NonZero::new(len).ok_or(anyhow::anyhow!("Incompatible size"))?;
-            let handler = MmapHandler::new_from_shm("runtime_info", len)?;
+            let handler = MmapHandler::new("runtime_info", len)?;
             let mut runtime_manager = RuntimeManager::new(handler);
 
             runtime_manager.run_controller(&agent_path)?;

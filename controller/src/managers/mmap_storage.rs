@@ -68,13 +68,11 @@ impl MmapHandler {
     ) -> Result<Self, RuntimeError> {
         let fd = shm_open(
             name.as_ref(),
-            OFlag::O_RDWR | OFlag::O_CREAT | OFlag::O_EXCL, // O_EXCL is not needed?
+            OFlag::O_RDWR | OFlag::O_CREAT,
             Mode::S_IRUSR | Mode::S_IWUSR,
-        );
-        if let Err(Errno::EEXIST) = fd {
-            return Self::new_from_shm(name, length);
-        }
-        let fd = fd.map_err(_e2e).map_err(RuntimeError::FileOpen)?;
+        )
+        .map_err(_e2e)
+        .map_err(RuntimeError::FileOpen)?;
         ftruncate(&fd, Into::<usize>::into(length) as i64)
             .map_err(_e2e)
             .map_err(RuntimeError::FileOpen)?;
@@ -127,29 +125,6 @@ impl MmapHandler {
         }
     }
 
-    pub fn new_from_shm(
-        name: impl AsRef<Path>,
-        length: std::num::NonZeroUsize,
-    ) -> Result<Self, RuntimeError> {
-        let fd = shm_open(name.as_ref(), OFlag::O_RDWR, Mode::S_IRUSR | Mode::S_IWUSR)
-            .map_err(_e2e)
-            .map_err(RuntimeError::FileOpen)?;
-
-        let ptr = unsafe {
-            mmap(
-                None,
-                length,
-                ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
-                MapFlags::MAP_NORESERVE | MapFlags::MAP_SHARED,
-                fd,
-                0,
-            )
-            .map_err(_e2e)
-            .map_err(RuntimeError::FileOpen)?
-        };
-        Ok(MmapHandler { ptr, len: length })
-    }
-
     fn handle_err<'a, E>(
         &'a mut self,
         error: impl Fn(E) -> RuntimeError + 'a,
@@ -167,7 +142,7 @@ impl MmapHandler {
         self.handle_err(|x| x)
     }
 
-    pub fn write_locked(&mut self, runtime_info: &RuntimeInfo) -> Result<(), RuntimeError> {
+    fn write_locked(&mut self, runtime_info: &RuntimeInfo) -> Result<(), RuntimeError> {
         let json_data = serde_json::to_string(runtime_info).map_err(RuntimeError::JsonSerialize)?;
         let mut json_data = json_data.into_bytes();
         json_data.push(0);
