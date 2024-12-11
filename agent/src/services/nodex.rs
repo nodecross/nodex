@@ -131,17 +131,10 @@ impl NodeX {
 
         #[cfg(unix)]
         {
-            let home_dir = dirs::home_dir().unwrap();
             resource_manager.backup().map_err(|e| {
                 log::error!("Failed to backup: {}", e);
                 anyhow::anyhow!(e)
             })?;
-
-            // let runtime_info_path = home_dir
-            //     .join(".nodex")
-            //     .join("run")
-            //     .join("runtime_info.json");
-            // let file_handler = FileHandler::new(runtime_info_path)?;
 
             let len = std::env::var("MMAP_SIZE")
                 .ok()

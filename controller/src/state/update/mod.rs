@@ -99,12 +99,6 @@ where
             return Err(UpdateError::AgentNotRunning);
         }
 
-        self.runtime_manager
-            .lock()
-            .await
-            .update_state(State::Updating)
-            .map_err(UpdateError::UpdateStateFailed)?;
-
         let current_version = Version::parse(env!("CARGO_PKG_VERSION"))
             .map_err(|_| UpdateError::InvalidVersionFormat)?;
 

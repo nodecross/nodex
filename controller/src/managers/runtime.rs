@@ -31,7 +31,6 @@ pub struct RuntimeInfo {
 pub enum State {
     Default,
     Update,
-    Updating,
     Rollback,
 }
 
