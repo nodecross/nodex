@@ -6,7 +6,6 @@ use crate::managers::runtime::{
 };
 use crate::state::handler::StateHandler;
 use std::path::PathBuf;
-use std::process as stdProcess;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -71,17 +70,16 @@ pub async fn run() -> std::io::Result<()> {
     ));
 
     let shutdown_handle = tokio::spawn({
-        let should_stop = Arc::clone(&should_stop);
-        let agent_manager = Arc::clone(&agent_manager);
+        let agent_manager = agent_manager.clone();
         let runtime_manager = runtime_manager.clone();
 
         async move {
-            handle_signals(should_stop, agent_manager, runtime_manager).await;
+            handle_signals(runtime_manager, agent_manager).await;
             log::info!("All processes have been successfully terminated.");
         }
     });
 
-    state_monitoring_worker(runtime_manager, agent_manager, should_stop).await;
+    state_monitoring_worker(runtime_manager, agent_manager).await;
 
     let _ = shutdown_handle.await;
     log::info!("Shutdown handler completed successfully.");
@@ -92,7 +90,6 @@ pub async fn run() -> std::io::Result<()> {
 async fn state_monitoring_worker<A, H>(
     runtime_manager: Arc<Mutex<RuntimeManager<H>>>,
     agent_manager: Arc<tokio::sync::Mutex<A>>,
-    should_stop: Arc<AtomicBool>,
 ) where
     A: AgentManagerTrait + Send + Sync + 'static,
     H: RuntimeInfoStorage + Send + Sync + 'static,
@@ -101,48 +98,18 @@ async fn state_monitoring_worker<A, H>(
 
     tokio::spawn(async move {
         let state_handler = StateHandler::new();
+        let mut description = "Initial state";
 
-        async fn process_state<A, H>(
-            state_handler: &StateHandler,
-            runtime_manager: &Arc<Mutex<RuntimeManager<H>>>,
-            agent_manager: &Arc<tokio::sync::Mutex<A>>,
-            state: State,
-            description: &str,
-        ) where
-            A: AgentManagerTrait + Send + Sync + 'static,
-            H: RuntimeInfoStorage + Send + Sync + 'static,
-        {
-            log::info!("Worker: {}: {:?}", description, state);
+        while {
+            let current_state = *state_rx.borrow();
+            log::info!("Worker: {}: {:?}", description, current_state);
 
-            let agent_manager = Arc::clone(agent_manager);
-            if let Err(e) = state_handler.handle(runtime_manager, &agent_manager).await {
+            if let Err(e) = state_handler.handle(current_state, &runtime_manager, &agent_manager).await {
                 log::error!("Worker: Failed to handle {}: {}", description, e);
             }
-        }
-
-        let initial_state = *state_rx.borrow();
-        process_state(
-            &state_handler,
-            &runtime_manager,
-            &agent_manager,
-            initial_state,
-            "Initial state",
-        )
-        .await;
-
-        while !should_stop.load(Ordering::Relaxed) {
-            if let Ok(()) = state_rx.changed().await {
-                let current_state = *state_rx.borrow();
-                process_state(
-                    &state_handler,
-                    &runtime_manager,
-                    &agent_manager,
-                    current_state,
-                    "State change",
-                )
-                .await;
-            }
-        }
+            description = "State change";
+            state_rx.changed().await.is_ok()
+        } {}
     });
 }
 
@@ -163,15 +130,14 @@ fn get_runtime_info_path() -> PathBuf {
 fn on_controller_started<H: RuntimeInfoStorage>(
     runtime_manager: &mut RuntimeManager<H>,
 ) -> Result<(), RuntimeError> {
-    let process_info = ProcessInfo::new(stdProcess::id(), FeatType::Controller);
+    let process_info = ProcessInfo::new(std::process::id(), FeatType::Controller);
     runtime_manager.add_process_info(process_info)
 }
 
 #[cfg(unix)]
 pub async fn handle_signals<A, H>(
-    should_stop: Arc<AtomicBool>,
-    agent_manager: Arc<Mutex<A>>,
     runtime_manager: Arc<Mutex<RuntimeManager<H>>>,
+    agent_manager: Arc<Mutex<A>>,
 ) where
     A: AgentManagerTrait + Sync + Send + 'static,
     H: RuntimeInfoStorage + Send + Sync + 'static,
@@ -179,23 +145,26 @@ pub async fn handle_signals<A, H>(
     let ctrl_c = tokio::signal::ctrl_c();
     let mut sigterm = signal(SignalKind::terminate()).expect("Failed to bind to SIGTERM");
     let mut sigabrt = signal(SignalKind::user_defined1()).expect("Failed to bind to SIGABRT");
+    let mut sigint = signal(SignalKind::quit()).expect("Failed to bind to SIGINT");
 
     tokio::select! {
+        _ = sigint.recv() => {
+            if let Err(e) = handle_cleanup(&agent_manager, &runtime_manager).await {
+                log::error!("Failed to handle CTRL+C: {}", e);
+            }
+        },
         _ = ctrl_c => {
             if let Err(e) = handle_cleanup(&agent_manager, &runtime_manager).await {
                 log::error!("Failed to handle CTRL+C: {}", e);
             }
-            should_stop.store(true, Ordering::Relaxed);
         },
         _ = sigterm.recv() => {
             log::info!("Received SIGTERM. Gracefully stopping application.");
-            handle_sigterm(should_stop.clone());
         },
         _ = sigabrt.recv() => {
             if let Err(e) = handle_cleanup(&agent_manager, &runtime_manager).await {
                 log::error!("Failed to handle SIGABRT: {}", e);
             }
-            should_stop.store(true, Ordering::Relaxed);
         }
     };
 }
@@ -223,9 +192,9 @@ where
     log::info!("Received CTRL+C. Initiating shutdown.");
 
     let current_pid = std::process::id();
+
+    let mut runtime_manager = runtime_manager.lock().await;
     let process_infos = runtime_manager
-        .lock()
-        .await
         .get_process_infos()
         .map_err(|e| e.to_string())?;
 
@@ -238,23 +207,12 @@ where
                 .map_err(|e| e.to_string())?;
         }
         runtime_manager
-            .lock()
-            .await
             .remove_process_info(process_info.process_id)
             .map_err(|e| e.to_string())?;
     }
 
-    runtime_manager
-        .lock()
-        .await
-        .update_state(crate::managers::runtime::State::Default)
-        .map_err(|e| e.to_string())?;
-
-    #[cfg(unix)]
-    {
-        let manager = agent_manager.lock().await;
-        manager.cleanup().map_err(|e| e.to_string())?;
-    }
+    let manager = agent_manager.lock().await;
+    manager.cleanup().map_err(|e| e.to_string())?;
 
     log::info!("cleanup successfully.");
     Ok(())

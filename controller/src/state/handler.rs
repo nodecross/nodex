@@ -37,6 +37,7 @@ impl StateHandler {
 
     pub async fn handle<A, H>(
         &self,
+        state: State,
         runtime_manager: &Arc<Mutex<RuntimeManager<H>>>,
         agent_manager: &Arc<Mutex<A>>,
     ) -> Result<(), StateHandlerError>
@@ -49,10 +50,7 @@ impl StateHandler {
 
         #[cfg(windows)]
         let resource_manager = WindowsResourceManager::new();
-        let state = {
-            let mut _manager = runtime_manager.lock().await;
-            _manager.get_state()?
-        };
+
         match state {
             State::Update => {
                 let update_state =
