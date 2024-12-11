@@ -60,13 +60,17 @@ where
         let latest_backup = self.resource_manager.get_latest_backup();
         match latest_backup {
             Some(backup_file) => {
+                let mut runtime_manager = self.runtime_manager
+                    .lock()
+                    .await;
+                let agent_path = runtime_manager.read_runtime_info()?.exec_path;
                 log::info!("Found backup: {}", backup_file.display());
                 self.resource_manager.rollback(&backup_file)?;
-                self.resource_manager.remove()?;
-                self.runtime_manager
-                    .lock()
-                    .await
-                    .update_state(crate::managers::runtime::State::Default)?;
+                if let Err(err) = self.resource_manager.remove() {
+                    log::error!("Failed to remove files {}", err);
+                }
+                runtime_manager.run_controller(agent_path)?; // TODO: Care about UDS
+                runtime_manager.update_state(crate::managers::runtime::State::Default)?;
                 log::info!("Rollback completed");
 
                 log::info!("Restarting controller by SIGINT");

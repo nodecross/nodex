@@ -268,18 +268,21 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
     }
 
     #[cfg(unix)]
-    fn kill_current_controller(&mut self) -> Result<(), RuntimeError> {
-        let controller_processes = self.filter_process_infos(FeatType::Controller)?;
+    fn kill_others(&mut self) -> Result<(), RuntimeError> {
         let mut errs = vec![];
-        for controller_process in controller_processes {
+        let self_pid = self.self_pid;
+        let others = self.get_process_infos()?
+            .into_iter()
+            .filter(|process_info| process_info.process_id != self_pid);
+        for other in others {
             let res = signal::kill(
-                Pid::from_raw(controller_process.process_id as i32),
+                Pid::from_raw(other.process_id as i32),
                 Signal::SIGTERM,
             );
             if let Err(e) = res {
                 errs.push(e.into());
             } else {
-                self.remove_process_info(controller_process.process_id)?;
+                self.remove_process_info(other.process_id)?;
             }
         }
         if errs.is_empty() {
@@ -291,7 +294,7 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
 
     #[cfg(unix)]
     pub fn run_controller(&mut self, agent_path: impl AsRef<Path>) -> Result<(), RuntimeError> {
-        self.kill_current_controller()?;
+        self.kill_others()?;
         if is_manage_by_systemd() && is_manage_socket_activation() {
             return Ok(());
         }
