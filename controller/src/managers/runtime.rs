@@ -182,14 +182,15 @@ fn change_to_executable(path: &Path) -> std::io::Result<()> {
 }
 
 impl<H: RuntimeInfoStorage> RuntimeManager<H> {
-    pub fn new(file_handler: H) -> Self {
-        let (state_sender, state_receiver) = watch::channel(State::Default);
-        RuntimeManager {
+    pub fn new(mut file_handler: H) -> Result<Self, RuntimeError> {
+        let runtime_info = file_handler.read()?;
+        let (state_sender, state_receiver) = watch::channel(runtime_info.state);
+        Ok(RuntimeManager {
             self_pid: std::process::id(),
             file_handler,
             state_sender,
             state_receiver,
-        }
+        })
     }
 
     pub fn read_runtime_info(&mut self) -> Result<RuntimeInfo, RuntimeError> {

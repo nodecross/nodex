@@ -149,7 +149,7 @@ impl NodeX {
                 .ok_or(anyhow::anyhow!("Incompatible size"))?;
             let len = core::num::NonZero::new(len).ok_or(anyhow::anyhow!("Incompatible size"))?;
             let handler = MmapHandler::new("runtime_info", len)?;
-            let mut runtime_manager = RuntimeManager::new(handler);
+            let mut runtime_manager = RuntimeManager::new(handler)?;
 
             runtime_manager.run_controller(&agent_path)?;
             runtime_manager.update_state(State::Update)?;

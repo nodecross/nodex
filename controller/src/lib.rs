@@ -116,7 +116,7 @@ async fn state_monitoring_worker<A, H>(
 fn initialize_runtime_manager() -> Result<Arc<Mutex<RuntimeManager<MmapHandler>>>, RuntimeError> {
     let handler = MmapHandler::new("runtime_info", core::num::NonZero::new(10000).unwrap())?;
     std::env::set_var("MMAP_SIZE", 10000.to_string());
-    Ok(Arc::new(Mutex::new(RuntimeManager::new(handler))))
+    Ok(Arc::new(Mutex::new(RuntimeManager::new(handler)?)))
 }
 
 fn get_runtime_info_path() -> PathBuf {
