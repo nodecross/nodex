@@ -47,3 +47,125 @@ pub fn run(src: &String, dest: &String) -> Result<(), MoveResourceError> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_run_success() {
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let src_file_path = temp_dir.path().join("source.txt");
+        let dest_dir_path = temp_dir.path().join("destination");
+
+        File::create(&src_file_path).expect("Failed to create source file");
+
+        let result = run(
+            &src_file_path.to_string_lossy().to_string(),
+            &dest_dir_path.to_string_lossy().to_string(),
+        );
+
+        assert!(
+            result.is_ok(),
+            "Expected run to succeed, but got error: {:?}",
+            result
+        );
+
+        let dest_file_path = dest_dir_path.join("source.txt");
+        assert!(
+            dest_file_path.exists(),
+            "Expected file to be moved to {:?}, but it does not exist",
+            dest_file_path
+        );
+
+        assert!(
+            !src_file_path.exists(),
+            "Expected source file to be removed, but it still exists"
+        );
+    }
+
+    #[test]
+    fn test_source_not_found_error() {
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let src_file_path = temp_dir.path().join("non_existent.txt");
+        let dest_dir_path = temp_dir.path().join("destination");
+
+        let result = run(
+            &src_file_path.to_string_lossy().to_string(),
+            &dest_dir_path.to_string_lossy().to_string(),
+        );
+
+        assert!(
+            matches!(result, Err(MoveResourceError::SourceNotFoundError(_))),
+            "Expected SourceNotFoundError, but got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_destination_creation_error() {
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let src_file_path = temp_dir.path().join("source.txt");
+
+        File::create(&src_file_path).expect("Failed to create source file");
+
+        let dest_dir_path = "/invalid/destination/directory";
+
+        let result = run(
+            &src_file_path.to_string_lossy().to_string(),
+            &dest_dir_path.to_string(),
+        );
+
+        assert!(
+            matches!(
+                result,
+                Err(MoveResourceError::DestinationCreationError(_, _))
+            ),
+            "Expected DestinationCreationError, but got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_destination_not_directory_error() {
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let src_file_path = temp_dir.path().join("source.txt");
+        let dest_file_path = temp_dir.path().join("not_a_directory.txt");
+
+        File::create(&src_file_path).expect("Failed to create source file");
+        File::create(&dest_file_path).expect("Failed to create destination file");
+
+        let result = run(
+            &src_file_path.to_string_lossy().to_string(),
+            &dest_file_path.to_string_lossy().to_string(),
+        );
+
+        assert!(
+            matches!(
+                result,
+                Err(MoveResourceError::DestinationNotDirectoryError(_))
+            ),
+            "Expected DestinationNotDirectoryError, but got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_invalid_source_file_name_error() {
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let dest_dir_path = temp_dir.path().join("destination");
+
+        let result = run(
+            &temp_dir.path().to_string_lossy().to_string(),
+            &dest_dir_path.to_string_lossy().to_string(),
+        );
+
+        assert!(
+            matches!(result, Err(MoveResourceError::InvalidSourceFileName(_))),
+            "Expected InvalidSourceFileName, but got: {:?}",
+            result
+        );
+    }
+}
