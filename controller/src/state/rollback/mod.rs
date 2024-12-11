@@ -22,6 +22,8 @@ pub enum RollbackError {
     RuntimeError(#[from] RuntimeError),
     #[error("failed to kill process: {0}")]
     FailedKillOwnProcess(String),
+    #[error("Failed to get current executable path: {0}")]
+    CurrentExecutablePathError(#[source] std::io::Error),
 }
 
 pub struct RollbackState<'a, A, R, H>
@@ -63,7 +65,7 @@ where
                 let mut runtime_manager = self.runtime_manager
                     .lock()
                     .await;
-                let agent_path = runtime_manager.read_runtime_info()?.exec_path;
+                let agent_path = std::env::current_exe().map_err(RollbackError::CurrentExecutablePathError)?;
                 log::info!("Found backup: {}", backup_file.display());
                 self.resource_manager.rollback(&backup_file)?;
                 if let Err(err) = self.resource_manager.remove() {
