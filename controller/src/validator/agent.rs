@@ -19,7 +19,7 @@ where
     Ok(version_response.version == expected_version)
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use crate::managers::runtime::{FeatType, ProcessInfo};

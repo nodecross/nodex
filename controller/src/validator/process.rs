@@ -27,7 +27,7 @@ pub fn is_running(process_id: u32) -> bool {
     unimplemented!("implemented for Windows.");
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use serial_test::serial;

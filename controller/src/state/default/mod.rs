@@ -54,16 +54,14 @@ where
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use crate::managers::{
         runtime::{ProcessInfo, FeatType, FileHandler},
         agent::{AgentManagerError, AgentManagerTrait},
     };
-    use std::fs::File;
     use std::sync::Arc;
-    use std::path::PathBuf;
     use tokio::sync::Mutex;
     use tempfile::tempdir;
 

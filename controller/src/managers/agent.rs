@@ -304,93 +304,136 @@ impl AgentManagerTrait for WindowsAgentManager {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use libc;
-//     use std::env;
-//     use std::path::Path;
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use libc;
+    use std::env;
+    use std::path::Path;
 
-//     #[test]
-//     fn test_unix_agent_manager_new() {
-//         let temp_dir = tempfile::tempdir().unwrap();
-//         let uds_path = temp_dir.path().join("test_socket");
+    #[test]
+    fn test_unix_agent_manager_new() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let uds_path = temp_dir.path().join("test_socket");
 
-//         let manager = UnixAgentManager::new(uds_path.clone());
-//         assert!(manager.is_ok(), "UnixAgentManager should be initialized successfully");
-//         let manager = manager.unwrap();
+        let manager = UnixAgentManager::new(uds_path.clone());
+        assert!(manager.is_ok(), "UnixAgentManager should be initialized successfully");
+        let manager = manager.unwrap();
 
-//         assert_eq!(manager.uds_path, uds_path);
-//     }
+        assert_eq!(manager.uds_path, uds_path);
+    }
 
-//     #[test]
-//     fn test_bind_new_uds() {
-//         let temp_dir = tempfile::tempdir().unwrap();
-//         let uds_path = temp_dir.path().join("test_socket");
+    #[test]
+    fn test_bind_new_uds() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let uds_path = temp_dir.path().join("test_socket");
 
-//         let result = UnixAgentManager::bind_new_uds(&uds_path);
-//         assert!(result.is_ok(), "UDS binding should succeed");
-//         let (listener_fd, listener) = result.unwrap();
+        let result = UnixAgentManager::bind_new_uds(&uds_path);
+        assert!(result.is_ok(), "UDS binding should succeed");
+        let (listener_fd, listener) = result.unwrap();
 
-//         assert!(uds_path.exists(), "UDS file should be created");
-//         assert!(listener.is_some(), "Listener should be created");
-//         unsafe {
-//             libc::close(listener_fd);
-//         }
-//     }
+        assert!(uds_path.exists(), "UDS file should be created");
+        assert!(listener.is_some(), "Listener should be created");
+        unsafe {
+            libc::close(listener_fd);
+        }
+    }
 
-//     #[test]
-//     fn test_setup_listener_with_systemd_activation() {
-//         env::set_var("LISTEN_FDS", "1");
-//         env::set_var("LISTEN_PID", std::process::id().to_string());
+    #[test]
+    fn test_setup_listener_with_systemd_activation() {
+        env::set_var("LISTEN_FDS", "1");
+        env::set_var("LISTEN_PID", std::process::id().to_string());
 
-//         let result = UnixAgentManager::get_fd_from_systemd();
-//         assert!(result.is_ok(), "Systemd socket activation should succeed");
-//         let (listener_fd, listener) = result.unwrap();
+        let result = UnixAgentManager::get_fd_from_systemd();
+        assert!(result.is_ok(), "Systemd socket activation should succeed");
+        let (listener_fd, listener) = result.unwrap();
 
-//         assert_eq!(listener_fd, DEFAULT_FD, "Listener FD should match DEFAULT_FD");
-//         assert!(listener.is_none(), "Listener should not be created in this mode");
-//     }
+        assert_eq!(listener_fd, DEFAULT_FD, "Listener FD should match DEFAULT_FD");
+        assert!(listener.is_none(), "Listener should not be created in this mode");
+    }
 
-//     #[test]
-//     fn test_duplicate_fd() {
-//         let temp_dir = tempfile::tempdir().unwrap();
-//         let uds_path = temp_dir.path().join("test_socket");
-//         let listener = UnixListener::bind(&uds_path).unwrap();
+    #[test]
+    fn test_duplicate_fd() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let uds_path = temp_dir.path().join("test_socket");
+        let listener = UnixListener::bind(&uds_path).unwrap();
 
-//         let listener_fd = listener.as_raw_fd();
-//         let listener_fd_str = listener_fd.to_string();
+        let listener_fd = listener.as_raw_fd();
+        let listener_fd_str = listener_fd.to_string();
 
-//         let result = UnixAgentManager::duplicate_fd(listener_fd_str);
-//         assert!(result.is_ok(), "Duplicating FD should succeed");
-//         let (duplicated_fd, listener) = result.unwrap();
+        let result = UnixAgentManager::duplicate_fd(listener_fd_str);
+        assert!(result.is_ok(), "Duplicating FD should succeed");
+        let (duplicated_fd, listener) = result.unwrap();
 
-//         assert!(listener.is_some(), "Listener should be created");
-//         unsafe {
-//             libc::close(duplicated_fd);
-//         }
-//     }
+        assert!(listener.is_some(), "Listener should be created");
+    }
 
-//     #[tokio::test]
-//     async fn test_launch_and_terminate_agent() {
-//         let temp_dir = tempfile::tempdir().unwrap();
-//         let uds_path = temp_dir.path().join("test_socket");
+    #[tokio::test]
+    async fn test_launch_and_terminate_agent() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let uds_path = temp_dir.path().join("test_socket");
 
-//         let manager = UnixAgentManager::new(uds_path).unwrap();
-//         let process_info = manager.launch_agent();
-//         assert!(process_info.is_ok(), "Agent launch should succeed");
+        let manager = UnixAgentManager::new(uds_path).unwrap();
+        let process_info = manager.launch_agent();
+        assert!(process_info.is_ok(), "Agent launch should succeed");
 
-//         let process_info = process_info.unwrap();
-//         assert!(manager.terminate_agent(process_info.process_id).is_ok(), "Agent termination should succeed");
-//     }
+        let process_info = process_info.unwrap();
+        assert!(manager.terminate_agent(process_info.process_id).is_ok(), "Agent termination should succeed");
+    }
 
-//     #[tokio::test]
-//     async fn test_get_request() {
-//         let temp_dir = tempfile::tempdir().unwrap();
-//         let uds_path = temp_dir.path().join("test_socket");
-//         let manager = UnixAgentManager::new(uds_path).unwrap();
+    // #[tokio::test]
+    // async fn test_get_request() {
+    //     let temp_dir = tempfile::tempdir().unwrap();
+    //     let uds_path = temp_dir.path().join("test_socket");
+    //     let manager = UnixAgentManager::new(uds_path).unwrap();
 
-//         let response: Result<String, AgentManagerError> = manager.get_request("/mock_endpoint").await;
-//         assert!(response.is_err(), "Request should fail because no server is running");
-//     }
-// }
+    //     let response: Result<String, AgentManagerError> = manager.get_request("/mock_endpoint").await;
+    //     assert!(response.is_err(), "Request should fail because no server is running");
+    // }
+
+    // #[tokio::test]
+    // async fn test_get_request() {
+    //     use serde::{Deserialize, Serialize};
+    //     #[derive(Debug, Deserialize, Serialize)]
+    //     pub struct Response {
+    //         pub message: String,
+    //     }
+
+    //     let temp_dir = tempfile::tempdir().unwrap();
+    //     let uds_path = temp_dir.path().join("test_socket");
+    
+    //     let listener = tokio::net::UnixListener::bind(&uds_path).unwrap();
+
+    //     let server_task = tokio::spawn(async move {
+    //         let (mut socket, _) = listener.accept().await.unwrap();
+
+    //         use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    //         let mut request_buf = Vec::new();
+    //         socket.read_to_end(&mut request_buf).await.unwrap();
+    //         println!("Received request: {}", String::from_utf8_lossy(&request_buf));
+
+    //         let json_body = r#"{"message":"Hello, JSON"}"#;
+    //         let response = format!(
+    //             "HTTP/1.1 200 OK\r\n\
+    //             Content-Type: application/json\r\n\
+    //             Content-Length: {}\r\n\
+    //             Connection: close\r\n\
+    //             \r\n\
+    //             {}",
+    //             json_body.len(),
+    //             json_body
+    //         );
+
+    //         socket.write_all(response.as_bytes()).await.unwrap();
+
+    //         socket.shutdown().await.unwrap();
+    //     });
+
+    //     let manager = UnixAgentManager::new(uds_path.clone()).unwrap();
+    //     let response: Response = manager.get_request("/mock_endpoint").await.unwrap();
+
+    //     server_task.await.unwrap();
+    //     assert_eq!(response.message, "Hello, JSON");
+    // }
+}
