@@ -122,6 +122,11 @@ where
 
         self.resource_manager.remove()?;
 
+        self.runtime_manager
+            .lock()
+            .await
+            .update_state(crate::managers::runtime::State::Default)?;
+
         log::info!("Update completed");
 
         Ok(())
