@@ -317,7 +317,10 @@ mod tests {
         let uds_path = temp_dir.path().join("test_socket");
 
         let manager = UnixAgentManager::new(uds_path.clone());
-        assert!(manager.is_ok(), "UnixAgentManager should be initialized successfully");
+        assert!(
+            manager.is_ok(),
+            "UnixAgentManager should be initialized successfully"
+        );
         let manager = manager.unwrap();
 
         assert_eq!(manager.uds_path, uds_path);
@@ -348,8 +351,14 @@ mod tests {
         assert!(result.is_ok(), "Systemd socket activation should succeed");
         let (listener_fd, listener) = result.unwrap();
 
-        assert_eq!(listener_fd, DEFAULT_FD, "Listener FD should match DEFAULT_FD");
-        assert!(listener.is_none(), "Listener should not be created in this mode");
+        assert_eq!(
+            listener_fd, DEFAULT_FD,
+            "Listener FD should match DEFAULT_FD"
+        );
+        assert!(
+            listener.is_none(),
+            "Listener should not be created in this mode"
+        );
     }
 
     #[test]
@@ -378,7 +387,10 @@ mod tests {
         assert!(process_info.is_ok(), "Agent launch should succeed");
 
         let process_info = process_info.unwrap();
-        assert!(manager.terminate_agent(process_info.process_id).is_ok(), "Agent termination should succeed");
+        assert!(
+            manager.terminate_agent(process_info.process_id).is_ok(),
+            "Agent termination should succeed"
+        );
     }
 
     // #[tokio::test]
@@ -401,7 +413,7 @@ mod tests {
 
     //     let temp_dir = tempfile::tempdir().unwrap();
     //     let uds_path = temp_dir.path().join("test_socket");
-    
+
     //     let listener = tokio::net::UnixListener::bind(&uds_path).unwrap();
 
     //     let server_task = tokio::spawn(async move {

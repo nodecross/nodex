@@ -432,13 +432,16 @@ impl Default for WindowsResourceManager {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+    use filetime;
     use mockito;
     use std::fs::{self, File};
     use std::io::Write;
-    use tempfile::{tempdir, NamedTempFile};
-    use zip::{write::{FileOptions, ExtendedFileOptions}, CompressionMethod, ZipWriter};
     use std::time::{Duration, SystemTime};
-    use filetime;
+    use tempfile::{tempdir, NamedTempFile};
+    use zip::{
+        write::{ExtendedFileOptions, FileOptions},
+        CompressionMethod, ZipWriter,
+    };
 
     fn create_sample_zip() -> NamedTempFile {
         let file = NamedTempFile::new().unwrap();
@@ -461,8 +464,9 @@ mod tests {
         let zip_data = fs::read(sample_zip.path()).unwrap();
 
         let mut server = mockito::Server::new_async().await;
-        let path =  "/test.zip";
-        let _mock = server.mock("GET", path)
+        let path = "/test.zip";
+        let _mock = server
+            .mock("GET", path)
             .with_status(200)
             .with_header("content-type", "application/zip")
             .with_body(zip_data)
@@ -477,13 +481,20 @@ mod tests {
             .download_update_resources(&url, Some(&output_path))
             .await;
 
-        assert!(result.is_ok(), "Expected download_update_resources to succeed");
+        assert!(
+            result.is_ok(),
+            "Expected download_update_resources to succeed"
+        );
 
         let extracted_file = output_path.join("sample.txt");
         assert!(extracted_file.exists(), "Expected extracted file to exist");
 
         let content = fs::read_to_string(extracted_file).unwrap();
-        assert_eq!(content.trim(), "This is a test file.", "File content mismatch");
+        assert_eq!(
+            content.trim(),
+            "This is a test file.",
+            "File content mismatch"
+        );
     }
 
     #[test]
@@ -500,8 +511,15 @@ mod tests {
 
         let collected_bundles = resource_manager.collect_downloaded_bundles();
 
-        assert_eq!(collected_bundles.len(), 1, "Expected exactly one bundle file");
-        assert_eq!(collected_bundles[0], bundle_file, "Unexpected bundle file path");
+        assert_eq!(
+            collected_bundles.len(),
+            1,
+            "Expected exactly one bundle file"
+        );
+        assert_eq!(
+            collected_bundles[0], bundle_file,
+            "Unexpected bundle file path"
+        );
     }
 
     #[test]
@@ -516,15 +534,21 @@ mod tests {
         let new_time = SystemTime::now();
         let old_time = new_time - Duration::from_secs(60);
 
-        filetime::set_file_mtime(&old_file, filetime::FileTime::from_system_time(old_time)).unwrap();
-        filetime::set_file_mtime(&new_file, filetime::FileTime::from_system_time(new_time)).unwrap();
+        filetime::set_file_mtime(&old_file, filetime::FileTime::from_system_time(old_time))
+            .unwrap();
+        filetime::set_file_mtime(&new_file, filetime::FileTime::from_system_time(new_time))
+            .unwrap();
 
         let mut resource_manager = UnixResourceManager::default();
         resource_manager.tmp_path = temp_dir.path().to_path_buf();
 
         let latest_backup = resource_manager.get_latest_backup();
 
-        assert_eq!(latest_backup, Some(new_file), "Expected new_backup.gz to be the latest");
+        assert_eq!(
+            latest_backup,
+            Some(new_file),
+            "Expected new_backup.gz to be the latest"
+        );
     }
 
     #[test]
@@ -573,7 +597,10 @@ mod tests {
         let dummy_file = temp_dir.path().join("dummy_file.txt");
         File::create(&dummy_file).unwrap();
 
-        assert!(dummy_file.exists(), "Dummy file should exist before removal");
+        assert!(
+            dummy_file.exists(),
+            "Dummy file should exist before removal"
+        );
 
         let result = resource_manager.remove();
         assert!(result.is_ok(), "Expected remove to succeed");

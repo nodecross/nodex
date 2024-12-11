@@ -58,12 +58,12 @@ where
 mod tests {
     use super::*;
     use crate::managers::{
-        runtime::{ProcessInfo, FeatType, FileHandler},
         agent::{AgentManagerError, AgentManagerTrait},
+        runtime::{FeatType, FileHandler, ProcessInfo},
     };
     use std::sync::Arc;
-    use tokio::sync::Mutex;
     use tempfile::tempdir;
+    use tokio::sync::Mutex;
 
     struct TestAgentManager;
 

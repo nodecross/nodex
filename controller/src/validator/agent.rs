@@ -13,6 +13,7 @@ pub async fn is_latest_version<A>(
 where
     A: AgentManagerTrait + Sync,
 {
+    println!("Checking version...");
     let version_response: VersionResponse =
         agent_manager.get_request("/internal/version/get").await?;
 
@@ -92,7 +93,9 @@ mod tests {
             where
                 T: serde::de::DeserializeOwned + Send,
             {
-                Err(AgentManagerError::RequestFailed("Request failed".to_string()))
+                Err(AgentManagerError::RequestFailed(
+                    "Request failed".to_string(),
+                ))
             }
 
             fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {

@@ -259,7 +259,7 @@ impl ProcessInfo {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
-    use std::fs::{self, File};
+    use std::fs::File;
     use tempfile::tempdir;
 
     fn setup_temp_file() -> (RuntimeManager, tempfile::TempDir, PathBuf) {

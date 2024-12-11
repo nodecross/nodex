@@ -56,7 +56,6 @@ impl UpdateAction {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::update::tasks::{move_resource, update_json};
     use std::fs;
     use std::io::Write;
     use std::path::PathBuf;
