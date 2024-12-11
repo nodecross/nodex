@@ -67,7 +67,7 @@ impl MmapHandler {
         length: std::num::NonZeroUsize,
     ) -> Result<Self, RuntimeError> {
         let fd = shm_open(
-            name.as_ref().into(),
+            name.as_ref(),
             OFlag::O_RDWR | OFlag::O_CREAT | OFlag::O_EXCL, // O_EXCL is not needed?
             Mode::S_IRUSR | Mode::S_IWUSR,
         );
@@ -131,13 +131,9 @@ impl MmapHandler {
         name: impl AsRef<Path>,
         length: std::num::NonZeroUsize,
     ) -> Result<Self, RuntimeError> {
-        let fd = shm_open(
-            name.as_ref().into(),
-            OFlag::O_RDWR,
-            Mode::S_IRUSR | Mode::S_IWUSR,
-        )
-        .map_err(_e2e)
-        .map_err(RuntimeError::FileOpen)?;
+        let fd = shm_open(name.as_ref(), OFlag::O_RDWR, Mode::S_IRUSR | Mode::S_IWUSR)
+            .map_err(_e2e)
+            .map_err(RuntimeError::FileOpen)?;
 
         let ptr = unsafe {
             mmap(
@@ -167,7 +163,7 @@ impl MmapHandler {
         }
     }
 
-    fn handle_err_id<'a>(&'a mut self) -> impl Fn(RuntimeError) -> RuntimeError + 'a {
+    fn handle_err_id(&mut self) -> impl Fn(RuntimeError) -> RuntimeError + '_ {
         self.handle_err(|x| x)
     }
 
