@@ -3,10 +3,10 @@ use crate::validator::process::{is_manage_by_systemd, is_manage_socket_activatio
 use chrono::{DateTime, FixedOffset, Utc};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
-use std::fs::{File, OpenOptions};
+use std::fs::{set_permissions, File, OpenOptions};
 use std::io::{Read, Seek, Write};
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use tokio::sync::watch;
 
 #[cfg(unix)]
@@ -168,15 +168,24 @@ impl FileHandler {
 
 #[derive(Debug)]
 pub struct RuntimeManager<H: RuntimeInfoStorage> {
+    self_pid: u32,
     file_handler: H,
     state_sender: watch::Sender<State>,
     state_receiver: watch::Receiver<State>,
+}
+
+#[cfg(unix)]
+fn change_to_executable(path: &Path) -> std::io::Result<()> {
+    let mut perms = std::fs::metadata(path)?.permissions();
+    perms.set_mode(perms.mode() | 0o111);
+    set_permissions(path, perms)
 }
 
 impl<H: RuntimeInfoStorage> RuntimeManager<H> {
     pub fn new(file_handler: H) -> Self {
         let (state_sender, state_receiver) = watch::channel(State::Default);
         RuntimeManager {
+            self_pid: std::process::id(),
             file_handler,
             state_sender,
             state_receiver,
@@ -209,20 +218,19 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
         Ok(process_infos
             .into_iter()
             .filter(|process_info| process_info.feat_type == feat_type)
-            .collect::<Vec<ProcessInfo>>())
+            .collect())
     }
 
     pub fn is_running_or_remove_if_stopped(&mut self, process_info: &ProcessInfo) -> bool {
         if !is_running(process_info.process_id) {
-            self.remove_process_info(process_info.process_id)
+            let _ = self.remove_process_info(process_info.process_id)
                 .map_err(|e| {
                     log::error!(
                         "Failed to remove process for process ID {}: {}",
                         process_info.process_id,
                         e
                     )
-                })
-                .ok();
+                });
             false
         } else {
             true
@@ -288,6 +296,8 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
             return Ok(());
         }
 
+        change_to_executable(agent_path.as_ref()).map_err(RuntimeError::Command)?;
+
         let agent_path =
             agent_path
                 .as_ref()
@@ -296,12 +306,6 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
                     std::io::ErrorKind::Other,
                     "Invalid path: failed to convert agent_path to string",
                 )))?;
-        Command::new("chmod")
-            .arg("+x")
-            .arg(agent_path)
-            .status()
-            .map_err(RuntimeError::Command)?;
-
         let cmd = CString::new(agent_path).map_err(|x| RuntimeError::Command(x.into()))?;
         let args = vec![cmd.clone(), CString::new("controller").unwrap()];
 
