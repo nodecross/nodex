@@ -5,8 +5,9 @@ use crate::{app_config, server_config};
 use anyhow;
 
 use controller::managers::{
+    mmap_storage::MmapHandler,
     resource::ResourceManagerTrait,
-    runtime::{FeatType, FileHandler, RuntimeManager, State},
+    runtime::{FeatType, FileHandler, RuntimeInfoStorage, RuntimeManager, State},
 };
 use controller::validator::{
     network::can_connect_to_download_server,
@@ -100,13 +101,13 @@ impl NodeX {
     ) -> anyhow::Result<()> {
         if !check_storage(&output_path) {
             log::error!("Not enough storage space: {:?}", output_path);
-            return Err(anyhow::anyhow!("Not enough storage space"));
+            anyhow::bail!("Not enough storage space");
         } else if !can_connect_to_download_server("https://github.com").await {
             log::error!("Not connected to the Internet");
-            return Err(anyhow::anyhow!("Not connected to the Internet"));
+            anyhow::bail!("Not connected to the Internet");
         } else if !binary_url.starts_with("https://github.com/nodecross/nodex/releases/download/") {
             log::error!("Invalid url");
-            return Err(anyhow::anyhow!("Invalid url"));
+            anyhow::bail!("Invalid url");
         }
 
         #[cfg(unix)]
@@ -130,20 +131,20 @@ impl NodeX {
 
         #[cfg(unix)]
         {
-            let home_dir = dirs::home_dir().unwrap();
             resource_manager.backup().map_err(|e| {
                 log::error!("Failed to backup: {}", e);
                 anyhow::anyhow!(e)
             })?;
 
-            let runtime_info_path = home_dir
-                .join(".nodex")
-                .join("run")
-                .join("runtime_info.json");
-            let file_handler = FileHandler::new(runtime_info_path);
-            let runtime_manager = RuntimeManager::new(file_handler);
+            let len = std::env::var("MMAP_SIZE")
+                .ok()
+                .and_then(|x| x.parse::<usize>().ok())
+                .ok_or(anyhow::anyhow!("Incompatible size"))?;
+            let len = core::num::NonZero::new(len).ok_or(anyhow::anyhow!("Incompatible size"))?;
+            let handler = MmapHandler::new("runtime_info", len)?;
+            let mut runtime_manager = RuntimeManager::new(handler)?;
 
-            self.run_controller(&agent_path, &runtime_manager)?;
+            runtime_manager.run_controller(&agent_path)?;
             runtime_manager.update_state(State::Update)?;
         }
 
@@ -151,79 +152,6 @@ impl NodeX {
         self.run_agent(&agent_path)?;
 
         Ok(())
-    }
-
-    #[cfg(unix)]
-    fn kill_current_controller(&self, runtime_manager: &RuntimeManager) -> anyhow::Result<()> {
-        let controller_processes = runtime_manager
-            .filter_process_infos(FeatType::Controller)
-            .map_err(|e| anyhow::anyhow!("Failed to get process infos: {}", e))?;
-        for controller_process in controller_processes {
-            signal::kill(
-                Pid::from_raw(controller_process.process_id as i32),
-                Signal::SIGTERM,
-            )
-            .map_err(|e| {
-                anyhow::anyhow!(
-                    "Failed to kill process {}: {}",
-                    controller_process.process_id,
-                    e
-                )
-            })?;
-            runtime_manager
-                .remove_process_info(controller_process.process_id)
-                .map_err(|e| {
-                    anyhow::anyhow!(
-                        "Failed to remove process info {}: {}",
-                        controller_process.process_id,
-                        e
-                    )
-                })?;
-        }
-        Ok(())
-    }
-
-    #[cfg(unix)]
-    fn run_controller(
-        &self,
-        agent_path: &Path,
-        runtime_manager: &RuntimeManager,
-    ) -> anyhow::Result<()> {
-        self.kill_current_controller(runtime_manager)?;
-        if is_manage_by_systemd() && is_manage_socket_activation() {
-            return Ok(());
-        }
-
-        Command::new("chmod").arg("+x").arg(agent_path).status()?;
-
-        let agent_path_str = agent_path.to_str().ok_or_else(|| {
-            anyhow::anyhow!("Invalid path: failed to convert agent_path to string")
-        })?;
-        let cmd = CString::new(agent_path_str)
-            .map_err(|e| anyhow::anyhow!("Failed to create command CString: {}", e))?;
-        let args = vec![
-            cmd.clone(),
-            CString::new("controller")
-                .map_err(|e| anyhow::anyhow!("Failed to create argument CString: {}", e))?,
-        ];
-
-        match unsafe { fork() } {
-            Ok(ForkResult::Parent { child }) => {
-                log::info!("Parent process launched child with PID: {}", child);
-                Ok(())
-            }
-            Ok(ForkResult::Child) => {
-                setsid().map_err(|e| {
-                    anyhow::anyhow!("Failed to create new session using setsid: {}", e)
-                })?;
-
-                execvp(&cmd, &args).map_err(|e| {
-                    anyhow::anyhow!("Failed to execute command using execvp: {}", e)
-                })?;
-                unreachable!();
-            }
-            Err(e) => Err(anyhow::anyhow!("Failed to fork process: {}", e)),
-        }
     }
 
     #[cfg(windows)]

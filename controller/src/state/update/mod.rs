@@ -1,9 +1,10 @@
 pub mod tasks;
 
+use crate::managers::runtime::ProcessInfo;
 use crate::managers::{
     agent::{AgentManagerError, AgentManagerTrait},
     resource::{ResourceError, ResourceManagerTrait},
-    runtime::{FeatType, RuntimeError, RuntimeManager, State},
+    runtime::{FeatType, RuntimeError, RuntimeInfoStorage, RuntimeManager, State},
 };
 use crate::state::update::tasks::{UpdateAction, UpdateActionError};
 #[cfg(unix)]
@@ -56,25 +57,27 @@ impl UpdateError {
     }
 }
 
-pub struct UpdateState<'a, A, R>
+pub struct UpdateState<'a, A, R, H>
 where
     A: AgentManagerTrait + Sync,
     R: ResourceManagerTrait,
+    H: RuntimeInfoStorage + Sync,
 {
     agent_manager: &'a Arc<Mutex<A>>,
     resource_manager: R,
-    runtime_manager: &'a RuntimeManager,
+    runtime_manager: &'a Arc<Mutex<RuntimeManager<H>>>,
 }
 
-impl<'a, A, R> UpdateState<'a, A, R>
+impl<'a, A, R, H> UpdateState<'a, A, R, H>
 where
     A: AgentManagerTrait + Sync,
     R: ResourceManagerTrait,
+    H: RuntimeInfoStorage + Sync,
 {
     pub fn new(
         agent_manager: &'a Arc<Mutex<A>>,
         resource_manager: R,
-        runtime_manager: &'a RuntimeManager,
+        runtime_manager: &'a Arc<Mutex<RuntimeManager<H>>>,
     ) -> Self {
         Self {
             agent_manager,
@@ -88,15 +91,13 @@ where
 
         if self
             .runtime_manager
+            .lock()
+            .await
             .filter_process_infos(FeatType::Agent)?
             .is_empty()
         {
             return Err(UpdateError::AgentNotRunning);
         }
-
-        self.runtime_manager
-            .update_state(State::Updating)
-            .map_err(UpdateError::UpdateStateFailed)?;
 
         let current_version = Version::parse(env!("CARGO_PKG_VERSION"))
             .map_err(|_| UpdateError::InvalidVersionFormat)?;
@@ -109,12 +110,16 @@ where
             action.handle()?;
         }
 
-        self.launch_new_version_agent().await?;
-        self.monitor_agent_version(&current_version).await?;
-        self.terminate_old_version_agent(current_version.to_string())
-            .await?;
+        let latest = self.launch_new_version_agent().await?;
+        // self.monitor_agent_version(&current_version).await?;
+        self.terminate_old_version_agent(latest).await?;
 
         self.resource_manager.remove()?;
+
+        self.runtime_manager
+            .lock()
+            .await
+            .update_state(crate::managers::runtime::State::Default)?;
 
         log::info!("Update completed");
 
@@ -154,12 +159,15 @@ where
     }
 
     #[cfg(unix)]
-    async fn launch_new_version_agent(&self) -> Result<(), UpdateError> {
+    async fn launch_new_version_agent(&self) -> Result<ProcessInfo, UpdateError> {
         let agent_manager = self.agent_manager.lock().await;
         let process_info = agent_manager.launch_agent()?;
-        self.runtime_manager.add_process_info(process_info)?;
+        self.runtime_manager
+            .lock()
+            .await
+            .add_process_info(process_info.clone())?;
 
-        Ok(())
+        Ok(process_info)
     }
 
     #[cfg(windows)]
@@ -210,19 +218,22 @@ where
         unimplemented!("implemented for Windows.");
     }
 
-    async fn terminate_old_version_agent(
-        &self,
-        current_version: String,
-    ) -> Result<(), UpdateError> {
-        let agent_processes = self.runtime_manager.filter_process_infos(FeatType::Agent)?;
+    async fn terminate_old_version_agent(&self, latest: ProcessInfo) -> Result<(), UpdateError> {
+        let agent_processes = self
+            .runtime_manager
+            .lock()
+            .await
+            .filter_process_infos(FeatType::Agent)?;
 
         for agent_process in agent_processes {
-            if agent_process.version == current_version {
+            if agent_process.process_id == latest.process_id {
                 continue;
             }
             let agent_manager = self.agent_manager.lock().await;
             agent_manager.terminate_agent(agent_process.process_id)?;
             self.runtime_manager
+                .lock()
+                .await
                 .remove_process_info(agent_process.process_id)?;
         }
 

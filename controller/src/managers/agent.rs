@@ -37,9 +37,9 @@ static DEFAULT_FD: RawFd = 3;
 pub enum AgentManagerError {
     #[error["Failed to initialize listener"]]
     FailedInitialize,
-    #[error("Failed to get current executable path")]
+    #[error("Failed to get current executable path: {0}")]
     CurrentExecutablePathError(#[source] std::io::Error),
-    #[error("Failed to fork agent")]
+    #[error("Failed to fork agent: {0}")]
     ForkAgentError(#[source] std::io::Error),
     #[error("LISTEN_FDS not set or invalid")]
     ListenFdsError,
@@ -52,7 +52,7 @@ pub enum AgentManagerError {
     #[error("Failed to bind UDS: {0}")]
     BindUdsError(#[source] std::io::Error),
     #[cfg(unix)]
-    #[error("Failed to duplicate file descriptor")]
+    #[error("Failed to duplicate file descriptor: {0}")]
     DuplicateFdError(#[source] nix::Error),
     #[cfg(unix)]
     #[error("Failed to terminate process: {0}")]

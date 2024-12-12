@@ -31,6 +31,33 @@ pub enum ResourceError {
     RollbackFailed(String),
 }
 
+// ref: https://stackoverflow.com/questions/26958489/how-to-copy-a-folder-recursively-in-rust
+fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {
+    if !fs::metadata(&src)?.is_dir() {
+        if !fs::exists(&dst)? {
+            fs::copy(&src, &dst)?;
+        } else if fs::metadata(&dst)?.is_dir() {
+            let name = src.as_ref().file_name().ok_or(io::Error::new(io::ErrorKind::IsADirectory, "Invalid path"))?;
+            fs::copy(&src, dst.as_ref().join(name))?;
+        } else {
+            fs::copy(&src, &dst)?;
+        }
+        return Ok(());
+    }
+
+    fs::create_dir_all(&dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        } else {
+            fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        }
+    }
+    Ok(())
+}
+
 #[async_trait]
 pub trait ResourceManagerTrait: Send + Sync {
     fn backup(&self) -> Result<(), ResourceError>;
@@ -373,7 +400,8 @@ impl UnixResourceManager {
                         ))
                     })?;
                 }
-                std::fs::rename(&temp_path, original_path).map_err(|e| {
+                // fs::rename does not work with another partition
+                copy_dir_all(&temp_path, original_path).map_err(|e| {
                     ResourceError::RollbackFailed(format!(
                         "Failed to move file from {:?} to {:?}: {}",
                         temp_path, original_path, e
