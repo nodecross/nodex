@@ -2,11 +2,10 @@ use crate::config::get_config;
 use crate::managers::agent::AgentManagerTrait;
 use crate::managers::mmap_storage::MmapHandler;
 use crate::managers::runtime::{
-    FeatType, ProcessInfo, RuntimeError, RuntimeInfoStorage, RuntimeManager, State,
+    FeatType, ProcessInfo, RuntimeError, RuntimeInfoStorage, RuntimeManager
 };
 use crate::state::handler::handle_state;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -118,6 +117,7 @@ fn initialize_runtime_manager() -> Result<Arc<Mutex<RuntimeManager<MmapHandler>>
     Ok(Arc::new(Mutex::new(RuntimeManager::new(handler)?)))
 }
 
+#[allow(dead_code)]
 fn get_runtime_info_path() -> PathBuf {
     get_config()
         .lock()
@@ -215,12 +215,4 @@ where
 
     log::info!("cleanup successfully.");
     Ok(())
-}
-
-#[cfg(unix)]
-fn handle_sigterm(should_stop: Arc<AtomicBool>) {
-    // log::info!("Dropping listener.");
-    // std::mem::drop(listener);
-    log::info!("Received SIGTERM. Setting stop flag.");
-    should_stop.store(true, Ordering::Relaxed);
 }

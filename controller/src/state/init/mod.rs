@@ -14,7 +14,7 @@ pub enum InitError {
 
 pub async fn execute<'a, A, R, H>(
     agent_manager: &'a A,
-    resource_manager: &'a R,
+    _resource_manager: &'a R,
     runtime_manager: &'a mut RuntimeManager<H>,
 ) -> Result<(), InitError>
 where
@@ -26,7 +26,7 @@ where
         let mut agent_processes = runtime_manager.filter_process_infos(FeatType::Agent)?;
         agent_processes
             .retain(|agent_process| runtime_manager.is_running_or_remove_if_stopped(agent_process));
-        if agent_processes.len() >= 1 {
+        if !agent_processes.is_empty() {
             log::error!("Agent already running");
             runtime_manager.update_state(crate::managers::runtime::State::Idle)?;
             return Ok(());
