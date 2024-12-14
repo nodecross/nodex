@@ -26,7 +26,7 @@ pub enum RollbackError {
 }
 
 pub async fn execute<'a, A, R, H>(
-    #[allow(dead_code)] agent_manager: &'a A,
+    _agent_manager: &'a A,
     resource_manager: &'a R,
     runtime_manager: &'a mut RuntimeManager<H>,
 ) -> Result<(), RollbackError>
