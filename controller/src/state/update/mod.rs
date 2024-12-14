@@ -7,8 +7,6 @@ use crate::managers::{
     runtime::{FeatType, RuntimeError, RuntimeInfoStorage, RuntimeManager, State},
 };
 use crate::state::update::tasks::{UpdateAction, UpdateActionError};
-#[cfg(unix)]
-use crate::validator::agent::is_latest_version;
 use semver::Version;
 use serde_yaml::Error as SerdeYamlError;
 use std::fs;
@@ -147,21 +145,17 @@ where
     while start.elapsed() < timeout {
         interval_timer.tick().await;
 
-        let check_version = is_latest_version(agent_manager, expected_version.to_string())
-            .await
-            .map_err(|e| UpdateError::AgentVersionCheckFailed(e.to_string()));
-
-        match check_version {
-            Ok(true) => {
-                log::info!("Expected version received: {}", expected_version);
-                return Ok(());
-            }
-            Ok(false) => {
-                log::info!("Version did not match expected value.");
-            }
-            Err(e) => {
+        let version = agent_manager.get_version().await
+            .map_err(|e| {
                 log::error!("Error occurred during version check: {}", e);
-            }
+                UpdateError::AgentVersionCheckFailed(e.to_string())
+            })?;
+
+        if version == expected_version.to_string() {
+            log::info!("Expected version received: {}", expected_version);
+            return Ok(());
+        } else {
+            log::info!("Version did not match expected value.");
         }
     }
 

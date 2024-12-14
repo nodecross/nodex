@@ -19,5 +19,5 @@ python3 examples/python/src/get_version_loop.py &
 child_pid=$!
 sleep 1
 python3 examples/python/src/update_version.py
-sleep 4
+sleep 20
 kill $child_pid

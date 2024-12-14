@@ -1,4 +1,4 @@
-use async_trait::async_trait;
+use serde::Deserialize;
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full};
 use hyper::{body::Incoming, Response};
@@ -69,22 +69,13 @@ pub enum AgentManagerError {
     Utf8Error(#[source] std::str::Utf8Error),
 }
 
-#[async_trait]
-pub trait AgentManagerTrait: Send {
+#[trait_variant::make(Send)]
+pub trait AgentManagerTrait {
     fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError>;
 
     fn terminate_agent(&self, process_id: u32) -> Result<(), AgentManagerError>;
 
-    async fn get_request<T>(&self, endpoint: &str) -> Result<T, AgentManagerError>
-    where
-        T: serde::de::DeserializeOwned + Send;
-
-    async fn parse_response_body<T>(
-        &self,
-        response: Response<Incoming>,
-    ) -> Result<T, AgentManagerError>
-    where
-        T: DeserializeOwned;
+    async fn get_version(&self) -> Result<String, AgentManagerError>;
 
     fn cleanup(&self) -> Result<(), std::io::Error>;
 }
@@ -97,8 +88,47 @@ pub struct UnixAgentManager {
     listener: Option<Arc<Mutex<UnixListener>>>,
 }
 
+impl UnixAgentManager {
+    async fn parse_response_body<T>(
+        &self,
+        response: Response<Incoming>,
+    ) -> Result<T, AgentManagerError>
+    where
+        T: DeserializeOwned,
+    {
+        let collected_body = response
+            .into_body()
+            .collect()
+            .await
+            .map_err(|e| AgentManagerError::CollectBodyError(e.to_string()))?;
+
+        let bytes = collected_body.to_bytes();
+        let string_body =
+            std::str::from_utf8(bytes.as_ref()).map_err(AgentManagerError::Utf8Error)?;
+
+        serde_json::from_str(string_body).map_err(AgentManagerError::JsonParseError)
+    }
+
+    async fn get_request<T>(&self, endpoint: &str) -> Result<T, AgentManagerError>
+    where
+        T: serde::de::DeserializeOwned + Send,
+    {
+        let client: Client<UnixConnector, Full<Bytes>> = Client::unix();
+        let uri = Uri::new(&self.uds_path, endpoint).into();
+
+        let response: Response<Incoming> = client.get(uri).await?;
+
+        self.parse_response_body(response).await
+    }
+
+}
+
+#[derive(Debug, Deserialize)]
+struct VersionResponse {
+    pub version: String,
+}
+
 #[cfg(unix)]
-#[async_trait]
 impl AgentManagerTrait for UnixAgentManager {
     fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {
         dbg!(env::current_exe());
@@ -151,6 +181,13 @@ impl AgentManagerTrait for UnixAgentManager {
         }
     }
 
+    async fn get_version(&self) -> Result<String, AgentManagerError> {
+        let version_response: VersionResponse =
+            self.get_request("/internal/version/get").await?;
+
+        Ok(version_response.version)
+    }
+
     fn terminate_agent(&self, process_id: u32) -> Result<(), AgentManagerError> {
         log::info!("Terminating agent with PID: {}", process_id);
 
@@ -158,38 +195,6 @@ impl AgentManagerTrait for UnixAgentManager {
             .map_err(AgentManagerError::TerminateProcessError)?;
 
         Ok(())
-    }
-
-    async fn get_request<T>(&self, endpoint: &str) -> Result<T, AgentManagerError>
-    where
-        T: serde::de::DeserializeOwned + Send,
-    {
-        let client: Client<UnixConnector, Full<Bytes>> = Client::unix();
-        let uri = Uri::new(&self.uds_path, endpoint).into();
-
-        let response: Response<Incoming> = client.get(uri).await?;
-
-        self.parse_response_body(response).await
-    }
-
-    async fn parse_response_body<T>(
-        &self,
-        response: Response<Incoming>,
-    ) -> Result<T, AgentManagerError>
-    where
-        T: DeserializeOwned,
-    {
-        let collected_body = response
-            .into_body()
-            .collect()
-            .await
-            .map_err(|e| AgentManagerError::CollectBodyError(e.to_string()))?;
-
-        let bytes = collected_body.to_bytes();
-        let string_body =
-            std::str::from_utf8(bytes.as_ref()).map_err(AgentManagerError::Utf8Error)?;
-
-        serde_json::from_str(string_body).map_err(AgentManagerError::JsonParseError)
     }
 
     fn cleanup(&self) -> Result<(), std::io::Error> {
@@ -287,7 +292,6 @@ unsafe impl Sync for UnixAgentManager {}
 pub struct WindowsAgentManager;
 
 #[cfg(windows)]
-#[async_trait]
 impl AgentManagerTrait for WindowsAgentManager {
     fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {
         unimplemented!()

@@ -35,7 +35,6 @@ pub mod validator;
 pub async fn run() -> std::io::Result<()> {
     dbg!(std::env::current_exe());
     let runtime_manager = initialize_runtime_manager().expect("Failed to create RuntimeManager");
-    let should_stop = Arc::new(AtomicBool::new(false));
 
     {
         let mut _runtime_manager = runtime_manager.lock().await;

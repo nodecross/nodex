@@ -1,5 +1,4 @@
 use crate::config::get_config;
-use async_trait::async_trait;
 use bytes::Bytes;
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use glob::glob;
@@ -61,7 +60,7 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> 
     Ok(())
 }
 
-#[async_trait]
+#[trait_variant::make(Send)]
 pub trait ResourceManagerTrait: Send + Sync {
     fn backup(&self) -> Result<(), ResourceError>;
 
@@ -69,35 +68,31 @@ pub trait ResourceManagerTrait: Send + Sync {
 
     fn tmp_path(&self) -> &PathBuf;
 
-    async fn download_update_resources(
+    fn download_update_resources(
         &self,
         binary_url: &str,
         output_path: Option<&PathBuf>,
-    ) -> Result<(), ResourceError> {
-        dbg!("tesct1113333444444444444444");
-        let download_path = output_path.unwrap_or(self.tmp_path());
+    ) -> impl std::future::Future<Output = Result<(), ResourceError>> + Send {
+        async move {
+            let download_path = output_path.unwrap_or(self.tmp_path());
 
-        let response = reqwest::get(binary_url)
-            .await
-            .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
-        dbg!("tesct1113333444444444444444555555555555555555555");
-        let content = response
-            .bytes()
-            .await
-            .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
-        dbg!("tesct1113333444444444444444555555555555555555555666666666666666");
+            let response = reqwest::get(binary_url)
+                .await
+                .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
+            let content = response
+                .bytes()
+                .await
+                .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
 
-        self.extract_zip(content, download_path)?;
-        Ok(())
+            self.extract_zip(content, download_path)?;
+            Ok(())
+        }
     }
 
     fn get_paths_to_backup(&self) -> Result<Vec<PathBuf>, ResourceError> {
         let config = get_config().lock().unwrap();
-        // Ok(vec![env::current_exe()?, config.config_dir.clone()])
-        Ok(vec![
-            "/media/work/cg/nodex/target/release/nodex-agent".into(),
-            config.config_dir.clone(),
-        ])
+        // TODO: Fix current_exe
+        Ok(vec![env::current_exe()?, config.config_dir.clone()])
     }
 
     fn collect_downloaded_bundles(&self) -> Vec<PathBuf> {
@@ -129,34 +124,24 @@ pub trait ResourceManagerTrait: Send + Sync {
     }
 
     fn extract_zip(&self, archive_data: Bytes, output_path: &Path) -> Result<(), ResourceError> {
-        dbg!("tesct111333344444444444444455555555555555555555566666666666666688888888888888888888");
         let cursor = Cursor::new(archive_data);
         let mut archive = ZipArchive::new(cursor)?;
 
-        dbg!("tesct111333344444444444444455555555555555555555566666666666666688888888888888888888999999999");
-        dbg!(archive.len());
         for i in 0..archive.len() {
             let mut file = archive.by_index(i)?;
-            dbg!(i);
             let file_path = output_path.join(file.mangled_name());
-            dbg!(&file_path);
 
             if file.is_file() {
-                dbg!("is_file");
                 if let Some(parent) = file_path.parent() {
-                    dbg!(&parent);
                     fs::create_dir_all(parent)?;
                 }
                 let mut output_file = File::create(&file_path)?;
-                dbg!(&output_file);
                 io::copy(&mut file, &mut output_file)?;
             } else if file.is_dir() {
-                dbg!("is_dir");
                 fs::create_dir_all(&file_path)?;
             }
         }
 
-        dbg!("OK");
         Ok(())
     }
 
@@ -209,7 +194,6 @@ pub struct UnixResourceManager {
 }
 
 #[cfg(unix)]
-#[async_trait]
 impl ResourceManagerTrait for UnixResourceManager {
     fn tmp_path(&self) -> &PathBuf {
         &self.tmp_path
@@ -399,14 +383,12 @@ impl UnixResourceManager {
                 metadata_file, e
             ))
         })?;
-        dbg!(&metadata_contents);
         let metadata = serde_json::from_str(&metadata_contents).map_err(|e| {
             ResourceError::RollbackFailed(format!(
                 "Failed to parse metadata file {:?}: {}",
                 metadata_file, e
             ))
         })?;
-        dbg!(&metadata);
         Ok(metadata)
     }
 
@@ -452,7 +434,6 @@ pub struct WindowsResourceManager {
 }
 
 #[cfg(windows)]
-#[async_trait]
 impl ResourceManagerTrait for WindowsResourceManager {
     fn tmp_path(&self) -> &PathBuf {
         &self.tmp_path

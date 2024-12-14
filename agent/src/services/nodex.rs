@@ -94,7 +94,6 @@ impl NodeX {
         binary_url: &str,
         output_path: PathBuf,
     ) -> anyhow::Result<()> {
-        dbg!("tesct111");
         #[cfg(unix)]
         let agent_filename = { "nodex-agent" };
         #[cfg(windows)]
@@ -108,17 +107,14 @@ impl NodeX {
         let resource_manager = UnixResourceManager::new();
         #[cfg(windows)]
         let resource_manager = WindowsResourceManager::new();
-        dbg!("tesct1113333");
 
         resource_manager
             .download_update_resources(binary_url, Some(&output_path))
             .await
             .map_err(|e| anyhow::anyhow!(e))?;
-        dbg!("tesct11133334444");
 
         #[cfg(unix)]
         {
-            dbg!("tesct");
             resource_manager.backup().map_err(|e| {
                 log::error!("Failed to backup: {}", e);
                 anyhow::anyhow!(e)
