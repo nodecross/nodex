@@ -9,11 +9,6 @@ use controller::managers::{
     resource::ResourceManagerTrait,
     runtime::{FeatType, FileHandler, RuntimeInfoStorage, RuntimeManager, State},
 };
-use controller::validator::{
-    network::can_connect_to_download_server,
-    process::{is_manage_by_systemd, is_manage_socket_activation},
-    storage::check_storage,
-};
 use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
 use protocol::did::sidetree::payload::DidResolutionResponse;
 use std::{
@@ -99,17 +94,7 @@ impl NodeX {
         binary_url: &str,
         output_path: PathBuf,
     ) -> anyhow::Result<()> {
-        if !check_storage(&output_path) {
-            log::error!("Not enough storage space: {:?}", output_path);
-            anyhow::bail!("Not enough storage space");
-        } else if !can_connect_to_download_server("https://github.com").await {
-            log::error!("Not connected to the Internet");
-            anyhow::bail!("Not connected to the Internet");
-        } else if !binary_url.starts_with("https://github.com/nodecross/nodex/releases/download/") {
-            log::error!("Invalid url");
-            anyhow::bail!("Invalid url");
-        }
-
+        dbg!("tesct111");
         #[cfg(unix)]
         let agent_filename = { "nodex-agent" };
         #[cfg(windows)]
@@ -123,14 +108,17 @@ impl NodeX {
         let resource_manager = UnixResourceManager::new();
         #[cfg(windows)]
         let resource_manager = WindowsResourceManager::new();
+        dbg!("tesct1113333");
 
         resource_manager
             .download_update_resources(binary_url, Some(&output_path))
             .await
             .map_err(|e| anyhow::anyhow!(e))?;
+        dbg!("tesct11133334444");
 
         #[cfg(unix)]
         {
+            dbg!("tesct");
             resource_manager.backup().map_err(|e| {
                 log::error!("Failed to backup: {}", e);
                 anyhow::anyhow!(e)

@@ -37,7 +37,10 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> 
         if !fs::exists(&dst)? {
             fs::copy(&src, &dst)?;
         } else if fs::metadata(&dst)?.is_dir() {
-            let name = src.as_ref().file_name().ok_or(io::Error::new(io::ErrorKind::IsADirectory, "Invalid path"))?;
+            let name = src
+                .as_ref()
+                .file_name()
+                .ok_or(io::Error::new(io::ErrorKind::IsADirectory, "Invalid path"))?;
             fs::copy(&src, dst.as_ref().join(name))?;
         } else {
             fs::copy(&src, &dst)?;
@@ -71,15 +74,18 @@ pub trait ResourceManagerTrait: Send + Sync {
         binary_url: &str,
         output_path: Option<&PathBuf>,
     ) -> Result<(), ResourceError> {
+        dbg!("tesct1113333444444444444444");
         let download_path = output_path.unwrap_or(self.tmp_path());
 
         let response = reqwest::get(binary_url)
             .await
             .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
+        dbg!("tesct1113333444444444444444555555555555555555555");
         let content = response
             .bytes()
             .await
             .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
+        dbg!("tesct1113333444444444444444555555555555555555555666666666666666");
 
         self.extract_zip(content, download_path)?;
         Ok(())
@@ -87,7 +93,11 @@ pub trait ResourceManagerTrait: Send + Sync {
 
     fn get_paths_to_backup(&self) -> Result<Vec<PathBuf>, ResourceError> {
         let config = get_config().lock().unwrap();
-        Ok(vec![env::current_exe()?, config.config_dir.clone()])
+        // Ok(vec![env::current_exe()?, config.config_dir.clone()])
+        Ok(vec![
+            "/media/work/cg/nodex/target/release/nodex-agent".into(),
+            config.config_dir.clone(),
+        ])
     }
 
     fn collect_downloaded_bundles(&self) -> Vec<PathBuf> {
@@ -119,24 +129,34 @@ pub trait ResourceManagerTrait: Send + Sync {
     }
 
     fn extract_zip(&self, archive_data: Bytes, output_path: &Path) -> Result<(), ResourceError> {
+        dbg!("tesct111333344444444444444455555555555555555555566666666666666688888888888888888888");
         let cursor = Cursor::new(archive_data);
         let mut archive = ZipArchive::new(cursor)?;
 
+        dbg!("tesct111333344444444444444455555555555555555555566666666666666688888888888888888888999999999");
+        dbg!(archive.len());
         for i in 0..archive.len() {
             let mut file = archive.by_index(i)?;
+            dbg!(i);
             let file_path = output_path.join(file.mangled_name());
+            dbg!(&file_path);
 
             if file.is_file() {
+                dbg!("is_file");
                 if let Some(parent) = file_path.parent() {
+                    dbg!(&parent);
                     fs::create_dir_all(parent)?;
                 }
                 let mut output_file = File::create(&file_path)?;
+                dbg!(&output_file);
                 io::copy(&mut file, &mut output_file)?;
             } else if file.is_dir() {
+                dbg!("is_dir");
                 fs::create_dir_all(&file_path)?;
             }
         }
 
+        dbg!("OK");
         Ok(())
     }
 
@@ -314,7 +334,11 @@ impl UnixResourceManager {
         let uid = get_current_uid();
         let gid = get_current_gid();
 
-        let metadata_json = serde_json::to_string(metadata)
+        let metadata: Vec<_> = metadata
+            .iter()
+            .map(|(x, y)| (x.as_path().to_str(), y.as_path().to_str()))
+            .collect();
+        let metadata_json = serde_json::to_string(&metadata)
             .map_err(|e| ResourceError::TarError(format!("Failed to serialize metadata: {}", e)))?;
 
         let mut header = Header::new_gnu();
@@ -375,12 +399,14 @@ impl UnixResourceManager {
                 metadata_file, e
             ))
         })?;
+        dbg!(&metadata_contents);
         let metadata = serde_json::from_str(&metadata_contents).map_err(|e| {
             ResourceError::RollbackFailed(format!(
                 "Failed to parse metadata file {:?}: {}",
                 metadata_file, e
             ))
         })?;
+        dbg!(&metadata);
         Ok(metadata)
     }
 

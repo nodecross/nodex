@@ -1,15 +1,16 @@
 use anyhow::anyhow;
-
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::{env, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::Notify;
-
 use protocol::didcomm::encrypted::DidCommEncryptedService;
-
 use crate::nodex::utils::did_accessor::{DidAccessor, DidAccessorImpl};
 use crate::services::nodex::NodeX;
 use crate::services::studio::{MessageResponse, Studio};
+use controller::validator::{
+    network::can_connect_to_download_server,
+    storage::check_storage,
+};
 
 #[derive(Deserialize)]
 enum OperationType {
@@ -104,7 +105,16 @@ impl MessageReceiveUsecase {
                                     .parent()
                                     .map(|p| p.to_path_buf())
                                     .unwrap_or(tmp_path);
-
+                                if !check_storage(&working_dir) {
+                                    log::error!("Not enough storage space: {:?}", working_dir);
+                                    anyhow::bail!("Not enough storage space");
+                                } else if !can_connect_to_download_server("https://github.com").await {
+                                    log::error!("Not connected to the Internet");
+                                    anyhow::bail!("Not connected to the Internet");
+                                } else if !binary_url.starts_with("https://github.com/nodecross/nodex/releases/download/") {
+                                    log::error!("Invalid url");
+                                    anyhow::bail!("Invalid url");
+                                }
                                 self.agent.update_version(binary_url, working_dir).await?;
                             }
                             Ok(OperationType::UpdateNetworkJson) => {

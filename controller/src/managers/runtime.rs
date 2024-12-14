@@ -25,11 +25,13 @@ use unix_imports::*;
 pub struct RuntimeInfo {
     pub state: State,
     pub process_infos: Vec<ProcessInfo>,
+    pub exec_path: PathBuf,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
 pub enum State {
-    Default,
+    Init,
+    Idle,
     Update,
     Rollback,
 }
@@ -72,6 +74,8 @@ pub enum RuntimeError {
     Command(#[source] std::io::Error),
     #[error("Failed to fork: {0}")]
     Fork(#[source] std::io::Error),
+    #[error("failed to know path of self exe: {0}")]
+    FailedCurrentExe(#[source] std::io::Error),
 }
 
 pub trait RuntimeInfoStorage: std::fmt::Debug {
@@ -93,9 +97,11 @@ impl RuntimeInfoStorage for FileHandler {
             .read_to_string(&mut content)
             .map_err(RuntimeError::FileRead)?;
         if content.trim().is_empty() {
+            // We assume that the file is empty means that it is the first execution.
             return Ok(RuntimeInfo {
-                state: State::Default,
+                state: State::Init,
                 process_infos: vec![],
+                exec_path: std::env::current_exe().map_err(RuntimeError::FailedCurrentExe)?,
             });
         }
         serde_json::from_str(&content).map_err(RuntimeError::JsonDeserialize)
@@ -223,7 +229,8 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
 
     pub fn is_running_or_remove_if_stopped(&mut self, process_info: &ProcessInfo) -> bool {
         if !is_running(process_info.process_id) {
-            let _ = self.remove_process_info(process_info.process_id)
+            let _ = self
+                .remove_process_info(process_info.process_id)
                 .map_err(|e| {
                     log::error!(
                         "Failed to remove process for process ID {}: {}",
@@ -253,11 +260,17 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
         })
     }
 
-    pub fn update_state(&mut self, state: State) -> Result<(), RuntimeError> {
+    pub fn update_state_without_send(&mut self, state: State) -> Result<(), RuntimeError> {
         self.file_handler.apply_with_lock(|runtime_info| {
             runtime_info.state = state;
             Ok(())
         })?;
+
+        Ok(())
+    }
+
+    pub fn update_state(&mut self, state: State) -> Result<(), RuntimeError> {
+        self.update_state_without_send(state)?;
         let _ = self.state_sender.send(state);
 
         Ok(())
@@ -271,14 +284,12 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
     fn kill_others(&mut self) -> Result<(), RuntimeError> {
         let mut errs = vec![];
         let self_pid = self.self_pid;
-        let others = self.get_process_infos()?
+        let others = self
+            .get_process_infos()?
             .into_iter()
             .filter(|process_info| process_info.process_id != self_pid);
         for other in others {
-            let res = signal::kill(
-                Pid::from_raw(other.process_id as i32),
-                Signal::SIGTERM,
-            );
+            let res = signal::kill(Pid::from_raw(other.process_id as i32), Signal::SIGTERM);
             if let Err(e) = res {
                 errs.push(e.into());
             } else {
@@ -299,6 +310,7 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
             return Ok(());
         }
 
+        dbg!(agent_path.as_ref());
         change_to_executable(agent_path.as_ref()).map_err(RuntimeError::Command)?;
 
         let agent_path =

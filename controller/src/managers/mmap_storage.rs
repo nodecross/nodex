@@ -168,9 +168,11 @@ impl RuntimeInfoStorage for MmapHandler {
             .unwrap();
         let buffer = cstr.to_string();
         if buffer.trim().is_empty() {
+            // We assume that memmap is empty means that it is the first execution.
             return Ok(RuntimeInfo {
-                state: State::Default,
+                state: State::Init,
                 process_infos: vec![],
+                exec_path: std::env::current_exe().map_err(RuntimeError::FailedCurrentExe)?,
             });
         }
         serde_json::from_str(&buffer).map_err(RuntimeError::JsonDeserialize)

@@ -4,7 +4,7 @@ use crate::managers::mmap_storage::MmapHandler;
 use crate::managers::runtime::{
     FeatType, ProcessInfo, RuntimeError, RuntimeInfoStorage, RuntimeManager, State,
 };
-use crate::state::handler::StateHandler;
+use crate::state::handler::handle_state;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -33,6 +33,7 @@ pub mod validator;
 
 #[tokio::main]
 pub async fn run() -> std::io::Result<()> {
+    dbg!(std::env::current_exe());
     let runtime_manager = initialize_runtime_manager().expect("Failed to create RuntimeManager");
     let should_stop = Arc::new(AtomicBool::new(false));
 
@@ -97,14 +98,13 @@ async fn state_monitoring_worker<A, H>(
     let mut state_rx = runtime_manager.lock().await.get_state_receiver();
 
     tokio::spawn(async move {
-        let state_handler = StateHandler::new();
         let mut description = "Initial state";
 
         while {
             let current_state = *state_rx.borrow();
             log::info!("Worker: {}: {:?}", description, current_state);
 
-            if let Err(e) = state_handler.handle(current_state, &runtime_manager, &agent_manager).await {
+            if let Err(e) = handle_state(current_state, &runtime_manager, &agent_manager).await {
                 log::error!("Worker: Failed to handle {}: {}", description, e);
             }
             description = "State change";

@@ -101,6 +101,7 @@ pub struct UnixAgentManager {
 #[async_trait]
 impl AgentManagerTrait for UnixAgentManager {
     fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {
+        dbg!(env::current_exe());
         let current_exe =
             env::current_exe().map_err(AgentManagerError::CurrentExecutablePathError)?;
 

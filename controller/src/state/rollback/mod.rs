@@ -8,7 +8,6 @@ pub use nix::{
     sys::signal::{self, Signal},
     unistd::Pid,
 };
-use std::sync::Arc;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RollbackError {
@@ -26,66 +25,42 @@ pub enum RollbackError {
     CurrentExecutablePathError(#[source] std::io::Error),
 }
 
-pub struct RollbackState<'a, A, R, H>
-where
-    A: AgentManagerTrait,
-    R: ResourceManagerTrait,
-    H: RuntimeInfoStorage,
-{
-    #[allow(dead_code)]
-    agent_manager: &'a Arc<tokio::sync::Mutex<A>>,
+pub async fn execute<'a, A, R, H>(
+    #[allow(dead_code)] agent_manager: &'a A,
     resource_manager: &'a R,
-    runtime_manager: &'a Arc<tokio::sync::Mutex<RuntimeManager<H>>>,
-}
-
-impl<'a, A, R, H> RollbackState<'a, A, R, H>
+    runtime_manager: &'a mut RuntimeManager<H>,
+) -> Result<(), RollbackError>
 where
     A: AgentManagerTrait,
     R: ResourceManagerTrait,
     H: RuntimeInfoStorage,
 {
-    pub fn new(
-        agent_manager: &'a Arc<tokio::sync::Mutex<A>>,
-        resource_manager: &'a R,
-        runtime_manager: &'a Arc<tokio::sync::Mutex<RuntimeManager<H>>>,
-    ) -> Self {
-        RollbackState {
-            agent_manager,
-            resource_manager,
-            runtime_manager,
-        }
-    }
+    log::info!("Starting rollback");
 
-    pub async fn execute(&self) -> Result<(), RollbackError> {
-        log::info!("Starting rollback");
-
-        let latest_backup = self.resource_manager.get_latest_backup();
-        match latest_backup {
-            Some(backup_file) => {
-                let mut runtime_manager = self.runtime_manager
-                    .lock()
-                    .await;
-                let agent_path = std::env::current_exe().map_err(RollbackError::CurrentExecutablePathError)?;
-                log::info!("Found backup: {}", backup_file.display());
-                self.resource_manager.rollback(&backup_file)?;
-                if let Err(err) = self.resource_manager.remove() {
-                    log::error!("Failed to remove files {}", err);
-                }
-                runtime_manager.run_controller(agent_path)?; // TODO: Care about UDS
-                runtime_manager.update_state(crate::managers::runtime::State::Default)?;
-                log::info!("Rollback completed");
-
-                log::info!("Restarting controller by SIGINT");
-                #[cfg(unix)]
-                {
-                    let current_pid = std::process::id();
-                    signal::kill(Pid::from_raw(current_pid as i32), Signal::SIGINT)
-                        .map_err(|e| RollbackError::FailedKillOwnProcess(e.to_string()))?;
-                }
-
-                Ok(())
+    let latest_backup = resource_manager.get_latest_backup();
+    match latest_backup {
+        Some(backup_file) => {
+            let agent_path = runtime_manager.read_runtime_info()?.exec_path;
+            // let agent_path = std::env::current_exe().map_err(RollbackError::CurrentExecutablePathError)?;
+            log::info!("Found backup: {}", backup_file.display());
+            resource_manager.rollback(&backup_file)?;
+            if let Err(err) = resource_manager.remove() {
+                log::error!("Failed to remove files {}", err);
             }
-            None => Err(RollbackError::BackupNotFound),
+            runtime_manager.run_controller(agent_path)?; // TODO: Care about UDS
+            runtime_manager.update_state_without_send(crate::managers::runtime::State::Init)?;
+            log::info!("Rollback completed");
+
+            log::info!("Restarting controller by SIGINT");
+            #[cfg(unix)]
+            {
+                let current_pid = std::process::id();
+                signal::kill(Pid::from_raw(current_pid as i32), Signal::SIGINT)
+                    .map_err(|e| RollbackError::FailedKillOwnProcess(e.to_string()))?;
+            }
+
+            Ok(())
         }
+        None => Err(RollbackError::BackupNotFound),
     }
 }

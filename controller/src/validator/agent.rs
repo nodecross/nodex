@@ -11,7 +11,7 @@ pub async fn is_latest_version<A>(
     expected_version: String,
 ) -> Result<bool, AgentManagerError>
 where
-    A: AgentManagerTrait + Sync,
+    A: AgentManagerTrait,
 {
     let version_response: VersionResponse =
         agent_manager.get_request("/internal/version/get").await?;
