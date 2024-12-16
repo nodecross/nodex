@@ -5,7 +5,6 @@ use crate::{
 use actix_web::{web, HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::path::PathBuf;
 
 // NOTE: POST /internal/version
 #[derive(Deserialize, Serialize)]
@@ -26,12 +25,8 @@ pub async fn handler_update(
         Some(url) => url,
         None => Err(AgentErrorCode::VersionNoBinaryUrl)?,
     };
-    let path = match json.message["path"].as_str() {
-        Some(p) => p,
-        None => Err(AgentErrorCode::VersionNoPath)?,
-    };
     let nodex = NodeX::new();
-    match nodex.update_version(binary_url, PathBuf::from(path)).await {
+    match nodex.update_version(binary_url).await {
         Ok(_) => Ok(HttpResponse::Ok().json("ok")),
         Err(_) => Err(AgentErrorCode::VersionInternal)?,
     }

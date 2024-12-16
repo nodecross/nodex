@@ -305,12 +305,12 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
 
     #[cfg(unix)]
     pub fn run_controller(&mut self, agent_path: impl AsRef<Path>) -> Result<(), RuntimeError> {
+        // TODO: Care about UDS
         self.kill_others()?;
         if is_manage_by_systemd() && is_manage_socket_activation() {
             return Ok(());
         }
 
-        dbg!(agent_path.as_ref());
         change_to_executable(agent_path.as_ref()).map_err(RuntimeError::Command)?;
 
         let agent_path =

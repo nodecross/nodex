@@ -3,7 +3,6 @@ use bytes::Bytes;
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use glob::glob;
 use std::{
-    env,
     fs::{self, File},
     io::{self, Cursor},
     path::{Path, PathBuf},
@@ -68,13 +67,16 @@ pub trait ResourceManagerTrait: Send + Sync {
 
     fn tmp_path(&self) -> &PathBuf;
 
-    fn download_update_resources(
+    fn agent_path(&self) -> &PathBuf;
+
+    async fn download_update_resources(
         &self,
         binary_url: &str,
-        output_path: Option<&PathBuf>,
-    ) -> impl std::future::Future<Output = Result<(), ResourceError>> + Send {
+        output_path: Option<impl AsRef<Path> + Send>,
+    ) -> Result<(), ResourceError> {
         async move {
-            let download_path = output_path.unwrap_or(self.tmp_path());
+            let output_path = output_path.map(|x| x.as_ref().to_path_buf());
+            let download_path = output_path.as_ref().unwrap_or(self.tmp_path());
 
             let response = reqwest::get(binary_url)
                 .await
@@ -91,8 +93,8 @@ pub trait ResourceManagerTrait: Send + Sync {
 
     fn get_paths_to_backup(&self) -> Result<Vec<PathBuf>, ResourceError> {
         let config = get_config().lock().unwrap();
-        // TODO: Fix current_exe
-        Ok(vec![env::current_exe()?, config.config_dir.clone()])
+        // Ok(vec![std::env::current_exe().unwrap(), config.config_dir.clone()])
+        Ok(vec![self.agent_path().clone(), config.config_dir.clone()])
     }
 
     fn collect_downloaded_bundles(&self) -> Vec<PathBuf> {
@@ -135,6 +137,7 @@ pub trait ResourceManagerTrait: Send + Sync {
                 if let Some(parent) = file_path.parent() {
                     fs::create_dir_all(parent)?;
                 }
+                let _ = fs::remove_file(&file_path);
                 let mut output_file = File::create(&file_path)?;
                 io::copy(&mut file, &mut output_file)?;
             } else if file.is_dir() {
@@ -191,12 +194,17 @@ pub trait ResourceManagerTrait: Send + Sync {
 #[cfg(unix)]
 pub struct UnixResourceManager {
     tmp_path: PathBuf,
+    agent_path: PathBuf,
 }
 
 #[cfg(unix)]
 impl ResourceManagerTrait for UnixResourceManager {
     fn tmp_path(&self) -> &PathBuf {
         &self.tmp_path
+    }
+
+    fn agent_path(&self) -> &PathBuf {
+        &self.agent_path
     }
 
     fn backup(&self) -> Result<(), ResourceError> {
@@ -220,7 +228,7 @@ impl ResourceManagerTrait for UnixResourceManager {
 
 #[cfg(unix)]
 impl UnixResourceManager {
-    pub fn new() -> Self {
+    pub fn new(agent_path: impl AsRef<Path>) -> Self {
         let tmp_path = if PathBuf::from("/home/nodex/tmp").exists() {
             PathBuf::from("/home/nodex/tmp")
         } else if PathBuf::from("/tmp/nodex").exists() || fs::create_dir_all("/tmp/nodex").is_ok() {
@@ -229,7 +237,10 @@ impl UnixResourceManager {
             PathBuf::from("/tmp")
         };
 
-        Self { tmp_path }
+        Self {
+            tmp_path,
+            agent_path: agent_path.as_ref().into(),
+        }
     }
 
     fn generate_metadata(
@@ -418,13 +429,6 @@ impl UnixResourceManager {
             }
         }
         Ok(())
-    }
-}
-
-#[cfg(unix)]
-impl Default for UnixResourceManager {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

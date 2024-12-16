@@ -145,11 +145,10 @@ where
     while start.elapsed() < timeout {
         interval_timer.tick().await;
 
-        let version = agent_manager.get_version().await
-            .map_err(|e| {
-                log::error!("Error occurred during version check: {}", e);
-                UpdateError::AgentVersionCheckFailed(e.to_string())
-            })?;
+        let version = agent_manager.get_version().await.map_err(|e| {
+            log::error!("Error occurred during version check: {}", e);
+            UpdateError::AgentVersionCheckFailed(e.to_string())
+        })?;
 
         if version == expected_version.to_string() {
             log::info!("Expected version received: {}", expected_version);

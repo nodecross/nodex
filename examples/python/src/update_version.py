@@ -11,7 +11,6 @@ else:
 payload = {
     "message": {
         "binary_url": "http://localhost:9000/nodex-agent.zip",
-        "path": "/tmp/nodex",
     }
 }
 

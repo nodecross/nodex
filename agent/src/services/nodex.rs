@@ -17,6 +17,8 @@ use std::{
     process::Command,
 };
 
+use controller::validator::storage::check_storage;
+
 #[cfg(unix)]
 mod unix_imports {
     pub use controller::managers::resource::UnixResourceManager;
@@ -89,51 +91,45 @@ impl NodeX {
         Ok(res)
     }
 
-    pub async fn update_version(
-        &self,
-        binary_url: &str,
-        output_path: PathBuf,
-    ) -> anyhow::Result<()> {
-        #[cfg(unix)]
-        let agent_filename = { "nodex-agent" };
+    pub async fn update_version(&self, binary_url: &str) -> anyhow::Result<()> {
         #[cfg(windows)]
-        let agent_filename = { "nodex-agent.exe" };
-        let agent_path = output_path.join(agent_filename);
-        if PathBuf::from(&agent_path).exists() {
-            fs::remove_file(&agent_path)?;
+        {
+            let resource_manager = WindowsResourceManager::new();
+            self.run_agent(&agent_path)?;
         }
 
         #[cfg(unix)]
-        let resource_manager = UnixResourceManager::new();
-        #[cfg(windows)]
-        let resource_manager = WindowsResourceManager::new();
-
-        resource_manager
-            .download_update_resources(binary_url, Some(&output_path))
-            .await
-            .map_err(|e| anyhow::anyhow!(e))?;
-
-        #[cfg(unix)]
         {
-            resource_manager.backup().map_err(|e| {
-                log::error!("Failed to backup: {}", e);
-                anyhow::anyhow!(e)
-            })?;
-
             let len = std::env::var("MMAP_SIZE")
                 .ok()
                 .and_then(|x| x.parse::<usize>().ok())
                 .ok_or(anyhow::anyhow!("Incompatible size"))?;
             let len = core::num::NonZero::new(len).ok_or(anyhow::anyhow!("Incompatible size"))?;
-            let handler = MmapHandler::new("runtime_info", len)?;
+            let handler = MmapHandler::new("nodex_runtime_info", len)?;
             let mut runtime_manager = RuntimeManager::new(handler)?;
+            let agent_path = &runtime_manager.read_runtime_info()?.exec_path;
+            let output_path = agent_path
+                .parent()
+                .ok_or(anyhow::anyhow!("Failed to get path of parent directory"))?;
+            if !check_storage(output_path) {
+                log::error!("Not enough storage space: {:?}", output_path);
+                anyhow::bail!("Not enough storage space");
+            }
+            let resource_manager = UnixResourceManager::new(agent_path);
+
+            resource_manager.backup().map_err(|e| {
+                log::error!("Failed to backup: {}", e);
+                anyhow::anyhow!(e)
+            })?;
+
+            resource_manager
+                .download_update_resources(binary_url, Some(output_path))
+                .await
+                .map_err(|e| anyhow::anyhow!(e))?;
 
             runtime_manager.run_controller(&agent_path)?;
             runtime_manager.update_state(State::Update)?;
         }
-
-        #[cfg(windows)]
-        self.run_agent(&agent_path)?;
 
         Ok(())
     }

@@ -2,7 +2,7 @@ use crate::config::get_config;
 use crate::managers::agent::AgentManagerTrait;
 use crate::managers::mmap_storage::MmapHandler;
 use crate::managers::runtime::{
-    FeatType, ProcessInfo, RuntimeError, RuntimeInfoStorage, RuntimeManager
+    FeatType, ProcessInfo, RuntimeError, RuntimeInfoStorage, RuntimeManager,
 };
 use crate::state::handler::handle_state;
 use std::path::PathBuf;
@@ -32,10 +32,8 @@ pub mod validator;
 
 #[tokio::main]
 pub async fn run() -> std::io::Result<()> {
-    dbg!(std::env::current_exe());
     let runtime_manager = initialize_runtime_manager().expect("Failed to create RuntimeManager");
-
-    {
+    let agent_path = {
         let mut _runtime_manager = runtime_manager.lock().await;
         let process_infos = _runtime_manager
             .get_process_infos()
@@ -54,13 +52,18 @@ pub async fn run() -> std::io::Result<()> {
         }
         on_controller_started(&mut _runtime_manager)
             .expect("Failed to record controller start in runtime manager");
-    }
+
+        _runtime_manager
+            .read_runtime_info()
+            .expect("Failed to read runtime_info")
+            .exec_path
+    };
 
     let uds_path = get_config().lock().unwrap().uds_path.clone();
 
     #[cfg(unix)]
     let agent_manager = Arc::new(Mutex::new(
-        UnixAgentManager::new(uds_path).expect("Failed to create AgentManager"),
+        UnixAgentManager::new(uds_path, agent_path).expect("Failed to create AgentManager"),
     ));
 
     #[cfg(windows)]
@@ -112,7 +115,7 @@ async fn state_monitoring_worker<A, H>(
 }
 
 fn initialize_runtime_manager() -> Result<Arc<Mutex<RuntimeManager<MmapHandler>>>, RuntimeError> {
-    let handler = MmapHandler::new("runtime_info", core::num::NonZero::new(10000).unwrap())?;
+    let handler = MmapHandler::new("nodex_runtime_info", core::num::NonZero::new(10000).unwrap())?;
     std::env::set_var("MMAP_SIZE", 10000.to_string());
     Ok(Arc::new(Mutex::new(RuntimeManager::new(handler)?)))
 }

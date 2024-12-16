@@ -33,13 +33,14 @@ where
     A: AgentManagerTrait + Sync + Send,
     H: RuntimeInfoStorage + Sync + Send,
 {
+    let mut runtime_manager = runtime_manager.lock().await;
+    let agent_manager = agent_manager.lock().await;
+
+    let agent_path = runtime_manager.read_runtime_info()?.exec_path;
     #[cfg(unix)]
-    let resource_manager = UnixResourceManager::new();
+    let resource_manager = UnixResourceManager::new(agent_path);
     #[cfg(windows)]
     let resource_manager = WindowsResourceManager::new();
-
-    let agent_manager = agent_manager.lock().await;
-    let mut runtime_manager = runtime_manager.lock().await;
 
     match state {
         State::Update => {

@@ -1,12 +1,12 @@
-use serde::Deserialize;
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full};
 use hyper::{body::Incoming, Response};
 use hyper_util::client::legacy::{Client, Error as LegacyClientError};
 use serde::de::DeserializeOwned;
+use serde::Deserialize;
 use std::{
     env,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
@@ -29,6 +29,11 @@ use unix_imports::*;
 
 use crate::managers::runtime::{FeatType, ProcessInfo};
 use crate::validator::process::{is_manage_by_systemd, is_manage_socket_activation};
+
+#[derive(Debug, Deserialize)]
+struct VersionResponse {
+    pub version: String,
+}
 
 #[cfg(unix)]
 static DEFAULT_FD: RawFd = 3;
@@ -83,57 +88,16 @@ pub trait AgentManagerTrait {
 #[cfg(unix)]
 pub struct UnixAgentManager {
     uds_path: PathBuf,
+    agent_path: PathBuf,
     listener_fd: RawFd,
     #[allow(dead_code)]
     listener: Option<Arc<Mutex<UnixListener>>>,
 }
 
-impl UnixAgentManager {
-    async fn parse_response_body<T>(
-        &self,
-        response: Response<Incoming>,
-    ) -> Result<T, AgentManagerError>
-    where
-        T: DeserializeOwned,
-    {
-        let collected_body = response
-            .into_body()
-            .collect()
-            .await
-            .map_err(|e| AgentManagerError::CollectBodyError(e.to_string()))?;
-
-        let bytes = collected_body.to_bytes();
-        let string_body =
-            std::str::from_utf8(bytes.as_ref()).map_err(AgentManagerError::Utf8Error)?;
-
-        serde_json::from_str(string_body).map_err(AgentManagerError::JsonParseError)
-    }
-
-    async fn get_request<T>(&self, endpoint: &str) -> Result<T, AgentManagerError>
-    where
-        T: serde::de::DeserializeOwned + Send,
-    {
-        let client: Client<UnixConnector, Full<Bytes>> = Client::unix();
-        let uri = Uri::new(&self.uds_path, endpoint).into();
-
-        let response: Response<Incoming> = client.get(uri).await?;
-
-        self.parse_response_body(response).await
-    }
-
-}
-
-#[derive(Debug, Deserialize)]
-struct VersionResponse {
-    pub version: String,
-}
-
 #[cfg(unix)]
 impl AgentManagerTrait for UnixAgentManager {
     fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {
-        dbg!(env::current_exe());
-        let current_exe =
-            env::current_exe().map_err(AgentManagerError::CurrentExecutablePathError)?;
+        let current_exe = &self.agent_path;
 
         match unsafe { fork() } {
             Ok(ForkResult::Parent { child }) => {
@@ -182,8 +146,7 @@ impl AgentManagerTrait for UnixAgentManager {
     }
 
     async fn get_version(&self) -> Result<String, AgentManagerError> {
-        let version_response: VersionResponse =
-            self.get_request("/internal/version/get").await?;
+        let version_response: VersionResponse = self.get_request("/internal/version/get").await?;
 
         Ok(version_response.version)
     }
@@ -207,17 +170,54 @@ impl AgentManagerTrait for UnixAgentManager {
 
 #[cfg(unix)]
 impl UnixAgentManager {
-    pub fn new(uds_path: PathBuf) -> Result<Self, AgentManagerError> {
-        let (listener_fd, listener) = Self::setup_listener(&uds_path).map_err(|e| {
-            log::error!("Error initializing listener: {}", e);
-            AgentManagerError::FailedInitialize
-        })?;
+    pub fn new(
+        uds_path: impl AsRef<Path>,
+        agent_path: impl AsRef<Path>,
+    ) -> Result<Self, AgentManagerError> {
+        let (listener_fd, listener) =
+            Self::setup_listener(&uds_path.as_ref().into()).map_err(|e| {
+                log::error!("Error initializing listener: {}", e);
+                AgentManagerError::FailedInitialize
+            })?;
 
         Ok(UnixAgentManager {
-            uds_path,
+            uds_path: uds_path.as_ref().into(),
+            agent_path: agent_path.as_ref().into(),
             listener_fd,
             listener,
         })
+    }
+
+    async fn parse_response_body<T>(
+        &self,
+        response: Response<Incoming>,
+    ) -> Result<T, AgentManagerError>
+    where
+        T: DeserializeOwned,
+    {
+        let collected_body = response
+            .into_body()
+            .collect()
+            .await
+            .map_err(|e| AgentManagerError::CollectBodyError(e.to_string()))?;
+
+        let bytes = collected_body.to_bytes();
+        let string_body =
+            std::str::from_utf8(bytes.as_ref()).map_err(AgentManagerError::Utf8Error)?;
+
+        serde_json::from_str(string_body).map_err(AgentManagerError::JsonParseError)
+    }
+
+    async fn get_request<T>(&self, endpoint: &str) -> Result<T, AgentManagerError>
+    where
+        T: serde::de::DeserializeOwned + Send,
+    {
+        let client: Client<UnixConnector, Full<Bytes>> = Client::unix();
+        let uri = Uri::new(&self.uds_path, endpoint).into();
+
+        let response: Response<Incoming> = client.get(uri).await?;
+
+        self.parse_response_body(response).await
     }
 
     fn setup_listener(
