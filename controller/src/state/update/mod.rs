@@ -396,7 +396,7 @@ mod tests {
                         .with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap()),
                 },
                 ProcessInfo {
-                    process_id: 1,
+                    process_id: 3,
                     feat_type: FeatType::Agent,
                     version: "1.0.0".to_string(),
                     executed_at: Utc::now()
@@ -417,8 +417,16 @@ mod tests {
         let state: UpdateState<'_, MockAgentManager, MockResourceManager> =
             UpdateState::new(&agent, resource, &runtime);
         let result = state.execute().await;
-
         assert!(result.is_ok(), "Update should succeed");
+        
+        let runtime_info = runtime.get_process_infos().unwrap();
+        assert_eq!(runtime_info.len(), 2);
+        assert_eq!(runtime_info[0].process_id, 2);
+        assert_eq!(runtime_info[0].feat_type, FeatType::Controller);
+        assert_eq!(runtime_info[0].version, current_version.to_string());
+        assert_eq!(runtime_info[1].process_id, 1);
+        assert_eq!(runtime_info[1].feat_type, FeatType::Agent);
+        assert_eq!(runtime_info[1].version, current_version.to_string());
     }
 
     fn create_test_file(path: &str, content: &str) -> std::io::Result<()> {
@@ -470,7 +478,7 @@ mod tests {
                         .with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap()),
                 },
                 ProcessInfo {
-                    process_id: 1,
+                    process_id: 3,
                     feat_type: FeatType::Agent,
                     version: "1.0.0".to_string(),
                     executed_at: Utc::now()

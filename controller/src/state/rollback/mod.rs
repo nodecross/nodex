@@ -80,18 +80,17 @@ where
     }
 }
 
-
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use crate::managers::{
         agent::AgentManagerTrait,
-        resource::{ResourceManagerTrait, ResourceError},
-        runtime::{RuntimeManager, ProcessInfo, FeatType, FileHandler, State},
+        resource::{ResourceError, ResourceManagerTrait},
+        runtime::{FeatType, FileHandler, ProcessInfo, RuntimeManager, State},
     };
-    use tempfile::{tempdir, NamedTempFile};
     use std::path::PathBuf;
     use std::sync::Arc;
+    use tempfile::tempdir;
     use tokio::sync::Mutex;
 
     struct MockAgentManager;
@@ -160,7 +159,11 @@ mod tests {
             self.backup_file.clone()
         }
 
-        fn extract_zip(&self, _archive_data: bytes::Bytes, _output_path: &std::path::Path) -> Result<(), ResourceError> {
+        fn extract_zip(
+            &self,
+            _archive_data: bytes::Bytes,
+            _output_path: &std::path::Path,
+        ) -> Result<(), ResourceError> {
             unimplemented!()
         }
 
@@ -181,15 +184,17 @@ mod tests {
         let temp_dir = tempdir().expect("Failed to create temporary directory");
         let backup_file = temp_dir.path().join("backup.tar.gz");
         let resource = MockResourceManager::new(Some(backup_file));
-        
+
         let temp_file_path = temp_dir.path().join("runtime_info.json");
         let file_handler = FileHandler::new(temp_file_path.clone());
-        let runtime= RuntimeManager::new(file_handler);
-
+        let runtime = RuntimeManager::new(file_handler);
 
         let state = RollbackState::new(&agent, &resource, &runtime);
         let result = state.execute().await;
         assert!(result.is_ok());
+
+        let state = runtime.get_state().unwrap();
+        assert_eq!(state, State::Default);
 
         {
             let rollback_called = *resource.rollback_called.lock().unwrap();
@@ -199,7 +204,11 @@ mod tests {
         }
 
         {
-            assert_eq!(runtime.get_state().unwrap(), State::Default, "update_state should be called with State::Default");
+            assert_eq!(
+                runtime.get_state().unwrap(),
+                State::Default,
+                "update_state should be called with State::Default"
+            );
         }
     }
 
@@ -210,14 +219,14 @@ mod tests {
         let temp_dir = tempdir().expect("Failed to create temporary directory");
         let temp_file_path = temp_dir.path().join("runtime_info.json");
         let file_handler = FileHandler::new(temp_file_path.clone());
-        let runtime= RuntimeManager::new(file_handler);
+        let runtime = RuntimeManager::new(file_handler);
 
         let state = RollbackState::new(&agent, &resource, &runtime);
         let result = state.execute().await;
         assert!(result.is_err());
 
         match result {
-            Err(RollbackError::BackupNotFound) => {},
+            Err(RollbackError::BackupNotFound) => {}
             _ => panic!("Should return BackupNotFound error"),
         }
     }
