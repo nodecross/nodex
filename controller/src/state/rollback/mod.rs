@@ -66,12 +66,12 @@ where
                 log::info!("Rollback completed");
 
                 log::info!("Restarting controller by SIGINT");
-                // #[cfg(unix)]
-                // {
-                //     let current_pid = std::process::id();
-                //     signal::kill(Pid::from_raw(current_pid as i32), Signal::SIGINT)
-                //         .map_err(|e| RollbackError::FailedKillOwnProcess(e.to_string()))?;
-                // }
+                #[cfg(all(unix, not(test)))] // failed test by kill own process
+                {
+                    let current_pid = std::process::id();
+                    signal::kill(Pid::from_raw(current_pid as i32), Signal::SIGINT)
+                        .map_err(|e| RollbackError::FailedKillOwnProcess(e.to_string()))?;
+                }
 
                 Ok(())
             }
