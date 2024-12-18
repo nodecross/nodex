@@ -9,10 +9,12 @@ pub struct MessageContainer {
     message: Value,
 }
 
-pub async fn handler(Json(_): Json<MessageContainer>) -> Result<(), AgentErrorCode> {
+pub async fn handler(
+    Json(_): Json<MessageContainer>,
+) -> Result<Json<&'static str>, AgentErrorCode> {
     let studio = Studio::new();
     match studio.network().await {
-        Ok(_) => Ok(()),
+        Ok(_) => Ok(Json("ok")),
         Err(e) => {
             log::error!("{:?}", e);
             Err(AgentErrorCode::NetworkInternal)?
