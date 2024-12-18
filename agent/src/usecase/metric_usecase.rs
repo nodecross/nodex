@@ -4,6 +4,7 @@ use crate::repository::metric_repository::{
 };
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Notify;
+use tokio_util::sync::CancellationToken;
 
 pub struct MetricUsecase<S, W, C>
 where
@@ -15,7 +16,7 @@ where
     watch_repository: W,
     config: Box<SingletonAppConfig>,
     cache_repository: C,
-    shutdown_notify: Arc<Notify>,
+    shutdown_token: CancellationToken,
 }
 
 impl<S, W, C> MetricUsecase<S, W, C>
@@ -29,14 +30,14 @@ where
         watch_repository: W,
         config: Box<SingletonAppConfig>,
         cache_repository: C,
-        shutdown_notify: Arc<Notify>,
+        shutdown_token: CancellationToken,
     ) -> Self {
         MetricUsecase {
             store_repository,
             watch_repository,
             config,
             cache_repository,
-            shutdown_notify,
+            shutdown_token,
         }
     }
 
@@ -52,7 +53,7 @@ where
                     }
                     log::info!("collected metrics");
                 }
-                _ = self.shutdown_notify.notified() => {
+                _ = self.shutdown_token.cancelled() => {
                     break;
                 },
             }
@@ -79,7 +80,7 @@ where
                         Err(e) => log::error!("failed to send metric{:?}", e),
                     }
                 }
-                _ = self.shutdown_notify.notified() => {
+                _ = self.shutdown_token.cancelled() => {
                     break;
                 },
             }

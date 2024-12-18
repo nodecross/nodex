@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use std::{env, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::Notify;
+use tokio_util::sync::CancellationToken;
 
 #[derive(Deserialize)]
 enum OperationType {
@@ -123,7 +124,7 @@ impl MessageReceiveUsecase {
     }
 }
 
-pub async fn polling_task(shutdown_notify: Arc<Notify>) {
+pub async fn polling_task(shutdown_token: CancellationToken) {
     log::info!("Polling task is started");
 
     let usecase = MessageReceiveUsecase::new();
@@ -137,7 +138,7 @@ pub async fn polling_task(shutdown_notify: Arc<Notify>) {
                     Err(e) => log::error!("Error: {:?}", e),
                 }
             }
-            _ = shutdown_notify.notified() => {
+            _ = shutdown_token.cancelled() => {
                 break;
             },
         }

@@ -7,7 +7,7 @@ use anyhow;
 use controller::managers::{
     mmap_storage::MmapHandler,
     resource::ResourceManagerTrait,
-    runtime::{FeatType, FileHandler, RuntimeInfoStorage, RuntimeManager, State},
+    runtime::{FeatType, RuntimeInfoStorage, RuntimeManager, State},
 };
 use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
 use protocol::did::sidetree::payload::DidResolutionResponse;

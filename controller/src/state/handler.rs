@@ -34,7 +34,7 @@ where
     H: RuntimeInfoStorage + Sync + Send,
 {
     let mut runtime_manager = runtime_manager.lock().await;
-    let agent_manager = agent_manager.lock().await;
+    let mut agent_manager = agent_manager.lock().await;
 
     let agent_path = runtime_manager.read_runtime_info()?.exec_path;
     #[cfg(unix)]
@@ -44,7 +44,12 @@ where
 
     match state {
         State::Update => {
-            update::execute(&*agent_manager, &resource_manager, &mut *runtime_manager).await?;
+            update::execute(
+                &mut *agent_manager,
+                &resource_manager,
+                &mut *runtime_manager,
+            )
+            .await?;
             // ERASE: test for rollback
             // runtime_manager.update_state(crate::managers::runtime::State::Rollback)?;
         }
@@ -52,7 +57,12 @@ where
             rollback::execute(&*agent_manager, &resource_manager, &mut *runtime_manager).await?;
         }
         State::Init => {
-            init::execute(&*agent_manager, &resource_manager, &mut *runtime_manager).await?;
+            init::execute(
+                &mut *agent_manager,
+                &resource_manager,
+                &mut *runtime_manager,
+            )
+            .await?;
         }
         State::Idle => {
             log::info!("No state change required.");

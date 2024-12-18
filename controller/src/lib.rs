@@ -5,7 +5,7 @@ use crate::managers::runtime::{
     FeatType, ProcessInfo, RuntimeError, RuntimeInfoStorage, RuntimeManager,
 };
 use crate::state::handler::handle_state;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -30,46 +30,61 @@ pub mod managers;
 pub mod state;
 pub mod validator;
 
+pub fn convention_of_meta_uds_path(uds: impl AsRef<Path>) -> std::io::Result<PathBuf> {
+    let parent = uds.as_ref().parent().ok_or(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "Failed to get path of unix domain socket",
+    ))?;
+    let base_name =
+        uds.as_ref()
+            .file_name()
+            .and_then(|x| x.to_str())
+            .ok_or(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "Failed to get path of unix domain socket",
+            ))?;
+    Ok(parent.join(format!("meta_{}", base_name)).into())
+}
+
 #[tokio::main]
 pub async fn run() -> std::io::Result<()> {
-    let runtime_manager = initialize_runtime_manager().expect("Failed to create RuntimeManager");
-    let agent_path = {
-        let mut _runtime_manager = runtime_manager.lock().await;
-        let process_infos = _runtime_manager
-            .get_process_infos()
-            .expect("Failed to read runtime_info");
+    let mut runtime_manager =
+        initialize_runtime_manager().expect("Failed to create RuntimeManager");
+    let process_infos = runtime_manager
+        .get_process_infos()
+        .expect("Failed to read runtime_info");
 
-        let controller_processes = process_infos
-            .iter()
-            .filter(|process_info| {
-                _runtime_manager.is_running_or_remove_if_stopped(process_info)
-                    && process_info.feat_type == FeatType::Controller
-            })
-            .collect::<Vec<&ProcessInfo>>();
-        if !controller_processes.is_empty() {
-            log::error!("Controller already running");
-            return Ok(());
-        }
-        on_controller_started(&mut _runtime_manager)
-            .expect("Failed to record controller start in runtime manager");
-
-        _runtime_manager
-            .read_runtime_info()
-            .expect("Failed to read runtime_info")
-            .exec_path
-    };
-
-    let uds_path = get_config().lock().unwrap().uds_path.clone();
+    let controller_processes = process_infos
+        .iter()
+        .filter(|process_info| {
+            runtime_manager.is_running_or_remove_if_stopped(process_info)
+                && process_info.feat_type == FeatType::Controller
+        })
+        .collect::<Vec<&ProcessInfo>>();
+    if !controller_processes.is_empty() {
+        log::error!("Controller already running");
+        return Ok(());
+    }
+    on_controller_started(&mut runtime_manager)
+        .expect("Failed to record controller start in runtime manager");
 
     #[cfg(unix)]
-    let agent_manager = Arc::new(Mutex::new(
-        UnixAgentManager::new(uds_path, agent_path).expect("Failed to create AgentManager"),
-    ));
+    let agent_manager = {
+        let uds_path = get_config().lock().unwrap().uds_path.clone();
+        let meta_uds_path = convention_of_meta_uds_path(&uds_path)?;
+        Arc::new(Mutex::new(UnixAgentManager::new(
+            uds_path,
+            meta_uds_path,
+            initialize_runtime_manager().expect("Failed to create RuntimeManager"),
+        )))
+    };
 
     #[cfg(windows)]
     let agent_manager = Arc::new(Mutex::new(
         WindowsAgentManager::new().expect("Failed to create AgentManager"),
     ));
+
+    let runtime_manager = Arc::new(Mutex::new(runtime_manager));
 
     let shutdown_handle = tokio::spawn({
         let agent_manager = agent_manager.clone();
@@ -114,10 +129,13 @@ async fn state_monitoring_worker<A, H>(
     });
 }
 
-fn initialize_runtime_manager() -> Result<Arc<Mutex<RuntimeManager<MmapHandler>>>, RuntimeError> {
-    let handler = MmapHandler::new("nodex_runtime_info", core::num::NonZero::new(10000).unwrap())?;
+fn initialize_runtime_manager() -> Result<RuntimeManager<MmapHandler>, RuntimeError> {
+    let handler = MmapHandler::new(
+        "nodex_runtime_info",
+        core::num::NonZero::new(10000).unwrap(),
+    )?;
     std::env::set_var("MMAP_SIZE", 10000.to_string());
-    Ok(Arc::new(Mutex::new(RuntimeManager::new(handler)?)))
+    Ok(RuntimeManager::new(handler)?)
 }
 
 #[allow(dead_code)]
@@ -203,15 +221,14 @@ where
     for process_info in process_infos.iter() {
         if process_info.process_id != current_pid {
             log::info!("Terminating process with PID: {}", process_info.process_id);
-            let manager = agent_manager.lock().await;
+            let mut manager = agent_manager.lock().await;
             manager
                 .terminate_agent(process_info.process_id)
                 .map_err(|e| e.to_string())?;
         }
-        runtime_manager
-            .remove_process_info(process_info.process_id)
-            .map_err(|e| e.to_string())?;
     }
+
+    runtime_manager.cleanup().map_err(|e| e.to_string())?;
 
     let manager = agent_manager.lock().await;
     manager.cleanup().map_err(|e| e.to_string())?;

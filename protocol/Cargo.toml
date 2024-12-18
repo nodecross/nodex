@@ -25,5 +25,5 @@ x25519-dalek = { workspace = true }
 zeroize = { workspace = true }
 
 [dev-dependencies]
-actix-rt = { workspace = true }
 rand = "0.8.5"
+tokio = { version = "1.42.0", features = ["full"] }

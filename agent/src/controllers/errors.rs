@@ -1,10 +1,9 @@
-use actix_web::HttpResponse;
-use actix_web::{error, http::StatusCode};
-use serde::Serialize;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use std::convert::From;
 use thiserror::Error;
 
-#[derive(Serialize, Clone, Copy, Debug, Error)]
+#[derive(Clone, Copy, Debug, Error)]
 pub enum AgentErrorCode {
     #[error("binary_url is required")]
     VersionNoBinaryUrl = 1001,
@@ -111,60 +110,30 @@ pub enum AgentErrorCode {
     MessageActivityConflict = 6001,
 }
 
-#[derive(Serialize, Debug)]
-pub struct AgentError {
-    code: u16,
-    message: String,
-}
-
-impl std::fmt::Display for AgentError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "code: {}, message: {}", self.code, self.message)
-    }
-}
-
-impl AgentError {
-    pub fn new(code: AgentErrorCode) -> Self {
-        Self {
-            code: code as u16,
-            message: format!("{}", code),
-        }
-    }
-}
-impl From<&AgentError> for HttpResponse {
-    fn from(error: &AgentError) -> Self {
-        let code = error.code;
-        if (1000..2000).contains(&code) {
-            HttpResponse::BadRequest().json(error)
-        } else if (2000..3000).contains(&code) {
-            HttpResponse::Forbidden().json(error)
-        } else if (3000..4000).contains(&code) {
-            HttpResponse::Unauthorized().json(error)
-        } else if (4000..5000).contains(&code) {
-            HttpResponse::NotFound().json(error)
-        } else if (5000..6000).contains(&code) {
-            HttpResponse::InternalServerError().json(error)
-        } else if (6000..6100).contains(&code) {
-            HttpResponse::Conflict().json(error)
-        } else {
-            HttpResponse::InternalServerError().json(error)
-        }
-    }
-}
-
-impl From<AgentErrorCode> for AgentError {
+impl From<AgentErrorCode> for StatusCode {
     fn from(code: AgentErrorCode) -> Self {
-        AgentError::new(code)
+        let code = code as u16;
+        if (1000..2000).contains(&code) {
+            StatusCode::BAD_REQUEST
+        } else if (2000..3000).contains(&code) {
+            StatusCode::FORBIDDEN
+        } else if (3000..4000).contains(&code) {
+            StatusCode::UNAUTHORIZED
+        } else if (4000..5000).contains(&code) {
+            StatusCode::NOT_FOUND
+        } else if (5000..6000).contains(&code) {
+            StatusCode::INTERNAL_SERVER_ERROR
+        } else if (6000..6100).contains(&code) {
+            StatusCode::CONFLICT
+        } else {
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
     }
 }
 
-impl error::ResponseError for AgentError {
-    fn error_response(&self) -> HttpResponse {
-        self.into()
-    }
-
-    fn status_code(&self) -> StatusCode {
-        let res: HttpResponse = self.into();
-        res.status()
+impl IntoResponse for AgentErrorCode {
+    fn into_response(self) -> Response {
+        let code: StatusCode = self.into();
+        (code, format!("{}", self)).into_response()
     }
 }

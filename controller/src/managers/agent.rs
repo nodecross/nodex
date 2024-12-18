@@ -1,13 +1,15 @@
+use super::runtime::{RuntimeError, RuntimeInfoStorage, RuntimeManager};
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full};
 use hyper::{body::Incoming, Response};
 use hyper_util::client::legacy::{Client, Error as LegacyClientError};
+use notify::event::{AccessKind, AccessMode, CreateKind};
+use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use std::{
     env,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
 };
 
 #[cfg(unix)]
@@ -15,13 +17,12 @@ mod unix_imports {
     pub use hyperlocal::{UnixClientExt, UnixConnector, Uri};
     pub use nix::{
         sys::signal::{self, Signal},
-        unistd::{dup, execvp, fork, setsid, ForkResult, Pid},
+        sys::socket::{recvmsg, sendmsg, ControlMessage, ControlMessageOwned, MsgFlags},
+        unistd::{execvp, fork, setsid, ForkResult, Pid},
     };
     pub use std::ffi::CString;
-    pub use std::os::unix::{
-        io::{AsRawFd, FromRawFd, RawFd},
-        net::UnixListener,
-    };
+    pub use std::io::{IoSlice, IoSliceMut};
+    pub use std::os::unix::io::{AsRawFd, RawFd};
 }
 
 #[cfg(unix)]
@@ -56,6 +57,8 @@ pub enum AgentManagerError {
     NoFileDescriptors,
     #[error("Failed to bind UDS: {0}")]
     BindUdsError(#[source] std::io::Error),
+    #[error("Failed to watch UDS: {0}")]
+    WatchUdsError(#[source] notify::Error),
     #[cfg(unix)]
     #[error("Failed to duplicate file descriptor: {0}")]
     DuplicateFdError(#[source] nix::Error),
@@ -72,13 +75,15 @@ pub enum AgentManagerError {
     CollectBodyError(String),
     #[error("Failed to convert body to string: {0}")]
     Utf8Error(#[source] std::str::Utf8Error),
+    #[error("Failed to use runtime: {0}")]
+    Runtime(#[from] RuntimeError),
 }
 
 #[trait_variant::make(Send)]
 pub trait AgentManagerTrait {
-    fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError>;
+    fn launch_agent(&mut self, is_first: bool) -> Result<ProcessInfo, AgentManagerError>;
 
-    fn terminate_agent(&self, process_id: u32) -> Result<(), AgentManagerError>;
+    fn terminate_agent(&mut self, process_id: u32) -> Result<(), AgentManagerError>;
 
     async fn get_version(&self) -> Result<String, AgentManagerError>;
 
@@ -86,21 +91,136 @@ pub trait AgentManagerTrait {
 }
 
 #[cfg(unix)]
-pub struct UnixAgentManager {
+pub struct UnixAgentManager<H: RuntimeInfoStorage> {
     uds_path: PathBuf,
-    agent_path: PathBuf,
-    listener_fd: RawFd,
-    #[allow(dead_code)]
-    listener: Option<Arc<Mutex<UnixListener>>>,
+    meta_uds_path: PathBuf,
+    runtime_manager: RuntimeManager<H>,
 }
 
 #[cfg(unix)]
-impl AgentManagerTrait for UnixAgentManager {
-    fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {
-        let current_exe = &self.agent_path;
+pub fn send_fd(tx: RawFd, fd: Option<RawFd>) -> nix::Result<()> {
+    match fd {
+        Some(fd) => {
+            let iov = [IoSlice::new(&[0u8; 1])];
+            let fds = [fd];
+            let cmsg = ControlMessage::ScmRights(&fds);
+            sendmsg::<()>(tx, &iov, &[cmsg], MsgFlags::empty(), None)?;
+        }
+        None => {
+            let iov = [IoSlice::new(&[1u8; 1])];
+            let fds = [];
+            let cmsg = ControlMessage::ScmRights(&fds);
+            sendmsg::<()>(tx, &iov, &[cmsg], MsgFlags::empty(), None)?;
+        }
+    };
+    Ok(())
+}
+
+#[cfg(unix)]
+pub fn recv_fd(socket: RawFd) -> nix::Result<Option<RawFd>> {
+    let mut buf = [0u8; 1];
+    let mut iov = [IoSliceMut::new(&mut buf)];
+    let mut space = nix::cmsg_space!([RawFd; 1]);
+    let msg = recvmsg::<()>(socket, &mut iov, Some(&mut space), MsgFlags::empty())?;
+    let buf = msg.iovs().next().ok_or(nix::errno::Errno::ENOENT)?;
+    let is_some = !buf.is_empty() && buf[0] == 1;
+    if is_some {
+        return Ok(None);
+    } else {
+        let cmsg = msg.cmsgs()?.next().ok_or(nix::errno::Errno::ENOENT)?;
+        if let ControlMessageOwned::ScmRights(fds) = cmsg {
+            if !fds.is_empty() {
+                return Ok(Some(fds[0]));
+            }
+        }
+    }
+    Err(nix::Error::ENOENT)
+}
+
+pub fn wait_until_file_created(path: impl AsRef<Path>) -> notify::Result<()> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
+    let dir = path
+        .as_ref()
+        .parent()
+        .ok_or(notify::Error::io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Failed to get parent of watching path",
+        )))?;
+    watcher.watch(dir.as_ref(), RecursiveMode::NonRecursive)?;
+    let path = path.as_ref().to_path_buf();
+    if !path.exists() {
+        for res in rx {
+            match res? {
+                Event {
+                    kind: EventKind::Access(AccessKind::Close(AccessMode::Write)),
+                    paths,
+                    ..
+                }
+                | Event {
+                    kind: EventKind::Create(CreateKind::File),
+                    paths,
+                    ..
+                } if paths.contains(&path) => return Ok(()),
+                _ => continue,
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+impl<H: RuntimeInfoStorage + Send + Sync> AgentManagerTrait for UnixAgentManager<H> {
+    fn launch_agent(&mut self, is_first: bool) -> Result<ProcessInfo, AgentManagerError> {
+        if is_first {
+            if self.uds_path.exists() {
+                log::warn!("UDS file already exists, removing: {:?}", self.uds_path);
+                std::fs::remove_file(&self.uds_path).map_err(AgentManagerError::BindUdsError)?;
+            }
+            if self.meta_uds_path.exists() {
+                log::warn!(
+                    "UDS file already exists, removing: {:?}",
+                    self.meta_uds_path
+                );
+                std::fs::remove_file(&self.meta_uds_path)
+                    .map_err(AgentManagerError::BindUdsError)?;
+            }
+        }
+        let runtime_info = self.runtime_manager.read_runtime_info()?;
+        let current_exe = &runtime_info.exec_path;
+        let cmd = CString::new(current_exe.to_string_lossy().as_ref()).map_err(|e| {
+            AgentManagerError::ForkAgentError(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                e,
+            ))
+        })?;
+        let args = vec![cmd.clone()];
 
         match unsafe { fork() } {
             Ok(ForkResult::Parent { child }) => {
+                if is_first {
+                    // let listener = self.setup_listener()?;
+                    let listener = if is_manage_by_systemd() && is_manage_socket_activation() {
+                        Some(Self::get_fd_from_systemd()?)
+                    } else {
+                        None
+                    };
+                    let () = wait_until_file_created(&self.meta_uds_path)
+                        .map_err(AgentManagerError::WatchUdsError)?;
+
+                    // dbg!("test3");
+
+                    let stream = std::os::unix::net::UnixStream::connect(&self.meta_uds_path)
+                        .map_err(AgentManagerError::BindUdsError)?;
+
+                    // dbg!("test5");
+                    // let _ready = stream.ready(tokio::io::Interest::WRITABLE).await
+                    //     .map_err(AgentManagerError::BindUdsError)?;
+
+                    send_fd(stream.as_raw_fd(), listener)
+                        .map_err(|e| AgentManagerError::BindUdsError(e.into()))?;
+                    // dbg!("test76");
+                }
                 let process_info = ProcessInfo::new(
                     child.as_raw().try_into().map_err(|_| {
                         AgentManagerError::ForkAgentError(std::io::Error::new(
@@ -119,16 +239,6 @@ impl AgentManagerTrait for UnixAgentManager {
                         e,
                     ))
                 })?;
-
-                let cmd = CString::new(current_exe.to_string_lossy().as_ref()).map_err(|e| {
-                    AgentManagerError::ForkAgentError(std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        e,
-                    ))
-                })?;
-                let args = vec![cmd.clone()];
-
-                std::env::set_var("LISTENER_FD", self.listener_fd.to_string());
 
                 execvp(&cmd, &args).map_err(|e| {
                     AgentManagerError::ForkAgentError(std::io::Error::new(
@@ -151,11 +261,13 @@ impl AgentManagerTrait for UnixAgentManager {
         Ok(version_response.version)
     }
 
-    fn terminate_agent(&self, process_id: u32) -> Result<(), AgentManagerError> {
+    fn terminate_agent(&mut self, process_id: u32) -> Result<(), AgentManagerError> {
         log::info!("Terminating agent with PID: {}", process_id);
 
         signal::kill(Pid::from_raw(process_id as i32), Signal::SIGTERM)
             .map_err(AgentManagerError::TerminateProcessError)?;
+
+        self.runtime_manager.remove_process_info(process_id)?;
 
         Ok(())
     }
@@ -169,23 +281,17 @@ impl AgentManagerTrait for UnixAgentManager {
 }
 
 #[cfg(unix)]
-impl UnixAgentManager {
+impl<H: RuntimeInfoStorage + Send> UnixAgentManager<H> {
     pub fn new(
         uds_path: impl AsRef<Path>,
-        agent_path: impl AsRef<Path>,
-    ) -> Result<Self, AgentManagerError> {
-        let (listener_fd, listener) =
-            Self::setup_listener(&uds_path.as_ref().into()).map_err(|e| {
-                log::error!("Error initializing listener: {}", e);
-                AgentManagerError::FailedInitialize
-            })?;
-
-        Ok(UnixAgentManager {
+        meta_uds_path: impl AsRef<Path>,
+        runtime_manager: RuntimeManager<H>,
+    ) -> Self {
+        UnixAgentManager {
             uds_path: uds_path.as_ref().into(),
-            agent_path: agent_path.as_ref().into(),
-            listener_fd,
-            listener,
-        })
+            meta_uds_path: meta_uds_path.as_ref().into(),
+            runtime_manager,
+        }
     }
 
     async fn parse_response_body<T>(
@@ -220,29 +326,30 @@ impl UnixAgentManager {
         self.parse_response_body(response).await
     }
 
-    fn setup_listener(
-        uds_path: &PathBuf,
-    ) -> Result<(RawFd, Option<Arc<Mutex<UnixListener>>>), AgentManagerError> {
+    fn setup_listener(&self) -> Result<RawFd, AgentManagerError> {
         if is_manage_by_systemd() && is_manage_socket_activation() {
             Self::get_fd_from_systemd()
-        } else if let Ok(listener_fd_str) = env::var("LISTENER_FD") {
-            Self::duplicate_fd(listener_fd_str)
         } else {
-            Self::bind_new_uds(uds_path)
+            if self.uds_path.exists() {
+                log::warn!("UDS file already exists, removing: {:?}", self.uds_path);
+                std::fs::remove_file(&self.uds_path).map_err(AgentManagerError::BindUdsError)?;
+            }
+            let listener = tokio::net::UnixListener::bind(&self.uds_path)
+                .map_err(AgentManagerError::BindUdsError)?;
+            Ok(listener.as_raw_fd())
         }
     }
 
-    fn get_fd_from_systemd() -> Result<(RawFd, Option<Arc<Mutex<UnixListener>>>), AgentManagerError>
-    {
+    fn get_fd_from_systemd() -> Result<RawFd, AgentManagerError> {
         let listen_fds = env::var("LISTEN_FDS")
-            .map_err(|_| AgentManagerError::ListenFdsError)?
-            .parse::<i32>()
-            .map_err(|_| AgentManagerError::ListenFdsError)?;
+            .ok()
+            .and_then(|x| x.parse::<i32>().ok())
+            .ok_or(AgentManagerError::ListenFdsError)?;
 
         let listen_pid = env::var("LISTEN_PID")
-            .map_err(|_| AgentManagerError::ListenPidError)?
-            .parse::<i32>()
-            .map_err(|_| AgentManagerError::ListenPidError)?;
+            .ok()
+            .and_then(|x| x.parse::<i32>().ok())
+            .ok_or(AgentManagerError::ListenPidError)?;
 
         let current_pid = std::process::id() as i32;
         if listen_pid != current_pid {
@@ -254,39 +361,13 @@ impl UnixAgentManager {
             return Err(AgentManagerError::NoFileDescriptors);
         }
 
-        Ok((DEFAULT_FD, None))
-    }
-
-    fn duplicate_fd(
-        listener_fd_str: String,
-    ) -> Result<(RawFd, Option<Arc<Mutex<UnixListener>>>), AgentManagerError> {
-        let listener_fd: RawFd = listener_fd_str
-            .parse::<i32>()
-            .map_err(|_| AgentManagerError::ListenerFdParseError)?;
-
-        let duplicated_fd = dup(listener_fd).map_err(AgentManagerError::DuplicateFdError)?;
-        let listener: UnixListener = unsafe { UnixListener::from_raw_fd(duplicated_fd) };
-
-        Ok((duplicated_fd, Some(Arc::new(Mutex::new(listener)))))
-    }
-
-    fn bind_new_uds(
-        uds_path: &PathBuf,
-    ) -> Result<(RawFd, Option<Arc<Mutex<UnixListener>>>), AgentManagerError> {
-        if uds_path.exists() {
-            log::warn!("UDS file already exists, removing: {:?}", uds_path);
-            std::fs::remove_file(uds_path).map_err(AgentManagerError::BindUdsError)?;
-        }
-
-        let listener = UnixListener::bind(uds_path).map_err(AgentManagerError::BindUdsError)?;
-        let listener_fd = dup(listener.as_raw_fd()).map_err(AgentManagerError::DuplicateFdError)?;
-
-        Ok((listener_fd, Some(Arc::new(Mutex::new(listener)))))
+        Ok(DEFAULT_FD)
     }
 }
 
 #[cfg(unix)]
-unsafe impl Sync for UnixAgentManager {}
+unsafe impl<H: RuntimeInfoStorage + Sync> Sync for UnixAgentManager<H> {}
+unsafe impl<H: RuntimeInfoStorage + Send> Send for UnixAgentManager<H> {}
 
 #[cfg(windows)]
 pub struct WindowsAgentManager;

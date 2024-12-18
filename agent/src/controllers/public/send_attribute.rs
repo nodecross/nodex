@@ -1,11 +1,9 @@
-use actix_web::{web, HttpRequest, HttpResponse};
-use serde::{Deserialize, Serialize};
-
 use crate::{
-    errors::{AgentError, AgentErrorCode},
-    repository::attribute_repository::AttributeStoreRequest,
+    controllers::errors::AgentErrorCode, repository::attribute_repository::AttributeStoreRequest,
     usecase::attribute_usecase::AttributeUsecase,
 };
+use axum::extract::Json;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
 pub struct MessageContainer {
@@ -15,10 +13,7 @@ pub struct MessageContainer {
     value: String,
 }
 
-pub async fn handler(
-    _req: HttpRequest,
-    web::Json(json): web::Json<MessageContainer>,
-) -> actix_web::Result<HttpResponse, AgentError> {
+pub async fn handler(Json(json): Json<MessageContainer>) -> Result<(), AgentErrorCode> {
     if json.key_name.is_empty() {
         Err(AgentErrorCode::SendAttributeNoKeyName)?
     }
@@ -36,7 +31,7 @@ pub async fn handler(
     {
         Ok(_) => {
             log::info!("save attribute");
-            Ok(HttpResponse::NoContent().finish())
+            Ok(())
         }
         Err(e) => {
             log::error!("{:?}", e);

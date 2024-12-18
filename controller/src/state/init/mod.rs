@@ -13,7 +13,7 @@ pub enum InitError {
 }
 
 pub async fn execute<'a, A, R, H>(
-    agent_manager: &'a A,
+    agent_manager: &'a mut A,
     _resource_manager: &'a R,
     runtime_manager: &'a mut RuntimeManager<H>,
 ) -> Result<(), InitError>
@@ -33,7 +33,7 @@ where
         }
     }
 
-    let process_info = agent_manager.launch_agent()?;
+    let process_info = agent_manager.launch_agent(true)?;
     runtime_manager.add_process_info(process_info)?;
     runtime_manager.update_state(crate::managers::runtime::State::Idle)?;
     Ok(())

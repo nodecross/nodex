@@ -1,5 +1,4 @@
 pub mod tasks;
-
 use crate::managers::runtime::ProcessInfo;
 use crate::managers::{
     agent::{AgentManagerError, AgentManagerTrait},
@@ -94,21 +93,21 @@ fn extract_pending_update_actions<'b>(
 }
 
 fn launch_new_version_agent<'a, A, H>(
-    agent_manager: &'a A,
+    agent_manager: &'a mut A,
     runtime_manager: &'a mut RuntimeManager<H>,
 ) -> Result<ProcessInfo, UpdateError>
 where
     A: AgentManagerTrait,
     H: RuntimeInfoStorage,
 {
-    let process_info = agent_manager.launch_agent()?;
+    let process_info = agent_manager.launch_agent(false)?;
     runtime_manager.add_process_info(process_info.clone())?;
 
     Ok(process_info)
 }
 
 async fn terminate_old_version_agent<'a, A, H>(
-    agent_manager: &'a A,
+    agent_manager: &'a mut A,
     runtime_manager: &'a mut RuntimeManager<H>,
     latest: ProcessInfo,
 ) -> Result<(), UpdateError>
@@ -123,7 +122,6 @@ where
             continue;
         }
         agent_manager.terminate_agent(agent_process.process_id)?;
-        runtime_manager.remove_process_info(agent_process.process_id)?;
     }
 
     Ok(())
@@ -165,7 +163,7 @@ where
 }
 
 pub async fn execute<'a, A, R, H>(
-    agent_manager: &'a A,
+    agent_manager: &'a mut A,
     resource_manager: &'a R,
     runtime_manager: &'a mut RuntimeManager<H>,
 ) -> Result<(), UpdateError>
@@ -186,7 +184,6 @@ where
         {
             return Err(UpdateError::AgentNotRunning);
         }
-
         let bundles = resource_manager.collect_downloaded_bundles();
         let update_actions = parse_bundles(&bundles)?;
         let pending_update_actions =
@@ -194,10 +191,9 @@ where
         for action in pending_update_actions {
             action.handle()?;
         }
-
         let latest = launch_new_version_agent(agent_manager, runtime_manager)?;
-        monitor_agent_version(agent_manager, &current_version).await?;
         terminate_old_version_agent(agent_manager, runtime_manager, latest).await?;
+        monitor_agent_version(agent_manager, &current_version).await?;
         // if you test for rollback, comment out a follow line.
         resource_manager.remove()?;
         Ok(())

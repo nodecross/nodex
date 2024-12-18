@@ -10,13 +10,16 @@ use services::nodex::NodeX;
 use services::studio::Studio;
 use std::env;
 #[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::io::AsRawFd;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{collections::HashMap, fs, sync::Arc};
 use tokio::sync::mpsc;
+use tokio::sync::Mutex;
 use tokio::sync::Notify;
 use tokio::sync::RwLock;
+use tokio::task::JoinSet;
 use tokio::time::Duration;
+use tokio_util::sync::CancellationToken;
 
 #[cfg(windows)]
 mod windows_imports {
@@ -37,7 +40,6 @@ use usecase::metric_usecase::MetricUsecase;
 pub mod cli;
 mod config;
 mod controllers;
-mod errors;
 mod handlers;
 mod network;
 mod nodex;
@@ -58,8 +60,6 @@ pub async fn run(options: &cli::AgentOptions) -> std::io::Result<()> {
     {
         kill_other_self_process();
     }
-
-    let studio_did_topic = "nodex/did:nodex:test:EiCW6eklabBIrkTMHFpBln7574xmZlbMakWSCNtBWcunDg";
 
     {
         let config = app_config();
@@ -85,69 +85,49 @@ pub async fn run(options: &cli::AgentOptions) -> std::io::Result<()> {
     studio_initialize(device_did.did_document.id.clone()).await;
     send_device_info().await;
 
-    // NOTE: connect mqtt server
-    let mqtt_host = "demo-mqtt.getnodex.io";
-    let mqtt_port = 1883;
-    let mqtt_client_id = cuid::cuid2();
-
-    let did_id = device_did.did_document.id;
-    let mqtt_topic = format!("nodex/{}", did_id);
-
-    let mut mqtt_options = MqttOptions::new(&mqtt_client_id, mqtt_host, mqtt_port);
-    mqtt_options.set_clean_session(true);
-    mqtt_options.set_keep_alive(Duration::from_secs(5));
-
-    let (client, _eventloop) = AsyncClient::new(mqtt_options, 10);
-
-    client
-        .subscribe(studio_did_topic, QoS::ExactlyOnce)
-        .await
-        .unwrap();
-    log::info!("subscribed: {}", studio_did_topic);
-
-    let shutdown_notify = Arc::new(Notify::new());
+    let shutdown_token = CancellationToken::new();
+    let mut tasks = JoinSet::new();
 
     let cache_repository =
         MetricsInMemoryCacheService::new(app_config().lock().get_metric_cache_capacity());
-    let collect_task = {
+    let cache_repository_cloned = cache_repository.clone();
+    let shutdown_token_cloned = shutdown_token.clone();
+    tasks.spawn(async move {
         let mut metric_usecase = MetricUsecase::new(
             Studio::new(),
             MetricsWatchService::new(),
             app_config(),
-            cache_repository.clone(),
-            Arc::clone(&shutdown_notify),
+            cache_repository_cloned,
+            shutdown_token_cloned,
         );
-        tokio::spawn(async move { metric_usecase.collect_task().await })
-    };
-
-    let send_task = {
+        metric_usecase.collect_task().await
+    });
+    let shutdown_token_cloned = shutdown_token.clone();
+    tasks.spawn(async move {
         let mut metric_usecase = MetricUsecase::new(
             Studio::new(),
             MetricsWatchService::new(),
             app_config(),
             cache_repository,
-            Arc::clone(&shutdown_notify),
+            shutdown_token_cloned,
         );
-        tokio::spawn(async move { metric_usecase.send_task().await })
-    };
+        metric_usecase.send_task().await
+    });
+    tasks.spawn(nodex_receive::polling_task(shutdown_token.clone()));
 
     // NOTE: booting...
-    let (tx, rx) = mpsc::channel::<Command>(32);
-    let db = Arc::new(RwLock::new(HashMap::<String, bool>::new()));
-
-    let transfer_client = MqttClient::new(tx);
-
     #[cfg(unix)]
-    let server = {
+    {
         let runtime_dir = config_dir.clone().join("run");
         fs::create_dir_all(&runtime_dir).unwrap_log();
-        let sock_path = runtime_dir.clone().join("nodex.sock");
-
-        let uds_server = server::new_uds_server(transfer_client);
-        let permissions = fs::Permissions::from_mode(0o766);
-        fs::set_permissions(sock_path, permissions)?;
-
-        uds_server
+        let nodex_path = runtime_dir.clone().join("nodex.sock");
+        let listener = server::unix::make_listener(&nodex_path)?;
+        let fd = listener.as_raw_fd();
+        let server = server::unix::make_uds_server(server::make_router(), listener);
+        let server =
+            server::unix::wrap_with_signal_handler(server, shutdown_token, fd, &nodex_path);
+        let (server, _) = tokio::join!(server.join_all(), tasks.join_all());
+        server.into_iter().collect::<Result<Vec<()>, _>>()?;
     };
 
     #[cfg(windows)]
@@ -157,40 +137,6 @@ pub async fn run(options: &cli::AgentOptions) -> std::io::Result<()> {
         let port = validate_port(&port_str).expect("Invalid port number.");
         server::new_web_server(port, transfer_client)
     };
-
-    let server_handle = server.handle();
-
-    let message_polling_task =
-        tokio::spawn(nodex_receive::polling_task(Arc::clone(&shutdown_notify)));
-
-    let server_task = tokio::spawn(server);
-    let sender_task = tokio::spawn(handlers::sender::handler(
-        rx,
-        client,
-        Arc::clone(&db),
-        mqtt_topic,
-    ));
-
-    let should_stop = Arc::new(AtomicBool::new(false));
-    let shutdown = tokio::spawn(async move {
-        handle_signals(should_stop.clone()).await;
-
-        let server_stop = server_handle.stop(true);
-        shutdown_notify.notify_waiters();
-        server_stop.await;
-
-        log::info!("Agent has been successfully stopped.");
-    });
-
-    let _ = tokio::try_join!(
-        server_task,
-        sender_task,
-        message_polling_task,
-        collect_task,
-        send_task,
-        shutdown
-    )
-    .unwrap_log();
     Ok(())
 }
 
@@ -199,36 +145,6 @@ fn validate_port(port_str: &str) -> Result<u16, String> {
     match port_str.parse::<u16>() {
         Ok(port) if (1024..=65535).contains(&port) => Ok(port),
         _ => Err("Port number must be an integer between 1024 and 65535.".to_string()),
-    }
-}
-
-#[cfg(unix)]
-async fn handle_signals(should_stop: Arc<AtomicBool>) {
-    use tokio::signal::unix::{signal, SignalKind};
-
-    let ctrl_c = tokio::signal::ctrl_c();
-
-    use std::os::unix::io::{FromRawFd, RawFd};
-    use std::os::unix::net::UnixListener;
-
-    let mut sigterm = signal(SignalKind::terminate()).expect("Failed to bind to SIGTERM");
-    let listener_fd: RawFd = env::var("LISTENER_FD")
-        .expect("LISTENER_FD not set")
-        .parse::<i32>()
-        .expect("Invalid LISTENER_FD");
-    let listener: UnixListener = unsafe { UnixListener::from_raw_fd(listener_fd) };
-
-    tokio::select! {
-        _ = ctrl_c => {
-            log::info!("Received SIGINT");
-            std::mem::drop(listener);
-            should_stop.store(true, Ordering::Relaxed);
-        },
-        _ = sigterm.recv() => {
-            log::info!("Received SIGTERM");
-            std::mem::drop(listener);
-            should_stop.store(true, Ordering::Relaxed);
-        },
     }
 }
 
