@@ -121,7 +121,7 @@ mod tests {
         pub rollback_called: std::sync::Mutex<bool>,
         pub remove_called: std::sync::Mutex<bool>,
     }
-    
+
     impl MockResourceManager {
         pub fn new(backup_file: Option<PathBuf>) -> Self {
             Self {

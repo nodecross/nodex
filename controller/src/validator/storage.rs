@@ -76,7 +76,10 @@ mod tests {
         let dir = tempdir().unwrap();
         let dir_path = dir.path().to_path_buf();
 
-        assert!(check_storage(&dir_path), "Empty directory should have enough space");
+        assert!(
+            check_storage(&dir_path),
+            "Empty directory should have enough space"
+        );
     }
 
     #[test]
@@ -91,6 +94,9 @@ mod tests {
             file.write_all(&large_data).unwrap();
         }
 
-        assert!(!check_storage(&dir_path), "Directory with large file should not have enough space");
+        assert!(
+            !check_storage(&dir_path),
+            "Directory with large file should not have enough space"
+        );
     }
 }

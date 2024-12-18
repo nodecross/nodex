@@ -106,13 +106,13 @@ where
         let current_version = Version::parse(env!("CARGO_PKG_VERSION"))
             .map_err(|_| UpdateError::InvalidVersionFormat)?;
 
-        let current_running_agent_version = Version::parse(&agent_processes[0].version).map_err(|_| UpdateError::InvalidVersionFormat)?;
-        let pending_update_actions = self
-            .extract_pending_update_actions(
-                &update_actions,
-                &current_version, 
-                &current_running_agent_version
-            )?;
+        let current_running_agent_version = Version::parse(&agent_processes[0].version)
+            .map_err(|_| UpdateError::InvalidVersionFormat)?;
+        let pending_update_actions = self.extract_pending_update_actions(
+            &update_actions,
+            &current_version,
+            &current_running_agent_version,
+        )?;
         for action in pending_update_actions {
             action.handle()?;
         }
@@ -152,17 +152,19 @@ where
             .iter()
             .filter_map(|action| {
                 let target_version = Version::parse(&action.version).ok()?;
-                if *current_controller_version >= target_version && target_version > *current_agent_version {
+                if *current_controller_version >= target_version
+                    && target_version > *current_agent_version
+                {
                     Some(action)
                 } else {
                     None
                 }
             })
             .collect();
-    
+
         Ok(pending_actions)
     }
-    
+
     #[cfg(unix)]
     async fn launch_new_version_agent(&self) -> Result<(), UpdateError> {
         let agent_manager = self.agent_manager.lock().await;
@@ -418,7 +420,7 @@ mod tests {
             UpdateState::new(&agent, resource, &runtime);
         let result = state.execute().await;
         assert!(result.is_ok(), "Update should succeed");
-        
+
         let runtime_info = runtime.get_process_infos().unwrap();
         assert_eq!(runtime_info.len(), 2);
         assert_eq!(runtime_info[0].process_id, 2);
@@ -564,7 +566,11 @@ mod tests {
         let bundle1 = setup_bundle(&_temp_dir, "bundle1.yml", current_version.to_string());
         let mut cloned_current_version = current_version.clone();
         cloned_current_version.patch += 1;
-        let bundle2 = setup_bundle(&_temp_dir, "bundle2.yml", cloned_current_version.to_string());
+        let bundle2 = setup_bundle(
+            &_temp_dir,
+            "bundle2.yml",
+            cloned_current_version.to_string(),
+        );
         let bundle3 = setup_bundle(&_temp_dir, "bundle3.yml", agent_version.to_string());
         let bundle4 = setup_bundle(&_temp_dir, "bundle4.yml", "1.5.0".to_string());
 
@@ -572,14 +578,16 @@ mod tests {
         let resource = MockResourceManager::new(bundles.clone());
 
         let state = UpdateState::new(&agent, resource, &runtime);
-        let update_actions = state
-            .parse_bundles(&bundles)
-            .unwrap();
-        let result = state.extract_pending_update_actions(&update_actions, &current_version, &agent_version);
+        let update_actions = state.parse_bundles(&bundles).unwrap();
+        let result =
+            state.extract_pending_update_actions(&update_actions, &current_version, &agent_version);
 
         assert!(result.is_ok(), "Update should succeed");
         let pending_update_actions = result.unwrap();
-        assert!(pending_update_actions.len() == 2, "Update should have one action");
+        assert!(
+            pending_update_actions.len() == 2,
+            "Update should have one action"
+        );
 
         let expected_versions = [current_version.to_string(), "1.5.0".to_string()];
         assert!(expected_versions.contains(&pending_update_actions[0].version));
