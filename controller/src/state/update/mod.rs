@@ -1,9 +1,7 @@
 pub mod tasks;
-use crate::managers::runtime::ProcessInfo;
 use crate::managers::{
-    agent::{AgentManagerError, AgentManagerTrait},
     resource::{ResourceError, ResourceManagerTrait},
-    runtime::{FeatType, RuntimeError, RuntimeInfoStorage, RuntimeManager, State},
+    runtime::{RuntimeError, RuntimeInfoStorage, RuntimeManager, State},
 };
 use crate::state::update::tasks::{UpdateAction, UpdateActionError};
 use semver::Version;
@@ -29,8 +27,6 @@ pub enum UpdateError {
     UpdateStateFailed(#[source] RuntimeError),
     #[error("Failed to Agent version check: {0}")]
     AgentVersionCheckFailed(String),
-    #[error("agent operation failed: {0}")]
-    AgentError(#[from] AgentManagerError),
     #[error("runtime operation failed: {0}")]
     RuntimeError(#[from] RuntimeError),
     #[error("resource operation failed: {0}")]
@@ -92,48 +88,12 @@ fn extract_pending_update_actions<'b>(
     Ok(pending_actions)
 }
 
-fn launch_new_version_agent<'a, A, H>(
-    agent_manager: &'a mut A,
-    runtime_manager: &'a mut RuntimeManager<H>,
-) -> Result<ProcessInfo, UpdateError>
-where
-    A: AgentManagerTrait,
-    H: RuntimeInfoStorage,
-{
-    let process_info = agent_manager.launch_agent(false)?;
-    runtime_manager.add_process_info(process_info.clone())?;
-
-    Ok(process_info)
-}
-
-async fn terminate_old_version_agent<'a, A, H>(
-    agent_manager: &'a mut A,
-    runtime_manager: &'a mut RuntimeManager<H>,
-    latest: ProcessInfo,
-) -> Result<(), UpdateError>
-where
-    A: AgentManagerTrait,
-    H: RuntimeInfoStorage,
-{
-    let agent_processes = runtime_manager.filter_process_infos(FeatType::Agent)?;
-
-    for agent_process in agent_processes {
-        if agent_process.process_id == latest.process_id {
-            continue;
-        }
-        log::info!("Terminating agent with PID: {}", agent_process.process_id);
-        agent_manager.terminate_agent(agent_process.process_id)?;
-    }
-
-    Ok(())
-}
-
-async fn monitor_agent_version<'a, A>(
-    agent_manager: &'a A,
+async fn monitor_agent_version<'a, H>(
+    runtime_manager: &'a RuntimeManager<H>,
     expected_version: &Version,
 ) -> Result<(), UpdateError>
 where
-    A: AgentManagerTrait,
+    H: RuntimeInfoStorage,
 {
     let timeout = Duration::from_secs(180);
     let interval = Duration::from_secs(3);
@@ -144,7 +104,7 @@ where
     while start.elapsed() < timeout {
         interval_timer.tick().await;
 
-        let version = agent_manager.get_version().await.map_err(|e| {
+        let version = runtime_manager.get_version().await.map_err(|e| {
             log::error!("Error occurred during version check: {}", e);
             UpdateError::AgentVersionCheckFailed(e.to_string())
         })?;
@@ -163,13 +123,11 @@ where
     )))
 }
 
-pub async fn execute<'a, A, R, H>(
-    agent_manager: &'a mut A,
+pub async fn execute<'a, R, H>(
     resource_manager: &'a R,
     runtime_manager: &'a mut RuntimeManager<H>,
 ) -> Result<(), UpdateError>
 where
-    A: AgentManagerTrait,
     R: ResourceManagerTrait,
     H: RuntimeInfoStorage,
 {
@@ -179,10 +137,7 @@ where
         let current_version = Version::parse(env!("CARGO_PKG_VERSION"))
             .map_err(|_| UpdateError::InvalidVersionFormat)?;
 
-        if runtime_manager
-            .filter_process_infos(FeatType::Agent)?
-            .is_empty()
-        {
+        if !runtime_manager.is_agent_running()? {
             return Err(UpdateError::AgentNotRunning);
         }
         let bundles = resource_manager.collect_downloaded_bundles();
@@ -192,9 +147,11 @@ where
         for action in pending_update_actions {
             action.handle()?;
         }
-        let latest = launch_new_version_agent(agent_manager, runtime_manager)?;
-        terminate_old_version_agent(agent_manager, runtime_manager, latest).await?;
-        monitor_agent_version(agent_manager, &current_version).await?;
+        // launch new version agent
+        let latest = runtime_manager.launch_agent(false)?;
+        // terminate old version agents
+        runtime_manager.kill_otherwise_agents(latest.process_id)?;
+        monitor_agent_version(&runtime_manager, &current_version).await?;
         // if you test for rollback, comment out a follow line.
         resource_manager.remove()?;
         Ok(())

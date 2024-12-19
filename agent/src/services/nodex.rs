@@ -106,8 +106,8 @@ impl NodeX {
                 .ok_or(anyhow::anyhow!("Incompatible size"))?;
             let len = core::num::NonZero::new(len).ok_or(anyhow::anyhow!("Incompatible size"))?;
             let handler = MmapHandler::new("nodex_runtime_info", len)?;
-            let mut runtime_manager = RuntimeManager::new(handler)?;
-            let agent_path = &runtime_manager.read_runtime_info()?.exec_path;
+            let mut runtime_manager = RuntimeManager::new(handler, "", "", false)?.0;
+            let agent_path = &runtime_manager.get_exec_path()?;
             let output_path = agent_path
                 .parent()
                 .ok_or(anyhow::anyhow!("Failed to get path of parent directory"))?;
@@ -127,7 +127,7 @@ impl NodeX {
                 .await
                 .map_err(|e| anyhow::anyhow!(e))?;
 
-            runtime_manager.run_controller(&agent_path)?;
+            runtime_manager.launch_controller(&agent_path)?;
             runtime_manager.update_state(State::Update)?;
         }
 

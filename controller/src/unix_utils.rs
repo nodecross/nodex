@@ -7,6 +7,7 @@ use nix::sys::socket::{recvmsg, sendmsg, ControlMessage, ControlMessageOwned, Ms
 use notify::event::{AccessKind, AccessMode, CreateKind};
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::de::DeserializeOwned;
+use std::env;
 use std::fs::set_permissions;
 use std::io::{IoSlice, IoSliceMut};
 use std::os::unix::fs::PermissionsExt;
@@ -144,4 +145,41 @@ pub fn change_to_executable(path: &Path) -> std::io::Result<()> {
     let mut perms = std::fs::metadata(path)?.permissions();
     perms.set_mode(perms.mode() | 0o111);
     set_permissions(path, perms)
+}
+
+static DEFAULT_FD: RawFd = 3;
+
+#[derive(Debug, thiserror::Error)]
+pub enum GetFdError {
+    #[error("LISTEN_FDS not set or invalid")]
+    ListenFdsError,
+    #[error("LISTEN_PID not set or invalid")]
+    ListenPidError,
+    #[error("LISTEN_PID ({listen_pid}) does not match current process ID ({current_pid})")]
+    ListenPidMismatch { listen_pid: i32, current_pid: i32 },
+    #[error("No file descriptors passed by systemd.")]
+    NoFileDescriptors,
+}
+
+pub fn get_fd_from_systemd() -> Result<RawFd, GetFdError> {
+    let listen_fds = env::var("LISTEN_FDS")
+        .ok()
+        .and_then(|x| x.parse::<i32>().ok())
+        .ok_or(GetFdError::ListenFdsError)?;
+
+    let listen_pid = env::var("LISTEN_PID")
+        .ok()
+        .and_then(|x| x.parse::<i32>().ok())
+        .ok_or(GetFdError::ListenPidError)?;
+
+    let current_pid = std::process::id() as i32;
+    if listen_pid != current_pid {
+        return Err(GetFdError::ListenPidMismatch {
+            listen_pid,
+            current_pid,
+        });
+    } else if listen_fds <= 0 {
+        return Err(GetFdError::NoFileDescriptors);
+    }
+    Ok(DEFAULT_FD)
 }

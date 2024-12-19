@@ -91,8 +91,7 @@ impl<H: RuntimeInfoStorage + Send + Sync> AgentManagerTrait for UnixAgentManager
                 let _ = std::fs::remove_file(&self.meta_uds_path);
             }
         }
-        let runtime_info = self.runtime_manager.read_runtime_info()?;
-        let current_exe = &runtime_info.exec_path;
+        let current_exe = &self.runtime_manager.get_exec_path()?;
         let cmd = CString::new(current_exe.to_string_lossy().as_ref()).map_err(|e| {
             AgentManagerError::ForkAgentError(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,

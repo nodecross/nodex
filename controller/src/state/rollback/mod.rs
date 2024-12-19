@@ -1,5 +1,4 @@
 use crate::managers::{
-    agent::{AgentManagerError, AgentManagerTrait},
     resource::{ResourceError, ResourceManagerTrait},
     runtime::{RuntimeError, RuntimeInfoStorage, RuntimeManager},
 };
@@ -12,8 +11,6 @@ pub use nix::{
 
 #[derive(Debug, thiserror::Error)]
 pub enum RollbackError {
-    #[error("agent process failed: {0}")]
-    AgentError(#[from] AgentManagerError),
     #[error("Failed to find backup")]
     BackupNotFound,
     #[error("resource operation failed: {0}")]
@@ -26,13 +23,11 @@ pub enum RollbackError {
     CurrentExecutablePathError(#[source] std::io::Error),
 }
 
-pub async fn execute<'a, A, R, H>(
-    _agent_manager: &'a A,
+pub async fn execute<'a, R, H>(
     resource_manager: &'a R,
     runtime_manager: &'a mut RuntimeManager<H>,
 ) -> Result<(), RollbackError>
 where
-    A: AgentManagerTrait,
     R: ResourceManagerTrait,
     H: RuntimeInfoStorage,
 {
@@ -41,14 +36,14 @@ where
     let latest_backup = resource_manager.get_latest_backup();
     match latest_backup {
         Some(backup_file) => {
-            let agent_path = runtime_manager.read_runtime_info()?.exec_path;
+            let agent_path = runtime_manager.get_exec_path()?;
             log::info!("Found backup: {}", backup_file.display());
             resource_manager.rollback(&backup_file)?;
             if let Err(err) = resource_manager.remove() {
                 log::error!("Failed to remove files {}", err);
             }
             runtime_manager.update_state_without_send(crate::managers::runtime::State::Init)?;
-            runtime_manager.run_controller(agent_path)?;
+            runtime_manager.launch_controller(agent_path)?;
             log::info!("Rollback completed");
 
             log::info!("Restarting controller by SIGINT");

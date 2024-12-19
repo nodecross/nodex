@@ -1,17 +1,14 @@
 use crate::config::get_config;
-use crate::managers::agent::AgentManagerTrait;
 use crate::managers::mmap_storage::MmapHandler;
 use crate::managers::runtime::{
-    FeatType, ProcessInfo, RuntimeError, RuntimeInfoStorage, RuntimeManager,
+    RuntimeCreateError, RuntimeError, RuntimeInfoStorage, RuntimeManager, State,
 };
 use crate::state::handler::handle_state;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 #[cfg(unix)]
 mod unix_imports {
-    pub use crate::managers::agent::UnixAgentManager;
     pub use tokio::signal::unix::{signal, SignalKind};
 }
 #[cfg(unix)]
@@ -34,55 +31,33 @@ pub mod validator;
 
 #[tokio::main]
 pub async fn run() -> std::io::Result<()> {
-    let mut runtime_manager =
+    let (runtime_manager, mut state_rx) =
         initialize_runtime_manager().expect("Failed to create RuntimeManager");
-    let process_infos = runtime_manager
-        .get_process_infos()
-        .expect("Failed to read runtime_info");
-
-    let controller_processes = process_infos
-        .iter()
-        .filter(|process_info| {
-            runtime_manager.is_running_or_remove_if_stopped(process_info)
-                && process_info.feat_type == FeatType::Controller
-        })
-        .collect::<Vec<&ProcessInfo>>();
-    if !controller_processes.is_empty() {
-        log::error!("Controller already running");
-        return Ok(());
-    }
-    on_controller_started(&mut runtime_manager)
-        .expect("Failed to record controller start in runtime manager");
-
-    #[cfg(unix)]
-    let agent_manager = {
-        let uds_path = get_config().lock().unwrap().uds_path.clone();
-        let meta_uds_path = unix_utils::convention_of_meta_uds_path(&uds_path)?;
-        Arc::new(Mutex::new(UnixAgentManager::new(
-            uds_path,
-            meta_uds_path,
-            initialize_runtime_manager().expect("Failed to create RuntimeManager"),
-        )))
-    };
-
-    #[cfg(windows)]
-    let agent_manager = Arc::new(Mutex::new(
-        WindowsAgentManager::new().expect("Failed to create AgentManager"),
-    ));
 
     let runtime_manager = Arc::new(Mutex::new(runtime_manager));
 
     let shutdown_handle = tokio::spawn({
-        let agent_manager = agent_manager.clone();
         let runtime_manager = runtime_manager.clone();
 
         async move {
-            handle_signals(runtime_manager, agent_manager).await;
+            handle_signals(runtime_manager).await;
             log::info!("All processes have been successfully terminated.");
         }
     });
 
-    state_monitoring_worker(runtime_manager, agent_manager).await;
+    tokio::spawn(async move {
+        let mut description = "Initial state";
+        while {
+            let current_state = *state_rx.borrow();
+            log::info!("Worker: {}: {:?}", description, current_state);
+
+            if let Err(e) = handle_state(current_state, &runtime_manager).await {
+                log::error!("Worker: Failed to handle {}: {}", description, e);
+            }
+            description = "State change";
+            state_rx.changed().await.is_ok()
+        } {}
+    });
 
     let _ = shutdown_handle.await;
     log::info!("Shutdown handler completed successfully.");
@@ -90,62 +65,27 @@ pub async fn run() -> std::io::Result<()> {
     Ok(())
 }
 
-async fn state_monitoring_worker<A, H>(
-    runtime_manager: Arc<Mutex<RuntimeManager<H>>>,
-    agent_manager: Arc<tokio::sync::Mutex<A>>,
-) where
-    A: AgentManagerTrait + Send + Sync + 'static,
-    H: RuntimeInfoStorage + Send + Sync + 'static,
-{
-    let mut state_rx = runtime_manager.lock().await.get_state_receiver();
-
-    tokio::spawn(async move {
-        let mut description = "Initial state";
-
-        while {
-            let current_state = *state_rx.borrow();
-            log::info!("Worker: {}: {:?}", description, current_state);
-
-            if let Err(e) = handle_state(current_state, &runtime_manager, &agent_manager).await {
-                log::error!("Worker: Failed to handle {}: {}", description, e);
-            }
-            description = "State change";
-            state_rx.changed().await.is_ok()
-        } {}
-    });
-}
-
-fn initialize_runtime_manager() -> Result<RuntimeManager<MmapHandler>, RuntimeError> {
+fn initialize_runtime_manager() -> Result<
+    (
+        RuntimeManager<MmapHandler>,
+        tokio::sync::watch::Receiver<State>,
+    ),
+    RuntimeCreateError<RuntimeError>,
+> {
     let handler = MmapHandler::new(
         "nodex_runtime_info",
         core::num::NonZero::new(10000).unwrap(),
     )?;
+    let uds_path = get_config().lock().unwrap().uds_path.clone();
+    // todo
+    let meta_uds_path = unix_utils::convention_of_meta_uds_path(&uds_path).unwrap();
     std::env::set_var("MMAP_SIZE", 10000.to_string());
-    Ok(RuntimeManager::new(handler)?)
-}
-
-#[allow(dead_code)]
-fn get_runtime_info_path() -> PathBuf {
-    get_config()
-        .lock()
-        .unwrap()
-        .runtime_dir
-        .join("runtime_info.json")
-}
-
-fn on_controller_started<H: RuntimeInfoStorage>(
-    runtime_manager: &mut RuntimeManager<H>,
-) -> Result<(), RuntimeError> {
-    let process_info = ProcessInfo::new(std::process::id(), FeatType::Controller);
-    runtime_manager.add_process_info(process_info)
+    Ok(RuntimeManager::new(handler, uds_path, meta_uds_path, true)?)
 }
 
 #[cfg(unix)]
-pub async fn handle_signals<A, H>(
-    runtime_manager: Arc<Mutex<RuntimeManager<H>>>,
-    agent_manager: Arc<Mutex<A>>,
-) where
-    A: AgentManagerTrait + Sync + Send + 'static,
+pub async fn handle_signals<H>(runtime_manager: Arc<Mutex<RuntimeManager<H>>>)
+where
     H: RuntimeInfoStorage + Send + Sync + 'static,
 {
     let ctrl_c = tokio::signal::ctrl_c();
@@ -155,12 +95,12 @@ pub async fn handle_signals<A, H>(
 
     tokio::select! {
         _ = sigint.recv() => {
-            if let Err(e) = handle_cleanup(&agent_manager, &runtime_manager).await {
+            if let Err(e) = handle_cleanup(&runtime_manager).await {
                 log::error!("Failed to handle CTRL+C: {}", e);
             }
         },
         _ = ctrl_c => {
-            if let Err(e) = handle_cleanup(&agent_manager, &runtime_manager).await {
+            if let Err(e) = handle_cleanup(&runtime_manager).await {
                 log::error!("Failed to handle CTRL+C: {}", e);
             }
         },
@@ -168,7 +108,7 @@ pub async fn handle_signals<A, H>(
             log::info!("Received SIGTERM. Gracefully stopping application.");
         },
         _ = sigabrt.recv() => {
-            if let Err(e) = handle_cleanup(&agent_manager, &runtime_manager).await {
+            if let Err(e) = handle_cleanup(&runtime_manager).await {
                 log::error!("Failed to handle SIGABRT: {}", e);
             }
         }
@@ -187,21 +127,14 @@ pub async fn handle_signals<A>(
 }
 
 #[cfg(unix)]
-async fn handle_cleanup<A, H>(
-    agent_manager: &Arc<Mutex<A>>,
-    runtime_manager: &Arc<Mutex<RuntimeManager<H>>>,
-) -> Result<(), String>
+async fn handle_cleanup<H>(runtime_manager: &Arc<Mutex<RuntimeManager<H>>>) -> Result<(), String>
 where
-    A: AgentManagerTrait + Sync + Send,
     H: RuntimeInfoStorage + Send + Sync + 'static,
 {
     log::info!("Received CTRL+C. Initiating shutdown.");
 
     let mut runtime_manager = runtime_manager.lock().await;
     runtime_manager.cleanup().map_err(|e| e.to_string())?;
-
-    let manager = agent_manager.lock().await;
-    manager.cleanup().map_err(|e| e.to_string())?;
 
     log::info!("cleanup successfully.");
     Ok(())
