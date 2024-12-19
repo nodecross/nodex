@@ -121,6 +121,7 @@ where
         if agent_process.process_id == latest.process_id {
             continue;
         }
+        log::info!("Terminating agent with PID: {}", agent_process.process_id);
         agent_manager.terminate_agent(agent_process.process_id)?;
     }
 

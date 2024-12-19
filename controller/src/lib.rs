@@ -5,7 +5,7 @@ use crate::managers::runtime::{
     FeatType, ProcessInfo, RuntimeError, RuntimeInfoStorage, RuntimeManager,
 };
 use crate::state::handler::handle_state;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -28,23 +28,9 @@ use windows_imports::*;
 mod config;
 pub mod managers;
 pub mod state;
+#[cfg(unix)]
+pub mod unix_utils;
 pub mod validator;
-
-pub fn convention_of_meta_uds_path(uds: impl AsRef<Path>) -> std::io::Result<PathBuf> {
-    let parent = uds.as_ref().parent().ok_or(std::io::Error::new(
-        std::io::ErrorKind::NotFound,
-        "Failed to get path of unix domain socket",
-    ))?;
-    let base_name =
-        uds.as_ref()
-            .file_name()
-            .and_then(|x| x.to_str())
-            .ok_or(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "Failed to get path of unix domain socket",
-            ))?;
-    Ok(parent.join(format!("meta_{}", base_name)).into())
-}
 
 #[tokio::main]
 pub async fn run() -> std::io::Result<()> {
@@ -71,7 +57,7 @@ pub async fn run() -> std::io::Result<()> {
     #[cfg(unix)]
     let agent_manager = {
         let uds_path = get_config().lock().unwrap().uds_path.clone();
-        let meta_uds_path = convention_of_meta_uds_path(&uds_path)?;
+        let meta_uds_path = unix_utils::convention_of_meta_uds_path(&uds_path)?;
         Arc::new(Mutex::new(UnixAgentManager::new(
             uds_path,
             meta_uds_path,
@@ -211,23 +197,7 @@ where
 {
     log::info!("Received CTRL+C. Initiating shutdown.");
 
-    let current_pid = std::process::id();
-
     let mut runtime_manager = runtime_manager.lock().await;
-    let process_infos = runtime_manager
-        .get_process_infos()
-        .map_err(|e| e.to_string())?;
-
-    for process_info in process_infos.iter() {
-        if process_info.process_id != current_pid {
-            log::info!("Terminating process with PID: {}", process_info.process_id);
-            let mut manager = agent_manager.lock().await;
-            manager
-                .terminate_agent(process_info.process_id)
-                .map_err(|e| e.to_string())?;
-        }
-    }
-
     runtime_manager.cleanup().map_err(|e| e.to_string())?;
 
     let manager = agent_manager.lock().await;

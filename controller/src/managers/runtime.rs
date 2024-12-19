@@ -2,8 +2,6 @@ use crate::validator::process::is_running;
 use crate::validator::process::{is_manage_by_systemd, is_manage_socket_activation};
 use chrono::{DateTime, FixedOffset, Utc};
 use serde::{Deserialize, Serialize};
-use std::fs::set_permissions;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use tokio::sync::watch;
 
@@ -74,6 +72,9 @@ pub enum RuntimeError {
     Fork(#[source] std::io::Error),
     #[error("failed to know path of self exe: {0}")]
     FailedCurrentExe(#[source] std::io::Error),
+    #[cfg(unix)]
+    #[error("Failed to terminate process: {0}")]
+    TerminateProcessError(#[source] nix::Error),
 }
 
 pub trait RuntimeInfoStorage: std::fmt::Debug {
@@ -91,13 +92,6 @@ pub struct RuntimeManager<H: RuntimeInfoStorage> {
     state_receiver: watch::Receiver<State>,
 }
 
-#[cfg(unix)]
-fn change_to_executable(path: &Path) -> std::io::Result<()> {
-    let mut perms = std::fs::metadata(path)?.permissions();
-    perms.set_mode(perms.mode() | 0o111);
-    set_permissions(path, perms)
-}
-
 impl<H: RuntimeInfoStorage> RuntimeManager<H> {
     pub fn new(mut file_handler: H) -> Result<Self, RuntimeError> {
         let runtime_info = file_handler.read()?;
@@ -110,29 +104,13 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
         })
     }
 
-    pub fn count_of_agents(&mut self) -> Result<usize, RuntimeError> {
-        let runtime_info = self.file_handler.read()?;
-        let count = runtime_info
-            .process_infos
-            .iter()
-            .filter(|p| p.feat_type == FeatType::Agent)
-            .count();
-        Ok(count)
-    }
-
     pub fn read_runtime_info(&mut self) -> Result<RuntimeInfo, RuntimeError> {
         let runtime_info = self.file_handler.read()?;
         Ok(runtime_info)
     }
 
-    pub fn get_state(&mut self) -> Result<State, RuntimeError> {
-        let runtime_info = self.read_runtime_info()?;
-        Ok(runtime_info.state)
-    }
-
     pub fn get_process_infos(&mut self) -> Result<Vec<ProcessInfo>, RuntimeError> {
         let runtime_info = self.read_runtime_info()?;
-
         Ok(runtime_info.process_infos)
     }
 
@@ -180,7 +158,20 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
         })
     }
 
+    pub fn kill_process(&mut self, process_info: &ProcessInfo) -> Result<(), RuntimeError> {
+        let signal = if process_info.feat_type == FeatType::Agent {
+            Signal::SIGUSR1
+        } else {
+            Signal::SIGTERM
+        };
+        signal::kill(Pid::from_raw(process_info.process_id as i32), signal)
+            .map_err(RuntimeError::TerminateProcessError)?;
+        self.remove_process_info(process_info.process_id)?;
+        Ok(())
+    }
+
     pub fn cleanup(&mut self) -> Result<(), RuntimeError> {
+        self.kill_others()?;
         self.file_handler.apply_with_lock(|runtime_info| {
             runtime_info.process_infos = vec![];
             runtime_info.state = State::Init;
@@ -215,6 +206,7 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
             .into_iter()
             .filter(|process_info| process_info.process_id != self_pid);
         for other in others {
+            // self.kill_process(&other)
             let signal = if other.feat_type == FeatType::Agent {
                 Signal::SIGUSR1
             } else {
@@ -240,7 +232,8 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
         if is_manage_by_systemd() && is_manage_socket_activation() {
             return Ok(());
         }
-        change_to_executable(agent_path.as_ref()).map_err(RuntimeError::Command)?;
+        crate::unix_utils::change_to_executable(agent_path.as_ref())
+            .map_err(RuntimeError::Command)?;
         let agent_path =
             agent_path
                 .as_ref()

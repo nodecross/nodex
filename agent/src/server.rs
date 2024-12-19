@@ -8,6 +8,9 @@ use axum::{
 pub mod unix {
     use axum::http::Request;
     use axum::Router;
+    use controller::unix_utils::{
+        convention_of_meta_uds_path, recv_fd, remove_file_if_exists, send_fd,
+    };
     use hyper::body::Incoming;
     use hyper_util::{
         rt::{TokioExecutor, TokioIo},
@@ -31,13 +34,13 @@ pub mod unix {
     }
 
     pub fn make_listener(uds_path: impl AsRef<Path>) -> std::io::Result<UnixListener> {
-        let meta_uds_path = controller::convention_of_meta_uds_path(&uds_path)?;
+        let meta_uds_path = convention_of_meta_uds_path(&uds_path)?;
         remove_file_if_exists(&meta_uds_path);
         let sock = std::os::unix::net::UnixListener::bind(&meta_uds_path)?;
         let permissions = std::fs::Permissions::from_mode(0o766);
         std::fs::set_permissions(&meta_uds_path, permissions)?;
         let (stream, _) = sock.accept()?;
-        let fd = controller::managers::agent::recv_fd(stream.as_raw_fd())?;
+        let fd = recv_fd(stream.as_raw_fd())?;
         remove_file_if_exists(&meta_uds_path);
         let uds = match fd {
             Some(fd) => {
@@ -75,12 +78,6 @@ pub mod unix {
         }
     }
 
-    fn remove_file_if_exists(path: impl AsRef<Path>) {
-        if path.as_ref().exists() {
-            let _ = std::fs::remove_file(path);
-        }
-    }
-
     pub fn wrap_with_signal_handler(
         server: impl std::future::Future<Output = std::io::Result<()>> + Send + 'static,
         token: CancellationToken,
@@ -114,11 +111,11 @@ pub mod unix {
                 },
                 _ = sigusr1.recv() => {
                     log::info!("Received SIGUSR1");
-                    let send_sock_path = controller::convention_of_meta_uds_path(&uds_path)?;
-                    let () = controller::managers::agent::wait_until_file_created(&send_sock_path)
+                    let send_sock_path = convention_of_meta_uds_path(&uds_path)?;
+                    let () = controller::unix_utils::wait_until_file_created(&send_sock_path)
                         .map_err(|e| std::io::Error::new(std::io::ErrorKind::NotFound, format!("{}", e)))?;
                     let stream = UnixStream::connect(&send_sock_path).await?;
-                    controller::managers::agent::send_fd(stream.as_raw_fd(), Some(fd))?;
+                    send_fd(stream.as_raw_fd(), Some(fd))?;
                     token.cancel();
                     Ok(())
                 }
