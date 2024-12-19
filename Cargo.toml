@@ -17,8 +17,6 @@ repository = "https://github.com/nodecross/nodex"
 version = "3.4.0"
 
 [workspace.dependencies]
-actix-rt = "2.9.0"
-actix-web = "4.9.0"
 agent = { path = "./agent" }
 anyhow = "1.0.92"
 bytes = "1.8.0"

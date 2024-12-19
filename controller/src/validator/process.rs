@@ -16,8 +16,7 @@ pub fn is_manage_socket_activation() -> bool {
 pub fn is_running(process_id: u32) -> bool {
     let pid = Pid::from_raw(process_id as i32);
     match signal::kill(pid, None) {
-        Ok(_) => true,
-        Err(nix::errno::Errno::ESRCH) => false,
+        Ok(()) => true,
         Err(_) => false,
     }
 }

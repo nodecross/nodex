@@ -1,11 +1,10 @@
-use anyhow::Context as _;
-use chrono::{DateTime, Utc};
-use protocol::did::did_repository::DidRepositoryImpl;
-
-use crate::errors::{AgentError, AgentErrorCode};
+use crate::controllers::errors::AgentErrorCode;
 use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::repository::message_activity_repository::MessageActivityHttpError;
 use crate::server_config;
+use anyhow::Context as _;
+use chrono::{DateTime, Utc};
+use protocol::did::did_repository::DidRepositoryImpl;
 
 pub fn did_repository() -> DidRepositoryImpl<SideTreeClient> {
     let server_config = server_config();
@@ -15,29 +14,29 @@ pub fn did_repository() -> DidRepositoryImpl<SideTreeClient> {
     DidRepositoryImpl::new(sidetree_client)
 }
 
-pub fn handle_status(e: MessageActivityHttpError) -> AgentError {
+pub fn handle_status(e: MessageActivityHttpError) -> AgentErrorCode {
     match e {
         MessageActivityHttpError::BadRequest(message) => {
             log::warn!("Bad Request: {}", message);
-            AgentErrorCode::MessageActivityBadRequest.into()
+            AgentErrorCode::MessageActivityBadRequest
         }
         MessageActivityHttpError::Forbidden(message) => {
             log::warn!("Forbidden: {}", message);
-            AgentErrorCode::MessageActivityForbidden.into()
+            AgentErrorCode::MessageActivityForbidden
         }
         MessageActivityHttpError::Unauthorized(message) => {
             log::warn!("Unauthorized: {}", message);
-            AgentErrorCode::MessageActivityUnauthorized.into()
+            AgentErrorCode::MessageActivityUnauthorized
         }
         MessageActivityHttpError::NotFound(message) => {
             log::warn!("Not Found: {}", message);
-            AgentErrorCode::MessageActivityNotFound.into()
+            AgentErrorCode::MessageActivityNotFound
         }
         MessageActivityHttpError::Conflict(message) => {
             log::warn!("Conflict: {}", message);
-            AgentErrorCode::MessageActivityConflict.into()
+            AgentErrorCode::MessageActivityConflict
         }
-        _ => AgentErrorCode::MessageActivityInternal.into(),
+        _ => AgentErrorCode::MessageActivityInternal,
     }
 }
 

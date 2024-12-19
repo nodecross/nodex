@@ -320,7 +320,7 @@ mod tests {
         verifiable_credentials::types::VerifiableCredentials,
     };
 
-    #[actix_rt::test]
+    #[tokio::test]
     async fn test_generate_and_verify() {
         let from_did = create_random_did();
         let to_did = create_random_did();
@@ -353,7 +353,7 @@ mod tests {
         use super::*;
         use crate::did::did_repository::mocks::NoPublicKeyDidRepository;
 
-        #[actix_rt::test]
+        #[tokio::test]
         async fn test_did_not_found() {
             let from_did = create_random_did();
             let to_did = create_random_did();
@@ -381,7 +381,7 @@ mod tests {
             }
         }
 
-        #[actix_rt::test]
+        #[tokio::test]
         async fn test_did_public_key_not_found() {
             let from_did = create_random_did();
             let to_did = create_random_did();
@@ -436,7 +436,7 @@ mod tests {
                 .unwrap()
         }
 
-        #[actix_rt::test]
+        #[tokio::test]
         async fn test_did_not_found() {
             let from_did = create_random_did();
             let to_did = create_random_did();
@@ -471,7 +471,7 @@ mod tests {
             }
         }
 
-        #[actix_rt::test]
+        #[tokio::test]
         async fn test_cannot_steal_message() {
             let from_did = create_random_did();
             let to_did = create_random_did();
@@ -509,7 +509,7 @@ mod tests {
             }
         }
 
-        #[actix_rt::test]
+        #[tokio::test]
         async fn test_did_public_key_not_found() {
             let from_did = create_random_did();
             let to_did = create_random_did();
