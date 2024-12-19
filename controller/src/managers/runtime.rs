@@ -1,22 +1,15 @@
 use crate::validator::process::is_running;
 use crate::validator::process::{is_manage_by_systemd, is_manage_socket_activation};
 use chrono::{DateTime, FixedOffset, Utc};
+use nix::{
+    sys::signal::{self, Signal},
+    unistd::{execvp, fork, setsid, ForkResult, Pid},
+};
 use serde::{Deserialize, Serialize};
+use std::ffi::CString;
+use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 use tokio::sync::watch;
-
-#[cfg(unix)]
-mod unix_imports {
-    pub use nix::{
-        sys::signal::{self, Signal},
-        unistd::{execvp, fork, setsid, ForkResult, Pid},
-    };
-    pub use std::ffi::CString;
-    pub use std::os::unix::io::AsRawFd;
-}
-
-#[cfg(unix)]
-use unix_imports::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RuntimeInfo {
@@ -276,7 +269,7 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
         })
     }
 
-    pub fn remove_process_info(&mut self, process_id: u32) -> Result<(), RuntimeError> {
+    fn remove_process_info(&mut self, process_id: u32) -> Result<(), RuntimeError> {
         self.file_handler.apply_with_lock(|runtime_info| {
             runtime_info
                 .process_infos

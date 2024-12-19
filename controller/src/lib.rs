@@ -1,8 +1,6 @@
 use crate::config::get_config;
 use crate::managers::mmap_storage::MmapHandler;
-use crate::managers::runtime::{
-    RuntimeCreateError, RuntimeError, RuntimeInfoStorage, RuntimeManager, State,
-};
+use crate::managers::runtime::{RuntimeError, RuntimeInfoStorage, RuntimeManager, State};
 use crate::state::handler::handle_state;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -70,7 +68,7 @@ fn initialize_runtime_manager() -> Result<
         RuntimeManager<MmapHandler>,
         tokio::sync::watch::Receiver<State>,
     ),
-    RuntimeCreateError<RuntimeError>,
+    RuntimeError,
 > {
     let handler = MmapHandler::new(
         "nodex_runtime_info",
