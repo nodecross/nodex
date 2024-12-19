@@ -1,11 +1,4 @@
 use super::runtime::{RuntimeError, RuntimeInfoStorage, RuntimeManager};
-use bytes::Bytes;
-use http_body_util::{BodyExt, Full};
-use hyper::{body::Incoming, Response};
-use hyper_util::client::legacy::{Client, Error as LegacyClientError};
-use notify::event::{AccessKind, AccessMode, CreateKind};
-use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use std::{
     env,
@@ -14,14 +7,11 @@ use std::{
 
 #[cfg(unix)]
 mod unix_imports {
-    pub use hyperlocal::{UnixClientExt, UnixConnector, Uri};
     pub use nix::{
         sys::signal::{self, Signal},
-        sys::socket::{recvmsg, sendmsg, ControlMessage, ControlMessageOwned, MsgFlags},
         unistd::{execvp, fork, setsid, ForkResult, Pid},
     };
     pub use std::ffi::CString;
-    pub use std::io::{IoSlice, IoSliceMut};
     pub use std::os::unix::io::{AsRawFd, RawFd};
 }
 
@@ -41,10 +31,8 @@ static DEFAULT_FD: RawFd = 3;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AgentManagerError {
-    #[error["Failed to initialize listener"]]
-    FailedInitialize,
-    #[error("Failed to get current executable path: {0}")]
-    CurrentExecutablePathError(#[source] std::io::Error),
+    #[error("Failed to use runtime: {0}")]
+    Runtime(#[from] RuntimeError),
     #[error("Failed to fork agent: {0}")]
     ForkAgentError(#[source] std::io::Error),
     #[error("LISTEN_FDS not set or invalid")]
@@ -55,28 +43,18 @@ pub enum AgentManagerError {
     ListenPidMismatch { listen_pid: i32, current_pid: i32 },
     #[error("No file descriptors passed by systemd.")]
     NoFileDescriptors,
+    #[cfg(unix)]
     #[error("Failed to bind UDS: {0}")]
     BindUdsError(#[source] std::io::Error),
+    #[cfg(unix)]
     #[error("Failed to watch UDS: {0}")]
     WatchUdsError(#[source] notify::Error),
     #[cfg(unix)]
-    #[error("Failed to duplicate file descriptor: {0}")]
-    DuplicateFdError(#[source] nix::Error),
-    #[cfg(unix)]
     #[error("Failed to terminate process: {0}")]
     TerminateProcessError(#[source] nix::Error),
-    #[error("Failed to parse LISTENER_FD")]
-    ListenerFdParseError,
+    #[cfg(unix)]
     #[error("Request failed: {0}")]
-    RequestFailed(#[from] LegacyClientError),
-    #[error("Failed to parse JSON response: {0}")]
-    JsonParseError(#[source] serde_json::Error),
-    #[error("Failed to collect body: {0}")]
-    CollectBodyError(String),
-    #[error("Failed to convert body to string: {0}")]
-    Utf8Error(#[source] std::str::Utf8Error),
-    #[error("Failed to use runtime: {0}")]
-    Runtime(#[from] RuntimeError),
+    Request(#[from] crate::unix_utils::GetRequestError),
 }
 
 #[trait_variant::make(Send)]
@@ -95,78 +73,6 @@ pub struct UnixAgentManager<H: RuntimeInfoStorage> {
     uds_path: PathBuf,
     meta_uds_path: PathBuf,
     runtime_manager: RuntimeManager<H>,
-}
-
-#[cfg(unix)]
-pub fn send_fd(tx: RawFd, fd: Option<RawFd>) -> nix::Result<()> {
-    match fd {
-        Some(fd) => {
-            let iov = [IoSlice::new(&[0u8; 1])];
-            let fds = [fd];
-            let cmsg = ControlMessage::ScmRights(&fds);
-            sendmsg::<()>(tx, &iov, &[cmsg], MsgFlags::empty(), None)?;
-        }
-        None => {
-            let iov = [IoSlice::new(&[1u8; 1])];
-            let fds = [];
-            let cmsg = ControlMessage::ScmRights(&fds);
-            sendmsg::<()>(tx, &iov, &[cmsg], MsgFlags::empty(), None)?;
-        }
-    };
-    Ok(())
-}
-
-#[cfg(unix)]
-pub fn recv_fd(socket: RawFd) -> nix::Result<Option<RawFd>> {
-    let mut buf = [0u8; 1];
-    let mut iov = [IoSliceMut::new(&mut buf)];
-    let mut space = nix::cmsg_space!([RawFd; 1]);
-    let msg = recvmsg::<()>(socket, &mut iov, Some(&mut space), MsgFlags::empty())?;
-    let buf = msg.iovs().next().ok_or(nix::errno::Errno::ENOENT)?;
-    let is_some = !buf.is_empty() && buf[0] == 1;
-    if is_some {
-        return Ok(None);
-    } else {
-        let cmsg = msg.cmsgs()?.next().ok_or(nix::errno::Errno::ENOENT)?;
-        if let ControlMessageOwned::ScmRights(fds) = cmsg {
-            if !fds.is_empty() {
-                return Ok(Some(fds[0]));
-            }
-        }
-    }
-    Err(nix::Error::ENOENT)
-}
-
-pub fn wait_until_file_created(path: impl AsRef<Path>) -> notify::Result<()> {
-    let (tx, rx) = std::sync::mpsc::channel();
-    let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
-    let dir = path
-        .as_ref()
-        .parent()
-        .ok_or(notify::Error::io(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "Failed to get parent of watching path",
-        )))?;
-    watcher.watch(dir.as_ref(), RecursiveMode::NonRecursive)?;
-    let path = path.as_ref().to_path_buf();
-    if !path.exists() {
-        for res in rx {
-            match res? {
-                Event {
-                    kind: EventKind::Access(AccessKind::Close(AccessMode::Write)),
-                    paths,
-                    ..
-                }
-                | Event {
-                    kind: EventKind::Create(CreateKind::File),
-                    paths,
-                    ..
-                } if paths.contains(&path) => return Ok(()),
-                _ => continue,
-            }
-        }
-    }
-    Ok(())
 }
 
 #[cfg(unix)]
@@ -203,11 +109,20 @@ impl<H: RuntimeInfoStorage + Send + Sync> AgentManagerTrait for UnixAgentManager
                     } else {
                         None
                     };
-                    let () = wait_until_file_created(&self.meta_uds_path)
+                    let () = crate::unix_utils::wait_until_file_created(&self.meta_uds_path)
                         .map_err(AgentManagerError::WatchUdsError)?;
-                    let stream = std::os::unix::net::UnixStream::connect(&self.meta_uds_path)
-                        .map_err(AgentManagerError::BindUdsError)?;
-                    send_fd(stream.as_raw_fd(), listener)
+                    let stream = loop {
+                        match std::os::unix::net::UnixStream::connect(&self.meta_uds_path) {
+                            Ok(stream) => break stream,
+                            Err(err) if err.kind() == std::io::ErrorKind::ConnectionRefused => {
+                                // Wait for bind
+                                std::thread::sleep(std::time::Duration::from_millis(5));
+                                continue;
+                            }
+                            Err(err) => return Err(AgentManagerError::BindUdsError(err)),
+                        }
+                    };
+                    crate::unix_utils::send_fd(stream.as_raw_fd(), listener)
                         .map_err(|e| AgentManagerError::BindUdsError(e.into()))?;
                 }
                 let process_info = ProcessInfo::new(
@@ -244,7 +159,8 @@ impl<H: RuntimeInfoStorage + Send + Sync> AgentManagerTrait for UnixAgentManager
     }
 
     async fn get_version(&self) -> Result<String, AgentManagerError> {
-        let version_response: VersionResponse = self.get_request("/internal/version/get").await?;
+        let version_response: VersionResponse =
+            crate::unix_utils::get_request(&self.uds_path, "/internal/version/get").await?;
         Ok(version_response.version)
     }
 
@@ -279,38 +195,6 @@ impl<H: RuntimeInfoStorage + Send> UnixAgentManager<H> {
             meta_uds_path: meta_uds_path.as_ref().into(),
             runtime_manager,
         }
-    }
-
-    async fn parse_response_body<T>(
-        &self,
-        response: Response<Incoming>,
-    ) -> Result<T, AgentManagerError>
-    where
-        T: DeserializeOwned,
-    {
-        let collected_body = response
-            .into_body()
-            .collect()
-            .await
-            .map_err(|e| AgentManagerError::CollectBodyError(e.to_string()))?;
-
-        let bytes = collected_body.to_bytes();
-        let string_body =
-            std::str::from_utf8(bytes.as_ref()).map_err(AgentManagerError::Utf8Error)?;
-
-        serde_json::from_str(string_body).map_err(AgentManagerError::JsonParseError)
-    }
-
-    async fn get_request<T>(&self, endpoint: &str) -> Result<T, AgentManagerError>
-    where
-        T: serde::de::DeserializeOwned + Send,
-    {
-        let client: Client<UnixConnector, Full<Bytes>> = Client::unix();
-        let uri = Uri::new(&self.uds_path, endpoint).into();
-
-        let response: Response<Incoming> = client.get(uri).await?;
-
-        self.parse_response_body(response).await
     }
 
     fn get_fd_from_systemd() -> Result<RawFd, AgentManagerError> {
