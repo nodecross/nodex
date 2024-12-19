@@ -110,15 +110,23 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
         })
     }
 
+    pub fn count_of_agents(&mut self) -> Result<usize, RuntimeError> {
+        let runtime_info = self.file_handler.read()?;
+        let count = runtime_info
+            .process_infos
+            .iter()
+            .filter(|p| p.feat_type == FeatType::Agent)
+            .count();
+        Ok(count)
+    }
+
     pub fn read_runtime_info(&mut self) -> Result<RuntimeInfo, RuntimeError> {
         let runtime_info = self.file_handler.read()?;
-
         Ok(runtime_info)
     }
 
     pub fn get_state(&mut self) -> Result<State, RuntimeError> {
         let runtime_info = self.read_runtime_info()?;
-
         Ok(runtime_info.state)
     }
 
@@ -185,14 +193,12 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
             runtime_info.state = state;
             Ok(())
         })?;
-
         Ok(())
     }
 
     pub fn update_state(&mut self, state: State) -> Result<(), RuntimeError> {
         self.update_state_without_send(state)?;
         let _ = self.state_sender.send(state);
-
         Ok(())
     }
 
@@ -209,7 +215,12 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
             .into_iter()
             .filter(|process_info| process_info.process_id != self_pid);
         for other in others {
-            let res = signal::kill(Pid::from_raw(other.process_id as i32), Signal::SIGTERM);
+            let signal = if other.feat_type == FeatType::Agent {
+                Signal::SIGUSR1
+            } else {
+                Signal::SIGTERM
+            };
+            let res = signal::kill(Pid::from_raw(other.process_id as i32), signal);
             if let Err(e) = res {
                 errs.push(e.into());
             } else {
@@ -225,14 +236,11 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
 
     #[cfg(unix)]
     pub fn run_controller(&mut self, agent_path: impl AsRef<Path>) -> Result<(), RuntimeError> {
-        // TODO: Care about UDS
         self.kill_others()?;
         if is_manage_by_systemd() && is_manage_socket_activation() {
             return Ok(());
         }
-
         change_to_executable(agent_path.as_ref()).map_err(RuntimeError::Command)?;
-
         let agent_path =
             agent_path
                 .as_ref()
@@ -253,7 +261,6 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
                 setsid().map_err(|no| {
                     RuntimeError::Fork(std::io::Error::from_raw_os_error(no as core::ffi::c_int))
                 })?;
-
                 execvp(&cmd, &args).map_err(|no| {
                     RuntimeError::Fork(std::io::Error::from_raw_os_error(no as core::ffi::c_int))
                 })?;

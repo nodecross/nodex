@@ -3,6 +3,7 @@ use crate::managers::{
     resource::{ResourceError, ResourceManagerTrait},
     runtime::{RuntimeError, RuntimeInfoStorage, RuntimeManager},
 };
+
 #[cfg(unix)]
 pub use nix::{
     sys::signal::{self, Signal},
@@ -47,7 +48,7 @@ where
                 log::error!("Failed to remove files {}", err);
             }
             runtime_manager.update_state_without_send(crate::managers::runtime::State::Init)?;
-            runtime_manager.run_controller(agent_path)?; // TODO: Care about UDS
+            runtime_manager.run_controller(agent_path)?;
             log::info!("Rollback completed");
 
             log::info!("Restarting controller by SIGINT");

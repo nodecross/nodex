@@ -175,15 +175,14 @@ impl<H: RuntimeInfoStorage + Send + Sync> AgentManagerTrait for UnixAgentManager
         if is_first {
             if self.uds_path.exists() {
                 log::warn!("UDS file already exists, removing: {:?}", self.uds_path);
-                std::fs::remove_file(&self.uds_path).map_err(AgentManagerError::BindUdsError)?;
+                let _ = std::fs::remove_file(&self.uds_path);
             }
             if self.meta_uds_path.exists() {
                 log::warn!(
                     "UDS file already exists, removing: {:?}",
                     self.meta_uds_path
                 );
-                std::fs::remove_file(&self.meta_uds_path)
-                    .map_err(AgentManagerError::BindUdsError)?;
+                let _ = std::fs::remove_file(&self.meta_uds_path);
             }
         }
         let runtime_info = self.runtime_manager.read_runtime_info()?;
@@ -199,7 +198,6 @@ impl<H: RuntimeInfoStorage + Send + Sync> AgentManagerTrait for UnixAgentManager
         match unsafe { fork() } {
             Ok(ForkResult::Parent { child }) => {
                 if is_first {
-                    // let listener = self.setup_listener()?;
                     let listener = if is_manage_by_systemd() && is_manage_socket_activation() {
                         Some(Self::get_fd_from_systemd()?)
                     } else {
@@ -207,19 +205,10 @@ impl<H: RuntimeInfoStorage + Send + Sync> AgentManagerTrait for UnixAgentManager
                     };
                     let () = wait_until_file_created(&self.meta_uds_path)
                         .map_err(AgentManagerError::WatchUdsError)?;
-
-                    // dbg!("test3");
-
                     let stream = std::os::unix::net::UnixStream::connect(&self.meta_uds_path)
                         .map_err(AgentManagerError::BindUdsError)?;
-
-                    // dbg!("test5");
-                    // let _ready = stream.ready(tokio::io::Interest::WRITABLE).await
-                    //     .map_err(AgentManagerError::BindUdsError)?;
-
                     send_fd(stream.as_raw_fd(), listener)
                         .map_err(|e| AgentManagerError::BindUdsError(e.into()))?;
-                    // dbg!("test76");
                 }
                 let process_info = ProcessInfo::new(
                     child.as_raw().try_into().map_err(|_| {
@@ -239,7 +228,6 @@ impl<H: RuntimeInfoStorage + Send + Sync> AgentManagerTrait for UnixAgentManager
                         e,
                     ))
                 })?;
-
                 execvp(&cmd, &args).map_err(|e| {
                     AgentManagerError::ForkAgentError(std::io::Error::new(
                         std::io::ErrorKind::Other,
@@ -257,24 +245,23 @@ impl<H: RuntimeInfoStorage + Send + Sync> AgentManagerTrait for UnixAgentManager
 
     async fn get_version(&self) -> Result<String, AgentManagerError> {
         let version_response: VersionResponse = self.get_request("/internal/version/get").await?;
-
         Ok(version_response.version)
     }
 
     fn terminate_agent(&mut self, process_id: u32) -> Result<(), AgentManagerError> {
         log::info!("Terminating agent with PID: {}", process_id);
-
-        signal::kill(Pid::from_raw(process_id as i32), Signal::SIGTERM)
+        signal::kill(Pid::from_raw(process_id as i32), Signal::SIGUSR1)
             .map_err(AgentManagerError::TerminateProcessError)?;
-
         self.runtime_manager.remove_process_info(process_id)?;
-
         Ok(())
     }
 
     fn cleanup(&self) -> Result<(), std::io::Error> {
         if self.uds_path.exists() {
-            std::fs::remove_file(&self.uds_path)?;
+            let _ = std::fs::remove_file(&self.uds_path);
+        }
+        if self.meta_uds_path.exists() {
+            let _ = std::fs::remove_file(&self.meta_uds_path);
         }
         Ok(())
     }
@@ -324,20 +311,6 @@ impl<H: RuntimeInfoStorage + Send> UnixAgentManager<H> {
         let response: Response<Incoming> = client.get(uri).await?;
 
         self.parse_response_body(response).await
-    }
-
-    fn setup_listener(&self) -> Result<RawFd, AgentManagerError> {
-        if is_manage_by_systemd() && is_manage_socket_activation() {
-            Self::get_fd_from_systemd()
-        } else {
-            if self.uds_path.exists() {
-                log::warn!("UDS file already exists, removing: {:?}", self.uds_path);
-                std::fs::remove_file(&self.uds_path).map_err(AgentManagerError::BindUdsError)?;
-            }
-            let listener = tokio::net::UnixListener::bind(&self.uds_path)
-                .map_err(AgentManagerError::BindUdsError)?;
-            Ok(listener.as_raw_fd())
-        }
     }
 
     fn get_fd_from_systemd() -> Result<RawFd, AgentManagerError> {

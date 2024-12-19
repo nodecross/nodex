@@ -1,12 +1,8 @@
 use crate::controllers;
 use axum::{
-    body::Body,
-    http::{Method, Request, StatusCode},
     routing::{get, post},
     Router,
 };
-use std::env;
-use tokio::sync::Mutex as TokioMutex;
 
 #[cfg(unix)]
 pub mod unix {
@@ -36,13 +32,13 @@ pub mod unix {
 
     pub fn make_listener(uds_path: impl AsRef<Path>) -> std::io::Result<UnixListener> {
         let meta_uds_path = controller::convention_of_meta_uds_path(&uds_path)?;
-        remove_file_if_exists(&meta_uds_path)?;
+        remove_file_if_exists(&meta_uds_path);
         let sock = std::os::unix::net::UnixListener::bind(&meta_uds_path)?;
         let permissions = std::fs::Permissions::from_mode(0o766);
         std::fs::set_permissions(&meta_uds_path, permissions)?;
         let (stream, _) = sock.accept()?;
         let fd = controller::managers::agent::recv_fd(stream.as_raw_fd())?;
-        remove_file_if_exists(&meta_uds_path)?;
+        remove_file_if_exists(&meta_uds_path);
         let uds = match fd {
             Some(fd) => {
                 let listener =
@@ -50,7 +46,7 @@ pub mod unix {
                 UnixListener::from_std(listener)?
             }
             None => {
-                remove_file_if_exists(&uds_path)?;
+                remove_file_if_exists(&uds_path);
                 UnixListener::bind(&uds_path)?
             }
         };
@@ -79,11 +75,9 @@ pub mod unix {
         }
     }
 
-    fn remove_file_if_exists(path: impl AsRef<Path>) -> std::io::Result<()> {
+    fn remove_file_if_exists(path: impl AsRef<Path>) {
         if path.as_ref().exists() {
-            std::fs::remove_file(path)
-        } else {
-            Ok(())
+            let _ = std::fs::remove_file(path);
         }
     }
 
@@ -106,7 +100,7 @@ pub mod unix {
         set.spawn(async move {
             let ctrl_c = tokio::signal::ctrl_c();
             let mut sigterm = signal(SignalKind::terminate())?;
-            // let mut siguser1 = signal(SignalKind::user_defined1())?;
+            let mut sigusr1 = signal(SignalKind::user_defined1())?;
             tokio::select! {
                 _ = ctrl_c => {
                     log::info!("Received Ctrl+C");
@@ -115,6 +109,11 @@ pub mod unix {
                 },
                 _ = sigterm.recv() => {
                     log::info!("Received SIGTERM");
+                    token.cancel();
+                    Ok(())
+                },
+                _ = sigusr1.recv() => {
+                    log::info!("Received SIGUSR1");
                     let send_sock_path = controller::convention_of_meta_uds_path(&uds_path)?;
                     let () = controller::managers::agent::wait_until_file_created(&send_sock_path)
                         .map_err(|e| std::io::Error::new(std::io::ErrorKind::NotFound, format!("{}", e)))?;
