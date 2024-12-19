@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full};
 use hyper::{body::Incoming, Response};
-use hyper_util::client::legacy::{Client, Error as LegacyClientError};
+use hyper_util::client::legacy::Client;
 use serde::de::DeserializeOwned;
 use std::{
     env,
@@ -60,7 +60,7 @@ pub enum AgentManagerError {
     #[error("Failed to parse LISTENER_FD")]
     ListenerFdParseError,
     #[error("Request failed: {0}")]
-    RequestFailed(#[from] LegacyClientError),
+    RequestFailed(String),
     #[error("Failed to parse JSON response: {0}")]
     JsonParseError(#[source] serde_json::Error),
     #[error("Failed to collect body: {0}")]
@@ -78,13 +78,6 @@ pub trait AgentManagerTrait: Send {
     async fn get_request<T>(&self, endpoint: &str) -> Result<T, AgentManagerError>
     where
         T: serde::de::DeserializeOwned + Send;
-
-    async fn parse_response_body<T>(
-        &self,
-        response: Response<Incoming>,
-    ) -> Result<T, AgentManagerError>
-    where
-        T: DeserializeOwned;
 
     fn cleanup(&self) -> Result<(), std::io::Error>;
 }
@@ -166,29 +159,12 @@ impl AgentManagerTrait for UnixAgentManager {
         let client: Client<UnixConnector, Full<Bytes>> = Client::unix();
         let uri = Uri::new(&self.uds_path, endpoint).into();
 
-        let response: Response<Incoming> = client.get(uri).await?;
+        let response: Response<Incoming> = client.get(uri).await.map_err(|e| {
+            log::error!("Request failed: {}", e);
+            AgentManagerError::RequestFailed(e.to_string())
+        })?;
 
         self.parse_response_body(response).await
-    }
-
-    async fn parse_response_body<T>(
-        &self,
-        response: Response<Incoming>,
-    ) -> Result<T, AgentManagerError>
-    where
-        T: DeserializeOwned,
-    {
-        let collected_body = response
-            .into_body()
-            .collect()
-            .await
-            .map_err(|e| AgentManagerError::CollectBodyError(e.to_string()))?;
-
-        let bytes = collected_body.to_bytes();
-        let string_body =
-            std::str::from_utf8(bytes.as_ref()).map_err(AgentManagerError::Utf8Error)?;
-
-        serde_json::from_str(string_body).map_err(AgentManagerError::JsonParseError)
     }
 
     fn cleanup(&self) -> Result<(), std::io::Error> {
@@ -212,6 +188,26 @@ impl UnixAgentManager {
             listener_fd,
             listener,
         })
+    }
+
+    async fn parse_response_body<T>(
+        &self,
+        response: Response<Incoming>,
+    ) -> Result<T, AgentManagerError>
+    where
+        T: DeserializeOwned,
+    {
+        let collected_body = response
+            .into_body()
+            .collect()
+            .await
+            .map_err(|e| AgentManagerError::CollectBodyError(e.to_string()))?;
+
+        let bytes = collected_body.to_bytes();
+        let string_body =
+            std::str::from_utf8(bytes.as_ref()).map_err(AgentManagerError::Utf8Error)?;
+
+        serde_json::from_str(string_body).map_err(AgentManagerError::JsonParseError)
     }
 
     fn setup_listener(
@@ -303,24 +299,97 @@ impl AgentManagerTrait for WindowsAgentManager {
         unimplemented!()
     }
 
-    async fn parse_response_body<T>(
-        &self,
-        response: Response<Incoming>,
-    ) -> Result<T, AgentManagerError>
-    where
-        T: DeserializeOwned,
-    {
-        unimplemented!()
-    }
-
     fn cleanup(&self) -> Result<(), std::io::Error> {
         unimplemented!()
     }
 }
 
-#[cfg(windows)]
-impl WindowsAgentManager {
-    pub fn new() -> Result<Self, AgentManagerError> {
-        Ok(WindowsAgentManager {})
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use libc;
+    use std::env;
+    use std::path::Path;
+
+    #[test]
+    fn test_unix_agent_manager_new() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let uds_path = temp_dir.path().join("test_socket");
+
+        let manager = UnixAgentManager::new(uds_path.clone());
+        assert!(
+            manager.is_ok(),
+            "UnixAgentManager should be initialized successfully"
+        );
+        let manager = manager.unwrap();
+
+        assert_eq!(manager.uds_path, uds_path);
+    }
+
+    #[test]
+    fn test_bind_new_uds() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let uds_path = temp_dir.path().join("test_socket");
+
+        let result = UnixAgentManager::bind_new_uds(&uds_path);
+        assert!(result.is_ok(), "UDS binding should succeed");
+        let (listener_fd, listener) = result.unwrap();
+
+        assert!(uds_path.exists(), "UDS file should be created");
+        assert!(listener.is_some(), "Listener should be created");
+        unsafe {
+            libc::close(listener_fd);
+        }
+    }
+
+    #[test]
+    fn test_setup_listener_with_systemd_activation() {
+        env::set_var("LISTEN_FDS", "1");
+        env::set_var("LISTEN_PID", std::process::id().to_string());
+
+        let result = UnixAgentManager::get_fd_from_systemd();
+        assert!(result.is_ok(), "Systemd socket activation should succeed");
+        let (listener_fd, listener) = result.unwrap();
+
+        assert_eq!(
+            listener_fd, DEFAULT_FD,
+            "Listener FD should match DEFAULT_FD"
+        );
+        assert!(
+            listener.is_none(),
+            "Listener should not be created in this mode"
+        );
+    }
+
+    #[test]
+    fn test_duplicate_fd() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let uds_path = temp_dir.path().join("test_socket");
+        let listener = UnixListener::bind(&uds_path).unwrap();
+
+        let listener_fd = listener.as_raw_fd();
+        let listener_fd_str = listener_fd.to_string();
+
+        let result = UnixAgentManager::duplicate_fd(listener_fd_str);
+        assert!(result.is_ok(), "Duplicating FD should succeed");
+        let (duplicated_fd, listener) = result.unwrap();
+
+        assert!(listener.is_some(), "Listener should be created");
+    }
+
+    #[tokio::test]
+    async fn test_launch_and_terminate_agent() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let uds_path = temp_dir.path().join("test_socket");
+
+        let manager = UnixAgentManager::new(uds_path).unwrap();
+        let process_info = manager.launch_agent();
+        assert!(process_info.is_ok(), "Agent launch should succeed");
+
+        let process_info = process_info.unwrap();
+        assert!(
+            manager.terminate_agent(process_info.process_id).is_ok(),
+            "Agent termination should succeed"
+        );
     }
 }
