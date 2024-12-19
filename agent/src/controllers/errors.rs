@@ -1,9 +1,11 @@
+use axum::extract::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use serde::Serialize;
 use std::convert::From;
 use thiserror::Error;
 
-#[derive(Clone, Copy, Debug, Error)]
+#[derive(Clone, Copy, Debug, Error, Serialize)]
 pub enum AgentErrorCode {
     #[error("binary_url is required")]
     VersionNoBinaryUrl = 1001,
@@ -134,6 +136,7 @@ impl From<AgentErrorCode> for StatusCode {
 impl IntoResponse for AgentErrorCode {
     fn into_response(self) -> Response {
         let code: StatusCode = self.into();
-        (code, format!("{}", self)).into_response()
+        let value = Json(serde_json::json!({"code": self as u16, "message": format!("{}", self)}));
+        (code, value).into_response()
     }
 }

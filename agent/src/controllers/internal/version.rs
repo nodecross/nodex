@@ -23,6 +23,9 @@ pub async fn handler_update(
     let nodex = NodeX::new();
     match nodex.update_version(binary_url).await {
         Ok(_) => Ok(Json("ok")),
-        Err(_) => Err(AgentErrorCode::VersionInternal)?,
+        Err(e) => {
+            log::error!("{}", e);
+            Err(AgentErrorCode::VersionInternal)?
+        },
     }
 }
