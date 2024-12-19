@@ -3,7 +3,6 @@ use crate::repository::metric_repository::{
     MetricStoreRepository, MetricsCacheRepository, MetricsWatchRepository,
 };
 use std::{sync::Arc, time::Duration};
-use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
 pub struct MetricUsecase<S, W, C>
@@ -128,31 +127,31 @@ mod tests {
 
     #[tokio::test]
     async fn test_collect_task() {
-        let notify = Arc::new(Notify::new());
-        let notify_clone = notify.clone();
+        let token = CancellationToken::new();
+        let cloned_token = token.clone();
         let mut usecase = MetricUsecase {
             store_repository: MockMetricStoreRepository {},
             watch_repository: MockMetricWatchRepository {},
             config: app_config(),
             cache_repository: MetricsInMemoryCacheService::new(1 << 16),
-            shutdown_notify: notify_clone,
+            shutdown_token: cloned_token,
         };
-        notify.notify_one();
+        token.cancel();
         usecase.collect_task().await;
     }
 
     #[tokio::test]
     async fn test_send_task() {
-        let notify = Arc::new(Notify::new());
-        let notify_clone = notify.clone();
+        let token = CancellationToken::new();
+        let cloned_token = token.clone();
         let mut usecase = MetricUsecase {
             store_repository: MockMetricStoreRepository {},
             watch_repository: MockMetricWatchRepository {},
             config: app_config(),
             cache_repository: MetricsInMemoryCacheService::new(1 << 16),
-            shutdown_notify: notify_clone,
+            shutdown_token: cloned_token,
         };
-        notify.notify_one();
+        token.cancel();
         usecase.send_task().await;
     }
 }
