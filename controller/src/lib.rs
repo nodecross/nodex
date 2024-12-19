@@ -64,9 +64,7 @@ pub async fn run() -> std::io::Result<()> {
     ));
 
     #[cfg(windows)]
-    let agent_manager = Arc::new(Mutex::new(
-        WindowsAgentManager::new().expect("Failed to create AgentManager"),
-    ));
+    let agent_manager = Arc::new(Mutex::new(WindowsAgentManager {}));
 
     let shutdown_handle = tokio::spawn({
         let should_stop = Arc::clone(&should_stop);
