@@ -26,6 +26,6 @@ pub async fn handler_update(
         Err(e) => {
             log::error!("{}", e);
             Err(AgentErrorCode::VersionInternal)?
-        },
+        }
     }
 }

@@ -106,7 +106,7 @@ impl NodeX {
                 .ok_or(anyhow::anyhow!("Incompatible size"))?;
             let len = core::num::NonZero::new(len).ok_or(anyhow::anyhow!("Incompatible size"))?;
             let handler = MmapHandler::new("nodex_runtime_info", len)?;
-            let mut runtime_manager = RuntimeManager::new(handler, "", "", false)?.0;
+            let mut runtime_manager = RuntimeManager::new_by_agent(handler);
             let agent_path = &runtime_manager.get_exec_path()?;
             let output_path = agent_path
                 .parent()

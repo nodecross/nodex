@@ -77,10 +77,8 @@ fn initialize_runtime_manager() -> Result<
         core::num::NonZero::new(10000).unwrap(),
     )?;
     let uds_path = get_config().lock().unwrap().uds_path.clone();
-    // todo
-    let meta_uds_path = unix_utils::convention_of_meta_uds_path(&uds_path).unwrap();
     std::env::set_var("MMAP_SIZE", 10000.to_string());
-    Ok(RuntimeManager::new(handler, uds_path, meta_uds_path, true)?)
+    Ok(RuntimeManager::new_by_controller(handler, uds_path)?)
 }
 
 #[cfg(unix)]

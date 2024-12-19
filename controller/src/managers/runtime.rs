@@ -48,14 +48,6 @@ pub enum FeatType {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum RuntimeCreateError<E: std::error::Error> {
-    #[error("Runtime Error: {0}")]
-    Runtime(#[from] E),
-    #[error("Controller already running")]
-    AlreadyExistController,
-}
-
-#[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
     #[error("Failed to open file: {0}")]
     FileOpen(#[source] std::io::Error),
@@ -87,6 +79,10 @@ pub enum RuntimeError {
     GetFd(#[from] crate::unix_utils::GetFdError),
     #[error("Request failed: {0}")]
     Request(#[from] crate::unix_utils::GetRequestError),
+    #[error("Controller already running")]
+    AlreadyExistController,
+    #[error("Failed to get meta uds path")]
+    PathConvention,
 }
 
 pub trait RuntimeInfoStorage: std::fmt::Debug {
@@ -94,27 +90,6 @@ pub trait RuntimeInfoStorage: std::fmt::Debug {
     fn apply_with_lock<F>(&mut self, operation: F) -> Result<(), RuntimeError>
     where
         F: FnOnce(&mut RuntimeInfo) -> Result<(), RuntimeError>;
-}
-
-pub trait _RuntimeManager: Sized {
-    type Error: std::error::Error;
-    type Storage: RuntimeInfoStorage;
-    type Config;
-
-    fn new(
-        storage: Self::Storage,
-        config: Option<Self::Config>,
-    ) -> Result<(Self, watch::Receiver<State>), RuntimeCreateError<Self::Error>>;
-    fn is_agent_running(&mut self) -> Result<bool, Self::Error>;
-    fn kill_process(&mut self, process_info: &ProcessInfo) -> Result<(), Self::Error>;
-    fn kill_otherwise_agents(&mut self, process_info: &ProcessInfo) -> Result<(), Self::Error>;
-    fn update_state_without_send(&mut self, state: State) -> Result<(), Self::Error>;
-    fn update_state(&mut self, state: State) -> Result<(), Self::Error>;
-    fn launch_agent(&mut self, is_first: bool) -> Result<ProcessInfo, Self::Error>;
-    fn launch_controller(
-        &mut self,
-        new_controller_path: impl AsRef<Path>,
-    ) -> Result<(), Self::Error>;
 }
 
 #[derive(Debug, Deserialize)]
@@ -132,40 +107,52 @@ pub struct RuntimeManager<H: RuntimeInfoStorage> {
 }
 
 impl<H: RuntimeInfoStorage> RuntimeManager<H> {
-    pub fn new(
+    pub fn new_by_controller(
         mut file_handler: H,
         uds_path: impl AsRef<Path>,
-        meta_uds_path: impl AsRef<Path>,
-        is_controller: bool,
-    ) -> Result<(Self, watch::Receiver<State>), RuntimeCreateError<RuntimeError>> {
+    ) -> Result<(Self, watch::Receiver<State>), RuntimeError> {
         let runtime_info = file_handler.read()?;
         let (state_sender, state_receiver) = watch::channel(runtime_info.state);
+        let meta_uds_path = crate::unix_utils::convention_of_meta_uds_path(&uds_path)
+            .map_err(|_| RuntimeError::PathConvention)?;
         let self_pid = std::process::id();
         let mut runtime_manager = RuntimeManager {
             self_pid,
             file_handler,
             state_sender,
             uds_path: uds_path.as_ref().into(),
-            meta_uds_path: meta_uds_path.as_ref().into(),
+            meta_uds_path,
         };
-        if is_controller {
-            // We assume that caller is controller.
-            let controller_processes = runtime_info
-                .process_infos
-                .iter()
-                .filter(|process_info| {
-                    runtime_manager.is_running_or_remove_if_stopped(process_info)
-                        && process_info.feat_type == FeatType::Controller
-                        && process_info.process_id != self_pid
-                })
-                .collect::<Vec<&ProcessInfo>>();
-            if !controller_processes.is_empty() {
-                return Err(RuntimeCreateError::AlreadyExistController);
-            }
-            let self_info = ProcessInfo::new(self_pid, FeatType::Controller);
-            runtime_manager.add_process_info(self_info)?;
+        // We assume that caller is controller.
+        let controller_processes = runtime_info
+            .process_infos
+            .iter()
+            .filter(|process_info| {
+                runtime_manager.is_running_or_remove_if_stopped(process_info)
+                    && process_info.feat_type == FeatType::Controller
+                    && process_info.process_id != self_pid
+            })
+            .collect::<Vec<&ProcessInfo>>();
+        if !controller_processes.is_empty() {
+            return Err(RuntimeError::AlreadyExistController);
         }
+        let self_info = ProcessInfo::new(self_pid, FeatType::Controller);
+        runtime_manager.add_process_info(self_info)?;
         Ok((runtime_manager, state_receiver))
+    }
+
+    pub fn new_by_agent(file_handler: H) -> Self {
+        // dummy
+        let (state_sender, _) = watch::channel(State::Init);
+        let self_pid = std::process::id();
+        let runtime_manager = RuntimeManager {
+            self_pid,
+            file_handler,
+            state_sender,
+            uds_path: "".into(),
+            meta_uds_path: "".into(),
+        };
+        runtime_manager
     }
 
     pub fn launch_agent(&mut self, is_first: bool) -> Result<ProcessInfo, RuntimeError> {
@@ -240,7 +227,7 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
         }
     }
 
-    pub fn get_process_infos(&mut self) -> Result<Vec<ProcessInfo>, RuntimeError> {
+    fn get_process_infos(&mut self) -> Result<Vec<ProcessInfo>, RuntimeError> {
         let runtime_info = self.file_handler.read()?;
         Ok(runtime_info.process_infos)
     }
