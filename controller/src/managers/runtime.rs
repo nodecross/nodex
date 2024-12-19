@@ -405,9 +405,7 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
         &mut self,
         new_controller_path: impl AsRef<Path>,
     ) -> Result<(), RuntimeError> {
-        dbg!(self.file_handler.read());
         self.kill_otherwise()?;
-        dbg!(self.file_handler.read());
         if is_manage_by_systemd() && is_manage_socket_activation() {
             return Ok(());
         }
