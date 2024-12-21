@@ -209,15 +209,7 @@ where
             crate::unix_utils::send_fd(stream, listener)
                 .map_err(|e| RuntimeError::BindUdsError(e.into()))?;
         }
-        let process_info = ProcessInfo::new(
-            child.try_into().map_err(|_| {
-                RuntimeError::Fork(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "Failed to convert child process ID to u32",
-                ))
-            })?,
-            FeatType::Agent,
-        );
+        let process_info = ProcessInfo::new(child, FeatType::Agent);
         self.add_process_info(process_info.clone())?;
         Ok(process_info)
     }

@@ -153,7 +153,7 @@ where
         let latest = runtime_manager.launch_agent(false)?;
         // terminate old version agents
         runtime_manager.kill_other_agents(latest.process_id)?;
-        monitor_agent_version(&runtime_manager, &current_version).await?;
+        monitor_agent_version(runtime_manager, &current_version).await?;
         // if you test for rollback, comment out a follow line.
         resource_manager.remove()?;
         Ok(())

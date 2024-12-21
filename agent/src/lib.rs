@@ -1,25 +1,28 @@
 use crate::controllers::public::nodex_receive;
 use cli::AgentCommands;
 use dotenvy::dotenv;
-use handlers::Command;
-use handlers::MqttClient;
 use mac_address::get_mac_address;
-use rumqttc::{AsyncClient, MqttOptions, QoS};
+use nodex::utils::UnwrapLog;
 use services::metrics::{MetricsInMemoryCacheService, MetricsWatchService};
 use services::nodex::NodeX;
 use services::studio::Studio;
 use std::env;
-#[cfg(unix)]
-use std::os::unix::io::AsRawFd;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::{collections::HashMap, fs, sync::Arc};
-use tokio::sync::mpsc;
-use tokio::sync::Mutex;
-use tokio::sync::Notify;
-use tokio::sync::RwLock;
+use std::fs;
 use tokio::task::JoinSet;
-use tokio::time::Duration;
 use tokio_util::sync::CancellationToken;
+use usecase::metric_usecase::MetricUsecase;
+pub mod cli;
+mod config;
+mod controllers;
+mod network;
+mod nodex;
+mod repository;
+mod server;
+mod services;
+mod usecase;
+pub use crate::config::app_config;
+pub use crate::config::server_config;
+pub use crate::network::network_config;
 
 #[cfg(windows)]
 mod windows_imports {
@@ -33,24 +36,6 @@ mod windows_imports {
 
 #[cfg(windows)]
 use windows_imports::*;
-
-use nodex::utils::UnwrapLog;
-use usecase::metric_usecase::MetricUsecase;
-
-pub mod cli;
-mod config;
-mod controllers;
-mod handlers;
-mod network;
-mod nodex;
-mod repository;
-mod server;
-mod services;
-mod usecase;
-
-pub use crate::config::app_config;
-pub use crate::config::server_config;
-pub use crate::network::network_config;
 
 #[tokio::main]
 pub async fn run(options: &cli::AgentOptions) -> std::io::Result<()> {
@@ -122,7 +107,7 @@ pub async fn run(options: &cli::AgentOptions) -> std::io::Result<()> {
         fs::create_dir_all(&runtime_dir).unwrap_log();
         let nodex_path = runtime_dir.clone().join("nodex.sock");
         let listener = server::unix::make_listener(&nodex_path)?;
-        let fd = listener.as_raw_fd();
+        let fd = std::os::unix::io::AsRawFd::as_raw_fd(&listener);
         let server = server::unix::make_uds_server(server::make_router(), listener);
         let server =
             server::unix::wrap_with_signal_handler(server, shutdown_token, fd, &nodex_path);

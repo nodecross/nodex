@@ -6,8 +6,7 @@ use controller::validator::network::can_connect_to_download_server;
 use protocol::didcomm::encrypted::DidCommEncryptedService;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::{env, path::PathBuf, sync::Arc, time::Duration};
-use tokio::sync::Notify;
+use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 #[derive(Deserialize)]

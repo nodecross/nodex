@@ -75,11 +75,7 @@ fn initialize_runtime_manager() -> Result<
     )?;
     let uds_path = get_config().lock().unwrap().uds_path.clone();
     std::env::set_var("MMAP_SIZE", 10000.to_string());
-    Ok(RuntimeManager::new_by_controller(
-        handler,
-        ProcessManagerImpl {},
-        uds_path,
-    )?)
+    RuntimeManager::new_by_controller(handler, ProcessManagerImpl {}, uds_path)
 }
 
 #[cfg(unix)]

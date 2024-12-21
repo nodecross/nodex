@@ -72,7 +72,7 @@ pub mod unix {
                     .serve_connection_with_upgrades(socket, hyper_service)
                     .await
                 {
-                    eprintln!("failed to serve connection: {err:#}");
+                    log::error!("failed to serve connection: {}", err);
                 }
             });
         }
@@ -122,8 +122,8 @@ pub mod unix {
                                 tokio::time::sleep(std::time::Duration::from_millis(5)).await;
                                 continue;
                             }
-                            res @ Err(_) => res?,
-                        };
+                            Err(err) => return Err(err),
+                        }
                     };
                     send_fd(stream.as_raw_fd(), Some(fd))?;
                     token.cancel();

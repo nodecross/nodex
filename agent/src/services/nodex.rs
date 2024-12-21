@@ -3,20 +3,14 @@ use crate::nodex::keyring;
 use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::{app_config, server_config};
 use anyhow;
-
 use controller::managers::{
     mmap_storage::MmapHandler,
     resource::ResourceManagerTrait,
-    runtime::{FeatType, RuntimeInfoStorage, RuntimeManager, State},
+    runtime::{RuntimeManager, State},
 };
 use controller::validator::storage::check_storage;
 use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
 use protocol::did::sidetree::payload::DidResolutionResponse;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    process::Command,
-};
 
 #[cfg(windows)]
 mod windows_imports {
@@ -117,7 +111,7 @@ impl NodeX {
                 .await
                 .map_err(|e| anyhow::anyhow!(e))?;
 
-            runtime_manager.launch_controller(&agent_path)?;
+            runtime_manager.launch_controller(agent_path)?;
             runtime_manager.update_state(State::Update)?;
         }
 

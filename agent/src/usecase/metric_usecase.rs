@@ -2,7 +2,7 @@ use crate::config::SingletonAppConfig;
 use crate::repository::metric_repository::{
     MetricStoreRepository, MetricsCacheRepository, MetricsWatchRepository,
 };
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 pub struct MetricUsecase<S, W, C>

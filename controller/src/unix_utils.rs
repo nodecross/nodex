@@ -27,7 +27,7 @@ pub fn convention_of_meta_uds_path(uds: impl AsRef<Path>) -> std::io::Result<Pat
                 std::io::ErrorKind::NotFound,
                 "Failed to get path of unix domain socket",
             ))?;
-    Ok(parent.join(format!("meta_{}", base_name)).into())
+    Ok(parent.join(format!("meta_{}", base_name)))
 }
 
 pub fn send_fd(tx: RawFd, fd: Option<RawFd>) -> nix::Result<()> {

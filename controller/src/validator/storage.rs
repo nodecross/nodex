@@ -21,7 +21,7 @@ fn calculate_directory_size(dir: impl AsRef<Path>) -> Result<u64, std::io::Error
         if metadata.is_file() {
             total_size += metadata.len();
         } else if metadata.is_dir() {
-            total_size += calculate_directory_size(&entry.path())?;
+            total_size += calculate_directory_size(entry.path())?;
         }
     }
 
