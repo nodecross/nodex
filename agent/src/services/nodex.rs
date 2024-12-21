@@ -9,6 +9,7 @@ use controller::managers::{
     resource::ResourceManagerTrait,
     runtime::{FeatType, RuntimeInfoStorage, RuntimeManager, State},
 };
+use controller::validator::storage::check_storage;
 use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
 use protocol::did::sidetree::payload::DidResolutionResponse;
 use std::{
@@ -16,21 +17,6 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
-
-use controller::validator::storage::check_storage;
-
-#[cfg(unix)]
-mod unix_imports {
-    pub use controller::managers::resource::UnixResourceManager;
-    pub use nix::{
-        sys::signal::{self, Signal},
-        unistd::{execvp, fork, setsid, ForkResult, Pid},
-    };
-    pub use std::ffi::CString;
-}
-
-#[cfg(unix)]
-use unix_imports::*;
 
 #[cfg(windows)]
 mod windows_imports {
@@ -106,7 +92,10 @@ impl NodeX {
                 .ok_or(anyhow::anyhow!("Incompatible size"))?;
             let len = core::num::NonZero::new(len).ok_or(anyhow::anyhow!("Incompatible size"))?;
             let handler = MmapHandler::new("nodex_runtime_info", len)?;
-            let mut runtime_manager = RuntimeManager::new_by_agent(handler);
+            let mut runtime_manager = RuntimeManager::new_by_agent(
+                handler,
+                controller::managers::unix_process_manager::UnixProcessManager,
+            );
             let agent_path = &runtime_manager.get_exec_path()?;
             let output_path = agent_path
                 .parent()
@@ -115,7 +104,8 @@ impl NodeX {
                 log::error!("Not enough storage space: {:?}", output_path);
                 anyhow::bail!("Not enough storage space");
             }
-            let resource_manager = UnixResourceManager::new(agent_path);
+            let resource_manager =
+                controller::managers::resource::UnixResourceManager::new(agent_path);
 
             resource_manager.backup().map_err(|e| {
                 log::error!("Failed to backup: {}", e);

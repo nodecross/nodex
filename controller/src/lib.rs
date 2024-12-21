@@ -1,9 +1,13 @@
 use crate::config::get_config;
 use crate::managers::mmap_storage::MmapHandler;
-use crate::managers::runtime::{RuntimeError, RuntimeInfoStorage, RuntimeManager, State};
+use crate::managers::runtime::{
+    ProcessManager, RuntimeError, RuntimeInfoStorage, RuntimeManager, State,
+};
 use crate::state::handler::handle_state;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+#[cfg(unix)]
+type ProcessManagerImpl = crate::managers::unix_process_manager::UnixProcessManager;
 
 #[cfg(unix)]
 mod unix_imports {
@@ -11,11 +15,6 @@ mod unix_imports {
 }
 #[cfg(unix)]
 use unix_imports::*;
-
-#[cfg(windows)]
-mod windows_imports {
-    pub use crate::managers::agent::WindowsAgentManager;
-}
 
 #[cfg(windows)]
 use windows_imports::*;
@@ -65,7 +64,7 @@ pub async fn run() -> std::io::Result<()> {
 
 fn initialize_runtime_manager() -> Result<
     (
-        RuntimeManager<MmapHandler>,
+        RuntimeManager<MmapHandler, ProcessManagerImpl>,
         tokio::sync::watch::Receiver<State>,
     ),
     RuntimeError,
@@ -76,13 +75,18 @@ fn initialize_runtime_manager() -> Result<
     )?;
     let uds_path = get_config().lock().unwrap().uds_path.clone();
     std::env::set_var("MMAP_SIZE", 10000.to_string());
-    Ok(RuntimeManager::new_by_controller(handler, uds_path)?)
+    Ok(RuntimeManager::new_by_controller(
+        handler,
+        ProcessManagerImpl {},
+        uds_path,
+    )?)
 }
 
 #[cfg(unix)]
-pub async fn handle_signals<H>(runtime_manager: Arc<Mutex<RuntimeManager<H>>>)
+pub async fn handle_signals<H, P>(runtime_manager: Arc<Mutex<RuntimeManager<H, P>>>)
 where
     H: RuntimeInfoStorage + Send + Sync + 'static,
+    P: ProcessManager + Send + Sync + 'static,
 {
     let ctrl_c = tokio::signal::ctrl_c();
     let mut sigterm = signal(SignalKind::terminate()).expect("Failed to bind to SIGTERM");
@@ -123,9 +127,12 @@ pub async fn handle_signals<A>(
 }
 
 #[cfg(unix)]
-async fn handle_cleanup<H>(runtime_manager: &Arc<Mutex<RuntimeManager<H>>>) -> Result<(), String>
+async fn handle_cleanup<H, P>(
+    runtime_manager: &Arc<Mutex<RuntimeManager<H, P>>>,
+) -> Result<(), String>
 where
     H: RuntimeInfoStorage + Send + Sync + 'static,
+    P: ProcessManager + Send + Sync + 'static,
 {
     log::info!("Received CTRL+C. Initiating shutdown.");
 

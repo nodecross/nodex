@@ -1,13 +1,6 @@
-use crate::validator::process::is_running;
 use crate::validator::process::{is_manage_by_systemd, is_manage_socket_activation};
 use chrono::{DateTime, FixedOffset, Utc};
-use nix::{
-    sys::signal::{self, Signal},
-    unistd::{execvp, fork, setsid, ForkResult, Pid},
-};
 use serde::{Deserialize, Serialize};
-use std::ffi::CString;
-use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 use tokio::sync::watch;
 
@@ -40,6 +33,17 @@ pub enum FeatType {
     Controller,
 }
 
+pub enum NodexSignal {
+    Terminate,
+    SendFd,
+}
+
+pub trait ProcessManager: Clone {
+    fn is_running(&self, process_id: u32) -> bool;
+    fn spawn_process(&self, cmd: impl AsRef<Path>, args: &[&str]) -> Result<u32, std::io::Error>;
+    fn kill_process(&self, process_id: u32, signal: NodexSignal) -> Result<(), std::io::Error>;
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
     #[error("Failed to open file: {0}")]
@@ -56,8 +60,10 @@ pub enum RuntimeError {
     JsonSerialize(#[source] serde_json::Error),
     #[error("Failed to deserialize runtime info from JSON: {0}")]
     JsonDeserialize(#[source] serde_json::Error),
+    #[error("Failed to kill process")]
+    Kill(std::io::Error),
     #[error("Failed to kill processes")]
-    Kill(Vec<std::io::Error>),
+    Kills(Vec<RuntimeError>),
     #[error("Failed to create command: {0}")]
     Command(#[source] std::io::Error),
     #[error("Failed to fork: {0}")]
@@ -91,17 +97,27 @@ struct VersionResponse {
 }
 
 #[derive(Debug, Clone)]
-pub struct RuntimeManager<H: RuntimeInfoStorage> {
+pub struct RuntimeManager<H, P>
+where
+    H: RuntimeInfoStorage,
+    P: ProcessManager,
+{
     self_pid: u32,
     file_handler: H,
+    process_manager: P,
     uds_path: PathBuf,
     meta_uds_path: PathBuf,
     state_sender: watch::Sender<State>,
 }
 
-impl<H: RuntimeInfoStorage> RuntimeManager<H> {
+impl<H, P> RuntimeManager<H, P>
+where
+    H: RuntimeInfoStorage,
+    P: ProcessManager,
+{
     pub fn new_by_controller(
         mut file_handler: H,
+        process_manager: P,
         uds_path: impl AsRef<Path>,
     ) -> Result<(Self, watch::Receiver<State>), RuntimeError> {
         let runtime_info = file_handler.read()?;
@@ -113,16 +129,18 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
             self_pid,
             file_handler,
             state_sender,
+            process_manager,
             uds_path: uds_path.as_ref().into(),
             meta_uds_path,
         };
         // We assume that caller is controller.
+        runtime_manager.cleanup_process_info()?;
+        let runtime_info = runtime_manager.file_handler.read()?;
         let controller_processes = runtime_info
             .process_infos
             .iter()
             .filter(|process_info| {
-                runtime_manager.is_running_or_remove_if_stopped(process_info)
-                    && process_info.feat_type == FeatType::Controller
+                process_info.feat_type == FeatType::Controller
                     && process_info.process_id != self_pid
             })
             .collect::<Vec<&ProcessInfo>>();
@@ -134,22 +152,22 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
         Ok((runtime_manager, state_receiver))
     }
 
-    pub fn new_by_agent(file_handler: H) -> Self {
+    pub fn new_by_agent(file_handler: H, process_manager: P) -> Self {
         // dummy
         let (state_sender, _) = watch::channel(State::Init);
         let self_pid = std::process::id();
-        let runtime_manager = RuntimeManager {
+        RuntimeManager {
             self_pid,
             file_handler,
             state_sender,
+            process_manager,
             uds_path: "".into(),
             meta_uds_path: "".into(),
-        };
-        runtime_manager
+        }
     }
 
     pub fn launch_agent(&mut self, is_first: bool) -> Result<ProcessInfo, RuntimeError> {
-        if is_first {
+        if cfg!(unix) && is_first {
             if self.uds_path.exists() {
                 log::warn!("UDS file already exists, removing: {:?}", self.uds_path);
                 let _ = std::fs::remove_file(&self.uds_path);
@@ -163,98 +181,57 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
             }
         }
         let current_exe = &self.get_exec_path()?;
-        let cmd = CString::new(current_exe.to_string_lossy().as_ref()).map_err(|e| {
-            RuntimeError::Fork(std::io::Error::new(std::io::ErrorKind::InvalidInput, e))
-        })?;
-        let args = vec![cmd.clone()];
+        let child = self
+            .process_manager
+            .spawn_process(current_exe, &[])
+            .map_err(RuntimeError::Fork)?;
 
-        match unsafe { fork() } {
-            Ok(ForkResult::Parent { child }) => {
-                if is_first {
-                    let listener = if is_manage_by_systemd() && is_manage_socket_activation() {
-                        Some(crate::unix_utils::get_fd_from_systemd()?)
-                    } else {
-                        None
-                    };
-                    let () = crate::unix_utils::wait_until_file_created(&self.meta_uds_path)
-                        .map_err(RuntimeError::WatchUdsError)?;
-                    let stream = loop {
-                        match std::os::unix::net::UnixStream::connect(&self.meta_uds_path) {
-                            Ok(stream) => break stream,
-                            Err(err) if err.kind() == std::io::ErrorKind::ConnectionRefused => {
-                                // Wait for bind
-                                std::thread::sleep(std::time::Duration::from_millis(5));
-                                continue;
-                            }
-                            Err(err) => return Err(RuntimeError::BindUdsError(err)),
-                        }
-                    };
-                    crate::unix_utils::send_fd(stream.as_raw_fd(), listener)
-                        .map_err(|e| RuntimeError::BindUdsError(e.into()))?;
+        if cfg!(unix) && is_first {
+            let listener = if is_manage_by_systemd() && is_manage_socket_activation() {
+                Some(crate::unix_utils::get_fd_from_systemd()?)
+            } else {
+                None
+            };
+            let () = crate::unix_utils::wait_until_file_created(&self.meta_uds_path)
+                .map_err(RuntimeError::WatchUdsError)?;
+            let stream = loop {
+                match std::os::unix::net::UnixStream::connect(&self.meta_uds_path) {
+                    Ok(stream) => break stream,
+                    Err(err) if err.kind() == std::io::ErrorKind::ConnectionRefused => {
+                        // Wait for bind
+                        std::thread::sleep(std::time::Duration::from_millis(5));
+                        continue;
+                    }
+                    Err(err) => return Err(RuntimeError::BindUdsError(err)),
                 }
-                let process_info = ProcessInfo::new(
-                    child.as_raw().try_into().map_err(|_| {
-                        RuntimeError::Fork(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            "Failed to convert child process ID to u32",
-                        ))
-                    })?,
-                    FeatType::Agent,
-                );
-                self.add_process_info(process_info.clone())?;
-                Ok(process_info)
-            }
-            Ok(ForkResult::Child) => {
-                setsid().map_err(|e| {
-                    RuntimeError::Fork(std::io::Error::new(std::io::ErrorKind::Other, e))
-                })?;
-                execvp(&cmd, &args).map_err(|e| {
-                    RuntimeError::Fork(std::io::Error::new(std::io::ErrorKind::Other, e))
-                })?;
-                unreachable!();
-            }
-            Err(e) => Err(RuntimeError::Fork(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                e,
-            ))),
+            };
+            let stream = std::os::unix::io::AsRawFd::as_raw_fd(&stream);
+            crate::unix_utils::send_fd(stream, listener)
+                .map_err(|e| RuntimeError::BindUdsError(e.into()))?;
         }
-    }
-
-    fn get_process_infos(&mut self) -> Result<Vec<ProcessInfo>, RuntimeError> {
-        let runtime_info = self.file_handler.read()?;
-        Ok(runtime_info.process_infos)
+        let process_info = ProcessInfo::new(
+            child.try_into().map_err(|_| {
+                RuntimeError::Fork(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "Failed to convert child process ID to u32",
+                ))
+            })?,
+            FeatType::Agent,
+        );
+        self.add_process_info(process_info.clone())?;
+        Ok(process_info)
     }
 
     pub fn is_agent_running(&mut self) -> Result<bool, RuntimeError> {
-        Ok(!self.filter_process_infos(FeatType::Agent)?.is_empty())
-    }
-
-    fn filter_process_infos(
-        &mut self,
-        feat_type: FeatType,
-    ) -> Result<Vec<ProcessInfo>, RuntimeError> {
-        let process_infos = self.get_process_infos()?;
-        Ok(process_infos
+        let runtime_info = self.file_handler.read()?;
+        let is_not_empty = runtime_info
+            .process_infos
             .into_iter()
-            .filter(|process_info| process_info.feat_type == feat_type)
-            .collect())
-    }
-
-    fn is_running_or_remove_if_stopped(&mut self, process_info: &ProcessInfo) -> bool {
-        if !is_running(process_info.process_id) {
-            let _ = self
-                .remove_process_info(process_info.process_id)
-                .map_err(|e| {
-                    log::error!(
-                        "Failed to remove process for process ID {}: {}",
-                        process_info.process_id,
-                        e
-                    )
-                });
-            false
-        } else {
-            true
-        }
+            .filter(|process_info| process_info.feat_type == FeatType::Agent)
+            .peekable()
+            .peek()
+            .is_some();
+        Ok(is_not_empty)
     }
 
     pub fn get_exec_path(&mut self) -> Result<PathBuf, RuntimeError> {
@@ -280,57 +257,46 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
 
     pub fn kill_process(&mut self, process_info: &ProcessInfo) -> Result<(), RuntimeError> {
         let signal = if process_info.feat_type == FeatType::Agent {
-            Signal::SIGUSR1
+            NodexSignal::SendFd
         } else {
-            Signal::SIGTERM
+            NodexSignal::Terminate
         };
-        signal::kill(Pid::from_raw(process_info.process_id as i32), signal)
-            .map_err(|e| RuntimeError::Kill(vec![e.into()]))?;
+        self.process_manager
+            .kill_process(process_info.process_id, signal)
+            .map_err(RuntimeError::Kill)?;
         self.remove_process_info(process_info.process_id)?;
         Ok(())
     }
 
     pub fn cleanup(&mut self) -> Result<(), RuntimeError> {
-        crate::unix_utils::remove_file_if_exists(&self.uds_path);
-        crate::unix_utils::remove_file_if_exists(&self.meta_uds_path);
-        self.kill_otherwise()?;
+        #[cfg(unix)]
+        {
+            crate::unix_utils::remove_file_if_exists(&self.uds_path);
+            crate::unix_utils::remove_file_if_exists(&self.meta_uds_path);
+        }
+        self.kill_others()?;
         self.file_handler.apply_with_lock(|runtime_info| {
             runtime_info.process_infos = vec![];
             runtime_info.state = State::Init;
             Ok(())
         })
-        // let self_pid = self.self_info.process_id;
-        // self.file_handler.apply_with_lock(move |runtime_info| {
-        //     let mut errs = vec![];
-        //     for process in runtime_info.process_infos.iter() {
-        //         if process.process_id == self_pid {
-        //             continue;
-        //         }
-        //         let signal = if process.feat_type == FeatType::Agent {
-        //             Signal::SIGUSR1
-        //         } else {
-        //             Signal::SIGTERM
-        //         };
-        //         if let Err(e) = signal::kill(Pid::from_raw(process.process_id as i32), signal) {
-        //             errs.push(e);
-        //         }
-        //     }
-        //     runtime_info.process_infos = vec![];
-        //     runtime_info.state = State::Init;
-        //     if errs.is_empty() {
-        //         Ok(())
-        //     } else {
-        //         Err(RuntimeError::Kill(errs.into_iter().map(|e| e.into()).collect()))
-        //     }
-        // })
+    }
+
+    fn cleanup_process_info(&mut self) -> Result<(), RuntimeError> {
+        let proc_manager = &self.process_manager;
+        self.file_handler.apply_with_lock(|runtime_info| {
+            runtime_info
+                .process_infos
+                .retain(|process_info| proc_manager.is_running(process_info.process_id));
+            Ok(())
+        })
     }
 
     pub fn update_state_without_send(&mut self, state: State) -> Result<(), RuntimeError> {
         self.file_handler.apply_with_lock(|runtime_info| {
             runtime_info.state = state;
             Ok(())
-        })?;
-        Ok(())
+        })
     }
 
     pub fn update_state(&mut self, state: State) -> Result<(), RuntimeError> {
@@ -345,52 +311,41 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
         Ok(version_response.version)
     }
 
-    pub fn kill_otherwise_agents(&mut self, target: u32) -> Result<(), RuntimeError> {
-        let mut errs = vec![];
-        let others = self
-            .get_process_infos()?
+    pub fn kill_other_agents(&mut self, target: u32) -> Result<(), RuntimeError> {
+        let (_oks, errs): (Vec<_>, Vec<_>) = self
+            .file_handler
+            .read()?
+            .process_infos
             .into_iter()
-            .filter(|_process_info| _process_info.process_id != target)
-            .filter(|_process_info| _process_info.feat_type == FeatType::Agent);
-        for other in others {
-            let res = signal::kill(Pid::from_raw(other.process_id as i32), Signal::SIGUSR1);
-            if let Err(e) = res {
-                errs.push(e.into());
-            } else {
-                self.remove_process_info(other.process_id)?;
-            }
-        }
+            .filter(|process_info| process_info.process_id != target)
+            .filter(|process_info| process_info.feat_type == FeatType::Agent)
+            .map(|process_info| self.kill_process(&process_info))
+            .partition(Result::is_ok);
         if errs.is_empty() {
             Ok(())
         } else {
-            Err(RuntimeError::Kill(errs))
+            Err(RuntimeError::Kills(
+                errs.into_iter().map(Result::unwrap_err).collect(),
+            ))
         }
     }
 
-    fn kill_otherwise(&mut self) -> Result<(), RuntimeError> {
-        let mut errs = vec![];
+    fn kill_others(&mut self) -> Result<(), RuntimeError> {
         let self_pid = self.self_pid;
-        let others = self
-            .get_process_infos()?
+        let (_oks, errs): (Vec<_>, Vec<_>) = self
+            .file_handler
+            .read()?
+            .process_infos
             .into_iter()
-            .filter(|process_info| process_info.process_id != self_pid);
-        for other in others {
-            let signal = if other.feat_type == FeatType::Agent {
-                Signal::SIGUSR1
-            } else {
-                Signal::SIGTERM
-            };
-            let res = signal::kill(Pid::from_raw(other.process_id as i32), signal);
-            if let Err(e) = res {
-                errs.push(e.into());
-            } else {
-                self.remove_process_info(other.process_id)?;
-            }
-        }
+            .filter(|process_info| process_info.process_id != self_pid)
+            .map(|process_info| self.kill_process(&process_info))
+            .partition(Result::is_ok);
         if errs.is_empty() {
             Ok(())
         } else {
-            Err(RuntimeError::Kill(errs))
+            Err(RuntimeError::Kills(
+                errs.into_iter().map(Result::unwrap_err).collect(),
+            ))
         }
     }
 
@@ -398,42 +353,19 @@ impl<H: RuntimeInfoStorage> RuntimeManager<H> {
         &mut self,
         new_controller_path: impl AsRef<Path>,
     ) -> Result<(), RuntimeError> {
-        self.kill_otherwise()?;
+        self.kill_others()?;
         if is_manage_by_systemd() && is_manage_socket_activation() {
             return Ok(());
         }
+        // TODO
         crate::unix_utils::change_to_executable(new_controller_path.as_ref())
             .map_err(RuntimeError::Command)?;
-        let new_controller_path =
-            new_controller_path
-                .as_ref()
-                .to_str()
-                .ok_or(RuntimeError::Command(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "Invalid path: failed to convert new_controller_path to string",
-                )))?;
-        let cmd = CString::new(new_controller_path).map_err(|x| RuntimeError::Command(x.into()))?;
-        let args = vec![cmd.clone(), CString::new("controller").unwrap()];
-
-        match unsafe { fork() } {
-            Ok(ForkResult::Parent { child }) => {
-                log::info!("Parent process launched child with PID: {}", child);
-                Ok(())
-            }
-            Ok(ForkResult::Child) => {
-                setsid().map_err(|no| {
-                    RuntimeError::Fork(std::io::Error::from_raw_os_error(no as core::ffi::c_int))
-                })?;
-                execvp(&cmd, &args).map_err(|no| {
-                    RuntimeError::Fork(std::io::Error::from_raw_os_error(no as core::ffi::c_int))
-                })?;
-                unreachable!();
-            }
-            Err(e) => Err(RuntimeError::Fork(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to fork process: {}", e),
-            ))),
-        }
+        let child = self
+            .process_manager
+            .spawn_process(new_controller_path, &["controller"])
+            .map_err(RuntimeError::Fork)?;
+        log::info!("Parent process launched child with PID: {}", child);
+        Ok(())
     }
 }
 

@@ -1,7 +1,7 @@
 pub mod tasks;
 use crate::managers::{
     resource::{ResourceError, ResourceManagerTrait},
-    runtime::{RuntimeError, RuntimeInfoStorage, RuntimeManager, State},
+    runtime::{ProcessManager, RuntimeError, RuntimeInfoStorage, RuntimeManager, State},
 };
 use crate::state::update::tasks::{UpdateAction, UpdateActionError};
 use semver::Version;
@@ -88,12 +88,13 @@ fn extract_pending_update_actions<'b>(
     Ok(pending_actions)
 }
 
-async fn monitor_agent_version<'a, H>(
-    runtime_manager: &'a RuntimeManager<H>,
+async fn monitor_agent_version<'a, H, P>(
+    runtime_manager: &'a RuntimeManager<H, P>,
     expected_version: &Version,
 ) -> Result<(), UpdateError>
 where
     H: RuntimeInfoStorage,
+    P: ProcessManager,
 {
     let timeout = Duration::from_secs(180);
     let interval = Duration::from_secs(3);
@@ -123,13 +124,14 @@ where
     )))
 }
 
-pub async fn execute<'a, R, H>(
+pub async fn execute<'a, R, H, P>(
     resource_manager: &'a R,
-    runtime_manager: &'a mut RuntimeManager<H>,
+    runtime_manager: &'a mut RuntimeManager<H, P>,
 ) -> Result<(), UpdateError>
 where
     R: ResourceManagerTrait,
     H: RuntimeInfoStorage,
+    P: ProcessManager,
 {
     log::info!("Starting update");
 
@@ -150,7 +152,7 @@ where
         // launch new version agent
         let latest = runtime_manager.launch_agent(false)?;
         // terminate old version agents
-        runtime_manager.kill_otherwise_agents(latest.process_id)?;
+        runtime_manager.kill_other_agents(latest.process_id)?;
         monitor_agent_version(&runtime_manager, &current_version).await?;
         // if you test for rollback, comment out a follow line.
         resource_manager.remove()?;

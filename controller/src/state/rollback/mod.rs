@@ -1,6 +1,6 @@
 use crate::managers::{
     resource::{ResourceError, ResourceManagerTrait},
-    runtime::{RuntimeError, RuntimeInfoStorage, RuntimeManager},
+    runtime::{ProcessManager, RuntimeError, RuntimeInfoStorage, RuntimeManager},
 };
 
 #[cfg(unix)]
@@ -23,13 +23,14 @@ pub enum RollbackError {
     CurrentExecutablePathError(#[source] std::io::Error),
 }
 
-pub async fn execute<'a, R, H>(
+pub async fn execute<'a, R, H, P>(
     resource_manager: &'a R,
-    runtime_manager: &'a mut RuntimeManager<H>,
+    runtime_manager: &'a mut RuntimeManager<H, P>,
 ) -> Result<(), RollbackError>
 where
     R: ResourceManagerTrait,
     H: RuntimeInfoStorage,
+    P: ProcessManager,
 {
     log::info!("Starting rollback");
 

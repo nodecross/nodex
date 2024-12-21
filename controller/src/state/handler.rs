@@ -1,4 +1,6 @@
-use crate::managers::runtime::{RuntimeError, RuntimeInfoStorage, RuntimeManager, State};
+use crate::managers::runtime::{
+    ProcessManager, RuntimeError, RuntimeInfoStorage, RuntimeManager, State,
+};
 use crate::state::{init, rollback, update};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -21,12 +23,13 @@ pub enum StateHandlerError {
     RuntimeInfo(#[from] RuntimeError),
 }
 
-pub async fn handle_state<H>(
+pub async fn handle_state<H, P>(
     state: State,
-    runtime_manager: &Arc<Mutex<RuntimeManager<H>>>,
+    runtime_manager: &Arc<Mutex<RuntimeManager<H, P>>>,
 ) -> Result<(), StateHandlerError>
 where
     H: RuntimeInfoStorage + Sync + Send,
+    P: ProcessManager + Send + Sync,
 {
     let mut runtime_manager = runtime_manager.lock().await;
 
