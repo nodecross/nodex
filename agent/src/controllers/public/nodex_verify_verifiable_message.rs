@@ -1,30 +1,26 @@
-use actix_web::{web, HttpRequest, HttpResponse};
-use chrono::Utc;
-use serde::{Deserialize, Serialize};
-
-use protocol::verifiable_credentials::did_vc::DidVcServiceVerifyError as S;
-use protocol::verifiable_credentials::types::VerifiableCredentials;
-
-use crate::errors::{AgentError, AgentErrorCode};
+use super::utils;
+use crate::controllers::errors::AgentErrorCode;
 use crate::nodex::utils::did_accessor::DidAccessorImpl;
 use crate::usecase::verifiable_message_usecase::VerifyVerifiableMessageUseCaseError as U;
 use crate::{
     services::studio::Studio, usecase::verifiable_message_usecase::VerifiableMessageUseCase,
 };
-
-use super::utils;
+use axum::extract::Json;
+use chrono::Utc;
+use protocol::verifiable_credentials::did_vc::DidVcServiceVerifyError as S;
+use protocol::verifiable_credentials::types::VerifiableCredentials;
+use serde::{Deserialize, Serialize};
 
 // NOTE: POST /verify-verifiable-message
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct MessageContainer {
     #[serde(default)]
     message: String,
 }
 
 pub async fn handler(
-    _req: HttpRequest,
-    web::Json(json): web::Json<MessageContainer>,
-) -> actix_web::Result<HttpResponse, AgentError> {
+    Json(json): Json<MessageContainer>,
+) -> Result<Json<VerifiableCredentials>, AgentErrorCode> {
     let now = Utc::now();
 
     let repo = utils::did_repository();
@@ -37,7 +33,7 @@ pub async fn handler(
             Err(AgentErrorCode::VerifyVerifiableMessageJsonError)?
         }
         Ok(vc) => match usecase.verify(vc, now).await {
-            Ok(v) => Ok(HttpResponse::Ok().json(v)),
+            Ok(v) => Ok(Json(v)),
             Err(e) => match e {
                 U::MessageActivity(e) => Err(utils::handle_status(e)),
                 U::DidVcServiceVerify(S::VerifyFailed(e)) => {

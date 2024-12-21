@@ -1,15 +1,13 @@
-use anyhow::anyhow;
-
-use serde::{Deserialize, Serialize};
-use serde_json;
-use std::{env, path::PathBuf, sync::Arc, time::Duration};
-use tokio::sync::Notify;
-
-use protocol::didcomm::encrypted::DidCommEncryptedService;
-
 use crate::nodex::utils::did_accessor::{DidAccessor, DidAccessorImpl};
 use crate::services::nodex::NodeX;
 use crate::services::studio::{MessageResponse, Studio};
+use anyhow::anyhow;
+use controller::validator::network::can_connect_to_download_server;
+use protocol::didcomm::encrypted::DidCommEncryptedService;
+use serde::{Deserialize, Serialize};
+use serde_json;
+use std::time::Duration;
+use tokio_util::sync::CancellationToken;
 
 #[derive(Deserialize)]
 enum OperationType {
@@ -88,24 +86,16 @@ impl MessageReceiveUsecase {
                                 let binary_url = container["binary_url"]
                                     .as_str()
                                     .ok_or(anyhow!("the container doesn't have binary_url"))?;
-
-                                let tmp_path = {
-                                    #[cfg(unix)]
-                                    {
-                                        PathBuf::from("/tmp/nodex-agent")
-                                    }
-                                    #[cfg(windows)]
-                                    {
-                                        PathBuf::from("C:\\Temp\\nodex-agent")
-                                    }
-                                };
-                                let exe_path = env::current_exe()?;
-                                let working_dir = exe_path
-                                    .parent()
-                                    .map(|p| p.to_path_buf())
-                                    .unwrap_or(tmp_path);
-
-                                self.agent.update_version(binary_url, working_dir).await?;
+                                if !can_connect_to_download_server("https://github.com").await {
+                                    log::error!("Not connected to the Internet");
+                                    anyhow::bail!("Not connected to the Internet");
+                                } else if !binary_url.starts_with(
+                                    "https://github.com/nodecross/nodex/releases/download/",
+                                ) {
+                                    log::error!("Invalid url");
+                                    anyhow::bail!("Invalid url");
+                                }
+                                self.agent.update_version(binary_url).await?;
                             }
                             Ok(OperationType::UpdateNetworkJson) => {
                                 self.studio.network().await?;
@@ -133,7 +123,7 @@ impl MessageReceiveUsecase {
     }
 }
 
-pub async fn polling_task(shutdown_notify: Arc<Notify>) {
+pub async fn polling_task(shutdown_token: CancellationToken) {
     log::info!("Polling task is started");
 
     let usecase = MessageReceiveUsecase::new();
@@ -147,7 +137,7 @@ pub async fn polling_task(shutdown_notify: Arc<Notify>) {
                     Err(e) => log::error!("Error: {:?}", e),
                 }
             }
-            _ = shutdown_notify.notified() => {
+            _ = shutdown_token.cancelled() => {
                 break;
             },
         }

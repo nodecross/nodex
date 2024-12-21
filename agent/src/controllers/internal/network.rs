@@ -1,8 +1,5 @@
-use crate::{
-    errors::{AgentError, AgentErrorCode},
-    services::studio::Studio,
-};
-use actix_web::{web, HttpRequest, HttpResponse};
+use crate::{controllers::errors::AgentErrorCode, services::studio::Studio};
+use axum::extract::Json;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -13,12 +10,11 @@ pub struct MessageContainer {
 }
 
 pub async fn handler(
-    _req: HttpRequest,
-    web::Json(_): web::Json<MessageContainer>,
-) -> actix_web::Result<HttpResponse, AgentError> {
+    Json(_): Json<MessageContainer>,
+) -> Result<Json<&'static str>, AgentErrorCode> {
     let studio = Studio::new();
     match studio.network().await {
-        Ok(_) => Ok(HttpResponse::Ok().json("ok")),
+        Ok(_) => Ok(Json("ok")),
         Err(e) => {
             log::error!("{:?}", e);
             Err(AgentErrorCode::NetworkInternal)?
