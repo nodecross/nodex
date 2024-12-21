@@ -114,7 +114,17 @@ pub mod unix {
                     let send_sock_path = convention_of_meta_uds_path(&uds_path)?;
                     let () = controller::unix_utils::wait_until_file_created(&send_sock_path)
                         .map_err(|e| std::io::Error::new(std::io::ErrorKind::NotFound, format!("{}", e)))?;
-                    let stream = UnixStream::connect(&send_sock_path).await?;
+                    let stream = loop {
+                        match UnixStream::connect(&send_sock_path).await {
+                            Ok(stream) => break stream,
+                            Err(err) if err.kind() == std::io::ErrorKind::ConnectionRefused => {
+                                // Wait for bind
+                                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+                                continue;
+                            }
+                            res @ Err(_) => res?,
+                        };
+                    };
                     send_fd(stream.as_raw_fd(), Some(fd))?;
                     token.cancel();
                     Ok(())
