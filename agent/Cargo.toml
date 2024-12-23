@@ -27,7 +27,6 @@ log = { workspace = true }
 mac_address = { workspace = true }
 protocol = { workspace = true }
 reqwest = { workspace = true }
-rumqttc = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
