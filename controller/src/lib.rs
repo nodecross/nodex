@@ -79,6 +79,9 @@ where
     let mut sigabrt = signal(SignalKind::user_defined1()).expect("Failed to bind to SIGABRT");
     let mut sigint = signal(SignalKind::quit()).expect("Failed to bind to SIGINT");
 
+    // We have the following as a convention.
+    // - Only the controller terminates with SIGTERM.
+    // - SIGUSR1 is sent to the Agent by SIGINT etc. The Agent that receives SIGUSR1 sends fd of the Unix domain socket.
     tokio::select! {
         _ = sigint.recv() => {
             if let Err(e) = runtime_manager.lock().await.cleanup_all() {
