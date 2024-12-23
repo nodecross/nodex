@@ -65,16 +65,26 @@ impl MmapHandler {
     pub fn new(name: impl AsRef<Path>) -> Result<Self, RuntimeError> {
         // We assume that data is sufficiently small.
         let length = core::num::NonZero::new(10000).unwrap();
-        let fd = shm_open(
-            name.as_ref(),
-            OFlag::O_RDWR | OFlag::O_CREAT,
-            Mode::S_IRUSR | Mode::S_IWUSR,
-        )
-        .map_err(_e2e)
-        .map_err(RuntimeError::FileOpen)?;
-        ftruncate(&fd, Into::<usize>::into(length) as i64)
-            .map_err(_e2e)
-            .map_err(RuntimeError::FileOpen)?;
+        // Open without creation
+        let fd = shm_open(name.as_ref(), OFlag::O_RDWR, Mode::S_IRUSR | Mode::S_IWUSR);
+        let fd = match fd {
+            Ok(fd) => fd,
+            Err(Errno::ENOENT) => {
+                let fd = shm_open(
+                    name.as_ref(),
+                    OFlag::O_CREAT | OFlag::O_EXCL | OFlag::O_RDWR,
+                    Mode::S_IRUSR | Mode::S_IWUSR,
+                )
+                .map_err(_e2e)
+                .map_err(RuntimeError::FileOpen)?;
+                // We must truncate size of shared memory at the time of initial creation.
+                ftruncate(&fd, Into::<usize>::into(length) as i64)
+                    .map_err(_e2e)
+                    .map_err(RuntimeError::FileOpen)?;
+                fd
+            }
+            Err(err) => return Err(RuntimeError::FileOpen(_e2e(err))),
+        };
         let ptr = unsafe {
             mmap(
                 None,
