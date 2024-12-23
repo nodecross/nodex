@@ -154,11 +154,11 @@ where
     }
 
     pub fn new_by_agent(file_handler: H, process_manager: P) -> Self {
-        // dummy
+        // We assume that caller is agent.
+        // dummy channel
         let (state_sender, _) = watch::channel(State::Init);
-        let self_pid = std::process::id();
         RuntimeManager {
-            self_pid,
+            self_pid: std::process::id(),
             file_handler,
             state_sender,
             process_manager,
