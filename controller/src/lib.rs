@@ -1,5 +1,4 @@
 use crate::config::get_config;
-use crate::managers::mmap_storage::MmapHandler;
 use crate::managers::runtime::{ProcessManager, RuntimeInfoStorage, RuntimeManager};
 use crate::state::handler::handle_state;
 use std::sync::Arc;
@@ -7,15 +6,8 @@ use tokio::sync::Mutex;
 #[cfg(unix)]
 type ProcessManagerImpl = crate::managers::unix_process_manager::UnixProcessManager;
 
-#[cfg(unix)]
-mod unix_imports {
-    pub use tokio::signal::unix::{signal, SignalKind};
-}
-#[cfg(unix)]
-use unix_imports::*;
-
 #[cfg(windows)]
-use windows_imports::*;
+type ProcessManagerImpl = crate::managers::windows_process_manager::WindowsProcessManager;
 
 mod config;
 pub mod managers;
@@ -26,7 +18,18 @@ pub mod validator;
 
 #[tokio::main]
 pub async fn run() -> std::io::Result<()> {
-    let handler = MmapHandler::new("nodex_runtime_info").expect("Failed to create MmapHandler");
+    #[cfg(unix)]
+    let handler = crate::managers::mmap_storage::MmapHandler::new("nodex_runtime_info")
+        .expect("Failed to create MmapHandler");
+    #[cfg(windows)]
+    let handler = {
+        let path = get_config()
+            .lock()
+            .unwrap()
+            .runtime_dir
+            .join("runtime_info.json");
+        crate::managers::file_storage::FileHandler::new(path).expect("Failed to create FileHandler")
+    };
     let uds_path = get_config().lock().unwrap().uds_path.clone();
     let (runtime_manager, mut state_rx) =
         RuntimeManager::new_by_controller(handler, ProcessManagerImpl {}, uds_path)
@@ -63,6 +66,8 @@ where
     H: RuntimeInfoStorage + Send + Sync + 'static,
     P: ProcessManager + Send + Sync + 'static,
 {
+    use tokio::signal::unix::{signal, SignalKind};
+
     let ctrl_c = tokio::signal::ctrl_c();
     let mut sigterm = signal(SignalKind::terminate()).expect("Failed to bind to SIGTERM");
     let mut sigabrt = signal(SignalKind::user_defined1()).expect("Failed to bind to SIGABRT");
@@ -97,12 +102,10 @@ where
 }
 
 #[cfg(windows)]
-pub async fn handle_signals<A>(
-    should_stop: Arc<AtomicBool>,
-    agent_manager: Arc<Mutex<A>>,
-    runtime_manager: Arc<RuntimeManager>,
-) where
-    A: AgentManagerTrait + Sync + Send,
+pub async fn handle_signals<H, P>(runtime_manager: Arc<Mutex<RuntimeManager<H, P>>>)
+where
+    H: RuntimeInfoStorage + Send + Sync + 'static,
+    P: ProcessManager + Send + Sync + 'static,
 {
     unimplemented!("implemented for Windows.");
 }

@@ -24,27 +24,12 @@ pub use crate::config::app_config;
 pub use crate::config::server_config;
 pub use crate::network::network_config;
 
-#[cfg(windows)]
-mod windows_imports {
-    pub use anyhow::anyhow;
-    pub use sysinfo::{get_current_pid, System};
-    pub use windows::Win32::{
-        Foundation::{CloseHandle, GetLastError},
-        System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE},
-    };
-}
-
-#[cfg(windows)]
-use windows_imports::*;
-
 #[tokio::main]
 pub async fn run(options: &cli::AgentOptions) -> std::io::Result<()> {
     dotenv().ok();
 
     #[cfg(windows)]
-    {
-        kill_other_self_process();
-    }
+    server::windows::kill_other_self_process();
 
     {
         let config = app_config();
@@ -116,30 +101,15 @@ pub async fn run(options: &cli::AgentOptions) -> std::io::Result<()> {
     };
 
     #[cfg(windows)]
-    let server = {
+    {
         let port_str =
             env::var("NODEX_SERVER_PORT").expect("NODEX_SERVER_PORT must be set and valid.");
-        let port = validate_port(&port_str).expect("Invalid port number.");
-        server::new_web_server(port, transfer_client)
+        let port = server::windows::validate_port(&port_str).expect("Invalid port number.");
+        let router = server::make_router();
+        let server = server::windows::new_web_server(port, router).await?;
+        let _ = tokio::join!(server, tasks.join_all());
     };
     Ok(())
-}
-
-#[cfg(windows)]
-fn validate_port(port_str: &str) -> Result<u16, String> {
-    match port_str.parse::<u16>() {
-        Ok(port) if (1024..=65535).contains(&port) => Ok(port),
-        _ => Err("Port number must be an integer between 1024 and 65535.".to_string()),
-    }
-}
-
-#[cfg(windows)]
-async fn handle_signals(should_stop: Arc<AtomicBool>) {
-    tokio::signal::ctrl_c()
-        .await
-        .expect("Failed to listen for Ctrl+C");
-    log::info!("Received Ctrl+C");
-    should_stop.store(true, Ordering::Relaxed);
 }
 
 fn use_cli(command: Option<&AgentCommands>, did: String) {
@@ -236,56 +206,4 @@ async fn send_device_info() {
         )
         .await
         .unwrap_log();
-}
-
-#[cfg(windows)]
-fn kill_other_self_process() {
-    let current_pid = get_current_pid().unwrap_log();
-    let mut system = System::new_all();
-    system.refresh_all();
-
-    let process_name = { "nodex-agent.exe" };
-    for process in system.processes_by_exact_name(process_name) {
-        if current_pid == process.pid() {
-            continue;
-        }
-        if process.parent() == Some(current_pid) {
-            continue;
-        }
-
-        let pid = process.pid().as_u32();
-        if let Err(e) = kill_process(pid) {
-            log::error!("Failed to kill process with PID: {}. Error: {:?}", pid, e);
-        }
-    }
-}
-
-#[cfg(windows)]
-fn kill_process(pid: u32) -> Result<(), anyhow::Error> {
-    unsafe {
-        let handle = OpenProcess(PROCESS_TERMINATE, false, pid)?;
-        if handle.is_invalid() {
-            return Err(anyhow!(
-                "Failed to open process with PID: {}. Invalid handle.",
-                pid
-            ));
-        }
-
-        match TerminateProcess(handle, 1) {
-            Ok(_) => {
-                log::info!("nodex Process with PID: {} killed successfully.", pid);
-            }
-            Err(e) => {
-                CloseHandle(handle);
-                return Err(anyhow!(
-                    "Failed to terminate process with PID: {}. Error: {:?}",
-                    pid,
-                    GetLastError()
-                ));
-            }
-        };
-        CloseHandle(handle);
-    }
-
-    Ok(())
 }

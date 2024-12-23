@@ -136,22 +136,82 @@ pub mod unix {
 }
 
 #[cfg(windows)]
-pub fn new_web_server<C: TransferClient + 'static>(port: u16, sender: C) -> Server {
-    let context = web::Data::new(Context {
-        sender: TokioMutex::new(sender),
-    });
+pub mod windows {
+    use crate::nodex::utils::UnwrapLog;
+    use anyhow::anyhow;
+    use axum::Router;
+    use std::future::IntoFuture;
+    use sysinfo::{get_current_pid, System};
+    use windows::Win32::{
+        Foundation::{CloseHandle, GetLastError},
+        System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE},
+    };
 
-    HttpServer::new(move || {
-        App::new()
-            .wrap(middleware::DefaultHeaders::new().add(("x-version", "0.1.0")))
-            .wrap(middleware::Compress::default())
-            .wrap(middleware::Logger::default())
-            .configure(config_app(&context))
-    })
-    .bind(format!("127.0.0.1:{}", port))
-    .unwrap()
-    .workers(1)
-    .run()
+    pub async fn new_web_server(
+        port: u16,
+        router: Router,
+    ) -> Result<impl std::future::Future<Output = Result<(), std::io::Error>>, std::io::Error> {
+        // run our app with hyper, listening globally on port 3000
+        let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", port)).await?;
+        Ok(axum::serve(listener, router).into_future())
+    }
+
+    pub fn validate_port(port_str: &str) -> Result<u16, String> {
+        match port_str.parse::<u16>() {
+            Ok(port) if (1024..=65535).contains(&port) => Ok(port),
+            _ => Err("Port number must be an integer between 1024 and 65535.".to_string()),
+        }
+    }
+
+    pub fn kill_other_self_process() {
+        let current_pid = get_current_pid().unwrap_log();
+        let mut system = System::new_all();
+        system.refresh_all();
+
+        let process_name = { "nodex-agent.exe" };
+        for process in system.processes_by_exact_name(process_name) {
+            if current_pid == process.pid() {
+                continue;
+            }
+            if process.parent() == Some(current_pid) {
+                continue;
+            }
+
+            let pid = process.pid().as_u32();
+            if let Err(e) = kill_process(pid) {
+                log::error!("Failed to kill process with PID: {}. Error: {:?}", pid, e);
+            }
+        }
+    }
+
+    fn kill_process(pid: u32) -> Result<(), anyhow::Error> {
+        unsafe {
+            let handle = OpenProcess(PROCESS_TERMINATE, false, pid)?;
+            if handle.is_invalid() {
+                return Err(anyhow!(
+                    "Failed to open process with PID: {}. Invalid handle.",
+                    pid
+                ));
+            }
+
+            match TerminateProcess(handle, 1) {
+                Ok(_) => {
+                    log::info!("nodex Process with PID: {} killed successfully.", pid);
+                }
+                Err(e) => {
+                    CloseHandle(handle);
+                    return Err(anyhow!(
+                        "Failed to terminate process with PID: {}. Error: {:?}",
+                        pid,
+                        GetLastError()
+                    ));
+                }
+            };
+            CloseHandle(handle);
+        }
+
+        Ok(())
+    }
 }
 
 pub fn make_router() -> Router {

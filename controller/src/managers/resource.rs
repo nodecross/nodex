@@ -443,6 +443,10 @@ impl ResourceManagerTrait for WindowsResourceManager {
         &self.tmp_path
     }
 
+    fn agent_path(&self) -> &PathBuf {
+        unimplemented!()
+    }
+
     fn backup(&self) -> Result<(), ResourceError> {
         unimplemented!()
     }

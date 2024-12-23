@@ -74,8 +74,10 @@ pub enum RuntimeError {
     BindUdsError(#[source] std::io::Error),
     #[error("Failed to watch UDS: {0}")]
     WatchUdsError(#[source] notify::Error),
+    #[cfg(unix)]
     #[error("Failed to get fd from systemd: {0}")]
     GetFd(#[from] crate::unix_utils::GetFdError),
+    #[cfg(unix)]
     #[error("Request failed: {0}")]
     Request(#[from] crate::unix_utils::GetRequestError),
     #[error("Controller already running")]
@@ -122,8 +124,11 @@ where
     ) -> Result<(Self, watch::Receiver<State>), RuntimeError> {
         let runtime_info = file_handler.read()?;
         let (state_sender, state_receiver) = watch::channel(runtime_info.state);
+        #[cfg(unix)]
         let meta_uds_path = crate::unix_utils::convention_of_meta_uds_path(&uds_path)
             .map_err(|_| RuntimeError::PathConvention)?;
+        #[cfg(windows)]
+        let meta_uds_path = PathBuf::from("");
         let self_pid = std::process::id();
         let mut runtime_manager = RuntimeManager {
             self_pid,
@@ -168,7 +173,8 @@ where
     }
 
     pub fn launch_agent(&mut self, is_first: bool) -> Result<ProcessInfo, RuntimeError> {
-        if cfg!(unix) && is_first {
+        #[cfg(unix)]
+        if is_first {
             if self.uds_path.exists() {
                 log::warn!("UDS file already exists, removing: {:?}", self.uds_path);
                 let _ = std::fs::remove_file(&self.uds_path);
@@ -187,7 +193,8 @@ where
             .spawn_process(current_exe, &[])
             .map_err(RuntimeError::Fork)?;
 
-        if cfg!(unix) && is_first {
+        #[cfg(unix)]
+        if is_first {
             let listener = if is_manage_by_systemd() && is_manage_socket_activation() {
                 Some(crate::unix_utils::get_fd_from_systemd()?)
             } else {
@@ -317,8 +324,13 @@ where
     }
 
     pub async fn get_version(&self) -> Result<String, RuntimeError> {
+        #[cfg(unix)]
         let version_response: VersionResponse =
             crate::unix_utils::get_request(&self.uds_path, "/internal/version/get").await?;
+        #[cfg(windows)]
+        let version_response = VersionResponse {
+            version: "dummy".to_string(),
+        };
         Ok(version_response.version)
     }
 
@@ -364,10 +376,9 @@ where
             return Ok(());
         }
         // TODO: care about windows
-        if cfg!(unix) {
-            crate::unix_utils::change_to_executable(new_controller_path.as_ref())
-                .map_err(RuntimeError::Command)?;
-        }
+        #[cfg(unix)]
+        crate::unix_utils::change_to_executable(new_controller_path.as_ref())
+            .map_err(RuntimeError::Command)?;
         let child = self
             .process_manager
             .spawn_process(new_controller_path, &["controller"])

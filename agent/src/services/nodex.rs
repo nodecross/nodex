@@ -4,7 +4,6 @@ use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::{app_config, server_config};
 use anyhow;
 use controller::managers::{
-    mmap_storage::MmapHandler,
     resource::ResourceManagerTrait,
     runtime::{RuntimeManager, State},
 };
@@ -74,13 +73,13 @@ impl NodeX {
     pub async fn update_version(&self, binary_url: &str) -> anyhow::Result<()> {
         #[cfg(windows)]
         {
-            let resource_manager = WindowsResourceManager::new();
-            self.run_agent(&agent_path)?;
+            unimplemented!();
         }
 
         #[cfg(unix)]
         {
-            let handler = MmapHandler::new("nodex_runtime_info")?;
+            let handler =
+                controller::managers::mmap_storage::MmapHandler::new("nodex_runtime_info")?;
             let mut runtime_manager = RuntimeManager::new_by_agent(
                 handler,
                 controller::managers::unix_process_manager::UnixProcessManager,
@@ -108,25 +107,6 @@ impl NodeX {
 
             runtime_manager.launch_controller(agent_path)?;
             runtime_manager.update_state(State::Update)?;
-        }
-
-        Ok(())
-    }
-
-    #[cfg(windows)]
-    fn run_agent(&self, agent_path: &Path) -> anyhow::Result<()> {
-        let agent_path_str = agent_path
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Failed to convert agent_path to string"))?;
-
-        let status = Command::new("cmd")
-            .args(&["/C", "start", agent_path_str])
-            .status()?;
-
-        if !status.success() {
-            eprintln!("Command execution failed with status: {}", status);
-        } else {
-            println!("Started child process");
         }
 
         Ok(())
