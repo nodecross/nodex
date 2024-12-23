@@ -90,7 +90,7 @@ mod tests {
         keyring::keypair::KeyPairing,
     };
 
-    #[actix_rt::test]
+    #[tokio::test]
     async fn test_generate_and_verify() {
         let from_did = create_random_did();
 
@@ -135,7 +135,7 @@ mod tests {
             service.generate(model, from_keyring).unwrap()
         }
 
-        #[actix_rt::test]
+        #[tokio::test]
         async fn test_did_not_found() {
             let from_did = create_random_did();
 
@@ -158,7 +158,7 @@ mod tests {
             }
         }
 
-        #[actix_rt::test]
+        #[tokio::test]
         async fn test_public_key_not_found() {
             let from_did = create_random_did();
 
@@ -180,7 +180,7 @@ mod tests {
             }
         }
 
-        #[actix_rt::test]
+        #[tokio::test]
         async fn test_verify_failed() {
             let from_did = create_random_did();
 
@@ -207,7 +207,7 @@ mod tests {
             }
         }
 
-        #[actix_rt::test]
+        #[tokio::test]
         async fn test_public_key_length_mismatch() {
             let from_did = create_random_did();
 
@@ -229,7 +229,7 @@ mod tests {
             }
         }
 
-        #[actix_rt::test]
+        #[tokio::test]
         async fn test_signature_not_verified() {
             let from_did = create_random_did();
 

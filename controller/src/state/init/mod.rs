@@ -1,57 +1,28 @@
-use crate::managers::{
-    agent::{AgentManagerError, AgentManagerTrait},
-    runtime::{FeatType, RuntimeError, RuntimeManager},
-};
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use crate::managers::resource::ResourceManagerTrait;
+use crate::managers::runtime::{ProcessManager, RuntimeError, RuntimeInfoStorage, RuntimeManager};
 
 #[derive(Debug, thiserror::Error)]
-pub enum DefaultError {
-    #[error("agent process failed: {0}")]
-    AgentError(#[from] AgentManagerError),
+pub enum InitError {
     #[error("failed to get runtime info: {0}")]
     RuntimeError(#[from] RuntimeError),
 }
 
-pub struct DefaultState<'a, A>
+pub async fn execute<'a, R, H, P>(
+    _resource_manager: &'a R,
+    runtime_manager: &'a mut RuntimeManager<H, P>,
+) -> Result<(), InitError>
 where
-    A: AgentManagerTrait,
+    R: ResourceManagerTrait,
+    H: RuntimeInfoStorage,
+    P: ProcessManager,
 {
-    agent_manager: &'a Arc<Mutex<A>>,
-    runtime_manager: &'a RuntimeManager,
-}
-
-impl<'a, A> DefaultState<'a, A>
-where
-    A: AgentManagerTrait,
-{
-    pub fn new(agent_manager: &'a Arc<Mutex<A>>, runtime_manager: &'a RuntimeManager) -> Self {
-        DefaultState {
-            agent_manager,
-            runtime_manager,
-        }
+    if !runtime_manager.is_agent_running()? {
+        let _process_info = runtime_manager.launch_agent(true)?;
+    } else {
+        log::error!("Agent already running");
     }
-
-    pub async fn execute(&self) -> Result<(), DefaultError> {
-        let mut agent_processes = self.runtime_manager.filter_process_infos(FeatType::Agent)?;
-        agent_processes.retain(|agent_process| {
-            self.runtime_manager
-                .is_running_or_remove_if_stopped(agent_process)
-        });
-        if agent_processes.len() > 1 {
-            log::error!("Agent already running");
-            return Ok(());
-        }
-
-        #[cfg(unix)]
-        {
-            let agent_manager = self.agent_manager.lock().await;
-            let process_info = agent_manager.launch_agent()?;
-            self.runtime_manager.add_process_info(process_info)?;
-        }
-
-        Ok(())
-    }
+    runtime_manager.update_state(crate::managers::runtime::State::Idle)?;
+    Ok(())
 }
 
 #[cfg(all(test, unix))]

@@ -1,10 +1,8 @@
 use crate::config::get_config;
-use async_trait::async_trait;
 use bytes::Bytes;
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use glob::glob;
 use std::{
-    env,
     fs::{self, File},
     io::{self, Cursor},
     path::{Path, PathBuf},
@@ -31,7 +29,37 @@ pub enum ResourceError {
     RollbackFailed(String),
 }
 
-#[async_trait]
+// ref: https://stackoverflow.com/questions/26958489/how-to-copy-a-folder-recursively-in-rust
+fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {
+    if !fs::metadata(&src)?.is_dir() {
+        if !fs::exists(&dst)? {
+            fs::copy(&src, &dst)?;
+        } else if fs::metadata(&dst)?.is_dir() {
+            let name = src
+                .as_ref()
+                .file_name()
+                .ok_or(io::Error::new(io::ErrorKind::IsADirectory, "Invalid path"))?;
+            fs::copy(&src, dst.as_ref().join(name))?;
+        } else {
+            fs::copy(&src, &dst)?;
+        }
+        return Ok(());
+    }
+
+    fs::create_dir_all(&dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        } else {
+            fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        }
+    }
+    Ok(())
+}
+
+#[trait_variant::make(Send)]
 pub trait ResourceManagerTrait: Send + Sync {
     fn backup(&self) -> Result<(), ResourceError>;
 
@@ -39,28 +67,34 @@ pub trait ResourceManagerTrait: Send + Sync {
 
     fn tmp_path(&self) -> &PathBuf;
 
+    fn agent_path(&self) -> &PathBuf;
+
     async fn download_update_resources(
         &self,
         binary_url: &str,
-        output_path: Option<&PathBuf>,
+        output_path: Option<impl AsRef<Path> + Send>,
     ) -> Result<(), ResourceError> {
-        let download_path = output_path.unwrap_or(self.tmp_path());
+        async move {
+            let output_path = output_path.map(|x| x.as_ref().to_path_buf());
+            let download_path = output_path.as_ref().unwrap_or(self.tmp_path());
 
-        let response = reqwest::get(binary_url)
-            .await
-            .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
-        let content = response
-            .bytes()
-            .await
-            .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
+            let response = reqwest::get(binary_url)
+                .await
+                .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
+            let content = response
+                .bytes()
+                .await
+                .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
 
-        self.extract_zip(content, download_path)?;
-        Ok(())
+            self.extract_zip(content, download_path)?;
+            Ok(())
+        }
     }
 
     fn get_paths_to_backup(&self) -> Result<Vec<PathBuf>, ResourceError> {
         let config = get_config().lock().unwrap();
-        Ok(vec![env::current_exe()?, config.config_dir.clone()])
+        // Ok(vec![std::env::current_exe().unwrap(), config.config_dir.clone()])
+        Ok(vec![self.agent_path().clone(), config.config_dir.clone()])
     }
 
     fn collect_downloaded_bundles(&self) -> Vec<PathBuf> {
@@ -103,6 +137,7 @@ pub trait ResourceManagerTrait: Send + Sync {
                 if let Some(parent) = file_path.parent() {
                     fs::create_dir_all(parent)?;
                 }
+                let _ = fs::remove_file(&file_path);
                 let mut output_file = File::create(&file_path)?;
                 io::copy(&mut file, &mut output_file)?;
             } else if file.is_dir() {
@@ -159,13 +194,17 @@ pub trait ResourceManagerTrait: Send + Sync {
 #[cfg(unix)]
 pub struct UnixResourceManager {
     tmp_path: PathBuf,
+    agent_path: PathBuf,
 }
 
 #[cfg(unix)]
-#[async_trait]
 impl ResourceManagerTrait for UnixResourceManager {
     fn tmp_path(&self) -> &PathBuf {
         &self.tmp_path
+    }
+
+    fn agent_path(&self) -> &PathBuf {
+        &self.agent_path
     }
 
     fn backup(&self) -> Result<(), ResourceError> {
@@ -189,7 +228,7 @@ impl ResourceManagerTrait for UnixResourceManager {
 
 #[cfg(unix)]
 impl UnixResourceManager {
-    pub fn new() -> Self {
+    pub fn new(agent_path: impl AsRef<Path>) -> Self {
         let tmp_path = if PathBuf::from("/home/nodex/tmp").exists() {
             PathBuf::from("/home/nodex/tmp")
         } else if PathBuf::from("/tmp/nodex").exists() || fs::create_dir_all("/tmp/nodex").is_ok() {
@@ -198,7 +237,10 @@ impl UnixResourceManager {
             PathBuf::from("/tmp")
         };
 
-        Self { tmp_path }
+        Self {
+            tmp_path,
+            agent_path: agent_path.as_ref().into(),
+        }
     }
 
     fn generate_metadata(
@@ -287,7 +329,11 @@ impl UnixResourceManager {
         let uid = get_current_uid();
         let gid = get_current_gid();
 
-        let metadata_json = serde_json::to_string(metadata)
+        let metadata: Vec<_> = metadata
+            .iter()
+            .map(|(x, y)| (x.as_path().to_str(), y.as_path().to_str()))
+            .collect();
+        let metadata_json = serde_json::to_string(&metadata)
             .map_err(|e| ResourceError::TarError(format!("Failed to serialize metadata: {}", e)))?;
 
         let mut header = Header::new_gnu();
@@ -373,7 +419,8 @@ impl UnixResourceManager {
                         ))
                     })?;
                 }
-                std::fs::rename(&temp_path, original_path).map_err(|e| {
+                // fs::rename does not work with another partition
+                copy_dir_all(&temp_path, original_path).map_err(|e| {
                     ResourceError::RollbackFailed(format!(
                         "Failed to move file from {:?} to {:?}: {}",
                         temp_path, original_path, e
@@ -385,23 +432,19 @@ impl UnixResourceManager {
     }
 }
 
-#[cfg(unix)]
-impl Default for UnixResourceManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(windows)]
 pub struct WindowsResourceManager {
     tmp_path: PathBuf,
 }
 
 #[cfg(windows)]
-#[async_trait]
 impl ResourceManagerTrait for WindowsResourceManager {
     fn tmp_path(&self) -> &PathBuf {
         &self.tmp_path
+    }
+
+    fn agent_path(&self) -> &PathBuf {
+        unimplemented!()
     }
 
     fn backup(&self) -> Result<(), ResourceError> {
