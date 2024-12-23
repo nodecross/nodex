@@ -1,8 +1,6 @@
 use crate::config::get_config;
 use crate::managers::mmap_storage::MmapHandler;
-use crate::managers::runtime::{
-    ProcessManager, RuntimeError, RuntimeInfoStorage, RuntimeManager, State,
-};
+use crate::managers::runtime::{ProcessManager, RuntimeInfoStorage, RuntimeManager};
 use crate::state::handler::handle_state;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -28,8 +26,11 @@ pub mod validator;
 
 #[tokio::main]
 pub async fn run() -> std::io::Result<()> {
+    let handler = MmapHandler::new("nodex_runtime_info").expect("Failed to create MmapHandler");
+    let uds_path = get_config().lock().unwrap().uds_path.clone();
     let (runtime_manager, mut state_rx) =
-        initialize_runtime_manager().expect("Failed to create RuntimeManager");
+        RuntimeManager::new_by_controller(handler, ProcessManagerImpl {}, uds_path)
+            .expect("Failed to create RuntimeManager");
 
     let runtime_manager = Arc::new(Mutex::new(runtime_manager));
     let shutdown_handle = tokio::spawn(handle_signals(runtime_manager.clone()));
@@ -54,18 +55,6 @@ pub async fn run() -> std::io::Result<()> {
     log::info!("Shutdown handler completed successfully.");
 
     Ok(())
-}
-
-fn initialize_runtime_manager() -> Result<
-    (
-        RuntimeManager<MmapHandler, ProcessManagerImpl>,
-        tokio::sync::watch::Receiver<State>,
-    ),
-    RuntimeError,
-> {
-    let handler = MmapHandler::new("nodex_runtime_info")?;
-    let uds_path = get_config().lock().unwrap().uds_path.clone();
-    RuntimeManager::new_by_controller(handler, ProcessManagerImpl {}, uds_path)
 }
 
 #[cfg(unix)]
