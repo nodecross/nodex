@@ -1,8 +1,6 @@
 use http_body_util::BodyExt;
-use hyper::{
-    body::{Body, Incoming},
-    Response, Uri as HyperUri,
-};
+use hyper::body::{Body, Incoming};
+use hyper::Response;
 use hyper_util::client::legacy::Client as LegacyClient;
 use std::boxed::Box;
 use std::error::Error as StdError;
@@ -47,11 +45,8 @@ pub fn new_uri(url: &str) -> hyper::Uri {
     {
         let homedir = dirs::home_dir().expect("Home directory not found");
         let socket_path = homedir.join(".nodex/run/nodex.sock");
-        let generic_uri = GenericUri::new_unix(socket_path, url);
-        match generic_uri {
-            GenericUri::Unix(uri) => uri.into(),
-            _ => panic!("Invalid URI type"),
-        }
+        let GenericUri::Unix(uri) = GenericUri::new_unix(socket_path, url);
+        uri.into()
     }
     #[cfg(windows)]
     {

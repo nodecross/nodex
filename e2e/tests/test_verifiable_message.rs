@@ -1,8 +1,6 @@
-use http_body_util::BodyExt;
-use hyper::{body::Incoming, Method, Request, StatusCode};
+use hyper::{Method, Request, StatusCode};
 use serde_json::json;
 use std::fs::read;
-use tokio::io::AsyncWriteExt as _;
 
 use e2e::common::platform_client::{new_client, new_uri, response_to_string};
 
@@ -46,7 +44,6 @@ async fn create_verifiable_message_scenario() -> anyhow::Result<String> {
 }
 
 async fn verify_verifiable_message_scenario(input: String) -> anyhow::Result<()> {
-    let homedir = dirs::home_dir().unwrap();
     let client = new_client();
 
     let body = json!({
