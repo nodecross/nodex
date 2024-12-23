@@ -102,7 +102,7 @@ where
     H: RuntimeInfoStorage,
     P: ProcessManager,
 {
-    pub self_pid: u32,
+    self_pid: u32,
     file_handler: H,
     process_manager: P,
     uds_path: PathBuf,
