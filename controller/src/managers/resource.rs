@@ -93,7 +93,6 @@ pub trait ResourceManagerTrait: Send + Sync {
 
     fn get_paths_to_backup(&self) -> Result<Vec<PathBuf>, ResourceError> {
         let config = get_config().lock().unwrap();
-        // Ok(vec![std::env::current_exe().unwrap(), config.config_dir.clone()])
         Ok(vec![self.agent_path().clone(), config.config_dir.clone()])
     }
 

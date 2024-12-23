@@ -1,5 +1,5 @@
 use crate::config::get_config;
-use crate::managers::runtime::{ProcessManager, RuntimeInfoStorage, RuntimeManager};
+use crate::managers::runtime::{ProcessManager, RuntimeInfoStorage, RuntimeManagerImpl};
 use crate::state::handler::handle_state;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -32,7 +32,7 @@ pub async fn run() -> std::io::Result<()> {
     };
     let uds_path = get_config().lock().unwrap().uds_path.clone();
     let (runtime_manager, mut state_rx) =
-        RuntimeManager::new_by_controller(handler, ProcessManagerImpl {}, uds_path)
+        RuntimeManagerImpl::new_by_controller(handler, ProcessManagerImpl {}, uds_path)
             .expect("Failed to create RuntimeManager");
 
     let runtime_manager = Arc::new(Mutex::new(runtime_manager));
@@ -45,7 +45,7 @@ pub async fn run() -> std::io::Result<()> {
             log::info!("Worker: {}: {:?}", description, current_state);
             {
                 let mut _runtime_manager = runtime_manager.lock().await;
-                if let Err(e) = handle_state(current_state, &mut _runtime_manager).await {
+                if let Err(e) = handle_state(current_state, &mut *_runtime_manager).await {
                     log::error!("Worker: Failed to handle {}: {}", description, e);
                 }
             }
@@ -61,7 +61,7 @@ pub async fn run() -> std::io::Result<()> {
 }
 
 #[cfg(unix)]
-pub async fn handle_signals<H, P>(runtime_manager: Arc<Mutex<RuntimeManager<H, P>>>)
+pub async fn handle_signals<H, P>(runtime_manager: Arc<Mutex<RuntimeManagerImpl<H, P>>>)
 where
     H: RuntimeInfoStorage + Send + Sync + 'static,
     P: ProcessManager + Send + Sync + 'static,

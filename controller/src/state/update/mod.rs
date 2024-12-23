@@ -1,7 +1,7 @@
 pub mod tasks;
 use crate::managers::{
     resource::{ResourceError, ResourceManagerTrait},
-    runtime::{ProcessManager, RuntimeError, RuntimeInfoStorage, RuntimeManager, State},
+    runtime::{RuntimeError, RuntimeManager, State},
 };
 use crate::state::update::tasks::{UpdateAction, UpdateActionError};
 use semver::Version;
@@ -88,14 +88,10 @@ fn extract_pending_update_actions<'b>(
     Ok(pending_actions)
 }
 
-async fn monitor_agent_version<'a, H, P>(
-    runtime_manager: &'a RuntimeManager<H, P>,
+async fn monitor_agent_version<'a, R: RuntimeManager>(
+    runtime_manager: &'a R,
     expected_version: &Version,
-) -> Result<(), UpdateError>
-where
-    H: RuntimeInfoStorage,
-    P: ProcessManager,
-{
+) -> Result<(), UpdateError> {
     let timeout = Duration::from_secs(180);
     let interval = Duration::from_secs(3);
 
@@ -124,14 +120,13 @@ where
     )))
 }
 
-pub async fn execute<'a, R, H, P>(
+pub async fn execute<'a, R, T>(
     resource_manager: &'a R,
-    runtime_manager: &'a mut RuntimeManager<H, P>,
+    runtime_manager: &'a mut T,
 ) -> Result<(), UpdateError>
 where
     R: ResourceManagerTrait,
-    H: RuntimeInfoStorage,
-    P: ProcessManager,
+    T: RuntimeManager,
 {
     log::info!("Starting update");
 
@@ -177,13 +172,12 @@ where
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+    use crate::managers::file_storage::FileHandler;
     use crate::managers::{
-        agent::AgentManagerTrait,
         resource::ResourceManagerTrait,
-        runtime::{FeatType, FileHandler, ProcessInfo, RuntimeInfo, RuntimeManager, State},
+        runtime::{FeatType, ProcessInfo, RuntimeInfo, RuntimeManager, State},
     };
     use crate::state::update::tasks::{Task, UpdateAction};
-    use crate::validator::agent::VersionResponse;
     use chrono::{FixedOffset, Utc};
     use std::fs::File;
     use std::io::Write;
@@ -196,7 +190,6 @@ mod tests {
         response_version: String,
     }
 
-    #[async_trait::async_trait]
     impl AgentManagerTrait for MockAgentManager {
         fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {
             let now = Utc::now().with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap());
@@ -217,9 +210,9 @@ mod tests {
             T: serde::de::DeserializeOwned + Send,
         {
             if _path == "/internal/version/get" {
-                let response = VersionResponse {
-                    version: self.response_version.clone(),
-                };
+                let response = serde_json::json!({
+                    "version": self.response_version.clone(),
+                });
                 let json_response = serde_json::to_string(&response).unwrap();
                 let deserialized: T = serde_json::from_str(&json_response).unwrap();
                 Ok(deserialized)
@@ -253,6 +246,10 @@ mod tests {
         }
 
         fn rollback(&self, _backup_file: &std::path::Path) -> Result<(), ResourceError> {
+            unimplemented!()
+        }
+
+        fn agent_path(&self) -> &PathBuf {
             unimplemented!()
         }
 
@@ -419,6 +416,7 @@ mod tests {
                         .with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap()),
                 },
             ],
+            exec_path: std::env::current_exe().unwrap(),
         };
         let file_handler = FileHandler::new(temp_file_path.clone());
         file_handler
@@ -445,6 +443,7 @@ mod tests {
         let initial_runtime_info = RuntimeInfo {
             state: State::Updating,
             process_infos: vec![],
+            exec_path: std::env::current_exe().unwrap(),
         };
         let file_handler = FileHandler::new(temp_file_path.clone());
         file_handler

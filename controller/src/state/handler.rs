@@ -1,6 +1,4 @@
-use crate::managers::runtime::{
-    ProcessManager, RuntimeError, RuntimeInfoStorage, RuntimeManager, State,
-};
+use crate::managers::runtime::{RuntimeError, RuntimeManager, State};
 use crate::state::{init, rollback, update};
 
 #[cfg(unix)]
@@ -21,14 +19,10 @@ pub enum StateHandlerError {
     RuntimeInfo(#[from] RuntimeError),
 }
 
-pub async fn handle_state<H, P>(
+pub async fn handle_state<R: RuntimeManager>(
     state: State,
-    runtime_manager: &mut RuntimeManager<H, P>,
-) -> Result<(), StateHandlerError>
-where
-    H: RuntimeInfoStorage + Sync + Send,
-    P: ProcessManager + Send + Sync,
-{
+    runtime_manager: &mut R,
+) -> Result<(), StateHandlerError> {
     let agent_path = runtime_manager.get_exec_path()?;
     #[cfg(unix)]
     let resource_manager = UnixResourceManager::new(agent_path);

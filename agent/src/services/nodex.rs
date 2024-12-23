@@ -5,7 +5,7 @@ use crate::{app_config, server_config};
 use anyhow;
 use controller::managers::{
     resource::ResourceManagerTrait,
-    runtime::{RuntimeManager, State},
+    runtime::{RuntimeManagerImpl, RuntimeManagerWithoutAsync, State},
 };
 use controller::validator::storage::check_storage;
 use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
@@ -80,7 +80,7 @@ impl NodeX {
         {
             let handler =
                 controller::managers::mmap_storage::MmapHandler::new("nodex_runtime_info")?;
-            let mut runtime_manager = RuntimeManager::new_by_agent(
+            let mut runtime_manager = RuntimeManagerImpl::new_by_agent(
                 handler,
                 controller::managers::unix_process_manager::UnixProcessManager,
             );
