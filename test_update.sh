@@ -2,6 +2,8 @@
 # clean up
 pkill -9 nodex-agent
 rm /dev/shm/nodex_runtime_info
+rm ~/.nodex/run/nodex.sock
+rm  ~/.nodex/run/meta_nodex.sock
 
 sed -i 's/^version.*=.*".*\..*\..*"/version = "3.4.1"/' Cargo.toml
 mkdir -p /tmp/nodex-deploy/
@@ -16,9 +18,9 @@ pushd target/release/
 popd
 
 sleep 1
-python3 examples/python/src/get_version_loop.py &
+bash -c "while true; do curl -H 'Content-Type:application/json' --unix-socket ~/.nodex/run/nodex.sock localhost/internal/version/get; done" &
 child_pid=$!
 sleep 1
-python3 examples/python/src/update_version.py
+curl -v -X POST -H 'Content-Type:application/json' -d '{"message":{"binary_url":"http://localhost:9000/nodex-agent.zip"}}' --unix-socket ~/.nodex/run/nodex.sock http://localhost/internal/version/update
 sleep 5
 kill $child_pid

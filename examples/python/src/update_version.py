@@ -10,7 +10,7 @@ else:
 
 payload = {
     "message": {
-        "binary_url": "http://localhost:9000/nodex-agent.zip",
+        "binary_url": "https://github.com/nodecross/nodex/releases/download/v3.3.0/nodex-agent-x86_64.zip",
     }
 }
 
