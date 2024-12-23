@@ -4,7 +4,7 @@ use hyper::{body::Incoming, Response};
 use hyper_util::client::legacy::{Client, Error as LegacyClientError};
 use hyperlocal::{UnixClientExt, UnixConnector, Uri};
 use nix::sys::socket::{recvmsg, sendmsg, ControlMessage, ControlMessageOwned, MsgFlags};
-use notify::event::{AccessKind, AccessMode, CreateKind};
+use notify::event::{AccessKind, AccessMode, CreateKind, MetadataKind, ModifyKind};
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::de::DeserializeOwned;
 use std::env;
@@ -83,7 +83,13 @@ pub fn wait_until_file_created(path: impl AsRef<Path>) -> notify::Result<()> {
     if !path.exists() {
         for res in rx {
             match res? {
+                // ref: https://docs.rs/notify/latest/notify/#macos-fsevents-and-unowned-files
                 Event {
+                    kind: EventKind::Modify(ModifyKind::Metadata(MetadataKind::Ownership)),
+                    paths,
+                    ..
+                }
+                | Event {
                     kind: EventKind::Access(AccessKind::Close(AccessMode::Write)),
                     paths,
                     ..
