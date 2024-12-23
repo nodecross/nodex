@@ -326,7 +326,11 @@ where
         self.kill_others(target, Some(FeatType::Agent))
     }
 
-    fn kill_others(&mut self, target: u32, feat_type: Option<FeatType>) -> Result<(), RuntimeError> {
+    fn kill_others(
+        &mut self,
+        target: u32,
+        feat_type: Option<FeatType>,
+    ) -> Result<(), RuntimeError> {
         let (_oks, errs): (Vec<_>, Vec<_>) = self
             .file_handler
             .read()?
@@ -334,7 +338,12 @@ where
             .into_iter()
             .flatten()
             .filter(|process_info| process_info.process_id != target)
-            .filter(|p| feat_type.as_ref().map(|f| p.feat_type == *f).unwrap_or(true))
+            .filter(|p| {
+                feat_type
+                    .as_ref()
+                    .map(|f| p.feat_type == *f)
+                    .unwrap_or(true)
+            })
             .map(|process_info| self.kill_process(&process_info))
             .partition(Result::is_ok);
         if errs.is_empty() {
