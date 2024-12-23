@@ -421,7 +421,7 @@ impl RuntimeInfo {
         } else {
             Err(RuntimeError::FileWrite(std::io::Error::new(
                 std::io::ErrorKind::StorageFull,
-                "Failed to add process_info",
+                "Failed to remove process_info",
             )))
         }
     }

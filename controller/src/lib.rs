@@ -84,9 +84,8 @@ where
         },
         _ = sigterm.recv() => {
             log::info!("Received SIGTERM. Gracefully stopping application.");
-            if let Err(e) = runtime_manager.lock().await.cleanup() {
-                log::error!("Failed to handle sigterm: {}", e);
-            }
+            // Just to be sure
+            let _ = runtime_manager.lock().await.cleanup();
         },
         _ = sigabrt.recv() => {
             if let Err(e) = runtime_manager.lock().await.cleanup_all() {
