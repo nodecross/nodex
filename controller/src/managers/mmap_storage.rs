@@ -4,7 +4,7 @@ use nix::fcntl::OFlag;
 use nix::sys::mman::{mlock, mmap, msync, munlock, shm_open, MapFlags, MsFlags, ProtFlags};
 use nix::sys::stat::Mode;
 use nix::unistd::ftruncate;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 
@@ -62,10 +62,9 @@ fn _e2e(e: Errno) -> std::io::Error {
 
 impl MmapHandler {
     // ref: https://stackoverflow.com/questions/62320764/how-to-create-shared-memory-after-fork
-    pub fn new(
-        name: impl AsRef<Path>,
-        length: std::num::NonZeroUsize,
-    ) -> Result<Self, RuntimeError> {
+    pub fn new(name: impl AsRef<Path>) -> Result<Self, RuntimeError> {
+        // We assume that data is sufficiently small.
+        let length = core::num::NonZero::new(10000).unwrap();
         let fd = shm_open(
             name.as_ref(),
             OFlag::O_RDWR | OFlag::O_CREAT,
@@ -108,16 +107,6 @@ impl MmapHandler {
     }
 
     pub fn flush(&self) -> Result<(), RuntimeError> {
-        // use nix::unistd::SysconfVar::PAGE_SIZE;
-        // let alignment = (self.ptr.as_ptr() as usize) % PAGE_SIZE as usize;
-        // unsafe {
-        //     let ptr = self.ptr.sub(alignment);
-        //     let len: usize = self.len.into();
-        //     dbg!(ptr);
-        //     dbg!(len + alignment);
-        //     msync(ptr, len + alignment, MsFlags::MS_SYNC)
-        //         .map_err(|no| RuntimeError::MmapFlush(std::io::Error::from_raw_os_error(no as core::ffi::c_int)))
-        // }
         unsafe {
             msync(self.ptr, self.len.into(), MsFlags::MS_SYNC)
                 .map_err(_e2e)
@@ -157,25 +146,27 @@ impl MmapHandler {
 
 impl RuntimeInfoStorage for MmapHandler {
     fn read(&mut self) -> Result<RuntimeInfo, RuntimeError> {
-        let mut buffer = vec![];
         self.lock()?;
-        (&self[..])
-            .read_to_end(&mut buffer)
-            .map_err(self.handle_err(RuntimeError::FileRead))?;
+        let cstr = std::ffi::CStr::from_bytes_until_nul(self)
+            .ok()
+            .and_then(|s| s.to_str().ok())
+            .ok_or(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Failed to read runtime info",
+            ))
+            .map_err(RuntimeError::FileRead);
         self.unlock()?;
-        let cstr = unsafe { std::ffi::CStr::from_ptr(buffer.as_slice().as_ptr().cast()) }
-            .to_str()
-            .unwrap();
-        let buffer = cstr.to_string();
-        if buffer.trim().is_empty() {
+        let cstr = cstr?.trim();
+        if cstr.is_empty() {
             // We assume that memmap is empty means that it is the first execution.
+            let process_infos = [None, None, None, None];
             return Ok(RuntimeInfo {
                 state: State::Init,
-                process_infos: vec![],
+                process_infos,
                 exec_path: std::env::current_exe().map_err(RuntimeError::FailedCurrentExe)?,
             });
         }
-        serde_json::from_str(&buffer).map_err(RuntimeError::JsonDeserialize)
+        serde_json::from_str(cstr).map_err(RuntimeError::JsonDeserialize)
     }
 
     fn apply_with_lock<F>(&mut self, operation: F) -> Result<(), RuntimeError>

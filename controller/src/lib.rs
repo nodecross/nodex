@@ -32,24 +32,18 @@ pub async fn run() -> std::io::Result<()> {
         initialize_runtime_manager().expect("Failed to create RuntimeManager");
 
     let runtime_manager = Arc::new(Mutex::new(runtime_manager));
-
-    let shutdown_handle = tokio::spawn({
-        let runtime_manager = runtime_manager.clone();
-
-        async move {
-            handle_signals(runtime_manager).await;
-            log::info!("All processes have been successfully terminated.");
-        }
-    });
+    let shutdown_handle = tokio::spawn(handle_signals(runtime_manager.clone()));
 
     tokio::spawn(async move {
         let mut description = "Initial state";
         while {
             let current_state = *state_rx.borrow();
             log::info!("Worker: {}: {:?}", description, current_state);
-
-            if let Err(e) = handle_state(current_state, &runtime_manager).await {
-                log::error!("Worker: Failed to handle {}: {}", description, e);
+            {
+                let mut _runtime_manager = runtime_manager.lock().await;
+                if let Err(e) = handle_state(current_state, &mut _runtime_manager).await {
+                    log::error!("Worker: Failed to handle {}: {}", description, e);
+                }
             }
             description = "State change";
             state_rx.changed().await.is_ok()
@@ -69,12 +63,8 @@ fn initialize_runtime_manager() -> Result<
     ),
     RuntimeError,
 > {
-    let handler = MmapHandler::new(
-        "nodex_runtime_info",
-        core::num::NonZero::new(10000).unwrap(),
-    )?;
+    let handler = MmapHandler::new("nodex_runtime_info")?;
     let uds_path = get_config().lock().unwrap().uds_path.clone();
-    std::env::set_var("MMAP_SIZE", 10000.to_string());
     RuntimeManager::new_by_controller(handler, ProcessManagerImpl {}, uds_path)
 }
 
@@ -91,24 +81,28 @@ where
 
     tokio::select! {
         _ = sigint.recv() => {
-            if let Err(e) = handle_cleanup(&runtime_manager).await {
-                log::error!("Failed to handle CTRL+C: {}", e);
+            if let Err(e) = runtime_manager.lock().await.cleanup_all() {
+                log::error!("Failed to handle sigint: {}", e);
             }
         },
         _ = ctrl_c => {
-            if let Err(e) = handle_cleanup(&runtime_manager).await {
+            if let Err(e) = runtime_manager.lock().await.cleanup_all() {
                 log::error!("Failed to handle CTRL+C: {}", e);
             }
         },
         _ = sigterm.recv() => {
             log::info!("Received SIGTERM. Gracefully stopping application.");
+            if let Err(e) = runtime_manager.lock().await.cleanup() {
+                log::error!("Failed to handle sigterm: {}", e);
+            }
         },
         _ = sigabrt.recv() => {
-            if let Err(e) = handle_cleanup(&runtime_manager).await {
+            if let Err(e) = runtime_manager.lock().await.cleanup_all() {
                 log::error!("Failed to handle SIGABRT: {}", e);
             }
         }
-    };
+    }
+    log::info!("All processes have been successfully terminated.");
 }
 
 #[cfg(windows)]
@@ -120,21 +114,4 @@ pub async fn handle_signals<A>(
     A: AgentManagerTrait + Sync + Send,
 {
     unimplemented!("implemented for Windows.");
-}
-
-#[cfg(unix)]
-async fn handle_cleanup<H, P>(
-    runtime_manager: &Arc<Mutex<RuntimeManager<H, P>>>,
-) -> Result<(), String>
-where
-    H: RuntimeInfoStorage + Send + Sync + 'static,
-    P: ProcessManager + Send + Sync + 'static,
-{
-    log::info!("Received CTRL+C. Initiating shutdown.");
-
-    let mut runtime_manager = runtime_manager.lock().await;
-    runtime_manager.cleanup().map_err(|e| e.to_string())?;
-
-    log::info!("cleanup successfully.");
-    Ok(())
 }

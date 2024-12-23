@@ -2,8 +2,6 @@ use crate::managers::runtime::{
     ProcessManager, RuntimeError, RuntimeInfoStorage, RuntimeManager, State,
 };
 use crate::state::{init, rollback, update};
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 #[cfg(unix)]
 use crate::managers::resource::UnixResourceManager;
@@ -25,14 +23,12 @@ pub enum StateHandlerError {
 
 pub async fn handle_state<H, P>(
     state: State,
-    runtime_manager: &Arc<Mutex<RuntimeManager<H, P>>>,
+    runtime_manager: &mut RuntimeManager<H, P>,
 ) -> Result<(), StateHandlerError>
 where
     H: RuntimeInfoStorage + Sync + Send,
     P: ProcessManager + Send + Sync,
 {
-    let mut runtime_manager = runtime_manager.lock().await;
-
     let agent_path = runtime_manager.get_exec_path()?;
     #[cfg(unix)]
     let resource_manager = UnixResourceManager::new(agent_path);
@@ -41,15 +37,15 @@ where
 
     match state {
         State::Update => {
-            update::execute(&resource_manager, &mut *runtime_manager).await?;
+            update::execute(&resource_manager, runtime_manager).await?;
             // ERASE: test for rollback
             // runtime_manager.update_state(crate::managers::runtime::State::Rollback)?;
         }
         State::Rollback => {
-            rollback::execute(&resource_manager, &mut *runtime_manager).await?;
+            rollback::execute(&resource_manager, runtime_manager).await?;
         }
         State::Init => {
-            init::execute(&resource_manager, &mut *runtime_manager).await?;
+            init::execute(&resource_manager, runtime_manager).await?;
         }
         State::Idle => {
             log::info!("No state change required.");

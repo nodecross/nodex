@@ -80,12 +80,7 @@ impl NodeX {
 
         #[cfg(unix)]
         {
-            let len = std::env::var("MMAP_SIZE")
-                .ok()
-                .and_then(|x| x.parse::<usize>().ok())
-                .ok_or(anyhow::anyhow!("Incompatible size"))?;
-            let len = core::num::NonZero::new(len).ok_or(anyhow::anyhow!("Incompatible size"))?;
-            let handler = MmapHandler::new("nodex_runtime_info", len)?;
+            let handler = MmapHandler::new("nodex_runtime_info")?;
             let mut runtime_manager = RuntimeManager::new_by_agent(
                 handler,
                 controller::managers::unix_process_manager::UnixProcessManager,

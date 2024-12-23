@@ -9,6 +9,7 @@ use std::path::Path;
 #[derive(Clone)]
 pub struct UnixProcessManager;
 
+#[inline]
 fn nule_to_ioe(e: std::ffi::NulError) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::InvalidInput, e)
 }

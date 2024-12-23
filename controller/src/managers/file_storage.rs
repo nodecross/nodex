@@ -17,9 +17,10 @@ impl RuntimeInfoStorage for FileHandler {
             .map_err(RuntimeError::FileRead)?;
         if content.trim().is_empty() {
             // We assume that the file is empty means that it is the first execution.
+            let process_infos = [None, None, None, None];
             return Ok(RuntimeInfo {
                 state: State::Init,
-                process_infos: vec![],
+                process_infos,
                 exec_path: std::env::current_exe().map_err(RuntimeError::FailedCurrentExe)?,
             });
         }
@@ -34,12 +35,12 @@ impl RuntimeInfoStorage for FileHandler {
             .lock_exclusive()
             .map_err(self.handle_err(RuntimeError::FileLock))?;
 
-        let mut runtime_info = self.read().map_err(self.handle_err(|x| x))?;
+        let mut runtime_info = self.read().map_err(self.handle_err_id())?;
 
-        operation(&mut runtime_info).map_err(self.handle_err(|x| x))?;
+        operation(&mut runtime_info).map_err(self.handle_err_id())?;
 
         self.write_locked(&runtime_info)
-            .map_err(self.handle_err(|x| x))?;
+            .map_err(self.handle_err_id())?;
         self.file.unlock().map_err(RuntimeError::FileUnlock)?;
 
         Ok(())
@@ -56,6 +57,10 @@ impl FileHandler {
             .open(&path)
             .map_err(RuntimeError::FileOpen)?;
         Ok(FileHandler { file })
+    }
+
+    fn handle_err_id(&mut self) -> impl Fn(RuntimeError) -> RuntimeError + '_ {
+        self.handle_err(|x| x)
     }
 
     fn handle_err<'a, E>(
