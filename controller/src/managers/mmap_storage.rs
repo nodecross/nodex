@@ -90,7 +90,7 @@ impl MmapHandler {
         Ok(MmapHandler { ptr, len: length })
     }
 
-    pub fn lock(&self) -> Result<(), RuntimeError> {
+    fn lock(&self) -> Result<(), RuntimeError> {
         unsafe {
             mlock(self.ptr, self.len.into())
                 .map_err(_e2e)
@@ -98,7 +98,7 @@ impl MmapHandler {
         }
     }
 
-    pub fn unlock(&self) -> Result<(), RuntimeError> {
+    fn unlock(&self) -> Result<(), RuntimeError> {
         unsafe {
             munlock(self.ptr, self.len.into())
                 .map_err(_e2e)
@@ -106,7 +106,7 @@ impl MmapHandler {
         }
     }
 
-    pub fn flush(&self) -> Result<(), RuntimeError> {
+    fn flush(&self) -> Result<(), RuntimeError> {
         unsafe {
             msync(self.ptr, self.len.into(), MsFlags::MS_SYNC)
                 .map_err(_e2e)

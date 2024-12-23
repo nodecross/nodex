@@ -76,7 +76,7 @@ impl FileHandler {
         }
     }
 
-    pub fn write_locked(&mut self, runtime_info: &RuntimeInfo) -> Result<(), RuntimeError> {
+    fn write_locked(&mut self, runtime_info: &RuntimeInfo) -> Result<(), RuntimeError> {
         let json_data =
             serde_json::to_string_pretty(runtime_info).map_err(RuntimeError::JsonSerialize)?;
 
