@@ -24,7 +24,7 @@ pub enum GenericUri {
     #[cfg(unix)]
     Unix(HyperLocalUri),
     #[cfg(windows)]
-    Http(HyperUri),
+    Http(hyper::Uri),
 }
 
 impl GenericUri {
