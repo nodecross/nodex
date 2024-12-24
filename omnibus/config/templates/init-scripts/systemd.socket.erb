@@ -2,8 +2,11 @@
 Description=Nodex Agent Socket
 
 [Socket]
-ListenStream=/home/nodex/run/nodex.sock
-SocketMode=0660
+ListenStream=/home/nodex/.nodex/run/nodex.sock
+# Overridden by the umask setting, but just to be clear
+SocketMode=0766
+SocketUser=nodex
+SocketGroup=nodex
 
 [Install]
 WantedBy=sockets.target
