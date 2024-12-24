@@ -184,7 +184,7 @@ where
         let current_exe = &self.get_runtime_info()?.exec_path;
         let child = self
             .process_manager
-            .spawn_process(current_exe, &[])
+            .spawn_process(current_exe, &["controlled"])
             .map_err(RuntimeError::Fork)?;
 
         #[cfg(unix)]

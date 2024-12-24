@@ -33,7 +33,7 @@ pub mod unix {
         }
     }
 
-    pub fn make_listener(uds_path: impl AsRef<Path>) -> std::io::Result<UnixListener> {
+    pub fn recieve_listener(uds_path: impl AsRef<Path>) -> std::io::Result<UnixListener> {
         let meta_uds_path = convention_of_meta_uds_path(&uds_path)?;
         remove_file_if_exists(&meta_uds_path);
         let sock = std::os::unix::net::UnixListener::bind(&meta_uds_path)?;

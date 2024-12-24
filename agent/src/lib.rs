@@ -25,7 +25,7 @@ pub use crate::config::server_config;
 pub use crate::network::network_config;
 
 #[tokio::main]
-pub async fn run(options: &cli::AgentOptions) -> std::io::Result<()> {
+pub async fn run(controlled: bool, options: &cli::AgentOptions) -> std::io::Result<()> {
     dotenv().ok();
 
     #[cfg(windows)]
@@ -91,7 +91,12 @@ pub async fn run(options: &cli::AgentOptions) -> std::io::Result<()> {
         let runtime_dir = config_dir.clone().join("run");
         fs::create_dir_all(&runtime_dir).unwrap_log();
         let nodex_path = runtime_dir.clone().join("nodex.sock");
-        let listener = server::unix::make_listener(&nodex_path)?;
+        let listener = if !controlled {
+            controller::unix_utils::remove_file_if_exists(&nodex_path);
+            tokio::net::UnixListener::bind(&nodex_path)?
+        } else {
+            server::unix::recieve_listener(&nodex_path)?
+        };
         let fd = std::os::unix::io::AsRawFd::as_raw_fd(&listener);
         let server = server::unix::make_uds_server(server::make_router(), listener);
         let server =

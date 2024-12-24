@@ -22,6 +22,7 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Commands {
     Controller,
+    Controlled,
 }
 
 fn log_init() {
@@ -47,23 +48,18 @@ fn main() {
     log_init();
     let cli = Cli::parse();
 
-    match &cli.command {
-        Some(Commands::Controller) => {
-            #[cfg(unix)]
-            {
-                let _ = controller::run();
-            }
-            #[cfg(not(unix))]
-            {
-                log::error!("Controller is not supported on this platform.");
-            }
-        }
-        None => {
-            if cli.agent_options.config || cli.agent_options.command.is_some() {
-                let _ = agent::run(&cli.agent_options);
-            } else {
-                let _ = agent::run(&agent::cli::AgentOptions::default());
-            }
-        }
+    if let Some(Commands::Controller) = &cli.command {
+        #[cfg(unix)]
+        let _ = controller::run();
+        #[cfg(not(unix))]
+        log::error!("Controller is not supported on this platform.");
+    } else {
+        let controlled = cli.command.map(|_| true).unwrap_or(false);
+        let options = if cli.agent_options.config || cli.agent_options.command.is_some() {
+            cli.agent_options
+        } else {
+            agent::cli::AgentOptions::default()
+        };
+        let _ = agent::run(controlled, &options);
     }
 }
