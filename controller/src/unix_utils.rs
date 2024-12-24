@@ -189,3 +189,24 @@ pub fn get_fd_from_systemd() -> Result<RawFd, GetFdError> {
     }
     Ok(DEFAULT_FD)
 }
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::env;
+
+    #[test]
+    fn test_setup_listener_with_systemd_activation() {
+        env::set_var("LISTEN_FDS", "1");
+        env::set_var("LISTEN_PID", std::process::id().to_string());
+
+        let result = get_fd_from_systemd();
+        assert!(result.is_ok(), "Systemd socket activation should succeed");
+        let listener_fd = result.unwrap();
+
+        assert_eq!(
+            listener_fd, DEFAULT_FD,
+            "Listener FD should match DEFAULT_FD"
+        );
+    }
+}

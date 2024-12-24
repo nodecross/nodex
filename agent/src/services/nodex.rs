@@ -84,7 +84,7 @@ impl NodeX {
                 handler,
                 controller::managers::unix_process_manager::UnixProcessManager,
             );
-            let agent_path = &runtime_manager.get_exec_path()?;
+            let agent_path = &runtime_manager.get_runtime_info()?.exec_path;
             let output_path = agent_path
                 .parent()
                 .ok_or(anyhow::anyhow!("Failed to get path of parent directory"))?;

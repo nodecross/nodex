@@ -1,17 +1,18 @@
 use crate::validator::process::{is_manage_by_systemd, is_manage_socket_activation};
 use chrono::{DateTime, FixedOffset, Utc};
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tokio::sync::watch;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct RuntimeInfo {
     pub state: State,
     pub process_infos: [Option<ProcessInfo>; 4],
     pub exec_path: PathBuf,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
 pub enum State {
     Init,
     Idle,
@@ -19,15 +20,15 @@ pub enum State {
     Rollback,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct ProcessInfo {
     pub process_id: u32,
     pub executed_at: DateTime<FixedOffset>,
-    pub version: String,
+    pub version: Version,
     pub feat_type: FeatType,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub enum FeatType {
     Agent,
     Controller,
@@ -52,6 +53,8 @@ pub enum RuntimeError {
     FileRead(#[source] std::io::Error),
     #[error("Failed to write data to file: {0}")]
     FileWrite(#[source] std::io::Error),
+    #[error("Failed to remove file: {0}")]
+    FileRemove(#[source] std::io::Error),
     #[error("Failed to acquire exclusive file lock: {0}")]
     FileLock(#[source] std::io::Error),
     #[error("Failed to unlock file: {0}")]
@@ -70,8 +73,14 @@ pub enum RuntimeError {
     Fork(#[source] std::io::Error),
     #[error("failed to know path of self exe: {0}")]
     FailedCurrentExe(#[source] std::io::Error),
+    #[error("Controller already running")]
+    AlreadyExistController,
+    #[error(transparent)]
+    SemVer(#[from] semver::Error),
+    #[cfg(unix)]
     #[error("Failed to bind UDS: {0}")]
     BindUdsError(#[source] std::io::Error),
+    #[cfg(unix)]
     #[error("Failed to watch UDS: {0}")]
     WatchUdsError(#[source] notify::Error),
     #[cfg(unix)]
@@ -80,8 +89,7 @@ pub enum RuntimeError {
     #[cfg(unix)]
     #[error("Request failed: {0}")]
     Request(#[from] crate::unix_utils::GetRequestError),
-    #[error("Controller already running")]
-    AlreadyExistController,
+    #[cfg(unix)]
     #[error("Failed to get meta uds path")]
     PathConvention,
 }
@@ -101,27 +109,25 @@ struct VersionResponse {
 pub trait RuntimeManagerWithoutAsync {
     fn launch_agent(&mut self, is_first: bool) -> Result<ProcessInfo, RuntimeError>;
 
-    fn is_agent_running(&mut self) -> Result<bool, RuntimeError>;
+    fn launch_controller(
+        &mut self,
+        new_controller_path: impl AsRef<Path>,
+    ) -> Result<(), RuntimeError>;
 
-    fn get_exec_path(&mut self) -> Result<PathBuf, RuntimeError>;
-
-    fn kill_process(&mut self, process_info: &ProcessInfo) -> Result<(), RuntimeError>;
+    fn get_runtime_info(&mut self) -> Result<RuntimeInfo, RuntimeError>;
 
     fn update_state_without_send(&mut self, state: State) -> Result<(), RuntimeError>;
 
     fn update_state(&mut self, state: State) -> Result<(), RuntimeError>;
 
-    fn kill_other_agents(&mut self, target: u32) -> Result<(), RuntimeError>;
+    fn kill_process(&mut self, process_info: &ProcessInfo) -> Result<(), RuntimeError>;
 
-    fn launch_controller(
-        &mut self,
-        new_controller_path: impl AsRef<Path>,
-    ) -> Result<(), RuntimeError>;
+    fn kill_other_agents(&mut self, target: u32) -> Result<(), RuntimeError>;
 }
 
 #[trait_variant::make(Send)]
 pub trait RuntimeManager: RuntimeManagerWithoutAsync {
-    async fn get_version(&self) -> Result<String, RuntimeError>;
+    async fn get_version(&self) -> Result<Version, RuntimeError>;
 }
 
 #[derive(Debug, Clone)]
@@ -143,15 +149,15 @@ where
     H: RuntimeInfoStorage + Sync + Send,
     P: ProcessManager + Sync + Send,
 {
-    async fn get_version(&self) -> Result<String, RuntimeError> {
+    async fn get_version(&self) -> Result<Version, RuntimeError> {
         #[cfg(unix)]
         let version_response: VersionResponse =
             crate::unix_utils::get_request(&self.uds_path, "/internal/version/get").await?;
         #[cfg(windows)]
         let version_response = VersionResponse {
-            version: "dummy".to_string(),
+            version: "9.9.9".to_string(),
         };
-        Ok(version_response.version)
+        Ok(Version::parse(&version_response.version)?)
     }
 }
 
@@ -175,7 +181,7 @@ where
                 let _ = std::fs::remove_file(&self.meta_uds_path);
             }
         }
-        let current_exe = &self.get_exec_path()?;
+        let current_exe = &self.get_runtime_info()?.exec_path;
         let child = self
             .process_manager
             .spawn_process(current_exe, &[])
@@ -210,22 +216,8 @@ where
         Ok(process_info)
     }
 
-    fn is_agent_running(&mut self) -> Result<bool, RuntimeError> {
-        let runtime_info = self.file_handler.read()?;
-        let is_not_empty = runtime_info
-            .process_infos
-            .into_iter()
-            .flatten()
-            .filter(|process_info| process_info.feat_type == FeatType::Agent)
-            .peekable()
-            .peek()
-            .is_some();
-        Ok(is_not_empty)
-    }
-
-    fn get_exec_path(&mut self) -> Result<PathBuf, RuntimeError> {
-        let runtime_info = self.file_handler.read()?;
-        Ok(runtime_info.exec_path)
+    fn get_runtime_info(&mut self) -> Result<RuntimeInfo, RuntimeError> {
+        self.file_handler.read()
     }
 
     fn kill_process(&mut self, process_info: &ProcessInfo) -> Result<(), RuntimeError> {
@@ -289,8 +281,7 @@ where
         process_manager: P,
         uds_path: impl AsRef<Path>,
     ) -> Result<(Self, watch::Receiver<State>), RuntimeError> {
-        let runtime_info = file_handler.read()?;
-        let (state_sender, state_receiver) = watch::channel(runtime_info.state);
+        let (state_sender, state_receiver) = watch::channel(file_handler.read()?.state);
         #[cfg(unix)]
         let meta_uds_path = crate::unix_utils::convention_of_meta_uds_path(&uds_path)
             .map_err(|_| RuntimeError::PathConvention)?;
@@ -308,15 +299,10 @@ where
         // We assume that caller is controller.
         runtime_manager.cleanup_process_info()?;
         let runtime_info = runtime_manager.file_handler.read()?;
-        let controller_processes = runtime_info
-            .process_infos
-            .iter()
-            .filter_map(|x| x.as_ref())
-            .filter(|process_info| {
-                process_info.feat_type == FeatType::Controller
-                    && process_info.process_id != self_pid
-            })
-            .collect::<Vec<&ProcessInfo>>();
+        let controller_processes: Vec<_> = runtime_info
+            .filter_by_feat(FeatType::Controller)
+            .filter(|process_info| process_info.process_id != self_pid)
+            .collect();
         if !controller_processes.is_empty() {
             return Err(RuntimeError::AlreadyExistController);
         }
@@ -429,10 +415,11 @@ where
 impl ProcessInfo {
     pub fn new(process_id: u32, feat_type: FeatType) -> Self {
         let now = Utc::now().with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap());
+        let version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
         ProcessInfo {
             process_id,
             executed_at: now,
-            version: env!("CARGO_PKG_VERSION").to_string(),
+            version,
             feat_type,
         }
     }
@@ -474,232 +461,100 @@ impl RuntimeInfo {
             )))
         }
     }
+
+    pub fn filter_by_feat(&self, feat_type: FeatType) -> impl Iterator<Item = &ProcessInfo> {
+        self.process_infos
+            .iter()
+            .flatten()
+            .filter(move |process_info| process_info.feat_type == feat_type)
+    }
+
+    pub fn is_agent_running(&self) -> bool {
+        let is_not_empty = self
+            .filter_by_feat(FeatType::Agent)
+            .peekable()
+            .peek()
+            .is_some();
+        is_not_empty
+    }
 }
 
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
-    use std::fs::File;
-    use tempfile::tempdir;
-
-    fn setup_temp_file() -> (RuntimeManager, tempfile::TempDir, PathBuf) {
-        let temp_dir = tempdir().expect("Failed to create temporary directory");
-        let temp_file_path = temp_dir.path().join("runtime_info.json");
-
-        File::create(&temp_file_path).expect("Failed to create temporary runtime_info.json");
-
-        assert!(
-            temp_file_path.exists(),
-            "Temporary file was not created: {:?}",
-            temp_file_path
-        );
-
-        let file_handler = FileHandler::new(temp_file_path.clone());
-        let runtime_manager = RuntimeManager::new(file_handler);
-
-        (runtime_manager, temp_dir, temp_file_path)
-    }
-
-    #[test]
-    fn test_read_write_runtime_info() {
-        let (runtime_manager, _temp_dir, temp_file_path) = setup_temp_file();
-
-        let initial_runtime_info = RuntimeInfo {
-            state: State::Default,
-            process_infos: vec![],
-        };
-
-        let file_handler = FileHandler::new(temp_file_path.clone());
-
-        file_handler
-            .write_locked(
-                &mut File::create(&temp_file_path).unwrap(),
-                &initial_runtime_info,
-            )
-            .unwrap();
-
-        let read_runtime_info = runtime_manager.read_runtime_info().unwrap();
-        assert_eq!(read_runtime_info.state, State::Default);
-        assert_eq!(read_runtime_info.process_infos.len(), 0);
-    }
 
     #[test]
     fn test_add_process_info() {
-        let (runtime_manager, _temp_dir, _) = setup_temp_file();
+        let mut runtime_info = RuntimeInfo {
+            state: State::Init,
+            process_infos: [None, None, None, None],
+            exec_path: std::env::current_exe().unwrap(),
+        };
 
         let process_info = ProcessInfo::new(12345, FeatType::Agent);
-        runtime_manager
-            .add_process_info(process_info.clone())
-            .unwrap();
+        runtime_info.add_process_info(process_info.clone()).unwrap();
 
-        let process_infos = runtime_manager.get_process_infos().unwrap();
-        assert_eq!(process_infos.len(), 1);
-        assert_eq!(process_infos[0].process_id, 12345);
-        assert_eq!(process_infos[0].feat_type, FeatType::Agent);
+        assert_eq!(
+            runtime_info.process_infos,
+            [Some(process_info), None, None, None]
+        );
     }
 
     #[test]
     fn test_remove_process_info() {
-        let (runtime_manager, _temp_dir, _) = setup_temp_file();
+        let mut runtime_info = RuntimeInfo {
+            state: State::Init,
+            process_infos: [None, None, None, None],
+            exec_path: std::env::current_exe().unwrap(),
+        };
 
         let process_info1 = ProcessInfo::new(12345, FeatType::Agent);
         let process_info2 = ProcessInfo::new(67890, FeatType::Controller);
 
-        runtime_manager
+        runtime_info
             .add_process_info(process_info1.clone())
             .unwrap();
-        runtime_manager
+        runtime_info
             .add_process_info(process_info2.clone())
             .unwrap();
 
-        runtime_manager.remove_process_info(12345).unwrap();
+        runtime_info.remove_process_info(12345).unwrap();
 
-        let process_infos = runtime_manager.get_process_infos().unwrap();
-        assert_eq!(process_infos.len(), 1);
-        assert_eq!(process_infos[0].process_id, 67890);
-    }
-
-    #[test]
-    fn test_update_state() {
-        let (runtime_manager, _temp_dir, _) = setup_temp_file();
-
-        runtime_manager.update_state(State::Updating).unwrap();
-
-        let state = runtime_manager.get_state().unwrap();
-        assert_eq!(state, State::Updating);
+        assert_eq!(
+            runtime_info.process_infos,
+            [Some(process_info2), None, None, None]
+        );
     }
 
     #[test]
     fn test_filter_process_infos() {
-        let (runtime_manager, _temp_dir, _) = setup_temp_file();
+        let mut runtime_info = RuntimeInfo {
+            state: State::Init,
+            process_infos: [None, None, None, None],
+            exec_path: std::env::current_exe().unwrap(),
+        };
 
         let process_info1 = ProcessInfo::new(12345, FeatType::Agent);
         let process_info2 = ProcessInfo::new(67890, FeatType::Controller);
 
-        runtime_manager
+        runtime_info
             .add_process_info(process_info1.clone())
             .unwrap();
-        runtime_manager
+        runtime_info
             .add_process_info(process_info2.clone())
             .unwrap();
 
-        let agents = runtime_manager
-            .filter_process_infos(FeatType::Agent)
-            .unwrap();
+        let agents: Vec<_> = runtime_info.filter_by_feat(FeatType::Agent).collect();
         assert_eq!(agents.len(), 1);
         assert_eq!(agents[0].process_id, 12345);
 
-        let controllers = runtime_manager
-            .filter_process_infos(FeatType::Controller)
-            .unwrap();
+        let controllers: Vec<_> = runtime_info.filter_by_feat(FeatType::Controller).collect();
         assert_eq!(controllers.len(), 1);
         assert_eq!(controllers[0].process_id, 67890);
     }
 
     #[test]
-    fn test_is_running_or_remove_if_stopped() {
-        let (runtime_manager, _temp_dir, _) = setup_temp_file();
-
-        let process_info = ProcessInfo::new(12345, FeatType::Agent);
-
-        runtime_manager
-            .add_process_info(process_info.clone())
-            .unwrap();
-
-        let result = runtime_manager.is_running_or_remove_if_stopped(&process_info);
-        assert!(!result);
-
-        let process_infos = runtime_manager.get_process_infos().unwrap();
-        assert!(process_infos.is_empty());
-    }
-}
-
-#[cfg(all(test, unix))]
-mod tests {
-    use super::*;
-    use libc;
-    use std::env;
-    use std::path::Path;
-
-    #[test]
-    fn test_unix_agent_manager_new() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let uds_path = temp_dir.path().join("test_socket");
-
-        let manager = UnixAgentManager::new(uds_path.clone());
-        assert!(
-            manager.is_ok(),
-            "UnixAgentManager should be initialized successfully"
-        );
-        let manager = manager.unwrap();
-
-        assert_eq!(manager.uds_path, uds_path);
-    }
-
-    #[test]
-    fn test_bind_new_uds() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let uds_path = temp_dir.path().join("test_socket");
-
-        let result = UnixAgentManager::bind_new_uds(&uds_path);
-        assert!(result.is_ok(), "UDS binding should succeed");
-        let (listener_fd, listener) = result.unwrap();
-
-        assert!(uds_path.exists(), "UDS file should be created");
-        assert!(listener.is_some(), "Listener should be created");
-        unsafe {
-            libc::close(listener_fd);
-        }
-    }
-
-    #[test]
-    fn test_setup_listener_with_systemd_activation() {
-        env::set_var("LISTEN_FDS", "1");
-        env::set_var("LISTEN_PID", std::process::id().to_string());
-
-        let result = UnixAgentManager::get_fd_from_systemd();
-        assert!(result.is_ok(), "Systemd socket activation should succeed");
-        let (listener_fd, listener) = result.unwrap();
-
-        assert_eq!(
-            listener_fd, DEFAULT_FD,
-            "Listener FD should match DEFAULT_FD"
-        );
-        assert!(
-            listener.is_none(),
-            "Listener should not be created in this mode"
-        );
-    }
-
-    #[test]
-    fn test_duplicate_fd() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let uds_path = temp_dir.path().join("test_socket");
-        let listener = UnixListener::bind(&uds_path).unwrap();
-
-        let listener_fd = listener.as_raw_fd();
-        let listener_fd_str = listener_fd.to_string();
-
-        let result = UnixAgentManager::duplicate_fd(listener_fd_str);
-        assert!(result.is_ok(), "Duplicating FD should succeed");
-        let (duplicated_fd, listener) = result.unwrap();
-
-        assert!(listener.is_some(), "Listener should be created");
-    }
-
-    #[tokio::test]
-    async fn test_launch_and_terminate_agent() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let uds_path = temp_dir.path().join("test_socket");
-
-        let manager = UnixAgentManager::new(uds_path).unwrap();
-        let process_info = manager.launch_agent();
-        assert!(process_info.is_ok(), "Agent launch should succeed");
-
-        let process_info = process_info.unwrap();
-        assert!(
-            manager.terminate_agent(process_info.process_id).is_ok(),
-            "Agent termination should succeed"
-        );
+    fn test_version_format() {
+        assert!(Version::parse(env!("CARGO_PKG_VERSION")).is_ok());
     }
 }

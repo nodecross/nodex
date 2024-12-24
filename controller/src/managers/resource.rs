@@ -485,6 +485,12 @@ mod tests {
         CompressionMethod, ZipWriter,
     };
 
+    impl Default for UnixResourceManager {
+        fn default() -> Self {
+            Self::new(std::env::current_exe().unwrap())
+        }
+    }
+
     fn create_sample_zip() -> NamedTempFile {
         let file = NamedTempFile::new().unwrap();
         let mut zip = ZipWriter::new(file.reopen().unwrap());
@@ -548,8 +554,10 @@ mod tests {
         let bundle_file = bundles_dir.join("bundle1.yml");
         File::create(&bundle_file).unwrap();
 
-        let mut resource_manager = UnixResourceManager::default();
-        resource_manager.tmp_path = temp_dir.path().to_path_buf();
+        let resource_manager = UnixResourceManager {
+            tmp_path: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
 
         let collected_bundles = resource_manager.collect_downloaded_bundles();
 
@@ -581,8 +589,10 @@ mod tests {
         filetime::set_file_mtime(&new_file, filetime::FileTime::from_system_time(new_time))
             .unwrap();
 
-        let mut resource_manager = UnixResourceManager::default();
-        resource_manager.tmp_path = temp_dir.path().to_path_buf();
+        let resource_manager = UnixResourceManager {
+            tmp_path: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
 
         let latest_backup = resource_manager.get_latest_backup();
 
@@ -596,9 +606,10 @@ mod tests {
     #[test]
     fn test_backup() {
         let temp_dir = tempdir().unwrap();
-
-        let mut resource_manager = UnixResourceManager::default();
-        resource_manager.tmp_path = temp_dir.path().to_path_buf();
+        let resource_manager = UnixResourceManager {
+            tmp_path: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
 
         let result = resource_manager.backup();
         assert!(result.is_ok(), "Expected backup to succeed");
@@ -615,10 +626,12 @@ mod tests {
     #[test]
     fn test_rollback() {
         let temp_dir = tempdir().unwrap();
+        let resource_manager = UnixResourceManager {
+            tmp_path: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
 
-        let mut resource_manager = UnixResourceManager::default();
-        resource_manager.tmp_path = temp_dir.path().to_path_buf();
-        resource_manager.backup();
+        let _ = resource_manager.backup();
         let latest_backup = resource_manager.get_latest_backup();
 
         assert!(latest_backup.is_some(), "Expected a backup to exist");
@@ -633,8 +646,10 @@ mod tests {
     fn test_remove() {
         let temp_dir = tempdir().unwrap();
 
-        let mut resource_manager = UnixResourceManager::default();
-        resource_manager.tmp_path = temp_dir.path().to_path_buf();
+        let resource_manager = UnixResourceManager {
+            tmp_path: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
 
         let dummy_file = temp_dir.path().join("dummy_file.txt");
         File::create(&dummy_file).unwrap();

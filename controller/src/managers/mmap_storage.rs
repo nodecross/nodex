@@ -1,14 +1,17 @@
 use super::runtime::{RuntimeError, RuntimeInfo, RuntimeInfoStorage, State};
 use nix::errno::Errno;
 use nix::fcntl::OFlag;
-use nix::sys::mman::{mlock, mmap, msync, munlock, shm_open, MapFlags, MsFlags, ProtFlags};
+use nix::sys::mman::{
+    mlock, mmap, msync, munlock, munmap, shm_open, shm_unlink, MapFlags, MsFlags, ProtFlags,
+};
 use nix::sys::stat::Mode;
 use nix::unistd::ftruncate;
 use std::io::Write;
 use std::ops::{Deref, DerefMut};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct MmapHandler {
+    name: PathBuf,
     ptr: core::ptr::NonNull<core::ffi::c_void>,
     len: core::num::NonZeroUsize,
 }
@@ -97,7 +100,23 @@ impl MmapHandler {
             .map_err(_e2e)
             .map_err(RuntimeError::FileOpen)?
         };
-        Ok(MmapHandler { ptr, len: length })
+        Ok(MmapHandler {
+            ptr,
+            len: length,
+            name: name.as_ref().to_path_buf(),
+        })
+    }
+
+    pub fn close(self) -> Result<(), RuntimeError> {
+        unsafe {
+            munmap(self.ptr, self.len.into())
+                .map_err(_e2e)
+                .map_err(RuntimeError::FileRemove)?;
+            shm_unlink(&self.name)
+                .map_err(_e2e)
+                .map_err(RuntimeError::FileRemove)?;
+        }
+        Ok(())
     }
 
     fn lock(&self) -> Result<(), RuntimeError> {
@@ -192,5 +211,84 @@ impl RuntimeInfoStorage for MmapHandler {
             .map_err(self.handle_err_id())?;
         self.unlock()?;
         Ok(())
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use crate::managers::runtime::{
+        FeatType, ProcessInfo, RuntimeInfo, RuntimeManagerImpl, RuntimeManagerWithoutAsync,
+    };
+    use crate::managers::unix_process_manager::UnixProcessManager;
+
+    #[test]
+    fn test_read_write_runtime_info() {
+        let initial_runtime_info = RuntimeInfo {
+            state: State::Init,
+            process_infos: [None, None, None, None],
+            exec_path: std::env::current_exe().unwrap(),
+        };
+
+        let mut mmap_handler = MmapHandler::new("test_shm").unwrap();
+
+        mmap_handler
+            .apply_with_lock(|runtime_info| {
+                *runtime_info = initial_runtime_info.clone();
+                Ok(())
+            })
+            .unwrap();
+
+        let read_runtime_info = mmap_handler.read().unwrap();
+        assert_eq!(read_runtime_info, initial_runtime_info);
+        mmap_handler.close().unwrap();
+    }
+
+    #[test]
+    fn test_update_state() {
+        let mmap_handler = MmapHandler::new("test_shm_state").unwrap();
+        let mut runtime_manager =
+            RuntimeManagerImpl::new_by_agent(mmap_handler, UnixProcessManager);
+
+        runtime_manager
+            .update_state_without_send(State::Update)
+            .unwrap();
+
+        let state = runtime_manager.get_runtime_info().unwrap().state;
+
+        assert_eq!(state, State::Update);
+        MmapHandler::new("test_shm_state").unwrap().close().unwrap();
+    }
+
+    #[test]
+    fn test_cleanup_process_info() {
+        let process_info = ProcessInfo::new((1 << 22) + 1, FeatType::Agent);
+        let runtime_info = RuntimeInfo {
+            state: State::Init,
+            process_infos: [Some(process_info.clone()), None, None, None],
+            exec_path: std::env::current_exe().unwrap(),
+        };
+        let mut mmap_handler = MmapHandler::new("test_cleanup_process_info_shm").unwrap();
+        mmap_handler.write_locked(&runtime_info).unwrap();
+        let mut runtime_manager = RuntimeManagerImpl::new_by_controller(
+            mmap_handler,
+            UnixProcessManager,
+            "/tmp/nodex.sock",
+        )
+        .unwrap()
+        .0;
+
+        let process_infos: Vec<_> = runtime_manager
+            .get_runtime_info()
+            .unwrap()
+            .process_infos
+            .into_iter()
+            .flatten()
+            .collect();
+        assert!(!process_infos.contains(&process_info));
+        MmapHandler::new("test_cleanup_process_info_shm")
+            .unwrap()
+            .close()
+            .unwrap();
     }
 }

@@ -62,7 +62,8 @@ mod tests {
 
     mod mock_move_resource {
         use super::*;
-        pub fn run(src: &String, dest: &String) -> Result<(), MoveResourceError> {
+        #[allow(dead_code)]
+        pub fn run(src: &str, _dest: &str) -> Result<(), MoveResourceError> {
             if src == "error" {
                 Err(MoveResourceError::SourceNotFoundError(PathBuf::from(src)))
             } else {
@@ -73,7 +74,8 @@ mod tests {
 
     mod mock_update_json {
         use super::*;
-        pub fn run(file: &String, field: &String, value: &String) -> Result<(), UpdateJsonError> {
+        #[allow(dead_code)]
+        pub fn run(file: &str, _field: &str, _value: &str) -> Result<(), UpdateJsonError> {
             if file == "error.json" {
                 Err(UpdateJsonError::InvalidFieldPath(
                     "invalid_field".to_string(),
@@ -133,11 +135,11 @@ mod tests {
         );
 
         assert!(
-            !fs::metadata(source1_path).is_ok(),
+            fs::metadata(source1_path).is_err(),
             "Source1 file should have been moved"
         );
         assert!(
-            !fs::metadata(source2_path).is_ok(),
+            fs::metadata(source2_path).is_err(),
             "Source2 file should have been moved"
         );
         assert!(

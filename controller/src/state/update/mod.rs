@@ -1,7 +1,7 @@
 pub mod tasks;
 use crate::managers::{
     resource::{ResourceError, ResourceManagerTrait},
-    runtime::{RuntimeError, RuntimeManager, State},
+    runtime::{FeatType, RuntimeError, RuntimeManager, State},
 };
 use crate::state::update::tasks::{UpdateAction, UpdateActionError};
 use semver::Version;
@@ -71,13 +71,16 @@ fn parse_bundles(bundles: &[PathBuf]) -> Result<Vec<UpdateAction>, UpdateError> 
 
 fn extract_pending_update_actions<'b>(
     update_actions: &'b [UpdateAction],
-    current_version: &Version,
+    current_controller_version: &Version,
+    current_agent_version: &Version,
 ) -> Result<Vec<&'b UpdateAction>, UpdateError> {
     let pending_actions: Vec<&'b UpdateAction> = update_actions
         .iter()
         .filter_map(|action| {
             let target_version = Version::parse(&action.version).ok()?;
-            if target_version > *current_version {
+            if *current_controller_version >= target_version
+                && target_version > *current_agent_version
+            {
                 Some(action)
             } else {
                 None
@@ -106,7 +109,7 @@ async fn monitor_agent_version<'a, R: RuntimeManager>(
             UpdateError::AgentVersionCheckFailed(e.to_string())
         })?;
 
-        if version == expected_version.to_string() {
+        if version == *expected_version {
             log::info!("Expected version received: {}", expected_version);
             return Ok(());
         } else {
@@ -133,14 +136,18 @@ where
     let res: Result<(), UpdateError> = async {
         let current_version = Version::parse(env!("CARGO_PKG_VERSION"))
             .map_err(|_| UpdateError::InvalidVersionFormat)?;
-
-        if !runtime_manager.is_agent_running()? {
+        let runtime_info = runtime_manager.get_runtime_info()?;
+        if !runtime_info.is_agent_running() {
             return Err(UpdateError::AgentNotRunning);
         }
+        let current_running_agent = runtime_info.filter_by_feat(FeatType::Agent).next().unwrap();
         let bundles = resource_manager.collect_downloaded_bundles();
         let update_actions = parse_bundles(&bundles)?;
-        let pending_update_actions =
-            extract_pending_update_actions(&update_actions, &current_version)?;
+        let pending_update_actions = extract_pending_update_actions(
+            &update_actions,
+            &current_version,
+            &current_running_agent.version,
+        )?;
         for action in pending_update_actions {
             action.handle()?;
         }
@@ -161,6 +168,7 @@ where
             if let Some(target_state) = get_target_state(&update_error) {
                 runtime_manager.update_state(target_state)?;
             }
+            return Err(update_error);
         }
     }
 
@@ -171,193 +179,62 @@ where
 
 #[cfg(all(test, unix))]
 mod tests {
+    use super::super::tests::{MockResourceManager, MockRuntimeManager};
     use super::*;
-    use crate::managers::file_storage::FileHandler;
-    use crate::managers::{
-        resource::ResourceManagerTrait,
-        runtime::{FeatType, ProcessInfo, RuntimeInfo, RuntimeManager, State},
-    };
+    use crate::managers::runtime::{FeatType, ProcessInfo, RuntimeInfo, State};
     use crate::state::update::tasks::{Task, UpdateAction};
     use chrono::{FixedOffset, Utc};
-    use std::fs::File;
     use std::io::Write;
     use std::path::PathBuf;
-    use std::sync::{Arc, Mutex as StdMutex};
     use tempfile::{tempdir, TempDir};
-    use tokio::sync::Mutex;
-
-    struct MockAgentManager {
-        response_version: String,
-    }
-
-    impl AgentManagerTrait for MockAgentManager {
-        fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {
-            let now = Utc::now().with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap());
-            let process_info = ProcessInfo {
-                process_id: 1,
-                feat_type: FeatType::Agent,
-                version: self.response_version.clone(),
-                executed_at: now,
-            };
-            Ok(process_info)
-        }
-        fn terminate_agent(&self, _process_id: u32) -> Result<(), AgentManagerError> {
-            Ok(())
-        }
-
-        async fn get_request<T>(&self, _path: &str) -> Result<T, AgentManagerError>
-        where
-            T: serde::de::DeserializeOwned + Send,
-        {
-            if _path == "/internal/version/get" {
-                let response = serde_json::json!({
-                    "version": self.response_version.clone(),
-                });
-                let json_response = serde_json::to_string(&response).unwrap();
-                let deserialized: T = serde_json::from_str(&json_response).unwrap();
-                Ok(deserialized)
-            } else {
-                Err(AgentManagerError::RequestFailed("Invalid path".into()))
-            }
-        }
-
-        fn cleanup(&self) -> Result<(), std::io::Error> {
-            Ok(())
-        }
-    }
-
-    pub struct MockResourceManager {
-        bundles: Vec<PathBuf>,
-        remove_called: StdMutex<bool>,
-    }
-
-    impl MockResourceManager {
-        pub fn new(bundles: Vec<PathBuf>) -> Self {
-            Self {
-                bundles,
-                remove_called: StdMutex::new(false),
-            }
-        }
-    }
-
-    impl ResourceManagerTrait for MockResourceManager {
-        fn backup(&self) -> Result<(), ResourceError> {
-            unimplemented!()
-        }
-
-        fn rollback(&self, _backup_file: &std::path::Path) -> Result<(), ResourceError> {
-            unimplemented!()
-        }
-
-        fn agent_path(&self) -> &PathBuf {
-            unimplemented!()
-        }
-
-        fn tmp_path(&self) -> &PathBuf {
-            unimplemented!()
-        }
-
-        fn get_paths_to_backup(&self) -> Result<Vec<PathBuf>, ResourceError> {
-            unimplemented!()
-        }
-
-        fn collect_downloaded_bundles(&self) -> Vec<PathBuf> {
-            self.bundles.clone()
-        }
-
-        fn get_latest_backup(&self) -> Option<PathBuf> {
-            unimplemented!()
-        }
-
-        fn extract_zip(
-            &self,
-            _archive_data: bytes::Bytes,
-            _output_path: &std::path::Path,
-        ) -> Result<(), ResourceError> {
-            unimplemented!()
-        }
-
-        fn remove_directory(&self, _path: &std::path::Path) -> Result<(), std::io::Error> {
-            Ok(())
-        }
-
-        fn remove(&self) -> Result<(), ResourceError> {
-            let mut called = self.remove_called.lock().unwrap();
-            *called = true;
-            Ok(())
-        }
-    }
-
-    fn setup_temp_file() -> (RuntimeManager, tempfile::TempDir, PathBuf) {
-        let temp_dir = tempdir().expect("Failed to create temporary directory");
-        let temp_file_path = temp_dir.path().join("runtime_info.json");
-
-        File::create(&temp_file_path).expect("Failed to create temporary runtime_info.json");
-
-        assert!(
-            temp_file_path.exists(),
-            "Temporary file was not created: {:?}",
-            temp_file_path
-        );
-
-        let file_handler = FileHandler::new(temp_file_path.clone());
-        let runtime_manager = RuntimeManager::new(file_handler);
-
-        (runtime_manager, temp_dir, temp_file_path)
-    }
 
     #[tokio::test]
     async fn test_execute_with_empty_bundles() {
         let current_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-        let agent = Arc::new(Mutex::new(MockAgentManager {
-            response_version: current_version.to_string(),
-        }));
-        let resource = MockResourceManager::new(vec![]);
-
-        // setup runtime_info.json
-        let (runtime, _temp_dir, temp_file_path) = setup_temp_file();
-        let initial_runtime_info = RuntimeInfo {
-            state: State::Updating,
-            process_infos: vec![
-                ProcessInfo {
+        let runtime_info = RuntimeInfo {
+            state: State::Update,
+            process_infos: [
+                Some(ProcessInfo {
                     process_id: 2,
                     feat_type: FeatType::Controller,
-                    version: current_version.to_string(),
+                    version: current_version.clone(),
                     executed_at: Utc::now()
                         .with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap()),
-                },
-                ProcessInfo {
+                }),
+                Some(ProcessInfo {
                     process_id: 3,
                     feat_type: FeatType::Agent,
-                    version: "1.0.0".to_string(),
+                    version: Version::parse("0.0.1").unwrap(),
                     executed_at: Utc::now()
                         .with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap()),
-                },
+                }),
+                None,
+                None,
             ],
+            exec_path: "".into(),
         };
+        let mut runtime = MockRuntimeManager {
+            response_version: current_version.clone(),
+            runtime_info,
+        };
+        let resource = MockResourceManager::new(vec![]);
 
-        let file_handler = FileHandler::new(temp_file_path.clone());
-
-        file_handler
-            .write_locked(
-                &mut File::create(&temp_file_path).unwrap(),
-                &initial_runtime_info,
-            )
-            .unwrap();
-
-        let state: UpdateState<'_, MockAgentManager, MockResourceManager> =
-            UpdateState::new(&agent, resource, &runtime);
-        let result = state.execute().await;
+        let result = execute(&resource, &mut runtime).await;
         assert!(result.is_ok(), "Update should succeed");
 
-        let runtime_info = runtime.get_process_infos().unwrap();
+        let runtime_info: Vec<_> = runtime
+            .runtime_info
+            .process_infos
+            .iter()
+            .flatten()
+            .collect();
         assert_eq!(runtime_info.len(), 2);
         assert_eq!(runtime_info[0].process_id, 2);
         assert_eq!(runtime_info[0].feat_type, FeatType::Controller);
-        assert_eq!(runtime_info[0].version, current_version.to_string());
+        assert_eq!(runtime_info[0].version, current_version.clone());
         assert_eq!(runtime_info[1].process_id, 1);
         assert_eq!(runtime_info[1].feat_type, FeatType::Agent);
-        assert_eq!(runtime_info[1].version, current_version.to_string());
+        assert_eq!(runtime_info[1].version, current_version);
     }
 
     fn create_test_file(path: &str, content: &str) -> std::io::Result<()> {
@@ -369,10 +246,33 @@ mod tests {
     #[tokio::test]
     async fn test_execute_with_bundles() {
         let current_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-        let agent = Arc::new(Mutex::new(MockAgentManager {
-            response_version: current_version.to_string(),
-        }));
-        let (runtime, _temp_dir, temp_file_path) = setup_temp_file();
+        let runtime_info = RuntimeInfo {
+            state: State::Update,
+            process_infos: [
+                Some(ProcessInfo {
+                    process_id: 2,
+                    feat_type: FeatType::Controller,
+                    version: current_version.clone(),
+                    executed_at: Utc::now()
+                        .with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap()),
+                }),
+                Some(ProcessInfo {
+                    process_id: 3,
+                    feat_type: FeatType::Agent,
+                    version: Version::parse("0.0.1").unwrap(),
+                    executed_at: Utc::now()
+                        .with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap()),
+                }),
+                None,
+                None,
+            ],
+            exec_path: "".into(),
+        };
+
+        let mut runtime = MockRuntimeManager {
+            response_version: current_version.clone(),
+            runtime_info,
+        };
 
         // setup bundles
         let source_path = "/tmp/source.txt";
@@ -391,70 +291,32 @@ mod tests {
             tasks,
         };
 
+        let _temp_dir = tempdir().expect("Failed to create temporary directory");
         let yaml_str = serde_yaml::to_string(&action).expect("Failed to serialize action to YAML");
         let bundle_path = _temp_dir.path().join("test_bundle.yaml");
         fs::write(&bundle_path, &yaml_str).expect("Failed to write YAML to file");
 
         let resource = MockResourceManager::new(vec![bundle_path]);
 
-        // setup runtime_info.json
-        let initial_runtime_info = RuntimeInfo {
-            state: State::Updating,
-            process_infos: vec![
-                ProcessInfo {
-                    process_id: 2,
-                    feat_type: FeatType::Controller,
-                    version: current_version.to_string(),
-                    executed_at: Utc::now()
-                        .with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap()),
-                },
-                ProcessInfo {
-                    process_id: 3,
-                    feat_type: FeatType::Agent,
-                    version: "1.0.0".to_string(),
-                    executed_at: Utc::now()
-                        .with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap()),
-                },
-            ],
-            exec_path: std::env::current_exe().unwrap(),
-        };
-        let file_handler = FileHandler::new(temp_file_path.clone());
-        file_handler
-            .write_locked(
-                &mut File::create(&temp_file_path).unwrap(),
-                &initial_runtime_info,
-            )
-            .unwrap();
-
-        let state = UpdateState::new(&agent, resource, &runtime);
-        let result = state.execute().await;
+        let result = execute(&resource, &mut runtime).await;
         assert!(result.is_ok(), "Update should succeed");
     }
 
     #[tokio::test]
     async fn test_execute_without_running_agent() {
         let current_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-        let agent = Arc::new(Mutex::new(MockAgentManager {
-            response_version: current_version.to_string(),
-        }));
+        let runtime_info = RuntimeInfo {
+            state: State::Update,
+            process_infos: [None, None, None, None],
+            exec_path: "".into(),
+        };
+        let mut runtime = MockRuntimeManager {
+            response_version: current_version,
+            runtime_info,
+        };
         let resource = MockResourceManager::new(vec![]);
 
-        let (runtime, _temp_dir, temp_file_path) = setup_temp_file();
-        let initial_runtime_info = RuntimeInfo {
-            state: State::Updating,
-            process_infos: vec![],
-            exec_path: std::env::current_exe().unwrap(),
-        };
-        let file_handler = FileHandler::new(temp_file_path.clone());
-        file_handler
-            .write_locked(
-                &mut File::create(&temp_file_path).unwrap(),
-                &initial_runtime_info,
-            )
-            .unwrap();
-
-        let state = UpdateState::new(&agent, resource, &runtime);
-        let result = state.execute().await;
+        let result = execute(&resource, &mut runtime).await;
         assert!(
             matches!(result, Err(UpdateError::AgentNotRunning)),
             "Should fail with AgentNotRunning"
@@ -464,10 +326,7 @@ mod tests {
     #[tokio::test]
     async fn test_extract_pending_update_actions() {
         let current_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-        let agent = Arc::new(Mutex::new(MockAgentManager {
-            response_version: current_version.to_string(),
-        }));
-        let (runtime, _temp_dir, temp_file_path) = setup_temp_file();
+        let _temp_dir = tempdir().expect("Failed to create temporary directory");
 
         fn setup_bundle(temp_dir: &TempDir, file_name: &str, version: String) -> PathBuf {
             let source_path = "/tmp/source.txt";
@@ -481,7 +340,7 @@ mod tests {
             }];
 
             let action = UpdateAction {
-                version: version,
+                version,
                 description: "Test move tasks".to_string(),
                 tasks,
             };
@@ -506,12 +365,10 @@ mod tests {
         let bundle4 = setup_bundle(&_temp_dir, "bundle4.yml", "1.5.0".to_string());
 
         let bundles = vec![bundle1, bundle2, bundle3, bundle4];
-        let resource = MockResourceManager::new(bundles.clone());
 
-        let state = UpdateState::new(&agent, resource, &runtime);
-        let update_actions = state.parse_bundles(&bundles).unwrap();
+        let update_actions = parse_bundles(&bundles).unwrap();
         let result =
-            state.extract_pending_update_actions(&update_actions, &current_version, &agent_version);
+            extract_pending_update_actions(&update_actions, &current_version, &agent_version);
 
         assert!(result.is_ok(), "Update should succeed");
         let pending_update_actions = result.unwrap();

@@ -1,4 +1,3 @@
-use crate::managers::resource::ResourceManagerTrait;
 use crate::managers::runtime::{RuntimeError, RuntimeManager};
 
 #[derive(Debug, thiserror::Error)]
@@ -7,15 +6,8 @@ pub enum InitError {
     RuntimeError(#[from] RuntimeError),
 }
 
-pub async fn execute<'a, R, T>(
-    _resource_manager: &'a R,
-    runtime_manager: &'a mut T,
-) -> Result<(), InitError>
-where
-    R: ResourceManagerTrait,
-    T: RuntimeManager,
-{
-    if !runtime_manager.is_agent_running()? {
+pub async fn execute<T: RuntimeManager>(runtime_manager: &mut T) -> Result<(), InitError> {
+    if !runtime_manager.get_runtime_info()?.is_agent_running() {
         let _process_info = runtime_manager.launch_agent(true)?;
     } else {
         log::error!("Agent already running");
@@ -26,71 +18,48 @@ where
 
 #[cfg(all(test, unix))]
 mod tests {
+    use super::super::tests::MockRuntimeManager;
     use super::*;
-    use crate::managers::{
-        agent::{AgentManagerError, AgentManagerTrait},
-        runtime::{FeatType, FileHandler, ProcessInfo},
-    };
-    use std::sync::Arc;
-    use tempfile::tempdir;
-    use tokio::sync::Mutex;
-
-    struct TestAgentManager;
-
-    #[async_trait::async_trait]
-    impl AgentManagerTrait for TestAgentManager {
-        fn launch_agent(&self) -> Result<ProcessInfo, AgentManagerError> {
-            Ok(ProcessInfo::new(1, FeatType::Agent))
-        }
-        fn terminate_agent(&self, _process_id: u32) -> Result<(), AgentManagerError> {
-            Ok(())
-        }
-
-        async fn get_request<T>(&self, _endpoint: &str) -> Result<T, AgentManagerError>
-        where
-            T: serde::de::DeserializeOwned + Send,
-        {
-            Err(AgentManagerError::RequestFailed("Invalid request".into()))
-        }
-
-        fn cleanup(&self) -> Result<(), std::io::Error> {
-            Ok(())
-        }
-    }
+    use crate::managers::runtime::{FeatType, ProcessInfo, RuntimeInfo, State};
 
     #[tokio::test]
     async fn test_execute_with_no_running_agents() {
-        let temp_dir = tempdir().expect("Failed to create temporary directory");
-        let temp_file_path = temp_dir.path().join("runtime_info.json");
-        let file_handler = FileHandler::new(temp_file_path.clone());
-        let runtime_manager = RuntimeManager::new(file_handler);
+        let runtime_info = RuntimeInfo {
+            state: State::Init,
+            process_infos: [None, None, None, None],
+            exec_path: std::env::current_exe().unwrap(),
+        };
+        let mut runtime_manager = MockRuntimeManager::new(runtime_info);
 
-        let agent_manager = Arc::new(Mutex::new(TestAgentManager));
-
-        let default_state = DefaultState::new(&agent_manager, &runtime_manager);
-
-        let result = default_state.execute().await;
+        let result = execute(&mut runtime_manager).await;
         assert!(result.is_ok(), "Expected Ok result, got {:?}", result);
 
-        let runtime_info = runtime_manager.read_runtime_info().unwrap();
-        assert_eq!(runtime_info.process_infos.len(), 1);
-        assert_eq!(runtime_info.process_infos[0].feat_type, FeatType::Agent);
-        assert_eq!(runtime_info.process_infos[0].process_id, 1);
+        let process_infos: Vec<_> = runtime_manager
+            .runtime_info
+            .process_infos
+            .iter()
+            .flatten()
+            .collect();
+        assert_eq!(process_infos.len(), 1);
+        assert_eq!(process_infos[0].feat_type, FeatType::Agent);
+        assert_eq!(process_infos[0].process_id, 1);
     }
 
     #[tokio::test]
     async fn test_execute_with_one_running_agent() {
-        let temp_dir = tempdir().expect("Failed to create temporary directory");
-        let temp_file_path = temp_dir.path().join("runtime_info.json");
-        let file_handler = FileHandler::new(temp_file_path.clone());
-        let runtime_manager = RuntimeManager::new(file_handler);
-        runtime_manager.add_process_info(ProcessInfo::new(12345, FeatType::Agent));
+        let runtime_info = RuntimeInfo {
+            state: State::Init,
+            process_infos: [
+                Some(ProcessInfo::new(12345, FeatType::Agent)),
+                None,
+                None,
+                None,
+            ],
+            exec_path: std::env::current_exe().unwrap(),
+        };
+        let mut runtime_manager = MockRuntimeManager::new(runtime_info);
 
-        let agent_manager = Arc::new(Mutex::new(TestAgentManager));
-
-        let default_state = DefaultState::new(&agent_manager, &runtime_manager);
-
-        let result = default_state.execute().await;
+        let result = execute(&mut runtime_manager).await;
         assert!(result.is_ok(), "Expected Ok result, got {:?}", result);
     }
 }

@@ -23,7 +23,7 @@ pub async fn handle_state<R: RuntimeManager>(
     state: State,
     runtime_manager: &mut R,
 ) -> Result<(), StateHandlerError> {
-    let agent_path = runtime_manager.get_exec_path()?;
+    let agent_path = runtime_manager.get_runtime_info()?.exec_path;
     #[cfg(unix)]
     let resource_manager = UnixResourceManager::new(agent_path);
     #[cfg(windows)]
@@ -39,7 +39,7 @@ pub async fn handle_state<R: RuntimeManager>(
             rollback::execute(&resource_manager, runtime_manager).await?;
         }
         State::Init => {
-            init::execute(&resource_manager, runtime_manager).await?;
+            init::execute(runtime_manager).await?;
         }
         State::Idle => {
             log::info!("No state change required.");
