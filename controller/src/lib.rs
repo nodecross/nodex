@@ -102,7 +102,7 @@ where
 }
 
 #[cfg(windows)]
-pub async fn handle_signals<H, P>(runtime_manager: Arc<Mutex<RuntimeManager<H, P>>>)
+pub async fn handle_signals<H, P>(runtime_manager: Arc<Mutex<RuntimeManagerImpl<H, P>>>)
 where
     H: RuntimeInfoStorage + Send + Sync + 'static,
     P: ProcessManager + Send + Sync + 'static,
