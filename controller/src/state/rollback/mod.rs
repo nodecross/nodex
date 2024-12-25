@@ -46,14 +46,15 @@ where
             runtime_manager.launch_controller(agent_path)?;
             log::info!("Rollback completed");
 
-            log::info!("Restarting controller by SIGINT");
-            #[cfg(all(unix, not(test)))] // failed test by kill own process
+            #[cfg(not(test))] // failed test by kill own process
             {
-                let current_pid = std::process::id();
-                signal::kill(Pid::from_raw(current_pid as i32), Signal::SIGINT)
-                    .map_err(|e| RollbackError::FailedKillOwnProcess(e.to_string()))?;
+                log::info!("Restarting controller by SIGTERM");
+                let runtime_info = runtime_manager.get_runtime_info()?;
+                let self_info = runtime_info.find_process_info(std::process::id()).ok_or(
+                    RollbackError::FailedKillOwnProcess("Failed to find self info".into()),
+                )?;
+                runtime_manager.kill_process(self_info)?;
             }
-
             Ok(())
         }
         None => Err(RollbackError::BackupNotFound),

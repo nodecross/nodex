@@ -458,6 +458,13 @@ impl RuntimeInfo {
         }
     }
 
+    pub fn find_process_info(&self, process_id: u32) -> Option<&ProcessInfo> {
+        self.process_infos
+            .iter()
+            .flatten()
+            .find(|p| p.process_id == process_id)
+    }
+
     pub fn filter_by_feat(&self, feat_type: FeatType) -> impl Iterator<Item = &ProcessInfo> {
         self.process_infos
             .iter()
