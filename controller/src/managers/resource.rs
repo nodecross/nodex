@@ -139,6 +139,12 @@ pub trait ResourceManagerTrait: Send + Sync {
                 let _ = fs::remove_file(&file_path);
                 let mut output_file = File::create(&file_path)?;
                 io::copy(&mut file, &mut output_file)?;
+                #[cfg(unix)]
+                if let Some(file_name) = file_path.file_name() {
+                    if file_name == "nodex-agent" {
+                        crate::unix_utils::change_to_executable(&file_path)?;
+                    }
+                }
             } else if file.is_dir() {
                 fs::create_dir_all(&file_path)?;
             }
@@ -228,13 +234,17 @@ impl ResourceManagerTrait for UnixResourceManager {
 #[cfg(unix)]
 impl UnixResourceManager {
     pub fn new(agent_path: impl AsRef<Path>) -> Self {
-        let tmp_path = if PathBuf::from("/home/nodex/tmp").exists() {
+        let tmp_path = if PathBuf::from("/home/nodex/").exists() {
             PathBuf::from("/home/nodex/tmp")
         } else if PathBuf::from("/tmp/nodex").exists() || fs::create_dir_all("/tmp/nodex").is_ok() {
             PathBuf::from("/tmp/nodex")
         } else {
             PathBuf::from("/tmp")
         };
+
+        if !tmp_path.exists() {
+            fs::create_dir_all(&tmp_path).expect("Failed to create tmp dir");
+        }
 
         Self {
             tmp_path,

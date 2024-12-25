@@ -169,7 +169,7 @@ where
     fn launch_agent(&mut self, is_first: bool) -> Result<ProcessInfo, RuntimeError> {
         #[cfg(unix)]
         if is_first {
-            if self.uds_path.exists() {
+            if !is_manage_socket_activation() && self.uds_path.exists() {
                 log::warn!("UDS file already exists, removing: {:?}", self.uds_path);
                 let _ = std::fs::remove_file(&self.uds_path);
             }
@@ -255,13 +255,9 @@ where
         new_controller_path: impl AsRef<Path>,
     ) -> Result<(), RuntimeError> {
         self.kill_others(self.self_pid, None)?;
-        if is_manage_by_systemd() && is_manage_socket_activation() {
+        if is_manage_by_systemd() {
             return Ok(());
         }
-        // TODO: care about windows
-        #[cfg(unix)]
-        crate::unix_utils::change_to_executable(new_controller_path.as_ref())
-            .map_err(RuntimeError::Command)?;
         let child = self
             .process_manager
             .spawn_process(new_controller_path, &["controller"])
