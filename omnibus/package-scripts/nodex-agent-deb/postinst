@@ -98,6 +98,7 @@ fi
 
 if [ -f "$HOME_DIR/.config/nodex/config.json" ]; then
     echo "(Re)starting $SERVICE_NAME now..."
+    systemctl stop $SOCKET_NAME
     if command -v systemctl >/dev/null 2>&1; then
         systemctl restart $SERVICE_NAME || true
     else

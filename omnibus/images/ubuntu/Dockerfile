@@ -26,6 +26,8 @@ RUN gem install bundler
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup install 1.83.0 && rustup default 1.83.0
+
 RUN cargo install cross
 
 WORKDIR /nodex
