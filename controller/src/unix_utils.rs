@@ -153,6 +153,8 @@ pub fn change_to_executable(path: &Path) -> std::io::Result<()> {
     set_permissions(path, perms)
 }
 
+// NOTE: the LISTEN_FDS is assigned from 3.
+// ref: https://manpages.debian.org/testing/libsystemd-dev/sd_listen_fds.3.en.html
 static DEFAULT_FD: RawFd = 3;
 
 #[derive(Debug, thiserror::Error)]
