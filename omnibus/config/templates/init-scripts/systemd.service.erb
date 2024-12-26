@@ -3,18 +3,31 @@
 Description=Nodex Agent Service
 Wants=network-online.target
 After=network-online.target
+Requires=nodex-agent.socket
+After=nodex-agent.socket
 
 [Service]
 Type=simple
 
 # Core service execution settings.
-ExecStart=/home/nodex/bin/nodex-agent
+ExecStart=/home/nodex/bin/nodex-agent controller
+
+# Logging settings.
+StandardOutput=append:/var/log/nodex-agent.log
+StandardError=append:/var/log/nodex-agent-error.log
+
+# Custom kill signal handling.
+KillSignal=SIGINT
+KillMode=process
+
+# Socket Activation settings.
+StandardInput=socket
 
 # Restart behavior: restarts on failure, with a 10-second delay between attempts.
 # Limits restarts to 5 attempts within a 300-second period to avoid excessive restarts.
-Restart=on-failure
+Restart=always
 RestartSec=10
-StartLimitIntervalSec=300
+StartLimitInterval=300
 StartLimitBurst=5
 
 # Runs the service as the 'nodex' user and group, and manages the process ID.
@@ -29,6 +42,9 @@ ProtectSystem=full
 ProtectKernelModules=true
 ProtectKernelTunables=true
 ProtectControlGroups=true
+
+# Sets the umask to 0011, which restricts file permissions to 766 for sock file.
+UMask=0011
 
 [Install]
 # Makes the service start automatically in multi-user mode.

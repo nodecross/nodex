@@ -1,13 +1,11 @@
 use super::utils::milliseconds_to_time;
-use actix_web::{web, HttpRequest, HttpResponse};
-
-use serde::{Deserialize, Serialize};
-
 use crate::{
-    errors::{AgentError, AgentErrorCode},
+    controllers::errors::AgentErrorCode,
     repository::custom_metric_repository::CustomMetricStoreRequest,
     usecase::custom_metric_usecase::CustomMetricUsecase,
 };
+use axum::extract::Json;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
 pub struct MessageContainer {
@@ -18,10 +16,7 @@ pub struct MessageContainer {
     occurred_at: u64,
 }
 
-pub async fn handler(
-    _req: HttpRequest,
-    web::Json(json): web::Json<Vec<MessageContainer>>,
-) -> actix_web::Result<HttpResponse, AgentError> {
+pub async fn handler(Json(json): Json<Vec<MessageContainer>>) -> Result<(), AgentErrorCode> {
     let metrics = json
         .iter()
         .map(|m| {
@@ -38,14 +33,13 @@ pub async fn handler(
                 occurred_at,
             })
         })
-        .collect::<Result<Vec<CustomMetricStoreRequest>, AgentErrorCode>>()
-        .map_err(AgentError::new)?;
+        .collect::<Result<Vec<CustomMetricStoreRequest>, AgentErrorCode>>()?;
 
     let usecase = CustomMetricUsecase::new();
     match usecase.save(metrics).await {
         Ok(_) => {
             log::info!("sent custom metrics");
-            Ok(HttpResponse::NoContent().finish())
+            Ok(())
         }
         Err(e) => {
             log::error!("{:?}", e);

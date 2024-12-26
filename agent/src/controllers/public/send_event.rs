@@ -1,14 +1,10 @@
-use actix_web::{web, HttpRequest, HttpResponse};
-
-use serde::{Deserialize, Serialize};
-
+use super::utils::milliseconds_to_time;
 use crate::{
-    errors::{AgentError, AgentErrorCode},
-    repository::event_repository::EventStoreRequest,
+    controllers::errors::AgentErrorCode, repository::event_repository::EventStoreRequest,
     usecase::event_usecase::EventUsecase,
 };
-
-use super::utils::milliseconds_to_time;
+use axum::extract::Json;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
 pub struct MessageContainer {
@@ -20,10 +16,7 @@ pub struct MessageContainer {
     occurred_at: u64,
 }
 
-pub async fn handler(
-    _req: HttpRequest,
-    web::Json(json): web::Json<MessageContainer>,
-) -> actix_web::Result<HttpResponse, AgentError> {
+pub async fn handler(Json(json): Json<MessageContainer>) -> Result<(), AgentErrorCode> {
     if json.key.is_empty() {
         Err(AgentErrorCode::SendEventNoKey)?
     }
@@ -45,7 +38,7 @@ pub async fn handler(
     {
         Ok(_) => {
             log::info!("save event");
-            Ok(HttpResponse::NoContent().finish())
+            Ok(())
         }
         Err(e) => {
             log::error!("{:?}", e);

@@ -3,6 +3,7 @@
 
 INSTALL_DIR=/opt/nodex-agent
 SERVICE_NAME=nodex-agent
+SOCKET_NAME=nodex-agent.socket
 HOME_DIR=/home/nodex/
 
 set -e
@@ -38,6 +39,17 @@ case "$1" in
         echo "Purging configuration and removing directories..."
 
         # Remove the service, if it still exists
+        if command -v systemctl >/dev/null 2>&1; then
+            if ! systemctl stop "$SOCKET_NAME"; then
+                echo "Failed to stop service $SOCKET_NAME"
+            fi
+            if ! systemctl disable "$SOCKET_NAME"; then
+                echo "Failed to disable service $SOCKET_NAME"
+            fi
+            if ! systemctl daemon-reload; then
+                echo "Failed to reload systemctl daemon"
+            fi
+        fi
         if command -v systemctl >/dev/null 2>&1; then
             if ! systemctl stop "$SERVICE_NAME"; then
                 echo "Failed to stop service $SERVICE_NAME"

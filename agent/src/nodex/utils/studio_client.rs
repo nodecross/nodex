@@ -220,7 +220,7 @@ pub mod tests {
         origin: String,
     }
 
-    #[actix_rt::test]
+    #[tokio::test]
     #[ignore]
     async fn it_should_success_post() {
         let client_config: StudioClientConfig = StudioClientConfig {
@@ -245,7 +245,7 @@ pub mod tests {
         assert!(!json.origin.is_empty());
     }
 
-    #[actix_rt::test]
+    #[tokio::test]
     #[ignore]
     async fn it_should_success_put() {
         let client_config: StudioClientConfig = StudioClientConfig {

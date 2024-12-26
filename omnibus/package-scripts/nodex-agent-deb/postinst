@@ -5,7 +5,8 @@
 #
 
 INIT_INSTALL_DIR=/opt/nodex-agent
-SERVICE_NAME=nodex-agent
+SERVICE_NAME=nodex-agent.service
+SOCKET_NAME=nodex-agent.socket
 HOME_DIR=/home/nodex
 BIN_INSTALL_DIR=$HOME_DIR/bin
 
@@ -41,12 +42,8 @@ else
     echo "Bin directory ${BIN_INSTALL_DIR} already exists."
 fi
 
-if [ ! -f "${BIN_INSTALL_DIR}/nodex-agent" ]; then
-    echo "Moving nodex-agent to bin directory ${BIN_INSTALL_DIR}..."
-    mv ${INIT_INSTALL_DIR}/bin/nodex-agent ${BIN_INSTALL_DIR}
-else
-    echo "${BIN_INSTALL_DIR}/nodex-agent already exists."
-fi
+echo "Moving nodex-agent to bin directory ${BIN_INSTALL_DIR}..."
+mv ${INIT_INSTALL_DIR}/bin/nodex-agent ${BIN_INSTALL_DIR}
 
 if [ ! -d "${HOME_DIR}/.config" ]; then
     echo "Creating config directory ${HOME_DIR}/.config..."
@@ -90,14 +87,18 @@ else
 fi
 
 # Enable and start the service
+echo "Enabling and starting socket $SOCKET_NAME"
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl enable $SOCKET_NAME
+fi
 echo "Enabling service $SERVICE_NAME"
 if command -v systemctl >/dev/null 2>&1; then
-    systemctl daemon-reload
     systemctl enable $SERVICE_NAME
 fi
 
 if [ -f "$HOME_DIR/.config/nodex/config.json" ]; then
     echo "(Re)starting $SERVICE_NAME now..."
+    systemctl stop $SOCKET_NAME
     if command -v systemctl >/dev/null 2>&1; then
         systemctl restart $SERVICE_NAME || true
     else

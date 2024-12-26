@@ -1,11 +1,7 @@
-use crate::{
-    errors::{AgentError, AgentErrorCode},
-    services::nodex::NodeX,
-};
-use actix_web::{web, HttpRequest, HttpResponse};
+use crate::{controllers::errors::AgentErrorCode, services::nodex::NodeX};
+use axum::extract::Json;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
-use std::path::PathBuf;
+use serde_json::Value;
 
 // NOTE: POST /internal/version
 #[derive(Deserialize, Serialize)]
@@ -13,26 +9,23 @@ pub struct MessageContainer {
     message: Value,
 }
 
-pub async fn handler_get(_req: HttpRequest) -> actix_web::Result<HttpResponse> {
-    let current_version = env!("CARGO_PKG_VERSION");
-    Ok(HttpResponse::Ok().json(json!({ "version": current_version })))
+pub async fn handler_get() -> Json<Value> {
+    Json(serde_json::json!({ "version": env!("CARGO_PKG_VERSION")}))
 }
 
 pub async fn handler_update(
-    _req: HttpRequest,
-    web::Json(json): web::Json<MessageContainer>,
-) -> actix_web::Result<HttpResponse, AgentError> {
+    Json(json): Json<MessageContainer>,
+) -> Result<Json<&'static str>, AgentErrorCode> {
     let binary_url = match json.message["binary_url"].as_str() {
         Some(url) => url,
         None => Err(AgentErrorCode::VersionNoBinaryUrl)?,
     };
-    let path = match json.message["path"].as_str() {
-        Some(p) => p,
-        None => Err(AgentErrorCode::VersionNoPath)?,
-    };
     let nodex = NodeX::new();
-    match nodex.update_version(binary_url, PathBuf::from(path)).await {
-        Ok(_) => Ok(HttpResponse::Ok().json("ok")),
-        Err(_) => Err(AgentErrorCode::VersionInternal)?,
+    match nodex.update_version(binary_url).await {
+        Ok(_) => Ok(Json("ok")),
+        Err(e) => {
+            log::error!("{}", e);
+            Err(AgentErrorCode::VersionInternal)?
+        }
     }
 }
