@@ -1,18 +1,18 @@
 use crate::managers::runtime::{RuntimeError, RuntimeManager};
 
 #[derive(Debug, thiserror::Error)]
-pub enum InitError {
+pub enum IdleError {
     #[error("failed to get runtime info: {0}")]
     RuntimeError(#[from] RuntimeError),
 }
 
-pub async fn execute<T: RuntimeManager>(runtime_manager: &mut T) -> Result<(), InitError> {
+pub async fn execute<T: RuntimeManager>(runtime_manager: &mut T) -> Result<(), IdleError> {
     if !runtime_manager.get_runtime_info()?.is_agent_running() {
         let _process_info = runtime_manager.launch_agent(true)?;
     } else {
         log::error!("Agent already running");
     }
-    runtime_manager.update_state(crate::managers::runtime::State::Idle)?;
+    log::info!("No state change required.");
     Ok(())
 }
 
@@ -25,7 +25,7 @@ mod tests {
     #[tokio::test]
     async fn test_execute_with_no_running_agents() {
         let runtime_info = RuntimeInfo {
-            state: State::Init,
+            state: State::Idle,
             process_infos: [None, None, None, None],
             exec_path: std::env::current_exe().unwrap(),
         };
@@ -48,7 +48,7 @@ mod tests {
     #[tokio::test]
     async fn test_execute_with_one_running_agent() {
         let runtime_info = RuntimeInfo {
-            state: State::Init,
+            state: State::Idle,
             process_infos: [
                 Some(ProcessInfo::new(12345, FeatType::Agent)),
                 None,

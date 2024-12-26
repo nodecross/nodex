@@ -14,7 +14,6 @@ pub struct RuntimeInfo {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
 pub enum State {
-    Init,
     Idle,
     Update,
     Rollback,
@@ -310,7 +309,7 @@ where
     pub fn new_by_agent(file_handler: H, process_manager: P) -> Self {
         // We assume that caller is agent.
         // dummy channel
-        let (state_sender, _) = watch::channel(State::Init);
+        let (state_sender, _) = watch::channel(State::Idle);
         RuntimeManagerImpl {
             self_pid: std::process::id(),
             file_handler,
@@ -351,7 +350,7 @@ where
                 }
                 *info = None;
             }
-            runtime_info.state = State::Init;
+            runtime_info.state = State::Idle;
             if errs.is_empty() {
                 Ok(())
             } else {
@@ -489,7 +488,7 @@ mod tests {
     #[test]
     fn test_add_process_info() {
         let mut runtime_info = RuntimeInfo {
-            state: State::Init,
+            state: State::Idle,
             process_infos: [None, None, None, None],
             exec_path: std::env::current_exe().unwrap(),
         };
@@ -506,7 +505,7 @@ mod tests {
     #[test]
     fn test_remove_process_info() {
         let mut runtime_info = RuntimeInfo {
-            state: State::Init,
+            state: State::Idle,
             process_infos: [None, None, None, None],
             exec_path: std::env::current_exe().unwrap(),
         };
@@ -532,7 +531,7 @@ mod tests {
     #[test]
     fn test_filter_process_infos() {
         let mut runtime_info = RuntimeInfo {
-            state: State::Init,
+            state: State::Idle,
             process_infos: [None, None, None, None],
             exec_path: std::env::current_exe().unwrap(),
         };

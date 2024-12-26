@@ -42,7 +42,7 @@ where
             if let Err(err) = resource_manager.remove() {
                 log::error!("Failed to remove files {}", err);
             }
-            runtime_manager.update_state_without_send(crate::managers::runtime::State::Init)?;
+            runtime_manager.update_state_without_send(crate::managers::runtime::State::Idle)?;
             runtime_manager.launch_controller(agent_path)?;
             log::info!("Rollback completed");
 
@@ -86,7 +86,7 @@ mod tests {
         let state = runtime.get_runtime_info().unwrap().state;
         assert_eq!(
             state,
-            State::Init,
+            State::Idle,
             "update_state should be called with State::Init"
         );
 

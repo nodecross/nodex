@@ -190,7 +190,7 @@ impl RuntimeInfoStorage for MmapHandler {
             // We assume that memmap is empty means that it is the first execution.
             let process_infos = [None, None, None, None];
             return Ok(RuntimeInfo {
-                state: State::Init,
+                state: State::Idle,
                 process_infos,
                 exec_path: std::env::current_exe().map_err(RuntimeError::FailedCurrentExe)?,
             });
@@ -225,7 +225,7 @@ mod tests {
     #[test]
     fn test_read_write_runtime_info() {
         let initial_runtime_info = RuntimeInfo {
-            state: State::Init,
+            state: State::Idle,
             process_infos: [None, None, None, None],
             exec_path: std::env::current_exe().unwrap(),
         };
@@ -264,7 +264,7 @@ mod tests {
     fn test_cleanup_process_info() {
         let process_info = ProcessInfo::new((1 << 22) + 1, FeatType::Agent);
         let runtime_info = RuntimeInfo {
-            state: State::Init,
+            state: State::Idle,
             process_infos: [Some(process_info.clone()), None, None, None],
             exec_path: std::env::current_exe().unwrap(),
         };

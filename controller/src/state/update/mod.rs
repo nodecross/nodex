@@ -51,7 +51,7 @@ fn get_target_state(update_error: &UpdateError) -> Option<State> {
     if update_error.requires_rollback() {
         Some(State::Rollback)
     } else if update_error.required_restore_state() {
-        Some(State::Init)
+        Some(State::Idle)
     } else {
         None
     }

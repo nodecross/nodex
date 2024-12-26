@@ -1,5 +1,5 @@
 use crate::managers::runtime::{RuntimeError, RuntimeManager, State};
-use crate::state::{init, rollback, update};
+use crate::state::{idle, rollback, update};
 
 #[cfg(unix)]
 use crate::managers::resource::UnixResourceManager;
@@ -14,7 +14,7 @@ pub enum StateHandlerError {
     #[error("rollback failed: {0}")]
     Rollback(#[from] rollback::RollbackError),
     #[error("default failed: {0}")]
-    Init(#[from] init::InitError),
+    Idle(#[from] idle::IdleError),
     #[error("failed to get runtime info: {0}")]
     RuntimeInfo(#[from] RuntimeError),
 }
@@ -38,11 +38,8 @@ pub async fn handle_state<R: RuntimeManager>(
         State::Rollback => {
             rollback::execute(&resource_manager, runtime_manager).await?;
         }
-        State::Init => {
-            init::execute(runtime_manager).await?;
-        }
         State::Idle => {
-            log::info!("No state change required.");
+            idle::execute(runtime_manager).await?;
         }
     }
 
