@@ -5,6 +5,7 @@ use crate::{
     usecase::custom_metric_usecase::CustomMetricUsecase,
 };
 use axum::extract::Json;
+use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -16,7 +17,9 @@ pub struct MessageContainer {
     occurred_at: u64,
 }
 
-pub async fn handler(Json(json): Json<Vec<MessageContainer>>) -> Result<(), AgentErrorCode> {
+pub async fn handler(
+    Json(json): Json<Vec<MessageContainer>>,
+) -> Result<StatusCode, AgentErrorCode> {
     let metrics = json
         .iter()
         .map(|m| {
@@ -39,7 +42,7 @@ pub async fn handler(Json(json): Json<Vec<MessageContainer>>) -> Result<(), Agen
     match usecase.save(metrics).await {
         Ok(_) => {
             log::info!("sent custom metrics");
-            Ok(())
+            Ok(StatusCode::NO_CONTENT)
         }
         Err(e) => {
             log::error!("{:?}", e);

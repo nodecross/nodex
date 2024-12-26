@@ -4,6 +4,7 @@ use crate::{
     usecase::event_usecase::EventUsecase,
 };
 use axum::extract::Json;
+use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -16,7 +17,7 @@ pub struct MessageContainer {
     occurred_at: u64,
 }
 
-pub async fn handler(Json(json): Json<MessageContainer>) -> Result<(), AgentErrorCode> {
+pub async fn handler(Json(json): Json<MessageContainer>) -> Result<StatusCode, AgentErrorCode> {
     if json.key.is_empty() {
         Err(AgentErrorCode::SendEventNoKey)?
     }
@@ -38,7 +39,7 @@ pub async fn handler(Json(json): Json<MessageContainer>) -> Result<(), AgentErro
     {
         Ok(_) => {
             log::info!("save event");
-            Ok(())
+            Ok(StatusCode::NO_CONTENT)
         }
         Err(e) => {
             log::error!("{:?}", e);
