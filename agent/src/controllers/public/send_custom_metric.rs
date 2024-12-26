@@ -16,23 +16,27 @@ pub struct MessageContainer {
     occurred_at: u64,
 }
 
-pub async fn handler(Json(json): Json<MessageContainer>) -> Result<(), AgentErrorCode> {
-    if json.key.is_empty() {
-        Err(AgentErrorCode::SendCustomMetricNoKey)?
-    }
+pub async fn handler(Json(json): Json<Vec<MessageContainer>>) -> Result<(), AgentErrorCode> {
+    let metrics = json
+        .iter()
+        .map(|m| {
+            if m.key.is_empty() {
+                return Err(AgentErrorCode::SendCustomMetricNoKey);
+            }
 
-    let occurred_at = milliseconds_to_time(json.occurred_at)
-        .ok_or(AgentErrorCode::SendCustomMetricInvalidOccurredAt)?;
+            let occurred_at = milliseconds_to_time(m.occurred_at)
+                .ok_or(AgentErrorCode::SendCustomMetricInvalidOccurredAt)?;
+
+            Ok(CustomMetricStoreRequest {
+                key: m.key.clone(),
+                value: m.value,
+                occurred_at,
+            })
+        })
+        .collect::<Result<Vec<CustomMetricStoreRequest>, AgentErrorCode>>()?;
 
     let usecase = CustomMetricUsecase::new();
-    match usecase
-        .save(CustomMetricStoreRequest {
-            key: json.key,
-            value: json.value,
-            occurred_at,
-        })
-        .await
-    {
+    match usecase.save(metrics).await {
         Ok(_) => {
             log::info!("sent custom metrics");
             Ok(())
