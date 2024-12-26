@@ -3,6 +3,7 @@ use crate::{
     usecase::attribute_usecase::AttributeUsecase,
 };
 use axum::extract::Json;
+use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -13,7 +14,7 @@ pub struct MessageContainer {
     value: String,
 }
 
-pub async fn handler(Json(json): Json<MessageContainer>) -> Result<(), AgentErrorCode> {
+pub async fn handler(Json(json): Json<MessageContainer>) -> Result<StatusCode, AgentErrorCode> {
     if json.key_name.is_empty() {
         Err(AgentErrorCode::SendAttributeNoKeyName)?
     }
@@ -31,7 +32,7 @@ pub async fn handler(Json(json): Json<MessageContainer>) -> Result<(), AgentErro
     {
         Ok(_) => {
             log::info!("save attribute");
-            Ok(())
+            Ok(StatusCode::NO_CONTENT)
         }
         Err(e) => {
             log::error!("{:?}", e);
