@@ -11,7 +11,7 @@ use crate::{
 
 // TODO: Migrate Sidetree Version
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ServiceEndpoint {
     #[serde(rename = "id")]
     pub id: String,
@@ -26,7 +26,7 @@ pub struct ServiceEndpoint {
     pub description: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DidPublicKey {
     #[serde(rename = "id")]
     pub id: String,
@@ -41,7 +41,7 @@ pub struct DidPublicKey {
     pub public_key_jwk: Jwk,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DidDocument {
     // TODO: impl parser for mixed type
     // #[serde(rename = "@context")]
@@ -131,13 +131,13 @@ struct DidDeltaObject {
     update_commitment: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct DidSuffixObject {
     delta_hash: String,
     recovery_commitment: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MethodMetadata {
     #[serde(rename = "published")]
     pub published: bool,
@@ -149,7 +149,7 @@ pub struct MethodMetadata {
     pub update_commitment: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DidResolutionResponse {
     #[serde(rename = "@context")]
     pub context: String,

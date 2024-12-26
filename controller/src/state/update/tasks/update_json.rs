@@ -16,7 +16,6 @@ pub enum UpdateJsonError {
 pub fn run(file: &String, field: &String, value: &String) -> Result<(), UpdateJsonError> {
     // Array updates are not supported.
     // It's unclear whether the operation is an addition or a completely new write.
-
     log::info!(
         "Updating JSON file '{}' field '{}' with value '{}'",
         file,
@@ -48,4 +47,192 @@ pub fn run(file: &String, field: &String, value: &String) -> Result<(), UpdateJs
     .map_err(|e| UpdateJsonError::FileWriteError(file.to_string(), e))?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_creates_nested_structure() {
+        let temp_dir = tempdir().unwrap();
+        let file_path = temp_dir.path().join("test.json");
+        fs::write(&file_path, r#"{"key1": {"key2": "value"}}"#).unwrap();
+
+        let field = "key1.key2".to_string();
+        let value = "new_value".to_string();
+        let file_path_str = file_path.to_str().unwrap().to_string();
+
+        let result = run(&file_path_str, &field, &value);
+        assert!(
+            result.is_ok(),
+            "Expected run to succeed, but got an error: {:?}",
+            result
+        );
+
+        let updated_content = fs::read_to_string(&file_path).unwrap();
+        let expected_content = r#"{
+  "key1": {
+    "key2": "new_value"
+  }
+}"#;
+        assert_eq!(
+            updated_content.trim(),
+            expected_content,
+            "File content mismatch"
+        );
+    }
+
+    #[test]
+    fn test_array_value() {
+        let temp_dir = tempdir().unwrap();
+        let file_path = temp_dir.path().join("test.json");
+        fs::write(&file_path, r#"{"key1": {"key2": ["item1", "item2"]}}"#).unwrap();
+
+        let field = "key1.key2".to_string();
+        let value = "new_item".to_string();
+        let file_path_str = file_path.to_str().unwrap().to_string();
+
+        let result = run(&file_path_str, &field, &value);
+        assert!(
+            result.is_ok(),
+            "Expected run to succeed, but got an error: {:?}",
+            result
+        );
+
+        let updated_content = fs::read_to_string(&file_path).unwrap();
+        let expected_content = r#"{
+  "key1": {
+    "key2": "new_item"
+  }
+}"#;
+        assert_eq!(
+            updated_content.trim(),
+            expected_content,
+            "File content mismatch"
+        );
+    }
+
+    #[test]
+    fn test_adds_new_field_to_existing_object() {
+        let temp_dir = tempdir().unwrap();
+        let file_path = temp_dir.path().join("test.json");
+        fs::write(&file_path, r#"{"key1": {"other_key1": "value1"}}"#).unwrap();
+
+        let field = "key1.other_key2".to_string();
+        let value = "new_value".to_string();
+        let file_path_str = file_path.to_str().unwrap().to_string();
+
+        let result = run(&file_path_str, &field, &value);
+        assert!(
+            result.is_ok(),
+            "Expected run to succeed, but got an error: {:?}",
+            result
+        );
+
+        let updated_content = fs::read_to_string(&file_path).unwrap();
+        let expected_content = r#"{
+  "key1": {
+    "other_key1": "value1",
+    "other_key2": "new_value"
+  }
+}"#;
+        assert_eq!(
+            updated_content.trim(),
+            expected_content,
+            "File content mismatch"
+        );
+    }
+
+    #[test]
+    fn test_handles_write_error_by_permission() {
+        let temp_dir = tempdir().unwrap();
+        let file_path = temp_dir.path().join("test.json");
+        fs::write(&file_path, r#"{"key1": "value1"}"#).unwrap();
+
+        let permissions = fs::Permissions::from_mode(0o444);
+        fs::set_permissions(&file_path, permissions).unwrap();
+
+        let field = "key1".to_string();
+        let value = "new_value".to_string();
+        let file_path_str = file_path.to_str().unwrap().to_string();
+
+        let result = run(&file_path_str, &field, &value);
+        assert!(
+            matches!(result, Err(UpdateJsonError::FileWriteError(_, _))),
+            "Expected FileWriteError, but got: {:?}",
+            result
+        );
+
+        fs::set_permissions(&file_path, fs::Permissions::from_mode(0o644)).unwrap();
+    }
+
+    #[test]
+    fn test_invalid_json_file() {
+        let temp_dir = tempdir().unwrap();
+        let file_path = temp_dir.path().join("invalid.json");
+        fs::write(&file_path, "not a json").unwrap();
+
+        let field = "key1".to_string();
+        let value = "new_value".to_string();
+        let file_path_str = file_path.to_str().unwrap().to_string();
+
+        let result = run(&file_path_str, &field, &value);
+        assert!(
+            matches!(result, Err(UpdateJsonError::JsonParseError(_, _))),
+            "Expected JsonParseError, but got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_empty_json_file() {
+        let temp_dir = tempdir().unwrap();
+        let file_path = temp_dir.path().join("empty.json");
+        fs::write(&file_path, "").unwrap();
+
+        let field = "key1".to_string();
+        let value = "new_value".to_string();
+        let file_path_str = file_path.to_str().unwrap().to_string();
+
+        let result = run(&file_path_str, &field, &value);
+        assert!(
+            matches!(result, Err(UpdateJsonError::JsonParseError(_, _))),
+            "Expected JsonParseError for empty file, but got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_updates_existing_value() {
+        let temp_dir = tempdir().unwrap();
+        let file_path = temp_dir.path().join("test.json");
+        fs::write(&file_path, r#"{"key1": {"key2": "old_value"}}"#).unwrap();
+
+        let field = "key1.key2".to_string();
+        let value = "new_value".to_string();
+        let file_path_str = file_path.to_str().unwrap().to_string();
+
+        let result = run(&file_path_str, &field, &value);
+        assert!(
+            result.is_ok(),
+            "Expected run to succeed, but got an error: {:?}",
+            result
+        );
+
+        let updated_content = fs::read_to_string(&file_path).unwrap();
+        let expected_content = r#"{
+  "key1": {
+    "key2": "new_value"
+  }
+}"#;
+        assert_eq!(
+            updated_content.trim(),
+            expected_content,
+            "File content mismatch"
+        );
+    }
 }

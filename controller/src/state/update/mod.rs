@@ -1,20 +1,14 @@
 pub mod tasks;
-
 use crate::managers::{
-    agent::{AgentManagerError, AgentManagerTrait},
     resource::{ResourceError, ResourceManagerTrait},
     runtime::{FeatType, RuntimeError, RuntimeManager, State},
 };
 use crate::state::update::tasks::{UpdateAction, UpdateActionError};
-#[cfg(unix)]
-use crate::validator::agent::is_latest_version;
 use semver::Version;
 use serde_yaml::Error as SerdeYamlError;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex;
 use tokio::time::{self, Instant};
 
 #[derive(Debug, thiserror::Error)]
@@ -33,8 +27,6 @@ pub enum UpdateError {
     UpdateStateFailed(#[source] RuntimeError),
     #[error("Failed to Agent version check: {0}")]
     AgentVersionCheckFailed(String),
-    #[error("agent operation failed: {0}")]
-    AgentError(#[from] AgentManagerError),
     #[error("runtime operation failed: {0}")]
     RuntimeError(#[from] RuntimeError),
     #[error("resource operation failed: {0}")]
@@ -55,177 +47,338 @@ impl UpdateError {
         )
     }
 }
-
-pub struct UpdateState<'a, A, R>
-where
-    A: AgentManagerTrait + Sync,
-    R: ResourceManagerTrait,
-{
-    agent_manager: &'a Arc<Mutex<A>>,
-    resource_manager: R,
-    runtime_manager: &'a RuntimeManager,
+fn get_target_state(update_error: &UpdateError) -> Option<State> {
+    if update_error.requires_rollback() {
+        Some(State::Rollback)
+    } else if update_error.required_restore_state() {
+        Some(State::Idle)
+    } else {
+        None
+    }
 }
 
-impl<'a, A, R> UpdateState<'a, A, R>
-where
-    A: AgentManagerTrait + Sync,
-    R: ResourceManagerTrait,
-{
-    pub fn new(
-        agent_manager: &'a Arc<Mutex<A>>,
-        resource_manager: R,
-        runtime_manager: &'a RuntimeManager,
-    ) -> Self {
-        Self {
-            agent_manager,
-            resource_manager,
-            runtime_manager,
+fn parse_bundles(bundles: &[PathBuf]) -> Result<Vec<UpdateAction>, UpdateError> {
+    bundles
+        .iter()
+        .map(|bundle| {
+            let yaml_content = fs::read_to_string(bundle)?;
+            let update_action: UpdateAction =
+                serde_yaml::from_str(&yaml_content).map_err(UpdateError::YamlParseFailed)?;
+            Ok(update_action)
+        })
+        .collect()
+}
+
+fn extract_pending_update_actions<'b>(
+    update_actions: &'b [UpdateAction],
+    current_controller_version: &Version,
+    current_agent_version: &Version,
+) -> Result<Vec<&'b UpdateAction>, UpdateError> {
+    let pending_actions: Vec<&'b UpdateAction> = update_actions
+        .iter()
+        .filter_map(|action| {
+            let target_version = Version::parse(&action.version).ok()?;
+            if *current_controller_version >= target_version
+                && target_version > *current_agent_version
+            {
+                Some(action)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    Ok(pending_actions)
+}
+
+async fn monitor_agent_version<'a, R: RuntimeManager>(
+    runtime_manager: &'a R,
+    expected_version: &Version,
+) -> Result<(), UpdateError> {
+    let timeout = Duration::from_secs(180);
+    let interval = Duration::from_secs(3);
+
+    let start = Instant::now();
+    let mut interval_timer = time::interval(interval);
+
+    while start.elapsed() < timeout {
+        interval_timer.tick().await;
+
+        let version = runtime_manager.get_version().await.map_err(|e| {
+            log::error!("Error occurred during version check: {}", e);
+            UpdateError::AgentVersionCheckFailed(e.to_string())
+        })?;
+
+        if version == *expected_version {
+            log::info!("Expected version received: {}", expected_version);
+            return Ok(());
+        } else {
+            log::info!("Version did not match expected value.");
         }
     }
 
-    pub async fn execute(&self) -> Result<(), UpdateError> {
-        log::info!("Starting update");
+    Err(UpdateError::AgentVersionCheckFailed(format!(
+        "Expected version '{}' was not received within {:?}.",
+        expected_version, timeout
+    )))
+}
 
-        if self
-            .runtime_manager
-            .filter_process_infos(FeatType::Agent)?
-            .is_empty()
-        {
-            return Err(UpdateError::AgentNotRunning);
-        }
+pub async fn execute<'a, R, T>(
+    resource_manager: &'a R,
+    runtime_manager: &'a mut T,
+) -> Result<(), UpdateError>
+where
+    R: ResourceManagerTrait,
+    T: RuntimeManager,
+{
+    log::info!("Starting update");
 
-        self.runtime_manager
-            .update_state(State::Updating)
-            .map_err(UpdateError::UpdateStateFailed)?;
-
+    let res: Result<(), UpdateError> = async {
         let current_version = Version::parse(env!("CARGO_PKG_VERSION"))
             .map_err(|_| UpdateError::InvalidVersionFormat)?;
-
-        let bundles = self.resource_manager.collect_downloaded_bundles();
-        let update_actions = self.parse_bundles(&bundles)?;
-        let pending_update_actions =
-            self.extract_pending_update_actions(&update_actions, &current_version)?;
+        let runtime_info = runtime_manager.get_runtime_info()?;
+        if !runtime_info.is_agent_running() {
+            return Err(UpdateError::AgentNotRunning);
+        }
+        let current_running_agent = runtime_info.filter_by_feat(FeatType::Agent).next().unwrap();
+        let bundles = resource_manager.collect_downloaded_bundles();
+        let update_actions = parse_bundles(&bundles)?;
+        let pending_update_actions = extract_pending_update_actions(
+            &update_actions,
+            &current_version,
+            &current_running_agent.version,
+        )?;
         for action in pending_update_actions {
             action.handle()?;
         }
-
-        self.launch_new_version_agent().await?;
-        self.monitor_agent_version(&current_version).await?;
-        self.terminate_old_version_agent(current_version.to_string())
-            .await?;
-
-        self.resource_manager.remove()?;
-
-        log::info!("Update completed");
-
+        // launch new version agent
+        let latest = runtime_manager.launch_agent(false)?;
+        // terminate old version agents
+        runtime_manager.kill_other_agents(latest.process_id)?;
+        monitor_agent_version(runtime_manager, &current_version).await?;
+        // if you test for rollback, comment out a follow line.
+        resource_manager.remove()?;
         Ok(())
     }
+    .await;
 
-    fn parse_bundles(&self, bundles: &[PathBuf]) -> Result<Vec<UpdateAction>, UpdateError> {
-        bundles
-            .iter()
-            .map(|bundle| {
-                let yaml_content = fs::read_to_string(bundle)?;
-                let update_action: UpdateAction =
-                    serde_yaml::from_str(&yaml_content).map_err(UpdateError::YamlParseFailed)?;
-                Ok(update_action)
-            })
-            .collect()
+    match res {
+        Ok(()) => runtime_manager.update_state(crate::managers::runtime::State::Idle)?,
+        Err(update_error) => {
+            if let Some(target_state) = get_target_state(&update_error) {
+                runtime_manager.update_state(target_state)?;
+            }
+            return Err(update_error);
+        }
     }
 
-    fn extract_pending_update_actions<'b>(
-        &'b self,
-        update_actions: &'b [UpdateAction],
-        current_version: &Version,
-    ) -> Result<Vec<&'b UpdateAction>, UpdateError> {
-        let pending_actions: Vec<&'b UpdateAction> = update_actions
+    log::info!("Update completed");
+
+    Ok(())
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::super::tests::{MockResourceManager, MockRuntimeManager};
+    use super::*;
+    use crate::managers::runtime::{FeatType, ProcessInfo, RuntimeInfo, State};
+    use crate::state::update::tasks::{Task, UpdateAction};
+    use chrono::{FixedOffset, Utc};
+    use std::io::Write;
+    use std::path::PathBuf;
+    use tempfile::{tempdir, TempDir};
+
+    #[tokio::test]
+    async fn test_execute_with_empty_bundles() {
+        let current_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+        let runtime_info = RuntimeInfo {
+            state: State::Update,
+            process_infos: [
+                Some(ProcessInfo {
+                    process_id: 2,
+                    feat_type: FeatType::Controller,
+                    version: current_version.clone(),
+                    executed_at: Utc::now()
+                        .with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap()),
+                }),
+                Some(ProcessInfo {
+                    process_id: 3,
+                    feat_type: FeatType::Agent,
+                    version: Version::parse("0.0.1").unwrap(),
+                    executed_at: Utc::now()
+                        .with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap()),
+                }),
+                None,
+                None,
+            ],
+            exec_path: "".into(),
+        };
+        let mut runtime = MockRuntimeManager {
+            response_version: current_version.clone(),
+            runtime_info,
+        };
+        let resource = MockResourceManager::new(vec![]);
+
+        let result = execute(&resource, &mut runtime).await;
+        assert!(result.is_ok(), "Update should succeed");
+
+        let runtime_info: Vec<_> = runtime
+            .runtime_info
+            .process_infos
             .iter()
-            .filter_map(|action| {
-                let target_version = Version::parse(&action.version).ok()?;
-                if target_version > *current_version {
-                    Some(action)
-                } else {
-                    None
-                }
-            })
+            .flatten()
             .collect();
-
-        Ok(pending_actions)
+        assert_eq!(runtime_info.len(), 2);
+        assert_eq!(runtime_info[0].process_id, 2);
+        assert_eq!(runtime_info[0].feat_type, FeatType::Controller);
+        assert_eq!(runtime_info[0].version, current_version.clone());
+        assert_eq!(runtime_info[1].process_id, 1);
+        assert_eq!(runtime_info[1].feat_type, FeatType::Agent);
+        assert_eq!(runtime_info[1].version, current_version);
     }
 
-    #[cfg(unix)]
-    async fn launch_new_version_agent(&self) -> Result<(), UpdateError> {
-        let agent_manager = self.agent_manager.lock().await;
-        let process_info = agent_manager.launch_agent()?;
-        self.runtime_manager.add_process_info(process_info)?;
-
+    fn create_test_file(path: &str, content: &str) -> std::io::Result<()> {
+        let mut file = fs::File::create(path)?;
+        file.write_all(content.as_bytes())?;
         Ok(())
     }
 
-    #[cfg(windows)]
-    async fn launch_new_version_agent(&self) -> Result<(), UpdateError> {
-        unimplemented!("implemented for Windows.");
+    #[tokio::test]
+    async fn test_execute_with_bundles() {
+        let current_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+        let runtime_info = RuntimeInfo {
+            state: State::Update,
+            process_infos: [
+                Some(ProcessInfo {
+                    process_id: 2,
+                    feat_type: FeatType::Controller,
+                    version: current_version.clone(),
+                    executed_at: Utc::now()
+                        .with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap()),
+                }),
+                Some(ProcessInfo {
+                    process_id: 3,
+                    feat_type: FeatType::Agent,
+                    version: Version::parse("0.0.1").unwrap(),
+                    executed_at: Utc::now()
+                        .with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap()),
+                }),
+                None,
+                None,
+            ],
+            exec_path: "".into(),
+        };
+
+        let mut runtime = MockRuntimeManager {
+            response_version: current_version.clone(),
+            runtime_info,
+        };
+
+        // setup bundles
+        let source_path = "/tmp/source.txt";
+        create_test_file(source_path, "This is source1").expect("Failed to create source1.txt");
+        let dest_path = "/tmp/dest";
+
+        let tasks = vec![Task::Move {
+            description: "Move file".to_string(),
+            src: source_path.to_string(),
+            dest: dest_path.to_string(),
+        }];
+
+        let action = UpdateAction {
+            version: current_version.to_string(),
+            description: "Test move tasks".to_string(),
+            tasks,
+        };
+
+        let _temp_dir = tempdir().expect("Failed to create temporary directory");
+        let yaml_str = serde_yaml::to_string(&action).expect("Failed to serialize action to YAML");
+        let bundle_path = _temp_dir.path().join("test_bundle.yaml");
+        fs::write(&bundle_path, &yaml_str).expect("Failed to write YAML to file");
+
+        let resource = MockResourceManager::new(vec![bundle_path]);
+
+        let result = execute(&resource, &mut runtime).await;
+        assert!(result.is_ok(), "Update should succeed");
     }
 
-    async fn monitor_agent_version(&self, expected_version: &Version) -> Result<(), UpdateError> {
-        let timeout = Duration::from_secs(180);
-        let interval = Duration::from_secs(3);
+    #[tokio::test]
+    async fn test_execute_without_running_agent() {
+        let current_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+        let runtime_info = RuntimeInfo {
+            state: State::Update,
+            process_infos: [None, None, None, None],
+            exec_path: "".into(),
+        };
+        let mut runtime = MockRuntimeManager {
+            response_version: current_version,
+            runtime_info,
+        };
+        let resource = MockResourceManager::new(vec![]);
 
-        let start = Instant::now();
-        let mut interval_timer = time::interval(interval);
+        let result = execute(&resource, &mut runtime).await;
+        assert!(
+            matches!(result, Err(UpdateError::AgentNotRunning)),
+            "Should fail with AgentNotRunning"
+        );
+    }
 
-        while start.elapsed() < timeout {
-            interval_timer.tick().await;
+    #[tokio::test]
+    async fn test_extract_pending_update_actions() {
+        let current_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+        let _temp_dir = tempdir().expect("Failed to create temporary directory");
 
-            match self.check_version(expected_version).await {
-                Ok(true) => {
-                    log::info!("Expected version received: {}", expected_version);
-                    return Ok(());
-                }
-                Ok(false) => {
-                    log::info!("Version did not match expected value.");
-                }
-                Err(e) => {
-                    log::error!("Error occurred during version check: {}", e);
-                }
-            }
+        fn setup_bundle(temp_dir: &TempDir, file_name: &str, version: String) -> PathBuf {
+            let source_path = "/tmp/source.txt";
+            create_test_file(source_path, "This is source1").expect("Failed to create source1.txt");
+            let dest_path = "/tmp/dest";
+
+            let tasks = vec![Task::Move {
+                description: "Move file".to_string(),
+                src: source_path.to_string(),
+                dest: dest_path.to_string(),
+            }];
+
+            let action = UpdateAction {
+                version,
+                description: "Test move tasks".to_string(),
+                tasks,
+            };
+
+            let yaml_str =
+                serde_yaml::to_string(&action).expect("Failed to serialize action to YAML");
+            let bundle_path = temp_dir.path().join(file_name);
+            fs::write(&bundle_path, &yaml_str).expect("Failed to write YAML to file");
+
+            bundle_path
         }
+        let agent_version = Version::parse("1.0.0").unwrap();
+        let bundle1 = setup_bundle(&_temp_dir, "bundle1.yml", current_version.to_string());
+        let mut cloned_current_version = current_version.clone();
+        cloned_current_version.patch += 1;
+        let bundle2 = setup_bundle(
+            &_temp_dir,
+            "bundle2.yml",
+            cloned_current_version.to_string(),
+        );
+        let bundle3 = setup_bundle(&_temp_dir, "bundle3.yml", agent_version.to_string());
+        let bundle4 = setup_bundle(&_temp_dir, "bundle4.yml", "1.5.0".to_string());
 
-        Err(UpdateError::AgentVersionCheckFailed(format!(
-            "Expected version '{}' was not received within {:?}.",
-            expected_version, timeout
-        )))
-    }
+        let bundles = vec![bundle1, bundle2, bundle3, bundle4];
 
-    #[cfg(unix)]
-    async fn check_version(&self, expected_version: &Version) -> Result<bool, UpdateError> {
-        let manager = self.agent_manager.lock().await;
-        is_latest_version(&*manager, expected_version.to_string())
-            .await
-            .map_err(|e| UpdateError::AgentVersionCheckFailed(e.to_string()))
-    }
+        let update_actions = parse_bundles(&bundles).unwrap();
+        let result =
+            extract_pending_update_actions(&update_actions, &current_version, &agent_version);
 
-    #[cfg(windows)]
-    async fn check_version(&self, expected_version: &Version) -> Result<bool, UpdateError> {
-        unimplemented!("implemented for Windows.");
-    }
+        assert!(result.is_ok(), "Update should succeed");
+        let pending_update_actions = result.unwrap();
+        assert!(
+            pending_update_actions.len() == 2,
+            "Update should have one action"
+        );
 
-    async fn terminate_old_version_agent(
-        &self,
-        current_version: String,
-    ) -> Result<(), UpdateError> {
-        let agent_processes = self.runtime_manager.filter_process_infos(FeatType::Agent)?;
-
-        for agent_process in agent_processes {
-            if agent_process.version == current_version {
-                continue;
-            }
-            let agent_manager = self.agent_manager.lock().await;
-            agent_manager.terminate_agent(agent_process.process_id)?;
-            self.runtime_manager
-                .remove_process_info(agent_process.process_id)?;
-        }
-
-        Ok(())
+        let expected_versions = [current_version.to_string(), "1.5.0".to_string()];
+        assert!(expected_versions.contains(&pending_update_actions[0].version));
+        assert!(expected_versions.contains(&pending_update_actions[1].version));
     }
 }

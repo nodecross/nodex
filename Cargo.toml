@@ -17,8 +17,6 @@ repository = "https://github.com/nodecross/nodex"
 version = "3.4.0"
 
 [workspace.dependencies]
-actix-rt = "2.9.0"
-actix-web = "4.9.0"
 agent = { path = "./agent" }
 anyhow = "1.0.92"
 bytes = "1.8.0"
@@ -43,7 +41,6 @@ reqwest = { version = "0.12", features = [
     "rustls-tls-native-roots",
 ], default-features = false }
 rstest = "0.21.0"
-rumqttc = "0.24.0"
 serde = { version = "1.0.215", features = ["derive"] }
 serde_jcs = "0.1.0"
 serde_json = "1.0.133"

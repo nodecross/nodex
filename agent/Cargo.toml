@@ -6,9 +6,9 @@ name = "agent"
 version = { workspace = true }
 
 [dependencies]
-actix-rt = { workspace = true }
-actix-web = { workspace = true }
 anyhow = { workspace = true }
+async-trait = "0.1.83"
+axum = { version = "0.7.9", features = ["macros"] }
 bytes = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
@@ -20,11 +20,13 @@ fs2 = { workspace = true }
 hex = { workspace = true }
 hmac = { workspace = true }
 home-config = { version = "0.6.0", features = ["json", "toml", "yaml"] }
+http-body-util = "0.1.2"
+hyper = { version = "1.5.2", features = ["client"] }
+hyper-util = "0.1.10"
 log = { workspace = true }
 mac_address = { workspace = true }
 protocol = { workspace = true }
 reqwest = { workspace = true }
-rumqttc = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
@@ -32,9 +34,12 @@ shadow-rs = { workspace = true }
 sysinfo = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-util = "0.7.13"
+tower = { version = "0.4", features = ["util"] }
 trait-variant = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true }
+validator = { version = "0.18", features = ["derive"] }
 zip = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]

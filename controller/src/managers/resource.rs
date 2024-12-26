@@ -1,10 +1,8 @@
 use crate::config::get_config;
-use async_trait::async_trait;
 use bytes::Bytes;
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use glob::glob;
 use std::{
-    env,
     fs::{self, File},
     io::{self, Cursor},
     path::{Path, PathBuf},
@@ -31,7 +29,37 @@ pub enum ResourceError {
     RollbackFailed(String),
 }
 
-#[async_trait]
+// ref: https://stackoverflow.com/questions/26958489/how-to-copy-a-folder-recursively-in-rust
+fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {
+    if !fs::metadata(&src)?.is_dir() {
+        if !fs::exists(&dst)? {
+            fs::copy(&src, &dst)?;
+        } else if fs::metadata(&dst)?.is_dir() {
+            let name = src
+                .as_ref()
+                .file_name()
+                .ok_or(io::Error::new(io::ErrorKind::IsADirectory, "Invalid path"))?;
+            fs::copy(&src, dst.as_ref().join(name))?;
+        } else {
+            fs::copy(&src, &dst)?;
+        }
+        return Ok(());
+    }
+
+    fs::create_dir_all(&dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        } else {
+            fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        }
+    }
+    Ok(())
+}
+
+#[trait_variant::make(Send)]
 pub trait ResourceManagerTrait: Send + Sync {
     fn backup(&self) -> Result<(), ResourceError>;
 
@@ -39,28 +67,33 @@ pub trait ResourceManagerTrait: Send + Sync {
 
     fn tmp_path(&self) -> &PathBuf;
 
+    fn agent_path(&self) -> &PathBuf;
+
     async fn download_update_resources(
         &self,
         binary_url: &str,
-        output_path: Option<&PathBuf>,
+        output_path: Option<impl AsRef<Path> + Send>,
     ) -> Result<(), ResourceError> {
-        let download_path = output_path.unwrap_or(self.tmp_path());
+        async move {
+            let output_path = output_path.map(|x| x.as_ref().to_path_buf());
+            let download_path = output_path.as_ref().unwrap_or(self.tmp_path());
 
-        let response = reqwest::get(binary_url)
-            .await
-            .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
-        let content = response
-            .bytes()
-            .await
-            .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
+            let response = reqwest::get(binary_url)
+                .await
+                .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
+            let content = response
+                .bytes()
+                .await
+                .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
 
-        self.extract_zip(content, download_path)?;
-        Ok(())
+            self.extract_zip(content, download_path)?;
+            Ok(())
+        }
     }
 
     fn get_paths_to_backup(&self) -> Result<Vec<PathBuf>, ResourceError> {
         let config = get_config().lock().unwrap();
-        Ok(vec![env::current_exe()?, config.config_dir.clone()])
+        Ok(vec![self.agent_path().clone(), config.config_dir.clone()])
     }
 
     fn collect_downloaded_bundles(&self) -> Vec<PathBuf> {
@@ -103,8 +136,15 @@ pub trait ResourceManagerTrait: Send + Sync {
                 if let Some(parent) = file_path.parent() {
                     fs::create_dir_all(parent)?;
                 }
+                let _ = fs::remove_file(&file_path);
                 let mut output_file = File::create(&file_path)?;
                 io::copy(&mut file, &mut output_file)?;
+                #[cfg(unix)]
+                if let Some(file_name) = file_path.file_name() {
+                    if file_name == "nodex-agent" {
+                        crate::unix_utils::change_to_executable(&file_path)?;
+                    }
+                }
             } else if file.is_dir() {
                 fs::create_dir_all(&file_path)?;
             }
@@ -159,13 +199,17 @@ pub trait ResourceManagerTrait: Send + Sync {
 #[cfg(unix)]
 pub struct UnixResourceManager {
     tmp_path: PathBuf,
+    agent_path: PathBuf,
 }
 
 #[cfg(unix)]
-#[async_trait]
 impl ResourceManagerTrait for UnixResourceManager {
     fn tmp_path(&self) -> &PathBuf {
         &self.tmp_path
+    }
+
+    fn agent_path(&self) -> &PathBuf {
+        &self.agent_path
     }
 
     fn backup(&self) -> Result<(), ResourceError> {
@@ -189,8 +233,8 @@ impl ResourceManagerTrait for UnixResourceManager {
 
 #[cfg(unix)]
 impl UnixResourceManager {
-    pub fn new() -> Self {
-        let tmp_path = if PathBuf::from("/home/nodex/tmp").exists() {
+    pub fn new(agent_path: impl AsRef<Path>) -> Self {
+        let tmp_path = if PathBuf::from("/home/nodex/").exists() {
             PathBuf::from("/home/nodex/tmp")
         } else if PathBuf::from("/tmp/nodex").exists() || fs::create_dir_all("/tmp/nodex").is_ok() {
             PathBuf::from("/tmp/nodex")
@@ -198,7 +242,14 @@ impl UnixResourceManager {
             PathBuf::from("/tmp")
         };
 
-        Self { tmp_path }
+        if !tmp_path.exists() {
+            fs::create_dir_all(&tmp_path).expect("Failed to create tmp dir");
+        }
+
+        Self {
+            tmp_path,
+            agent_path: agent_path.as_ref().into(),
+        }
     }
 
     fn generate_metadata(
@@ -287,7 +338,11 @@ impl UnixResourceManager {
         let uid = get_current_uid();
         let gid = get_current_gid();
 
-        let metadata_json = serde_json::to_string(metadata)
+        let metadata: Vec<_> = metadata
+            .iter()
+            .map(|(x, y)| (x.as_path().to_str(), y.as_path().to_str()))
+            .collect();
+        let metadata_json = serde_json::to_string(&metadata)
             .map_err(|e| ResourceError::TarError(format!("Failed to serialize metadata: {}", e)))?;
 
         let mut header = Header::new_gnu();
@@ -373,7 +428,8 @@ impl UnixResourceManager {
                         ))
                     })?;
                 }
-                std::fs::rename(&temp_path, original_path).map_err(|e| {
+                // fs::rename does not work with another partition
+                copy_dir_all(&temp_path, original_path).map_err(|e| {
                     ResourceError::RollbackFailed(format!(
                         "Failed to move file from {:?} to {:?}: {}",
                         temp_path, original_path, e
@@ -385,23 +441,19 @@ impl UnixResourceManager {
     }
 }
 
-#[cfg(unix)]
-impl Default for UnixResourceManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(windows)]
 pub struct WindowsResourceManager {
     tmp_path: PathBuf,
 }
 
 #[cfg(windows)]
-#[async_trait]
 impl ResourceManagerTrait for WindowsResourceManager {
     fn tmp_path(&self) -> &PathBuf {
         &self.tmp_path
+    }
+
+    fn agent_path(&self) -> &PathBuf {
+        unimplemented!()
     }
 
     fn backup(&self) -> Result<(), ResourceError> {
@@ -426,5 +478,200 @@ impl WindowsResourceManager {
 impl Default for WindowsResourceManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use filetime;
+    use mockito;
+    use std::fs::{self, File};
+    use std::io::Write;
+    use std::time::{Duration, SystemTime};
+    use tempfile::{tempdir, NamedTempFile};
+    use zip::{
+        write::{ExtendedFileOptions, FileOptions},
+        CompressionMethod, ZipWriter,
+    };
+
+    impl Default for UnixResourceManager {
+        fn default() -> Self {
+            Self::new(std::env::current_exe().unwrap())
+        }
+    }
+
+    fn create_sample_zip() -> NamedTempFile {
+        let file = NamedTempFile::new().unwrap();
+        let mut zip = ZipWriter::new(file.reopen().unwrap());
+
+        let options: FileOptions<ExtendedFileOptions> = FileOptions::default()
+            .compression_method(CompressionMethod::Stored)
+            .unix_permissions(0o644);
+
+        zip.start_file("sample.txt", options).unwrap();
+        zip.write_all(b"This is a test file.").unwrap();
+        zip.finish().unwrap();
+
+        file
+    }
+
+    #[tokio::test]
+    async fn test_download_update_resources() {
+        let sample_zip = create_sample_zip();
+        let zip_data = fs::read(sample_zip.path()).unwrap();
+
+        let mut server = mockito::Server::new_async().await;
+        let path = "/test.zip";
+        let _mock = server
+            .mock("GET", path)
+            .with_status(200)
+            .with_header("content-type", "application/zip")
+            .with_body(zip_data)
+            .create();
+
+        let resource_manager = UnixResourceManager::default();
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().to_path_buf();
+
+        let url = server.url() + path;
+        let result = resource_manager
+            .download_update_resources(&url, Some(&output_path))
+            .await;
+
+        assert!(
+            result.is_ok(),
+            "Expected download_update_resources to succeed"
+        );
+
+        let extracted_file = output_path.join("sample.txt");
+        assert!(extracted_file.exists(), "Expected extracted file to exist");
+
+        let content = fs::read_to_string(extracted_file).unwrap();
+        assert_eq!(
+            content.trim(),
+            "This is a test file.",
+            "File content mismatch"
+        );
+    }
+
+    #[test]
+    fn test_collect_downloaded_bundles() {
+        let temp_dir = tempdir().unwrap();
+        let bundles_dir = temp_dir.path().join("bundles");
+        fs::create_dir_all(&bundles_dir).unwrap();
+
+        let bundle_file = bundles_dir.join("bundle1.yml");
+        File::create(&bundle_file).unwrap();
+
+        let resource_manager = UnixResourceManager {
+            tmp_path: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
+
+        let collected_bundles = resource_manager.collect_downloaded_bundles();
+
+        assert_eq!(
+            collected_bundles.len(),
+            1,
+            "Expected exactly one bundle file"
+        );
+        assert_eq!(
+            collected_bundles[0], bundle_file,
+            "Unexpected bundle file path"
+        );
+    }
+
+    #[test]
+    fn test_get_latest_backup() {
+        let temp_dir = tempdir().unwrap();
+
+        let old_file = temp_dir.path().join("old_backup.gz");
+        let new_file = temp_dir.path().join("new_backup.gz");
+
+        File::create(&old_file).unwrap();
+        File::create(&new_file).unwrap();
+        let new_time = SystemTime::now();
+        let old_time = new_time - Duration::from_secs(60);
+
+        filetime::set_file_mtime(&old_file, filetime::FileTime::from_system_time(old_time))
+            .unwrap();
+        filetime::set_file_mtime(&new_file, filetime::FileTime::from_system_time(new_time))
+            .unwrap();
+
+        let resource_manager = UnixResourceManager {
+            tmp_path: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
+
+        let latest_backup = resource_manager.get_latest_backup();
+
+        assert_eq!(
+            latest_backup,
+            Some(new_file),
+            "Expected new_backup.gz to be the latest"
+        );
+    }
+
+    #[test]
+    fn test_backup() {
+        let temp_dir = tempdir().unwrap();
+        let resource_manager = UnixResourceManager {
+            tmp_path: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
+
+        let result = resource_manager.backup();
+        assert!(result.is_ok(), "Expected backup to succeed");
+
+        let backups: Vec<_> = fs::read_dir(temp_dir.path())
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| entry.path().extension().and_then(|e| e.to_str()) == Some("gz"))
+            .collect();
+
+        assert_eq!(backups.len(), 1, "Expected exactly one backup file");
+    }
+
+    #[test]
+    fn test_rollback() {
+        let temp_dir = tempdir().unwrap();
+        let resource_manager = UnixResourceManager {
+            tmp_path: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
+
+        let _ = resource_manager.backup();
+        let latest_backup = resource_manager.get_latest_backup();
+
+        assert!(latest_backup.is_some(), "Expected a backup to exist");
+        if let Some(backup) = latest_backup {
+            let result: Result<(), ResourceError> = resource_manager.rollback(&backup);
+            println!("Result: {:?}", result);
+            assert!(result.is_ok(), "Expected rollback to succeed");
+        }
+    }
+
+    #[test]
+    fn test_remove() {
+        let temp_dir = tempdir().unwrap();
+
+        let resource_manager = UnixResourceManager {
+            tmp_path: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
+
+        let dummy_file = temp_dir.path().join("dummy_file.txt");
+        File::create(&dummy_file).unwrap();
+
+        assert!(
+            dummy_file.exists(),
+            "Dummy file should exist before removal"
+        );
+
+        let result = resource_manager.remove();
+        assert!(result.is_ok(), "Expected remove to succeed");
+
+        assert!(!dummy_file.exists(), "Dummy file should be removed");
     }
 }
