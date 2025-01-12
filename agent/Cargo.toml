@@ -7,7 +7,7 @@ version = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
-async-trait = "0.1.84"
+async-trait = "0.1.85"
 axum = { version = "0.7.9", features = ["macros"] }
 bytes = { workspace = true }
 chrono = { workspace = true }
