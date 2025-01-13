@@ -2,7 +2,11 @@ import * as os from "os";
 import * as path from "path";
 import got from "got";
 
-export const base = `unix:${path.join(os.homedir(), ".nodex/run/nodex.sock")}`;
+const default_path = path.join(os.homedir(), ".nodex/run/nodex.sock");
+const path_by_installed_deb = "/home/nodex/.nodex/run/nodex.sock";
+export const base = fs.existsSync(path_by_installed_deb)
+  ? `unix:${path_by_installed_deb}`
+  : `unix:${default_path}`;
 
 const call = async (method, path, json) => {
   let response;
