@@ -9,7 +9,7 @@ pub enum CryptoError {
     FailedToGenerateHash,
 }
 
-pub fn generate_multihash_with_base58encode(data: &[u8]) -> Result<String, CryptoError> {
+pub fn generate_multihash_with_base58_encode(data: &[u8]) -> Result<String, CryptoError> {
     let mut hasher = Sha256::new();
     hasher.update(data);
     let hash = hasher.finalize();
@@ -38,7 +38,7 @@ mod tests {
     #[test]
     fn test_generate_multihash_with_base58encode() {
         let data = "z6MkoSFjacZb7R82htx8n1AkpgLQWR7CA6rigsc2VH9acLuF";
-        let hash = generate_multihash_with_base58encode(data.as_bytes()).unwrap();
+        let hash = generate_multihash_with_base58_encode(data.as_bytes()).unwrap();
         assert_eq!(hash, "QmdEjpG2gwEWZAx8YjBrw7mF1iuCqgrMh8S63M7PaC1Ldr");
     }
 
