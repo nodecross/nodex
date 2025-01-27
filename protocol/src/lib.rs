@@ -1,4 +1,5 @@
 pub mod did;
+pub mod did_webvh;
 pub mod didcomm;
 pub mod keyring;
 pub mod verifiable_credentials;
