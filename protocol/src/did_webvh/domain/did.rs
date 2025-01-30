@@ -4,82 +4,102 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryFrom;
 use std::str::FromStr;
 
+// ref: https://www.w3.org/TR/did-core/#did-syntax
 static PAC_ENCODED: &str = r"%[0-9A-Fa-f]{2}";
 static IDCHAR: &str = formatcp!(r"[a-zA-Z0-9.\-_{PAC_ENCODED}]");
 static METHOD_CHAR: &str = r"[a-zA-Z0-9]";
-static DID_PAT: &str = formatcp!(
-    r"^did:(?<method_name>{METHOD_CHAR}+):(?<method_specific_id>({IDCHAR}*:)*{IDCHAR}+)$"
-);
+static METHOD_PAT: &str = formatcp!(r"{METHOD_CHAR}+");
+static SPECIFIC_ID_PAT: &str = formatcp!(r"({IDCHAR}*:)*{IDCHAR}+");
+static DID_PAT: &str =
+    formatcp!(r"^did:(?<method_name>{METHOD_PAT}):(?<method_specific_id>{SPECIFIC_ID_PAT})$");
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq, thiserror::Error)]
 pub enum DidError {
-    InvalidMethod,
-    InvaliDidentifier,
+    #[error(transparent)]
+    Regex(#[from] regex::Error),
+    #[error("Failed to parse did")]
     InvalidFormat,
+    #[error("Failed to parse method name")]
+    InvalidMethodName,
+    #[error("Failed to parse method specific id")]
+    InvalidMethodSpecificId,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Did {
-    method: String,
-    identifier: String,
+    method_name_position: usize,
+    method_specific_id_position: usize,
+    inner: String,
 }
 
 impl Did {
     pub fn new(method: &str, identifier: &str) -> Result<Self, DidError> {
-        if method.is_empty() {
-            return Err(DidError::InvalidMethod);
+        let re_method = regex::Regex::new(METHOD_PAT)?;
+        let re_id = regex::Regex::new(SPECIFIC_ID_PAT)?;
+        if !re_method.is_match(method) {
+            return Err(DidError::InvalidMethodName);
         }
-        if identifier.is_empty() {
-            return Err(DidError::InvaliDidentifier);
+
+        if !re_id.is_match(identifier) {
+            return Err(DidError::InvalidMethodSpecificId);
         }
-        if !method.chars().all(|c| c.is_ascii_lowercase()) {
-            return Err(DidError::InvalidMethod);
-        }
+        let method_name_position = 4 + method.len();
+        let method_specific_id_position = method_name_position + 1 + identifier.len();
         Ok(Self {
-            method: method.to_string(),
-            identifier: identifier.to_string(),
+            method_name_position,
+            method_specific_id_position,
+            inner: format!("did:{}:{}", method, identifier),
         })
     }
 
+    pub fn into_inner(self) -> String {
+        self.inner
+    }
+
     pub fn get_method(&self) -> &str {
-        &self.method
+        &self.inner[4..self.method_name_position]
     }
 
-    pub fn get_identifier(&self) -> &str {
-        &self.identifier
+    pub fn get_method_specific_id(&self) -> &str {
+        &self.inner[(self.method_name_position + 1)..self.method_specific_id_position]
     }
+}
 
-    pub fn to_string(&self) -> String {
-        format!("did:{}:{}", self.method, self.identifier)
+impl std::fmt::Display for Did {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.inner)
     }
 }
 
 impl From<DidWebvh> for Did {
     fn from(did: DidWebvh) -> Self {
-        Self {
-            method: did.get_did().get_method().to_string(),
-            identifier: did.get_did().get_identifier().to_string(),
-        }
+        did.did
     }
+}
+
+fn verify_did(did: &str) -> Result<(usize, usize), DidError> {
+    let re = regex::Regex::new(DID_PAT)?;
+    let caps = re.captures(did).ok_or(DidError::InvalidFormat)?;
+    Ok((
+        caps.name("method_name")
+            .ok_or(DidError::InvalidMethodName)?
+            .end(),
+        caps.name("method_specific_id")
+            .ok_or(DidError::InvalidMethodSpecificId)?
+            .end(),
+    ))
 }
 
 impl FromStr for Did {
     type Err = DidError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let re = regex::Regex::new(DID_PAT).map_err(|_| DidError::InvalidFormat)?;
-        let caps = re.captures(s).ok_or(DidError::InvalidFormat)?;
-        let method = caps.name("method_name").unwrap().as_str();
-        let identifier = caps.name("method_specific_id").unwrap().as_str();
-        Self::new(method, identifier)
-    }
-}
-impl Serialize for Did {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.to_string())
+        let (method_name_position, method_specific_id_position) = verify_did(s)?;
+        Ok(Self {
+            method_name_position,
+            method_specific_id_position,
+            inner: s.to_string(),
+        })
     }
 }
 
@@ -89,16 +109,34 @@ impl<'de> Deserialize<'de> for Did {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        s.parse()
-            .map_err(|_| serde::de::Error::custom("Invalid Did Format"))
+        let (method_name_position, method_specific_id_position) =
+            verify_did(&s).map_err(|_| serde::de::Error::custom("Invalid Did Format"))?;
+        Ok(Self {
+            method_name_position,
+            method_specific_id_position,
+            inner: s,
+        })
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+impl Serialize for Did {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.inner)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, thiserror::Error)]
 pub enum DidWebvhError {
+    #[error(transparent)]
     DidError(DidError),
+    #[error("Invalid SCID")]
     InvalidSCID,
+    #[error("Invalid domain segment")]
     InvalidDomain,
+    #[error("Invalid path segment")]
     InvalidPath,
 }
 
@@ -174,9 +212,9 @@ impl TryFrom<Did> for DidWebvh {
 
     fn try_from(did: Did) -> Result<Self, Self::Error> {
         if did.get_method() != "webvh" {
-            return Err(DidWebvhError::DidError(DidError::InvalidMethod));
+            return Err(DidWebvhError::DidError(DidError::InvalidMethodName));
         }
-        let parts: Vec<&str> = did.get_identifier().split(':').collect();
+        let parts: Vec<&str> = did.get_method_specific_id().split(':').collect();
         if parts.len() < 2 {
             return Err(DidWebvhError::InvalidPath);
         }
@@ -190,13 +228,13 @@ impl FromStr for DidWebvh {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let did: Did = s.parse()?;
         if did.get_method() != "webvh" {
-            return Err(DidWebvhError::DidError(DidError::InvalidMethod));
+            return Err(DidWebvhError::DidError(DidError::InvalidMethodName));
         }
-        let parts: Vec<&str> = did.get_identifier().split(':').collect();
+        let parts: Vec<&str> = did.get_method_specific_id().split(':').collect();
         // parsed scid and domain
         // eg. ["scid", "example.com%3A8000", "path", "to", "resource"]
         if parts.len() < 2 {
-            return Err(DidWebvhError::DidError(DidError::InvaliDidentifier));
+            return Err(DidWebvhError::DidError(DidError::InvalidMethodSpecificId));
         }
         // domain may be have path
         Self::new(parts[0], parts[1..].join(":").as_str())
@@ -222,12 +260,12 @@ mod tests {
     fn test_did_example() -> Result<(), DidError> {
         let did = Did::new("example", "hogehoge")?;
         assert_eq!(did.get_method(), "example");
-        assert_eq!(did.get_identifier(), "hogehoge");
+        assert_eq!(did.get_method_specific_id(), "hogehoge");
         assert_eq!(did.to_string(), "did:example:hogehoge");
 
         let did = "did:example:hogehoge".parse::<Did>().unwrap();
         assert_eq!(did.get_method(), "example");
-        assert_eq!(did.get_identifier(), "hogehoge");
+        assert_eq!(did.get_method_specific_id(), "hogehoge");
         Ok(())
     }
 
@@ -239,7 +277,7 @@ mod tests {
         )?;
         assert_eq!(did.get_method(), "webvh");
         assert_eq!(
-            did.get_identifier(),
+            did.get_method_specific_id(),
             "QmdEjpG2gwEWZAx8YjBrw7mF1iuCqgrMh8S63M7PaC1Ldr:example.com:path:to:resource"
         );
         assert_eq!(
@@ -252,7 +290,7 @@ mod tests {
             .unwrap();
         assert_eq!(did.get_method(), "webvh");
         assert_eq!(
-            did.get_identifier(),
+            did.get_method_specific_id(),
             "QmdEjpG2gwEWZAx8YjBrw7mF1iuCqgrMh8S63M7PaC1Ldr:example.com%3A8000:path:to:resource"
         );
 
@@ -263,11 +301,11 @@ mod tests {
     fn test_did_error() {
         assert_eq!(
             Did::new("", "example").unwrap_err(),
-            DidError::InvalidMethod
+            DidError::InvalidMethodName
         );
         assert_eq!(
             Did::new("web", "").unwrap_err(),
-            DidError::InvaliDidentifier
+            DidError::InvalidMethodSpecificId
         );
     }
 
@@ -335,7 +373,7 @@ mod tests {
             "did:webvh:example.com%3A8000"
                 .parse::<DidWebvh>()
                 .unwrap_err(),
-            DidWebvhError::DidError(DidError::InvaliDidentifier)
+            DidWebvhError::DidError(DidError::InvalidMethodSpecificId)
         );
         assert_eq!(
             "did:webvh:QmdEjpG2gwEWZAx8YjBrw7mF1iuCqgrMh8S63M7PaC1Ldr:example.com%3A8000:path/to/resource"

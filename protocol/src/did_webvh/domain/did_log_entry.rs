@@ -1,4 +1,4 @@
-use super::crypto::hash::generate_multihash_with_base58encode;
+use super::crypto::hash::generate_multihash_with_base58_encode;
 use super::did::{Did, DidWebvh};
 use super::did_document::DidDocument;
 use chrono::DateTime;
@@ -273,7 +273,7 @@ impl DidLogEntry {
         }
         let jcs = serde_json_canonicalizer::to_string(&entry)
             .map_err(|_| DidLogEntryError::InvalidFormat)?;
-        generate_multihash_with_base58encode(jcs.as_bytes())
+        generate_multihash_with_base58_encode(jcs.as_bytes())
             .map_err(|_| DidLogEntryError::FaildMultihash)
     }
 
@@ -282,7 +282,7 @@ impl DidLogEntry {
         let generate_hashed_keys = |keys: &Vec<String>| {
             keys.iter()
                 .map(|key| {
-                    generate_multihash_with_base58encode(key.as_bytes())
+                    generate_multihash_with_base58_encode(key.as_bytes())
                         .map_err(|_| DidLogEntryError::FaildMultihash)
                 })
                 .collect::<Result<Vec<String>, DidLogEntryError>>()
@@ -381,7 +381,7 @@ mod tests {
 
         entry.version_id = scid.to_string();
         entry.parameters.scid = Some(scid.to_string());
-        let identifier = entry.state.id.get_identifier();
+        let identifier = entry.state.id.get_method_specific_id();
         let identifier = identifier.replace("{SCID}", scid.as_str());
         entry.state.id = Did::new("webvh", identifier.as_str()).unwrap();
         println!("ENTRY_REPLACE_SCID: {:?}\n", entry);
