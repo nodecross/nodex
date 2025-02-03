@@ -14,14 +14,16 @@ keywords = ["did", "embedded", "iot", "root-of-trust"]
 license-file = "LICENSE"
 readme = "README.md"
 repository = "https://github.com/nodecross/nodex"
-version = "3.5.0"
+version = "3.6.0"
 
 [workspace.dependencies]
 agent = { path = "./agent" }
 anyhow = "1.0.94"
+bs58 = "0.5.1"
 bytes = "1.9.0"
 chrono = { version = "0.4", features = ["serde"] }
-clap = { version = "4.5.23", features = ["cargo", "derive"] }
+clap = { version = "4.5.26", features = ["cargo", "derive"] }
+const_format = "0.2.34"
 controller = { path = "./controller" }
 cuid = "1.3.2"
 data-encoding = "2.6.0"
@@ -34,8 +36,10 @@ http = "1.2.0"
 k256 = { version = "0.13.3", features = ["ecdh", "ecdsa", "serde", "sha256"] }
 log = "0.4.21"
 mac_address = "1.1.5"
+multihash = "0.19.3"
 protocol = { path = "./protocol" }
 rand_core = "0.6.4"
+regex = "1.11.1"
 reqwest = { version = "0.12", features = [
     "json",
     "rustls-tls-native-roots",
@@ -43,12 +47,13 @@ reqwest = { version = "0.12", features = [
 rstest = "0.21.0"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_jcs = "0.1.0"
-serde_json = "1.0.133"
+serde_json = "1.0.135"
+serde_json_canonicalizer = "0.3.0"
 sha2 = "0.10.8"
 shadow-rs = "0.37.0"
 sysinfo = "0.30.13"
 thiserror = "1.0.69"
-tokio = { version = "1.42.0", features = ["full"] }
+tokio = { version = "1.43.0", features = ["full"] }
 trait-variant = "0.1.2"
 url = "2.5.4"
 uuid = { version = "1.10.0", features = [
@@ -57,16 +62,11 @@ uuid = { version = "1.10.0", features = [
     "serde",
     "v4",
 ] }
+validator = { version = "0.20.0", features = ["derive"] }
+validator_derive = "0.20.0"
 x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
 zeroize = "1.8.1"
 zip = "2.2.0"
-bs58 = "0.5.1"
-multihash = "0.19.3"
-serde_json_canonicalizer = "0.3.0"
-validator = { version = "0.20.0", features = ["derive"] }
-validator_derive = "0.20.0"
-regex = "1.11.1"
-const_format = "0.2.34"
 
 [profile.dev]
 debug = true

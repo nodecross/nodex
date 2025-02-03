@@ -25,7 +25,7 @@ pub fn validate_hash(hash: &str) -> bool {
             Err(_) => false,
         },
         Err(e) => {
-            eprintln!("Error decoding hash: {:?}", e);
+            println!("Error decoding hash: {:?}", e);
             false
         }
     }
