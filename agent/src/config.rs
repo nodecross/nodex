@@ -55,6 +55,11 @@ pub struct ExtensionsConfig {
     pub cipher: Option<CipherExtensionConfig>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct DidCommConfig {
+    pub http_body_size_limit: usize,
+}
+
 #[derive(Deserialize, Serialize)]
 #[serde(default)]
 pub struct ConfigRoot {
@@ -62,6 +67,7 @@ pub struct ConfigRoot {
     key_pairs: KeyPairsConfig,
     extensions: ExtensionsConfig,
     metrics: MetricsConfig,
+    didcomm: DidCommConfig,
     is_initialized: bool,
     schema_version: u8,
 }
@@ -85,6 +91,9 @@ impl Default for ConfigRoot {
                 collect_interval: 15,
                 send_interval: 60,
                 cache_capacity: 1 << 16,
+            },
+            didcomm: DidCommConfig {
+                http_body_size_limit: 3 * 1024 * 1024,
             },
             is_initialized: false,
             schema_version: 1,
@@ -274,6 +283,10 @@ impl AppConfig {
     pub fn save_did(&mut self, value: &str) {
         self.root.did = Some(value.to_string());
         self.write().unwrap_log()
+    }
+
+    pub fn get_didcomm_body_size(&self) -> usize {
+        self.root.didcomm.http_body_size_limit
     }
 
     pub fn get_metric_collect_interval(&self) -> u64 {

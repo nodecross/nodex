@@ -1,5 +1,7 @@
+use crate::config::app_config;
 use crate::controllers;
 use axum::{
+    extract::DefaultBodyLimit,
     routing::{get, post},
     Router,
 };
@@ -215,6 +217,7 @@ pub mod windows {
 }
 
 pub fn make_router() -> Router {
+    let body_limit = app_config().lock().get_didcomm_body_size();
     Router::new()
         .route(
             "/identifiers",
@@ -236,10 +239,12 @@ pub fn make_router() -> Router {
             "/create-didcomm-message",
             post(controllers::public::nodex_create_didcomm_message::handler),
         )
+        .layer(DefaultBodyLimit::max(body_limit))
         .route(
             "/verify-didcomm-message",
             post(controllers::public::nodex_verify_didcomm_message::handler),
         )
+        .layer(DefaultBodyLimit::max(body_limit))
         .route("/events", post(controllers::public::send_event::handler))
         .route(
             "/custom-metrics",
