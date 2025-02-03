@@ -33,17 +33,17 @@ jobs:
             --yes \
             --oidc-issuer "https://token.actions.githubusercontent.com" \
             --oidc-client-id "sigstore" \
-            --bundle nodex.bundle \
-            target/release/nodex
+            --bundle nodex-agent.bundle \
+            target/release/nodex-agent
 
       - name: Upload artifact (binary)
         uses: actions/upload-artifact@v4
         with:
           name: nodex
-          path: target/release/nodex
+          path: target/release/nodex-agent
 
       - name: Upload artifact (signature bundle)
         uses: actions/upload-artifact@v4
         with:
-          path: nodex.bundle
-          name: nodex.bundle
+          path: nodex-agent.bundle
+          name: nodex-agent.bundle
