@@ -86,7 +86,7 @@ pub struct Parameters {
     pub ttl: Option<u32>,
 }
 
-fn verify_next_key_hashes(next_key_hashes: &Vec<String>) -> Result<(), ValidationError> {
+fn verify_next_key_hashes(next_key_hashes: &[String]) -> Result<(), ValidationError> {
     if next_key_hashes.is_empty() {
         return Err(ValidationError::new("Next key hashes must not be empty"));
     }
