@@ -1,26 +1,37 @@
-use super::crypto::hash::generate_multihash_with_base58_encode;
-use super::did::{Did, DidWebvh};
+use super::crypto::crypto_utils::{generate_multihash_with_base58_encode, sign_data};
+use super::did::{Did, DidWebvh, DIDWEBVH_PLACEHOLDER};
 use super::did_document::DidDocument;
 use chrono::DateTime;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json_canonicalizer;
+use thiserror::Error;
 use validator::{Validate, ValidationError};
 
 const WEBVH_DID_METHOD: &str = "did:webvh:0.5";
 const WEBVH_DID_CRYPTO_SUITE: &str = "eddsa-jcs-2022";
-const WEBVH_DID_SCID_PLACEHOLDER: &str = "{SCID}";
+// const WEBVH_DID_SCID_PLACEHOLDER: &str = "{SCID}";
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum DidLogEntryError {
+    #[error("Invalid version id")]
     InvalidVersionId,
+    #[error("Invalid version time")]
     InvalidVersionTime,
+    #[error("Invalid parameters")]
     InvalidParameters,
+    #[error("Invalid state")]
     InvalidState,
+    #[error("Invalid proof")]
     InvalidProof,
+    #[error("Invalid format")]
     InvalidFormat,
+    #[error("Failed to generate hash")]
     FaildMultihash,
+    #[error("Not found")]
     NotFound,
+    #[error("Failed to generate hash {0}")]
+    FailedGenerateHash(#[from] crate::did_webvh::domain::crypto::crypto_utils::CryptoError),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Validate, PartialEq)]
@@ -182,20 +193,25 @@ fn verify_proof_created(created: &str) -> Result<(), ValidationError> {
     Ok(())
 }
 
+fn convert_uri(uri: &str) -> String {
+    // if uri contains a port, slash, replace colon with a '%3A', slash with a colon,
+    uri.replace(":", "%3A").replace("/", ":")
+}
+
 impl DidLogEntry {
     // Create a new DIDLogEntry, with scid placeholder
     pub fn new(uri: &str) -> Result<Self, DidLogEntryError> {
-        let did = DidWebvh::new(WEBVH_DID_SCID_PLACEHOLDER, uri)
+        let did = DidWebvh::new(DIDWEBVH_PLACEHOLDER, &convert_uri(uri))
             .map_err(|_| DidLogEntryError::InvalidFormat)?;
         let state = DidDocument::new(did.get_did().clone());
-        let version_id = WEBVH_DID_SCID_PLACEHOLDER.to_string();
+        let version_id = DIDWEBVH_PLACEHOLDER.to_string();
         let version_time = chrono::Utc::now().to_rfc3339();
         let parameters = Parameters {
-            portable: None,
+            portable: Some(true),
             update_keys: None,
             next_key_hashes: None,
             method: Some(WEBVH_DID_METHOD.to_string()),
-            scid: Some(WEBVH_DID_SCID_PLACEHOLDER.to_string()),
+            scid: Some(DIDWEBVH_PLACEHOLDER.to_string()),
             deactivate: None,
             witness: None,
             ttl: None,
@@ -234,7 +250,27 @@ impl DidLogEntry {
         Ok((version_number.unwrap(), parts[1].to_string()))
     }
 
-    pub fn replace_to_scid_placeholder(&self) -> Result<DidLogEntry, DidLogEntryError> {
+    pub fn replace_placeholder_to_id(&mut self, scid: &str) -> Result<(), DidLogEntryError> {
+        self.parameters.scid = Some(scid.to_string());
+        self.version_id = format!("1-{}", scid.to_string());
+        let did = DidWebvh::try_from(self.state.id.clone())
+            .map_err(|_| DidLogEntryError::InvalidState)?
+            .replace_scid(scid);
+        self.state.id = did.get_did().clone();
+        match self.state.verification_method.as_mut() {
+            Some(verification_methods) => {
+                for verification_method in verification_methods.iter_mut() {
+                    verification_method.id = did.get_did().to_string();
+                    verification_method.controller = did.get_did().clone();
+                }
+            }
+            None => {} // do nothing
+        }
+
+        Ok(())
+    }
+
+    pub fn replace_to_placeholder(&self) -> Result<DidLogEntry, DidLogEntryError> {
         let scid_placeholder = "{SCID}";
         let mut entry = self.clone();
         entry.parameters.scid = Some(scid_placeholder.to_string());
@@ -247,20 +283,30 @@ impl DidLogEntry {
     }
 
     pub fn generate_proof(
-        &self,
-        public_key: &str,
-        proof_purpose: &str,
-        proof_value: &str,
-    ) -> Proof {
-        let key = format!("did:key:{}#{}", public_key, public_key);
-        Proof {
+        &mut self,
+        sec_key: &[u8],
+        pub_key: &str,
+    ) -> Result<(), DidLogEntryError> {
+        let key = format!("did:key:{}#{}", pub_key, pub_key);
+        let proof_purpose = "authentication";
+        let created = chrono::Utc::now().to_rfc3339();
+        self.proof = None;
+        let jcs = serde_json_canonicalizer::to_string(&self)
+            .map_err(|_| DidLogEntryError::InvalidFormat)?;
+
+        let proof_value = sign_data(jcs.as_bytes(), sec_key)?;
+        let proof = Proof {
             r#type: "DataIntegrityProof".to_string(),
-            cryptosuite: WEBVH_DID_CRYPTO_SUITE.to_string(),
+            cryptosuite: "eddsa-jcs-2022".to_string(),
             verification_method: key,
-            created: chrono::Utc::now().to_rfc3339(),
+            created,
             proof_purpose: proof_purpose.to_string(),
-            proof_value: proof_value.to_string(),
-        }
+            proof_value,
+        };
+
+        self.proof = Some(vec![proof]);
+
+        Ok(())
     }
 
     // calculate the entry hash
@@ -278,8 +324,8 @@ impl DidLogEntry {
     }
 
     // calculate the next key hashes by the Update Keys from the previous entry.
-    pub fn calc_next_key_hash(&self, keys: &Vec<String>) -> Result<Self, DidLogEntryError> {
-        let generate_hashed_keys = |keys: &Vec<String>| {
+    pub fn calc_next_key_hash(&self, keys: &[String]) -> Result<Self, DidLogEntryError> {
+        let generate_hashed_keys = |keys: &[String]| {
             keys.iter()
                 .map(|key| {
                     generate_multihash_with_base58_encode(key.as_bytes())
@@ -320,7 +366,6 @@ mod tests {
             .map(|line| match serde_json::from_str(line) {
                 Ok(entry) => entry,
                 Err(e) => {
-                    eprintln!("Error: {:?}", e);
                     panic!("Error: {:?}", e);
                 }
             })
@@ -350,7 +395,7 @@ mod tests {
         assert_eq!(hash, "QmRD52wqs942kZ2gs7UU9QmaopvqnMziqB4qgFDYsapCT9");
 
         let entry: DidLogEntry = serde_json::from_str(JSON).unwrap();
-        let new_entry = entry.replace_to_scid_placeholder().unwrap();
+        let new_entry = entry.replace_to_placeholder().unwrap();
         assert_eq!(new_entry.parameters.scid.unwrap(), "{SCID}");
         assert_eq!(new_entry.version_id, "{SCID}");
     }
@@ -375,7 +420,6 @@ mod tests {
   }
 }"#;
         let mut entry: DidLogEntry = serde_json::from_str(JSON_LOG).unwrap();
-        println!("ENTRY: {:?}\n", entry);
         let scid = entry.calc_entry_hash().unwrap();
         assert_eq!(scid, "QmbUzhqS4Fx6ueq6gopKQBNe2Dyj4dddCTyPuN4pncYxYG");
 
@@ -384,8 +428,26 @@ mod tests {
         let identifier = entry.state.id.get_method_specific_id();
         let identifier = identifier.replace("{SCID}", scid.as_str());
         entry.state.id = Did::new("webvh", identifier.as_str()).unwrap();
-        println!("ENTRY_REPLACE_SCID: {:?}\n", entry);
         let entry_hash = entry.calc_entry_hash().unwrap();
         assert_eq!(entry_hash, "QmeyX9Tripap4bpri4324AUDCeUpBXKHRBHW89rnWa4mKw");
+    }
+
+    #[test]
+    fn test_serde_roundtrip() {
+        let entry: DidLogEntry = serde_json::from_str(JSON).unwrap();
+        let json = serde_json::to_string(&entry).unwrap();
+        let entry2: DidLogEntry = serde_json::from_str(json.as_str()).unwrap();
+        assert_eq!(entry, entry2);
+    }
+
+    #[test]
+    fn test_convert_url() {
+        let url = "example.com:8080/test";
+        let converted = convert_uri(url);
+        assert_eq!(converted, "example.com%3A8080:test");
+
+        let url = "example.com/test";
+        let converted = convert_uri(url);
+        assert_eq!(converted, "example.com:test");
     }
 }

@@ -30,6 +30,9 @@ validator = { workspace = true }
 validator_derive = { workspace = true }
 x25519-dalek = { workspace = true }
 zeroize = { workspace = true }
+uuid = { workspace = true }
+multibase = { workspace = true }
+ed25519-dalek = { workspace = true }
 
 [dev-dependencies]
 rand = "0.8.5"
