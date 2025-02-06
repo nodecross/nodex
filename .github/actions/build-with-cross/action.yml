@@ -50,7 +50,7 @@ runs:
       shell: bash
       run: |
         mkdir -p ./.cargo
-        echo -e "[target.'cfg(not(target_os = \"darwin\"))']\nrustflags = [\"-C\", \"link-arg=-fuse-ld=mold\"]"
+        echo -e "[target.'cfg(not(target_os = \"darwin\"))']\nrustflags = [\"-C\", \"link-arg=-fuse-ld=mold\"]" > ./.cargo/config.toml
 
     - name: (install) install development tools
       uses: taiki-e/install-action@v2
