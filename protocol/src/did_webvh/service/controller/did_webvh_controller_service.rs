@@ -124,7 +124,12 @@ where
 
         log_entry.generate_proof(&update_sec_key, &update_pub_key)?;
 
-        let body = serde_json::to_string(&log_entry)?;
+        // convert log entry to jsonl file format
+        let entry = serde_json::to_string(&log_entry)?
+            .replace("\n", "")
+            .replace(" ", "");
+
+        let body = format!("{}\n", entry);
 
         let response = self
             .data_store
