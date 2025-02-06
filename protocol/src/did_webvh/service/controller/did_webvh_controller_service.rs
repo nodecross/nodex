@@ -28,40 +28,6 @@ pub enum DidWebvhIdentifierError<StudioClientError: std::error::Error> {
     ),
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum GetPublicKeyError {
-    #[error("Failed to get public key: {0}")]
-    PublicKeyNotFound(String),
-    #[error("Failed to convert from JWK: {0}")]
-    JwkToK256(#[from] crate::keyring::jwk::JwkToK256Error),
-    #[error("Failed to convert from JWK: {0}")]
-    JwkToX25519(#[from] crate::keyring::jwk::JwkToX25519Error),
-}
-
-fn get_key(key_type: &str, did_document: &DidDocument) -> Result<Jwk, GetPublicKeyError> {
-    let did = &did_document.id;
-    let public_key = did_document
-        .verification_method
-        .clone()
-        .and_then(|vm| vm.into_iter().find(|pk| pk.id == key_type))
-        .ok_or(GetPublicKeyError::PublicKeyNotFound(did.to_string()))?
-        .public_key_jwk
-        .ok_or(GetPublicKeyError::PublicKeyNotFound(did.to_string()))?;
-    Ok(public_key)
-}
-
-pub fn get_sign_key(did_document: &DidDocument) -> Result<k256::PublicKey, GetPublicKeyError> {
-    let public_key = get_key("#signingKey", did_document)?;
-    Ok(public_key.try_into()?)
-}
-
-pub fn get_encrypt_key(
-    did_document: &DidDocument,
-) -> Result<x25519_dalek::PublicKey, GetPublicKeyError> {
-    let public_key = get_key("#encryptionKey", did_document)?;
-    Ok(public_key.try_into()?)
-}
-
 #[trait_variant::make(Send)]
 pub trait DidWebvhService: Sync {
     type DidWebvhIdentifierError: std::error::Error + Send + Sync;
@@ -137,6 +103,10 @@ where
             blockchain_account_id: None,
             public_key_multibase: None,
         };
+        log_entry
+            .state
+            .add_verification_method(sign_verification_method);
+
         let encrypt_verification_method = VerificationMethod {
             id: format!("{}#{}", log_entry.state.id, "encryptionKey"),
             r#type: "X25519KeyAgreementKey2019".to_string(),
@@ -145,9 +115,10 @@ where
             blockchain_account_id: None,
             public_key_multibase: None,
         };
+        log_entry
+            .state
+            .add_verification_method(encrypt_verification_method);
 
-        log_entry.state.verification_method =
-            Some(vec![sign_verification_method, encrypt_verification_method]);
         let scid = log_entry.calc_entry_hash()?;
         log_entry.replace_placeholder_to_id(&scid)?;
 

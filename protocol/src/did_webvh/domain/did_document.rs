@@ -2,6 +2,16 @@ use super::did::Did;
 use crate::keyring::jwk::Jwk;
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, thiserror::Error)]
+pub enum GetPublicKeyError {
+    #[error("Failed to get public key: {0}")]
+    PublicKeyNotFound(String),
+    #[error("Failed to convert from JWK: {0}")]
+    JwkToK256(#[from] crate::keyring::jwk::JwkToK256Error),
+    #[error("Failed to convert from JWK: {0}")]
+    JwkToX25519(#[from] crate::keyring::jwk::JwkToX25519Error),
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct DidDocument {
@@ -73,6 +83,28 @@ impl DidDocument {
             created: None,
             deactivated: None,
         }
+    }
+
+    pub fn add_verification_method(&mut self, verification_method: VerificationMethod) {
+        if self.verification_method.is_none() {
+            self.verification_method = Some(vec![]);
+        }
+        self.verification_method
+            .as_mut()
+            .unwrap()
+            .push(verification_method);
+    }
+
+    pub fn get_key(&self, key_type: &str) -> Result<Jwk, GetPublicKeyError> {
+        let did = &self.id;
+        let public_key = self.verification_method.as_ref().and_then(|v| {
+            v.iter()
+                .find(|vm| vm.id.ends_with(key_type))
+                .and_then(|vm| vm.public_key_jwk.as_ref())
+        });
+        public_key
+            .cloned()
+            .ok_or_else(|| GetPublicKeyError::PublicKeyNotFound(did.to_string()))
     }
 }
 
