@@ -10,7 +10,6 @@ use validator::{Validate, ValidationError};
 
 const WEBVH_DID_METHOD: &str = "did:webvh:0.5";
 const WEBVH_DID_CRYPTO_SUITE: &str = "eddsa-jcs-2022";
-// const WEBVH_DID_SCID_PLACEHOLDER: &str = "{SCID}";
 
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum DidLogEntryError {
@@ -227,10 +226,10 @@ impl DidLogEntry {
 
     // create a new DIDLogEntry from current entry.
     pub fn generate_next_log_entry(&self) -> Result<Self, DidLogEntryError> {
-        let (_, next_version_id) = self.parse_verion_id()?;
+        let (_, current_entry_hash) = self.parse_verion_id()?;
         let version_time = chrono::Utc::now().to_rfc3339();
         Ok(Self {
-            version_id: next_version_id,
+            version_id: current_entry_hash,
             version_time,
             parameters: self.parameters.clone(),
             state: self.state.clone(),
@@ -252,32 +251,29 @@ impl DidLogEntry {
 
     pub fn replace_placeholder_to_id(&mut self, scid: &str) -> Result<(), DidLogEntryError> {
         self.parameters.scid = Some(scid.to_string());
-        self.version_id = format!("1-{}", scid.to_string());
+        self.version_id = format!("1-{}", scid);
         let did = DidWebvh::try_from(self.state.id.clone())
             .map_err(|_| DidLogEntryError::InvalidState)?
             .replace_scid(scid);
         self.state.id = did.get_did().clone();
-        match self.state.verification_method.as_mut() {
-            Some(verification_methods) => {
-                for verification_method in verification_methods.iter_mut() {
-                    verification_method.id = did.get_did().to_string();
-                    verification_method.controller = did.get_did().clone();
-                }
+        if let Some(verification_methods) = self.state.verification_method.as_mut() {
+            for verification_method in verification_methods.iter_mut() {
+                // id is did#key format, so only need to replace the did part
+                verification_method.id = verification_method.id.replace(DIDWEBVH_PLACEHOLDER, scid);
+                verification_method.controller = did.get_did().clone();
             }
-            None => {} // do nothing
         }
 
         Ok(())
     }
 
     pub fn replace_to_placeholder(&self) -> Result<DidLogEntry, DidLogEntryError> {
-        let scid_placeholder = "{SCID}";
         let mut entry = self.clone();
-        entry.parameters.scid = Some(scid_placeholder.to_string());
-        entry.version_id = scid_placeholder.to_string();
+        entry.parameters.scid = Some(DIDWEBVH_PLACEHOLDER.to_string());
+        entry.version_id = DIDWEBVH_PLACEHOLDER.to_string();
         let did = DidWebvh::try_from(entry.state.id.clone())
             .map_err(|_| DidLogEntryError::InvalidState)?
-            .replace_scid(scid_placeholder);
+            .replace_scid(DIDWEBVH_PLACEHOLDER);
         entry.state.id = did.into();
         Ok(entry)
     }
@@ -324,7 +320,7 @@ impl DidLogEntry {
     }
 
     // calculate the next key hashes by the Update Keys from the previous entry.
-    pub fn calc_next_key_hash(&self, keys: &[String]) -> Result<Self, DidLogEntryError> {
+    pub fn calc_next_key_hash(&self, keys: &[String]) -> Result<Vec<String>, DidLogEntryError> {
         let generate_hashed_keys = |keys: &[String]| {
             keys.iter()
                 .map(|key| {
@@ -333,9 +329,8 @@ impl DidLogEntry {
                 })
                 .collect::<Result<Vec<String>, DidLogEntryError>>()
         };
-        let mut entry = self.clone();
-        entry.parameters.next_key_hashes = Some(generate_hashed_keys(keys)?);
-        Ok(entry)
+        let next_key_hashes = generate_hashed_keys(keys)?;
+        Ok(next_key_hashes)
     }
 }
 
@@ -426,7 +421,7 @@ mod tests {
         entry.version_id = scid.to_string();
         entry.parameters.scid = Some(scid.to_string());
         let identifier = entry.state.id.get_method_specific_id();
-        let identifier = identifier.replace("{SCID}", scid.as_str());
+        let identifier = identifier.replace(DIDWEBVH_PLACEHOLDER, scid.as_str());
         entry.state.id = Did::new("webvh", identifier.as_str()).unwrap();
         let entry_hash = entry.calc_entry_hash().unwrap();
         assert_eq!(entry_hash, "QmeyX9Tripap4bpri4324AUDCeUpBXKHRBHW89rnWa4mKw");

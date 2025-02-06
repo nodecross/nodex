@@ -7,6 +7,7 @@ use crate::keyring::{
     keypair::{KeyPair, KeyPairing},
 };
 
+use std::convert::TryInto;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -109,27 +110,27 @@ where
         let sign_key_jwk: Jwk = keyring.sign.get_public_key().try_into().map_err(|_| {
             DidWebvhIdentifierError::Jwk(crate::keyring::jwk::K256ToJwkError::PointsInvalid)
         })?;
-        let encrypt_key_jwk: Jwk = keyring.encrypt.get_public_key().try_into().map_err(|_| {
-            DidWebvhIdentifierError::Jwk(crate::keyring::jwk::K256ToJwkError::PointsInvalid)
-        })?;
+        let encrypt_key_jwk: Jwk =
+            <x25519_dalek::PublicKey as Into<Jwk>>::into(keyring.encrypt.get_public_key());
 
-        let mut log_entry = DidLogEntry::new(&path)
-            .map_err(|e| DidWebvhIdentifierError::DidWebvhCreateLogEntryFailed(e))?;
-        let controller_key = keyring.update;
-        let update_sec_key = controller_key.get_secret_key().to_bytes();
-        let update_pub_key = multibase_encode(&controller_key.get_public_key().to_sec1_bytes());
+        let mut log_entry = DidLogEntry::new(path)?;
+        let update_keypair = keyring.update;
+        let update_sec_key = update_keypair.get_secret_key().to_bytes();
+        let update_pub_key = multibase_encode(&update_keypair.get_public_key().to_sec1_bytes());
         let update_keys = vec![update_pub_key.clone()];
         log_entry.parameters.update_keys = Some(update_keys);
 
         // if prerotation is enabled, add the prerotation key to the next_key_hashes
         if enable_prerotation {
-            let prerotation_key =
+            let prerotation_pub_key =
                 multibase_encode(&keyring.recovery.get_public_key().to_sec1_bytes());
-            let prerotation_keys = vec![prerotation_key.clone()];
-            log_entry = log_entry.calc_next_key_hash(&prerotation_keys)?;
+            let prerotation_keys = vec![prerotation_pub_key.clone()];
+            let next_key_hases = log_entry.calc_next_key_hash(&prerotation_keys)?;
+            log_entry.parameters.next_key_hashes = Some(next_key_hases);
         }
+
         let sign_verification_method = VerificationMethod {
-            id: format!("{}#{}", log_entry.state.id, "signingKey".to_string()),
+            id: format!("{}#{}", log_entry.state.id, "signingKey"),
             r#type: "EcdsaSecp256k1VerificationKey2019".to_string(),
             controller: log_entry.state.id.clone(),
             public_key_jwk: Some(sign_key_jwk),
@@ -137,7 +138,7 @@ where
             public_key_multibase: None,
         };
         let encrypt_verification_method = VerificationMethod {
-            id: format!("{}#{}", log_entry.state.id, "encryptionKey".to_string()),
+            id: format!("{}#{}", log_entry.state.id, "encryptionKey"),
             r#type: "X25519KeyAgreementKey2019".to_string(),
             controller: log_entry.state.id.clone(),
             public_key_jwk: Some(encrypt_key_jwk),
@@ -152,17 +153,15 @@ where
 
         log_entry.generate_proof(&update_sec_key, &update_pub_key)?;
 
-        let body =
-            serde_json::to_string(&log_entry).map_err(|e| DidWebvhIdentifierError::BodyParse(e))?;
+        let body = serde_json::to_string(&log_entry)?;
 
         let response = self
             .data_store
-            .post(&path, &body)
+            .post(path, &body)
             .await
             .map_err(|e| DidWebvhIdentifierError::DidWebvhRequestFailed(e.to_string()))?;
         if response.status_code.is_success() {
-            let did_document: DidDocument = serde_json::from_str(&response.body)
-                .map_err(|e| DidWebvhIdentifierError::BodyParse(e))?;
+            let did_document: DidDocument = serde_json::from_str(&response.body)?;
             Ok(did_document)
         } else {
             Err(DidWebvhIdentifierError::DidWebvhRequestFailed(
