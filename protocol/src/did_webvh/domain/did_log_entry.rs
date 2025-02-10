@@ -251,7 +251,7 @@ impl DidLogEntry {
 
     pub fn replace_placeholder_to_id(&mut self, scid: &str) -> Result<(), DidLogEntryError> {
         self.parameters.scid = Some(scid.to_string());
-        self.version_id = format!("1-{}", scid);
+        self.version_id = scid.to_string();
         let did = DidWebvh::try_from(self.state.id.clone())
             .map_err(|_| DidLogEntryError::InvalidState)?
             .replace_scid(scid);
@@ -260,7 +260,11 @@ impl DidLogEntry {
             for verification_method in verification_methods.iter_mut() {
                 // id is did#key format, so only need to replace the did part
                 verification_method.id = verification_method.id.replace(DIDWEBVH_PLACEHOLDER, scid);
-                verification_method.controller = did.get_did().clone();
+                let controller = DidWebvh::try_from(verification_method.controller.clone());
+                if controller.is_ok() {
+                    let did = controller.unwrap();
+                    verification_method.controller = did.replace_scid(scid).into();
+                }
             }
         }
 
@@ -272,9 +276,31 @@ impl DidLogEntry {
         entry.parameters.scid = Some(DIDWEBVH_PLACEHOLDER.to_string());
         entry.version_id = DIDWEBVH_PLACEHOLDER.to_string();
         let did = DidWebvh::try_from(entry.state.id.clone())
-            .map_err(|_| DidLogEntryError::InvalidState)?
-            .replace_scid(DIDWEBVH_PLACEHOLDER);
-        entry.state.id = did.into();
+            .map_err(|_| DidLogEntryError::InvalidState)?;
+        entry.state.id = did.replace_scid(DIDWEBVH_PLACEHOLDER).into();
+        if let Some(verification_methods) = entry.state.verification_method.as_mut() {
+            for verification_method in verification_methods.iter_mut() {
+                // id is did:method_name:scid:doamin#key format, so only need to replace the scid part
+                let parts = verification_method.id.split('#').collect::<Vec<&str>>();
+                let id = parts[0].parse::<DidWebvh>();
+                if id.is_ok() {
+                    let did = id.unwrap();
+                    verification_method.id = format!(
+                        "{}#{}",
+                        did.replace_scid(DIDWEBVH_PLACEHOLDER)
+                            .get_did()
+                            .clone()
+                            .into_inner(),
+                        parts[1]
+                    );
+                }
+                let controller = DidWebvh::try_from(verification_method.controller.clone());
+                if controller.is_ok() {
+                    let did = controller.unwrap();
+                    verification_method.controller = did.replace_scid(DIDWEBVH_PLACEHOLDER).into();
+                }
+            }
+        }
         Ok(entry)
     }
 

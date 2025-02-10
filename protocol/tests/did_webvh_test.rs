@@ -5,9 +5,12 @@ mod tests {
     use protocol::did_webvh::infra::did_webvh_data_store::{
         DidLogEntryResponse, DidWebvhDataStore,
     };
-    use protocol::did_webvh::service::controller::did_webvh_controller_service::*;
+    use protocol::did_webvh::service::controller::controller_service::DidWebvhControllerService;
+    use protocol::did_webvh::service::resolver::resolver_service::DidWebvhResolverService;
+    use protocol::did_webvh::service::serviceimpl::DidWebvhServiceImpl;
     use protocol::keyring::*;
     use rand_core::OsRng;
+    use std::fs;
 
     struct MockDataStore {}
     impl MockDataStore {
@@ -20,6 +23,8 @@ mod tests {
     pub enum MockDataStoreError {
         #[error("error: {0}")]
         JsonError(#[from] serde_json::Error),
+        #[error("error: {0}")]
+        IoError(#[from] std::io::Error),
     }
     impl DidWebvhDataStore for MockDataStore {
         type Error = MockDataStoreError;
@@ -31,7 +36,9 @@ mod tests {
             Ok(response)
         }
         async fn get(&self, _path: &str) -> Result<DidLogEntryResponse, Self::Error> {
-            unimplemented!()
+            // read file from project root dir/test_resources/did.jsonl
+            let log = fs::read_to_string("test_resources/did.jsonl")?;
+            Ok(DidLogEntryResponse::new(http::StatusCode::OK, log))
         }
         async fn put(
             &self,
@@ -57,5 +64,40 @@ mod tests {
         let webvh_did: DidWebvh = res.id.clone().try_into().unwrap();
         assert_eq!(webvh_did.get_did(), &res.id);
         assert_eq!(webvh_did.get_uri(), "domain.examle.com:test:did");
+    }
+
+    #[tokio::test]
+    pub async fn test_get_did_log_entry() {
+        let did =
+            "did:webvh:QmRsc8jrPt6eYzw4vUigFzEWwUmgLP58Z75NWGffyCP6Jc:domain.examle.com:test:did"
+                .parse::<DidWebvh>()
+                .unwrap();
+        let datastore = MockDataStore::new();
+        let service = DidWebvhServiceImpl::new(datastore);
+        let res = service
+            .get_identifier(did.get_did())
+            .await
+            .map_err(|e| e.to_string())
+            .unwrap();
+        assert_eq!(res.len(), 1);
+    }
+
+    #[tokio::test]
+    pub async fn test_resolve_did_log_entry() {
+        let did =
+            "did:webvh:QmRsc8jrPt6eYzw4vUigFzEWwUmgLP58Z75NWGffyCP6Jc:domain.examle.com:test:did"
+                .parse::<DidWebvh>()
+                .unwrap();
+        let datastore = MockDataStore::new();
+        let service = DidWebvhServiceImpl::new(datastore);
+        let res = service
+            .get_identifier(did.get_did())
+            .await
+            .map_err(|e| e.to_string())
+            .unwrap();
+        assert_eq!(res.len(), 1);
+
+        let did_doc = service.resolve_identifier(res).await.unwrap();
+        assert_eq!(did_doc.id, did.get_did().clone());
     }
 }

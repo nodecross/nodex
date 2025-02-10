@@ -2,6 +2,7 @@ use crate::did_webvh::domain::crypto::crypto_utils::multibase_encode;
 use crate::did_webvh::domain::did_document::{DidDocument, VerificationMethod};
 use crate::did_webvh::domain::did_log_entry::DidLogEntry;
 use crate::did_webvh::infra::did_webvh_data_store::DidWebvhDataStore;
+use crate::did_webvh::service::serviceimpl::DidWebvhServiceImpl;
 use crate::keyring::{
     jwk::Jwk,
     keypair::{KeyPair, KeyPairing},
@@ -29,7 +30,7 @@ pub enum DidWebvhIdentifierError<StudioClientError: std::error::Error> {
 }
 
 #[trait_variant::make(Send)]
-pub trait DidWebvhService: Sync {
+pub trait DidWebvhControllerService: Sync {
     type DidWebvhIdentifierError: std::error::Error + Send + Sync;
     async fn create_identifier(
         &self,
@@ -49,18 +50,7 @@ pub trait DidWebvhService: Sync {
     ) -> Result<DidDocument, Self::DidWebvhIdentifierError>;
 }
 
-#[derive(Clone)]
-pub struct DidWebvhServiceImpl<C: DidWebvhDataStore> {
-    data_store: C,
-}
-
-impl<C: DidWebvhDataStore> DidWebvhServiceImpl<C> {
-    pub fn new(data_store: C) -> Self {
-        Self { data_store }
-    }
-}
-
-impl<C> DidWebvhService for DidWebvhServiceImpl<C>
+impl<C> DidWebvhControllerService for DidWebvhServiceImpl<C>
 where
     C: DidWebvhDataStore + Send + Sync,
     C::Error: Send + Sync,
@@ -121,6 +111,8 @@ where
 
         let scid = log_entry.calc_entry_hash()?;
         log_entry.replace_placeholder_to_id(&scid)?;
+        let first_entry_hash = log_entry.calc_entry_hash()?;
+        log_entry.version_id = format!("1-{}", first_entry_hash);
 
         log_entry.generate_proof(&update_sec_key, &update_pub_key)?;
 
