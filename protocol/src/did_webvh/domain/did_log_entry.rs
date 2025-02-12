@@ -224,6 +224,23 @@ impl DidLogEntry {
         })
     }
 
+    pub fn from_db(
+        version_id: &str,
+        version_time: &str,
+        parameters: &str,
+        state: &str,
+        proof: &str,
+    ) -> Result<Self, DidLogEntryError> {
+        Ok(Self {
+            version_id: version_id.to_string(),
+            version_time: version_time.to_string(),
+            parameters: serde_json::from_str(parameters)
+                .map_err(|_| DidLogEntryError::InvalidParameters)?,
+            state: serde_json::from_str(state).map_err(|_| DidLogEntryError::InvalidState)?,
+            proof: serde_json::from_str(proof).map_err(|_| DidLogEntryError::InvalidProof)?,
+        })
+    }
+
     // create a new DIDLogEntry from current entry.
     pub fn generate_next_log_entry(&self) -> Result<Self, DidLogEntryError> {
         let (_, current_entry_hash) = self.parse_verion_id()?;
