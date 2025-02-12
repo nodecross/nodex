@@ -227,17 +227,17 @@ impl DidLogEntry {
     pub fn from_db(
         version_id: &str,
         version_time: &str,
-        parameters: &str,
-        state: &str,
-        proof: &str,
+        parameters: serde_json::Value,
+        state: serde_json::Value,
+        proof: serde_json::Value,
     ) -> Result<Self, DidLogEntryError> {
         Ok(Self {
             version_id: version_id.to_string(),
             version_time: version_time.to_string(),
-            parameters: serde_json::from_str(parameters)
+            parameters: serde_json::from_value(parameters)
                 .map_err(|_| DidLogEntryError::InvalidParameters)?,
-            state: serde_json::from_str(state).map_err(|_| DidLogEntryError::InvalidState)?,
-            proof: serde_json::from_str(proof).map_err(|_| DidLogEntryError::InvalidProof)?,
+            state: serde_json::from_value(state).map_err(|_| DidLogEntryError::InvalidState)?,
+            proof: serde_json::from_value(proof).map_err(|_| DidLogEntryError::InvalidProof)?,
         })
     }
 
