@@ -140,7 +140,7 @@ impl TryFrom<Jwk> for ed25519_dalek::VerifyingKey {
             .decode(value.x.as_bytes())
             .map_err(|e| JwkToEd25519Error::Decode(Some(e)))?;
         let pk: [u8; 32] = pk.try_into().map_err(|_| JwkToEd25519Error::Decode(None))?;
-        Ok(VerifyingKey::from_bytes(&pk).map_err(|e| JwkToEd25519Error::Crypt(e))?)
+        VerifyingKey::from_bytes(&pk).map_err(JwkToEd25519Error::Crypt)
     }
 }
 
