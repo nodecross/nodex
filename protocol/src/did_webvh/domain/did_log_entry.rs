@@ -321,15 +321,13 @@ impl DidLogEntry {
 
     // calculate the next key hashes by the Update Keys from the previous entry.
     pub fn calc_next_key_hash(&self, keys: &[String]) -> Result<Vec<String>, DidLogEntryError> {
-        let generate_hashed_keys = |keys: &[String]| {
-            keys.iter()
-                .map(|key| {
-                    generate_multihash_with_base58_encode(key.as_bytes())
-                        .map_err(|_| DidLogEntryError::FaildMultihash)
-                })
-                .collect::<Result<Vec<String>, DidLogEntryError>>()
-        };
-        let next_key_hashes = generate_hashed_keys(keys)?;
+        let next_key_hashes = keys
+            .iter()
+            .map(|key| {
+                generate_multihash_with_base58_encode(key.as_bytes())
+                    .map_err(|_| DidLogEntryError::FaildMultihash)
+            })
+            .collect::<Result<Vec<String>, DidLogEntryError>>()?;
         Ok(next_key_hashes)
     }
 }

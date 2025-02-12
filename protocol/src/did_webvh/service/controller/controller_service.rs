@@ -29,7 +29,7 @@ pub enum DidWebvhIdentifierError<StudioClientError: std::error::Error> {
 }
 
 #[trait_variant::make(Send)]
-pub trait DidWebvhService: Sync {
+pub trait DidWebvhControllerService: Sync {
     type DidWebvhIdentifierError: std::error::Error + Send + Sync;
     async fn create_identifier(
         &self,
@@ -60,7 +60,7 @@ impl<C: DidWebvhDataStore> DidWebvhServiceImpl<C> {
     }
 }
 
-impl<C> DidWebvhService for DidWebvhServiceImpl<C>
+impl<C> DidWebvhControllerService for DidWebvhServiceImpl<C>
 where
     C: DidWebvhDataStore + Send + Sync,
     C::Error: Send + Sync,
@@ -90,7 +90,7 @@ where
         if enable_prerotation {
             let prerotation_pub_key =
                 multibase_encode(&keyring.recovery.get_public_key().to_sec1_bytes());
-            let prerotation_keys = vec![prerotation_pub_key.clone()];
+            let prerotation_keys = vec![prerotation_pub_key];
             let next_key_hases = log_entry.calc_next_key_hash(&prerotation_keys)?;
             log_entry.parameters.next_key_hashes = Some(next_key_hases);
         }
