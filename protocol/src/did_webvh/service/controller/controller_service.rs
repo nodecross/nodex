@@ -1,3 +1,4 @@
+use super::super::service_impl::DidWebvhServiceImpl;
 use crate::did_webvh::domain::crypto::crypto_utils::multibase_encode;
 use crate::did_webvh::domain::did_document::{DidDocument, VerificationMethod};
 use crate::did_webvh::domain::did_log_entry::DidLogEntry;
@@ -47,17 +48,6 @@ pub trait DidWebvhControllerService: Sync {
         path: &str,
         keyring: KeyPairing,
     ) -> Result<DidDocument, Self::DidWebvhIdentifierError>;
-}
-
-#[derive(Clone)]
-pub struct DidWebvhServiceImpl<C: DidWebvhDataStore> {
-    data_store: C,
-}
-
-impl<C: DidWebvhDataStore> DidWebvhServiceImpl<C> {
-    pub fn new(data_store: C) -> Self {
-        Self { data_store }
-    }
 }
 
 impl<C> DidWebvhControllerService for DidWebvhServiceImpl<C>

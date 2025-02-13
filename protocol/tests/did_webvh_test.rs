@@ -5,7 +5,8 @@ mod tests {
     use protocol::did_webvh::infra::did_webvh_data_store::{
         DidLogEntryResponse, DidWebvhDataStore,
     };
-    use protocol::did_webvh::service::controller::controller_service::*;
+    use protocol::did_webvh::service::controller::controller_service::DidWebvhControllerService;
+    use protocol::did_webvh::service::service_impl::DidWebvhServiceImpl;
     use protocol::keyring::*;
     use rand_core::OsRng;
 
