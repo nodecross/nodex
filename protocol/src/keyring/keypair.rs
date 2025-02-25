@@ -1,8 +1,9 @@
 use std::convert::{TryFrom, TryInto};
 
+use ed25519_dalek::{SigningKey, VerifyingKey};
 use hex::FromHexError;
 use k256::elliptic_curve::sec1::ToEncodedPoint;
-use rand_core::{CryptoRng, RngCore};
+use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -131,32 +132,105 @@ impl KeyPair<x25519_dalek::StaticSecret, x25519_dalek::PublicKey> for X25519KeyP
 }
 
 #[derive(Clone)]
+pub struct Ed25519KeyPair {
+    secret_key: SigningKey,
+    public_key: VerifyingKey,
+}
+
+impl Ed25519KeyPair {
+    pub fn new(secret_key: SigningKey) -> Self {
+        let public_key = secret_key.verifying_key();
+        Ed25519KeyPair {
+            public_key,
+            secret_key,
+        }
+    }
+}
+
+impl KeyPair<SigningKey, VerifyingKey> for Ed25519KeyPair {
+    type Error = KeyPairingError;
+
+    fn get_secret_key(&self) -> SigningKey {
+        self.secret_key.clone()
+    }
+
+    fn get_public_key(&self) -> VerifyingKey {
+        self.public_key
+    }
+
+    fn to_hex_key_pair(&self) -> KeyPairHex {
+        let sk = self.secret_key.to_bytes();
+        let secret_key = hex::encode(sk);
+        let pk = self.public_key.to_bytes();
+        let public_key = hex::encode(pk);
+        KeyPairHex {
+            secret_key,
+            public_key,
+        }
+    }
+
+    fn from_hex_key_pair(kp: &KeyPairHex) -> Result<Self, KeyPairingError> {
+        let secret_key = hex::decode(&kp.secret_key)?;
+        let secret_key = SigningKey::from_bytes(&secret_key.try_into().map_err(|e: Vec<u8>| {
+            KeyPairingError::Crypt(format!("array length mismatch: {}", e.len()))
+        })?);
+        let public_key = hex::decode(&kp.public_key)?;
+        let public_key =
+            VerifyingKey::from_bytes(&public_key.try_into().map_err(|e: Vec<u8>| {
+                KeyPairingError::Crypt(format!("array length mismatch: {}", e.len()))
+            })?)
+            .map_err(|e| KeyPairingError::Crypt(e.to_string()))?;
+        Ok(Ed25519KeyPair {
+            public_key,
+            secret_key,
+        })
+    }
+}
+
+#[derive(Clone)]
 pub struct KeyPairing {
     pub sign: K256KeyPair,
-    pub update: K256KeyPair,
-    pub recovery: K256KeyPair,
+    pub update: Ed25519KeyPair,
+    pub next_key: Ed25519KeyPair,
     pub encrypt: X25519KeyPair,
+
+    // TODO: Remove when not using Sidetree.
+    pub sidetree_update: K256KeyPair,
+    pub sidetree_recovery: K256KeyPair,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct KeyPairingHex {
     pub sign: KeyPairHex,
     pub update: KeyPairHex,
-    pub recovery: KeyPairHex,
+    pub next_key: KeyPairHex,
     pub encrypt: KeyPairHex,
+
+    // TODO: Remove when not using Sidetree.
+    pub sidetree_update: KeyPairHex,
+    pub sidetree_recovery: KeyPairHex,
 }
 
 impl KeyPairing {
-    pub fn create_keyring<T: RngCore + CryptoRng>(mut csprng: T) -> Self {
+    pub fn create_keyring<T: CryptoRngCore>(mut csprng: T) -> Self {
         let sign = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
-        let update = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
-        let recovery = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
+        let sidetree_update = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
+        let sidetree_recovery = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
         let encrypt = X25519KeyPair::new(x25519_dalek::StaticSecret::random_from_rng(&mut csprng));
+
+        let mut bytes = [0u8; 32];
+        csprng.fill_bytes(&mut bytes);
+        let update = Ed25519KeyPair::new(SigningKey::from_bytes(&bytes));
+        bytes = [0u8; 32];
+        csprng.fill_bytes(&mut bytes);
+        let next_key = Ed25519KeyPair::new(SigningKey::from_bytes(&bytes));
         KeyPairing {
             sign,
             update,
-            recovery,
+            next_key,
             encrypt,
+            sidetree_update,
+            sidetree_recovery,
         }
     }
 }
@@ -166,8 +240,10 @@ impl From<&KeyPairing> for KeyPairingHex {
         KeyPairingHex {
             sign: keypair.sign.to_hex_key_pair(),
             update: keypair.update.to_hex_key_pair(),
-            recovery: keypair.recovery.to_hex_key_pair(),
+            next_key: keypair.next_key.to_hex_key_pair(),
             encrypt: keypair.encrypt.to_hex_key_pair(),
+            sidetree_update: keypair.sidetree_update.to_hex_key_pair(),
+            sidetree_recovery: keypair.sidetree_recovery.to_hex_key_pair(),
         }
     }
 }
@@ -177,15 +253,19 @@ impl TryFrom<&KeyPairingHex> for KeyPairing {
 
     fn try_from(hex: &KeyPairingHex) -> Result<Self, Self::Error> {
         let sign = K256KeyPair::from_hex_key_pair(&hex.sign)?;
-        let update = K256KeyPair::from_hex_key_pair(&hex.update)?;
-        let recovery = K256KeyPair::from_hex_key_pair(&hex.recovery)?;
+        let update = Ed25519KeyPair::from_hex_key_pair(&hex.update)?;
+        let next_key = Ed25519KeyPair::from_hex_key_pair(&hex.next_key)?;
         let encrypt = X25519KeyPair::from_hex_key_pair(&hex.encrypt)?;
+        let sidetree_update = K256KeyPair::from_hex_key_pair(&hex.sidetree_update)?;
+        let sidetree_recovery = K256KeyPair::from_hex_key_pair(&hex.sidetree_recovery)?;
 
         Ok(KeyPairing {
             sign,
             update,
-            recovery,
+            next_key,
             encrypt,
+            sidetree_update,
+            sidetree_recovery,
         })
     }
 }
@@ -202,7 +282,7 @@ pub mod tests {
 
         assert_eq!(keyring.sign.get_secret_key().to_bytes().len(), 32);
         assert_eq!(keyring.update.get_secret_key().to_bytes().len(), 32);
-        assert_eq!(keyring.recovery.get_secret_key().to_bytes().len(), 32);
+        assert_eq!(keyring.next_key.get_secret_key().to_bytes().len(), 32);
         assert_eq!(keyring.encrypt.get_secret_key().as_bytes().len(), 32);
     }
 }

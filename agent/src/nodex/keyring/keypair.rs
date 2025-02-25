@@ -2,16 +2,18 @@ use crate::{
     config::SingletonAppConfig,
     nodex::extension::secure_keystore::{SecureKeyStore, SecureKeyStoreKey},
 };
-use protocol::keyring::keypair::{K256KeyPair, X25519KeyPair};
+use protocol::keyring::keypair::{Ed25519KeyPair, K256KeyPair, X25519KeyPair};
 use protocol::rand_core::OsRng;
 
 use thiserror::Error;
 
 pub struct KeyPairingWithConfig<S: SecureKeyStore> {
     sign: K256KeyPair,
-    update: K256KeyPair,
-    recovery: K256KeyPair,
+    update: Ed25519KeyPair,
+    next_key: Ed25519KeyPair,
     encrypt: X25519KeyPair,
+    sidetree_update: K256KeyPair,
+    sidetree_recovery: K256KeyPair,
     config: Box<SingletonAppConfig>,
     secure_keystore: S,
 }
@@ -37,18 +39,26 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
         let update = secure_keystore
             .read_update()
             .ok_or(KeyPairingError::KeyNotFound)?;
-        let recovery = secure_keystore
-            .read_recovery()
+        let next_key = secure_keystore
+            .read_next_key()
             .ok_or(KeyPairingError::KeyNotFound)?;
         let encrypt = secure_keystore
             .read_encrypt()
+            .ok_or(KeyPairingError::KeyNotFound)?;
+        let sidetree_update = secure_keystore
+            .read_sidetree_update()
+            .ok_or(KeyPairingError::KeyNotFound)?;
+        let sidetree_recovery = secure_keystore
+            .read_sidetree_recovery()
             .ok_or(KeyPairingError::KeyNotFound)?;
 
         Ok(KeyPairingWithConfig {
             sign,
             update,
-            recovery,
+            next_key,
             encrypt,
+            sidetree_update,
+            sidetree_recovery,
             config,
             secure_keystore,
         })
@@ -61,8 +71,10 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
         KeyPairingWithConfig {
             sign: keyring.sign,
             update: keyring.update,
-            recovery: keyring.recovery,
+            next_key: keyring.next_key,
             encrypt: keyring.encrypt,
+            sidetree_update: keyring.sidetree_update,
+            sidetree_recovery: keyring.sidetree_recovery,
             config,
             secure_keystore,
         }
@@ -72,8 +84,10 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
         protocol::keyring::keypair::KeyPairing {
             sign: self.sign.clone(),
             update: self.update.clone(),
-            recovery: self.recovery.clone(),
+            next_key: self.next_key.clone(),
             encrypt: self.encrypt.clone(),
+            sidetree_update: self.sidetree_update.clone(),
+            sidetree_recovery: self.sidetree_recovery.clone(),
         }
     }
 
@@ -83,9 +97,15 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
         self.secure_keystore
             .write(&SecureKeyStoreKey::Update(&self.update));
         self.secure_keystore
-            .write(&SecureKeyStoreKey::Recovery(&self.recovery));
+            .write(&SecureKeyStoreKey::NextKey(&self.next_key));
         self.secure_keystore
             .write(&SecureKeyStoreKey::Encrypt(&self.encrypt));
+        self.secure_keystore
+            .write(&SecureKeyStoreKey::SidetreeUpdate(&self.sidetree_update));
+        self.secure_keystore
+            .write(&SecureKeyStoreKey::SidetreeRecovery(
+                &self.sidetree_recovery,
+            ));
         {
             let mut config = self.config.lock();
             config.save_did(did);

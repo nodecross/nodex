@@ -1,6 +1,6 @@
 use home_config::HomeConfig;
 use protocol::keyring::keypair::{
-    K256KeyPair, KeyPair, KeyPairHex, KeyPairing, KeyPairingError, X25519KeyPair,
+    Ed25519KeyPair, K256KeyPair, KeyPair, KeyPairHex, KeyPairing, KeyPairingError, X25519KeyPair,
 };
 use serde::Deserialize;
 use serde::Serialize;
@@ -21,8 +21,11 @@ use crate::nodex::utils::UnwrapLog;
 struct KeyPairsConfig {
     sign: Option<KeyPairHex>,
     update: Option<KeyPairHex>,
-    recovery: Option<KeyPairHex>,
+    next_key: Option<KeyPairHex>,
     encrypt: Option<KeyPairHex>,
+
+    sidetree_update: Option<KeyPairHex>,
+    sidetree_recovery: Option<KeyPairHex>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -79,8 +82,10 @@ impl Default for ConfigRoot {
             key_pairs: KeyPairsConfig {
                 sign: None,
                 update: None,
-                recovery: None,
+                next_key: None,
                 encrypt: None,
+                sidetree_update: None,
+                sidetree_recovery: None,
             },
             extensions: ExtensionsConfig {
                 trng: None,
@@ -233,15 +238,37 @@ impl AppConfig {
 
     pub fn load_keyring(&self) -> Option<KeyPairing> {
         let sign = self.load_sign_key_pair()?;
-        let update = self.load_update_key_pair()?;
-        let recovery = self.load_recovery_key_pair()?;
+        let sidetree_update = self.load_sidetree_update_key_pair()?;
+        let sidetree_recovery = self.load_sidetree_recovery_key_pair()?;
         let encrypt = self.load_encrypt_key_pair()?;
+        let update = self.load_update_key_pair()?;
+        let next_key = self.load_next_key_pair()?;
         Some(KeyPairing {
             sign,
             update,
-            recovery,
+            next_key,
             encrypt,
+            sidetree_update,
+            sidetree_recovery,
         })
+    }
+
+    pub fn load_update_key_pair(&self) -> Option<Ed25519KeyPair> {
+        load_key_pair(&self.root.key_pairs.update)
+    }
+
+    pub fn save_update_key_pair(&mut self, value: &Ed25519KeyPair) {
+        self.root.key_pairs.update = Some(value.to_hex_key_pair());
+        self.write().unwrap();
+    }
+
+    pub fn load_next_key_pair(&self) -> Option<Ed25519KeyPair> {
+        load_key_pair(&self.root.key_pairs.next_key)
+    }
+
+    pub fn save_next_key_pair(&mut self, value: &Ed25519KeyPair) {
+        self.root.key_pairs.next_key = Some(value.to_hex_key_pair());
+        self.write().unwrap();
     }
 
     pub fn save_sign_key_pair(&mut self, value: &K256KeyPair) {
@@ -249,21 +276,21 @@ impl AppConfig {
         self.write().unwrap();
     }
 
-    pub fn load_update_key_pair(&self) -> Option<K256KeyPair> {
-        load_key_pair(&self.root.key_pairs.update)
+    pub fn load_sidetree_update_key_pair(&self) -> Option<K256KeyPair> {
+        load_key_pair(&self.root.key_pairs.sidetree_update)
     }
 
-    pub fn save_update_key_pair(&mut self, value: &K256KeyPair) {
-        self.root.key_pairs.update = Some(value.to_hex_key_pair());
+    pub fn save_sidetree_update_key_pair(&mut self, value: &K256KeyPair) {
+        self.root.key_pairs.sidetree_update = Some(value.to_hex_key_pair());
         self.write().unwrap();
     }
 
-    pub fn load_recovery_key_pair(&self) -> Option<K256KeyPair> {
-        load_key_pair(&self.root.key_pairs.recovery)
+    pub fn load_sidetree_recovery_key_pair(&self) -> Option<K256KeyPair> {
+        load_key_pair(&self.root.key_pairs.sidetree_recovery)
     }
 
-    pub fn save_recovery_key_pair(&mut self, value: &K256KeyPair) {
-        self.root.key_pairs.recovery = Some(value.to_hex_key_pair());
+    pub fn save_sidetree_recovery_key_pair(&mut self, value: &K256KeyPair) {
+        self.root.key_pairs.sidetree_recovery = Some(value.to_hex_key_pair());
         self.write().unwrap();
     }
 

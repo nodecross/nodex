@@ -12,6 +12,8 @@ pub enum CryptoError {
     FailedToGenerateHash,
     #[error("Failed to sign data")]
     FailedToSignData,
+    #[error("Failed to verify signature: {0}")]
+    FailedToVerifySignature(String),
 }
 
 pub fn generate_multihash_with_base58_encode(data: &[u8]) -> Result<String, CryptoError> {
@@ -44,6 +46,19 @@ pub fn sign_data(data: &[u8], key: &[u8]) -> Result<String, CryptoError> {
     Ok(proof_value)
 }
 
+pub fn verify_signature(data: &[u8], signature: &[u8], key: &[u8]) -> Result<bool, CryptoError> {
+    eprintln!("sig_len: {:?}", signature.len());
+    let verify_key =
+        VerifyingKey::from_bytes(key.try_into().map_err(|_| {
+            CryptoError::FailedToVerifySignature("Failed to convert key".to_string())
+        })?)
+        .map_err(|e| CryptoError::FailedToVerifySignature(e.to_string()))?;
+    let signature =
+        Signature::from_bytes(signature.try_into().expect("Failed to convert signature"));
+    let result = verify_key.verify(data, &signature);
+    Ok(result.is_ok())
+}
+
 pub fn multibase_encode(data: &[u8]) -> String {
     multibase::encode(Base::Base58Btc, data)
 }
@@ -56,6 +71,8 @@ pub fn multibase_decode(data: &str) -> Result<Vec<u8>, multibase::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::keyring::keypair::*;
+    use crate::rand_core::OsRng;
 
     #[test]
     fn test_generate_multihash_with_base58encode() {
@@ -74,5 +91,18 @@ mod tests {
 
         let invalid_hash = "scid";
         assert!(!validate_hash(invalid_hash));
+    }
+
+    #[test]
+    fn test_sign_data() -> Result<(), CryptoError> {
+        let plaintext = "Hello, World!";
+        let keypairs = KeyPairing::create_keyring(OsRng);
+        let sec_key = keypairs.update.get_secret_key().to_bytes();
+        let pub_key = keypairs.update.get_public_key().to_bytes();
+        let signature = sign_data(plaintext.as_bytes(), &sec_key).unwrap();
+        let decoded_signature = multibase_decode(&signature).unwrap();
+        let verified = verify_signature(plaintext.as_bytes(), &decoded_signature, &pub_key)?;
+        assert!(verified);
+        Ok(())
     }
 }
