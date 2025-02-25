@@ -12,8 +12,8 @@ pub enum CryptoError {
     FailedToGenerateHash,
     #[error("Failed to sign data")]
     FailedToSignData,
-    #[error("Failed to verify signature: {0}")]
-    FailedToVerifySignature(String),
+    #[error("Failed to verify signature")]
+    FailedToVerifySignature,
 }
 
 pub fn generate_multihash_with_base58_encode(data: &[u8]) -> Result<String, CryptoError> {
@@ -47,12 +47,11 @@ pub fn sign_data(data: &[u8], key: &[u8]) -> Result<String, CryptoError> {
 }
 
 pub fn verify_signature(data: &[u8], signature: &[u8], key: &[u8]) -> Result<bool, CryptoError> {
-    eprintln!("sig_len: {:?}", signature.len());
-    let verify_key =
-        VerifyingKey::from_bytes(key.try_into().map_err(|_| {
-            CryptoError::FailedToVerifySignature("Failed to convert key".to_string())
-        })?)
-        .map_err(|e| CryptoError::FailedToVerifySignature(e.to_string()))?;
+    let verify_key = VerifyingKey::from_bytes(
+        key.try_into()
+            .map_err(|_| CryptoError::FailedToVerifySignature)?,
+    )
+    .map_err(|_| CryptoError::FailedToVerifySignature)?;
     let signature =
         Signature::from_bytes(signature.try_into().expect("Failed to convert signature"));
     let result = verify_key.verify(data, &signature);
