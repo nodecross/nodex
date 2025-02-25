@@ -9,11 +9,11 @@ const SHA256: u64 = 0x12;
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum CryptoError {
     #[error("Failed to generate hash")]
-    FailedToGenerateHash,
+    GenerateHash,
     #[error("Failed to sign data")]
-    FailedToSignData,
+    SignData,
     #[error("Failed to verify signature")]
-    FailedToVerifySignature,
+    Signature,
 }
 
 pub fn generate_multihash_with_base58_encode(data: &[u8]) -> Result<String, CryptoError> {
@@ -21,7 +21,7 @@ pub fn generate_multihash_with_base58_encode(data: &[u8]) -> Result<String, Cryp
     hasher.update(data);
     let hash = hasher.finalize();
     let wrapped_hash =
-        Multihash::<32>::wrap(SHA256, &hash).map_err(|_| CryptoError::FailedToGenerateHash)?;
+        Multihash::<32>::wrap(SHA256, &hash).map_err(|_| CryptoError::GenerateHash)?;
     Ok(bs58::encode(wrapped_hash.to_bytes()).into_string())
 }
 
@@ -39,19 +39,15 @@ pub fn validate_hash(hash: &str) -> bool {
 }
 
 pub fn sign_data(data: &[u8], key: &[u8]) -> Result<String, CryptoError> {
-    let sign_key =
-        SigningKey::from_bytes(key.try_into().map_err(|_| CryptoError::FailedToSignData)?);
+    let sign_key = SigningKey::from_bytes(key.try_into().map_err(|_| CryptoError::SignData)?);
     let signature = sign_key.sign(data);
     let proof_value = multibase_encode(&signature.to_bytes());
     Ok(proof_value)
 }
 
 pub fn verify_signature(data: &[u8], signature: &[u8], key: &[u8]) -> Result<bool, CryptoError> {
-    let verify_key = VerifyingKey::from_bytes(
-        key.try_into()
-            .map_err(|_| CryptoError::FailedToVerifySignature)?,
-    )
-    .map_err(|_| CryptoError::FailedToVerifySignature)?;
+    let verify_key = VerifyingKey::from_bytes(key.try_into().map_err(|_| CryptoError::Signature)?)
+        .map_err(|_| CryptoError::Signature)?;
     let signature =
         Signature::from_bytes(signature.try_into().expect("Failed to convert signature"));
     let result = verify_key.verify(data, &signature);
