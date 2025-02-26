@@ -285,4 +285,60 @@ pub mod tests {
         assert_eq!(keyring.next_key.get_secret_key().to_bytes().len(), 32);
         assert_eq!(keyring.encrypt.get_secret_key().as_bytes().len(), 32);
     }
+
+    #[test]
+    pub fn test_keypair_hex() {
+        let keyring = KeyPairing::create_keyring(OsRng);
+        let hex = KeyPairingHex::from(&keyring);
+        let keyring2 = KeyPairing::try_from(&hex).unwrap();
+
+        assert_eq!(
+            keyring.sign.to_hex_key_pair().secret_key,
+            keyring2.sign.to_hex_key_pair().secret_key
+        );
+        assert_eq!(
+            keyring.sign.to_hex_key_pair().public_key,
+            keyring2.sign.to_hex_key_pair().public_key
+        );
+        assert_eq!(
+            keyring.update.to_hex_key_pair().secret_key,
+            keyring2.update.to_hex_key_pair().secret_key
+        );
+        assert_eq!(
+            keyring.update.to_hex_key_pair().public_key,
+            keyring2.update.to_hex_key_pair().public_key
+        );
+        assert_eq!(
+            keyring.next_key.to_hex_key_pair().secret_key,
+            keyring2.next_key.to_hex_key_pair().secret_key
+        );
+        assert_eq!(
+            keyring.next_key.to_hex_key_pair().public_key,
+            keyring2.next_key.to_hex_key_pair().public_key
+        );
+        assert_eq!(
+            keyring.encrypt.to_hex_key_pair().secret_key,
+            keyring2.encrypt.to_hex_key_pair().secret_key
+        );
+        assert_eq!(
+            keyring.encrypt.to_hex_key_pair().public_key,
+            keyring2.encrypt.to_hex_key_pair().public_key
+        );
+        assert_eq!(
+            keyring.sidetree_update.to_hex_key_pair().secret_key,
+            keyring2.sidetree_update.to_hex_key_pair().secret_key
+        );
+        assert_eq!(
+            keyring.sidetree_update.to_hex_key_pair().public_key,
+            keyring2.sidetree_update.to_hex_key_pair().public_key
+        );
+        assert_eq!(
+            keyring.sidetree_recovery.to_hex_key_pair().secret_key,
+            keyring2.sidetree_recovery.to_hex_key_pair().secret_key
+        );
+        assert_eq!(
+            keyring.sidetree_recovery.to_hex_key_pair().public_key,
+            keyring2.sidetree_recovery.to_hex_key_pair().public_key
+        );
+    }
 }
