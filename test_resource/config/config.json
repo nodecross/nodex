@@ -6,10 +6,18 @@
       "secret_key": "afdeba17fc1535fc4e6a87b3aec5849350e2416a5b63422827600fd757d2cfd4"
     },
     "update": {
+      "public_key": "6f0de9be3c1f7260cf60a4dcc37453c3abd2a058d7d75a4b97c2f5916e3508f",
+      "secret_key": "ce15525181f2be64ca04dec892f1893d1ca30906b995c5553c948ea24832819"
+    },
+    "next_key": {
+      "public_key": "c75ce7a85764d7bc3e3763352f1e49d036b98b262717698d476fb7152140503",
+      "secret_key": "4b23a298ece9ad85125930805b332d8b3a9e0e5a3b05b36ee0a06bb9bbab5b2"
+    },
+    "sidetree_update": {
       "public_key": "044774bc14a0735863449f61d54124b3583c8b712754eb485fe103efd4f629ab1709a5db5d4d7f4dbd2e3ea1d0ed7e7d1cf74b6cd82aed3d77f420acf1093e219a",
       "secret_key": "6f4e3c506fd787aa21564241c9544bf12e43e6f5405aaa3e760df582e0be5525"
     },
-    "recovery": {
+    "sidetree_recovery": {
       "public_key": "044c53a5b9aff75ad04cb1ea5cd3ea5ed0ea48c04a2d3607679e69b25d1204ff253cc956a2f49fc87cfc45aef567ef81a90fd35c82c1efc28e1e45dd10979cd6f6",
       "secret_key": "0371e003441d2127314cbfa7026ee8ebe560cd22522dfa4288ad7b15fa837e29"
     },

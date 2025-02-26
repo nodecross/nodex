@@ -72,14 +72,14 @@ where
         let mut log_entry = DidLogEntry::new(path)?;
         let update_keypair = keyring.update;
         let update_sec_key = update_keypair.get_secret_key().to_bytes();
-        let update_pub_key = multibase_encode(&update_keypair.get_public_key().to_sec1_bytes());
+        let update_pub_key = multibase_encode(&update_keypair.get_public_key().to_bytes());
         let update_keys = vec![update_pub_key.clone()];
         log_entry.parameters.update_keys = Some(update_keys);
 
         // if prerotation is enabled, add the prerotation key to the next_key_hashes
         if enable_prerotation {
             let prerotation_pub_key =
-                multibase_encode(&keyring.recovery.get_public_key().to_sec1_bytes());
+                multibase_encode(&keyring.next_key.get_public_key().to_bytes());
             let prerotation_keys = vec![prerotation_pub_key];
             let next_key_hases = log_entry.calc_next_key_hash(&prerotation_keys)?;
             log_entry.parameters.next_key_hashes = Some(next_key_hases);
