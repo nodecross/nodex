@@ -105,7 +105,7 @@ impl NodeX {
                 .await
                 .map_err(|e| anyhow::anyhow!(e))?;
 
-            resource_manager.verify(output_path).await.map_err(|e| {
+            resource_manager.verify(output_path).map_err(|e| {
                 log::error!("Failed to verify: {}", e);
                 anyhow::anyhow!(e)
             })?;

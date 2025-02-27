@@ -1,5 +1,5 @@
 use crate::config::get_config;
-use crate::validator::sigstore::{BundleVerifier, TrustRootDownloader, Verifier, VerifyError};
+use crate::validator::sigstore::{BundleVerifier, Verifier, VerifyError};
 use bytes::Bytes;
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use glob::glob;
@@ -12,8 +12,8 @@ use std::{
 use tar::{Archive, Builder, Header};
 #[cfg(unix)]
 use users::{get_current_gid, get_current_uid};
-use zip::{result::ZipError, ZipArchive};
 use walkdir::WalkDir;
+use zip::{result::ZipError, ZipArchive};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ResourceError {
@@ -96,15 +96,20 @@ pub trait ResourceManagerTrait: Send + Sync {
 
             self.extract_zip(content, download_path)?;
 
-            let nodex_agent_path = self.find_file(&download_path, "nodex-agent")
-            .ok_or_else(|| ResourceError::FileNotFound("nodex-agent".to_string()))?;
-            let nodex_agent_bundle_path = self.find_file(&download_path, "nodex-agent.bundle")
-            .ok_or_else(|| ResourceError::FileNotFound("nodex-agent.bundle".to_string()))?;
-    
+            let nodex_agent_path = self
+                .find_file(download_path, "nodex-agent")
+                .ok_or_else(|| ResourceError::FileNotFound("nodex-agent".to_string()))?;
+            let nodex_agent_bundle_path = self
+                .find_file(download_path, "nodex-agent.bundle")
+                .ok_or_else(|| ResourceError::FileNotFound("nodex-agent.bundle".to_string()))?;
+
             fs::rename(&nodex_agent_path, download_path.join("nodex-agent"))
                 .map_err(|e| ResourceError::MoveFailed(e.to_string()))?;
-            fs::rename(&nodex_agent_bundle_path, download_path.join("nodex-agent.bundle"))
-                .map_err(|e| ResourceError::MoveFailed(e.to_string()))?;
+            fs::rename(
+                &nodex_agent_bundle_path,
+                download_path.join("nodex-agent.bundle"),
+            )
+            .map_err(|e| ResourceError::MoveFailed(e.to_string()))?;
 
             Ok(())
         }
@@ -116,11 +121,9 @@ pub trait ResourceManagerTrait: Send + Sync {
     }
 
     fn find_file(&self, dir: &PathBuf, target: &str) -> Option<PathBuf> {
-        for entry in WalkDir::new(dir) {
-            if let Ok(entry) = entry {
-                if entry.file_name() == target {
-                    return Some(entry.into_path());
-                }
+        for entry in WalkDir::new(dir).into_iter().flatten() {
+            if entry.file_name() == target {
+                return Some(entry.into_path());
             }
         }
         None
@@ -183,23 +186,20 @@ pub trait ResourceManagerTrait: Send + Sync {
         Ok(())
     }
 
-    async fn verify(&self, downloaded_path: &Path) -> Result<(), ResourceError> {
-        async move {
-            BundleVerifier::new(TrustRootDownloader)
-                .verify(
-                    self.tmp_path(),
-                    downloaded_path.join("nodex-agent.bundle"),
-                    downloaded_path.join("nodex-agent"),
-                    "https://github.com/nodecross/nodex/blob/main/.github/workflows/release.yml@refs/heads/main",
-                    "https://token.actions.githubusercontent.com"
-                )
-                .await
-                .map_err(ResourceError::VerifyError)?;
+    fn verify(&self, downloaded_path: &Path) -> Result<(), ResourceError> {
+        let verifier = BundleVerifier;
+        verifier
+            .verify(
+                downloaded_path.join("nodex-agent.bundle"),
+                downloaded_path.join("nodex-agent"),
+                "https://github.com/nodecross/nodex/blob/main/.github/workflows/release.yml@refs/heads/main",
+                "https://token.actions.githubusercontent.com"
+            )
+            .map_err(ResourceError::VerifyError)?;
 
-            log::info!("Verified successfully");
+        log::info!("Verified successfully");
 
-            Ok(())
-        }
+        Ok(())
     }
 
     fn remove_directory(&self, path: &Path) -> Result<(), io::Error> {
