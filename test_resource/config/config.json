@@ -14,8 +14,8 @@
       "secret_key": "c0b66759338d14ff83ce7d87be5da7a8db971f55b5d9d8b7b5fdb2195e7156b3"
     },
     "encrypt": {
-      "public_key": "1e1393ce864e94cbdc639758c7f24bd27541781a58b9bf78432d891d05bc157b",
-      "secret_key": "4c9afc9cdb4f2229bd9209bb77543301c643f44043de92f5bc17fe00c839c4d4"
+      "public_key": "52759ee856705042bafc8c2c8ce8b22f654e05c28e4ac73b909944af33c8ef47",
+      "secret_key": "f2fb5e0873f2d1373817a505ecefc68c90dbb245e76f3ddb7297e1663eebccc1"
     },
     "didwebvh_update": {
       "public_key": "4dfb225ea4923a0192258166a79c8b83bf5d2e76cd235099978f58c5aa614e80",
@@ -39,4 +39,3 @@
   "is_initialized": true,
   "schema_version": 1
 }
-
