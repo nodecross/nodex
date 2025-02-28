@@ -4,31 +4,31 @@ use crate::config::SingletonAppConfig;
 
 pub enum SecureKeyStoreKey<'a> {
     Sign(&'a K256KeyPair),
-    Update(&'a Ed25519KeyPair),
-    NextKey(&'a Ed25519KeyPair),
+    Update(&'a K256KeyPair),
+    Recovery(&'a K256KeyPair),
     Encrypt(&'a X25519KeyPair),
-    SidetreeUpdate(&'a K256KeyPair),
-    SidetreeRecovery(&'a K256KeyPair),
+    DidWebvhUpdate(&'a Ed25519KeyPair),
+    DidWebvhRecovery(&'a Ed25519KeyPair),
 }
 
 #[derive(Debug)]
 pub enum SecureKeyStoreType {
     Sign,
     Update,
-    NextKey,
+    Recovery,
     Encrypt,
-    SidetreeUpdate,
-    SidetreeRecovery,
+    DidWebvhUpdate,
+    DidWebvhRecovery,
 }
 
 pub trait SecureKeyStore {
     fn write(&self, key_pair: &SecureKeyStoreKey);
     fn read_sign(&self) -> Option<K256KeyPair>;
-    fn read_update(&self) -> Option<Ed25519KeyPair>;
-    fn read_next_key(&self) -> Option<Ed25519KeyPair>;
+    fn read_update(&self) -> Option<K256KeyPair>;
+    fn read_recovery(&self) -> Option<K256KeyPair>;
     fn read_encrypt(&self) -> Option<X25519KeyPair>;
-    fn read_sidetree_update(&self) -> Option<K256KeyPair>;
-    fn read_sidetree_recovery(&self) -> Option<K256KeyPair>;
+    fn read_didwebvh_update(&self) -> Option<Ed25519KeyPair>;
+    fn read_didwebvh_recovery(&self) -> Option<Ed25519KeyPair>;
 }
 
 #[derive(Clone)]
@@ -46,10 +46,10 @@ fn k2t(k: &SecureKeyStoreKey) -> SecureKeyStoreType {
     match k {
         SecureKeyStoreKey::Sign(_) => SecureKeyStoreType::Sign,
         SecureKeyStoreKey::Update(_) => SecureKeyStoreType::Update,
-        SecureKeyStoreKey::NextKey(_) => SecureKeyStoreType::NextKey,
+        SecureKeyStoreKey::Recovery(_) => SecureKeyStoreType::Recovery,
         SecureKeyStoreKey::Encrypt(_) => SecureKeyStoreType::Encrypt,
-        SecureKeyStoreKey::SidetreeUpdate(_) => SecureKeyStoreType::SidetreeUpdate,
-        SecureKeyStoreKey::SidetreeRecovery(_) => SecureKeyStoreType::SidetreeRecovery,
+        SecureKeyStoreKey::DidWebvhUpdate(_) => SecureKeyStoreType::DidWebvhUpdate,
+        SecureKeyStoreKey::DidWebvhRecovery(_) => SecureKeyStoreType::DidWebvhRecovery,
     }
 }
 
@@ -62,10 +62,10 @@ impl SecureKeyStore for FileBaseKeyStore {
         match key_pair {
             SecureKeyStoreKey::Sign(k) => config.save_sign_key_pair(k),
             SecureKeyStoreKey::Update(k) => config.save_update_key_pair(k),
-            SecureKeyStoreKey::NextKey(k) => config.save_next_key_pair(k),
+            SecureKeyStoreKey::Recovery(k) => config.save_recovery_key_pair(k),
             SecureKeyStoreKey::Encrypt(k) => config.save_encrypt_key_pair(k),
-            SecureKeyStoreKey::SidetreeUpdate(k) => config.save_sidetree_update_key_pair(k),
-            SecureKeyStoreKey::SidetreeRecovery(k) => config.save_sidetree_recovery_key_pair(k),
+            SecureKeyStoreKey::DidWebvhUpdate(k) => config.save_didwebvh_update_key_pair(k),
+            SecureKeyStoreKey::DidWebvhRecovery(k) => config.save_didwebvh_recovery_key_pair(k),
         };
     }
 
@@ -74,29 +74,29 @@ impl SecureKeyStore for FileBaseKeyStore {
         let config = self.config.lock();
         config.load_sign_key_pair()
     }
-    fn read_update(&self) -> Option<Ed25519KeyPair> {
+    fn read_update(&self) -> Option<K256KeyPair> {
         log::debug!("Called: read_internal (type: update)");
         let config = self.config.lock();
         config.load_update_key_pair()
     }
-    fn read_next_key(&self) -> Option<Ed25519KeyPair> {
+    fn read_recovery(&self) -> Option<K256KeyPair> {
         log::debug!("Called: read_internal (type: recovery)");
         let config = self.config.lock();
-        config.load_next_key_pair()
+        config.load_recovery_key_pair()
     }
     fn read_encrypt(&self) -> Option<X25519KeyPair> {
         log::debug!("Called: read_internal (type: encrypt)");
         let config = self.config.lock();
         config.load_encrypt_key_pair()
     }
-    fn read_sidetree_update(&self) -> Option<K256KeyPair> {
+    fn read_didwebvh_update(&self) -> Option<Ed25519KeyPair> {
         log::debug!("Called: read_internal (type: sidetree_update)");
         let config = self.config.lock();
-        config.load_sidetree_update_key_pair()
+        config.load_didwebvh_update_key_pair()
     }
-    fn read_sidetree_recovery(&self) -> Option<K256KeyPair> {
+    fn read_didwebvh_recovery(&self) -> Option<Ed25519KeyPair> {
         log::debug!("Called: read_internal (type: sidetree_recovery)");
         let config = self.config.lock();
-        config.load_sidetree_recovery_key_pair()
+        config.load_didwebvh_recovery_key_pair()
     }
 }

@@ -9,11 +9,11 @@ use thiserror::Error;
 
 pub struct KeyPairingWithConfig<S: SecureKeyStore> {
     sign: K256KeyPair,
-    update: Ed25519KeyPair,
-    next_key: Ed25519KeyPair,
+    update: K256KeyPair,
+    recovery: K256KeyPair,
     encrypt: X25519KeyPair,
-    sidetree_update: K256KeyPair,
-    sidetree_recovery: K256KeyPair,
+    didwebvh_update: Ed25519KeyPair,
+    didwebvh_recovery: Ed25519KeyPair,
     config: Box<SingletonAppConfig>,
     secure_keystore: S,
 }
@@ -39,26 +39,26 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
         let update = secure_keystore
             .read_update()
             .ok_or(KeyPairingError::KeyNotFound)?;
-        let next_key = secure_keystore
-            .read_next_key()
+        let recovery = secure_keystore
+            .read_recovery()
             .ok_or(KeyPairingError::KeyNotFound)?;
         let encrypt = secure_keystore
             .read_encrypt()
             .ok_or(KeyPairingError::KeyNotFound)?;
-        let sidetree_update = secure_keystore
-            .read_sidetree_update()
+        let didwebvh_update = secure_keystore
+            .read_didwebvh_update()
             .ok_or(KeyPairingError::KeyNotFound)?;
-        let sidetree_recovery = secure_keystore
-            .read_sidetree_recovery()
+        let didwebvh_recovery = secure_keystore
+            .read_didwebvh_recovery()
             .ok_or(KeyPairingError::KeyNotFound)?;
 
         Ok(KeyPairingWithConfig {
             sign,
             update,
-            next_key,
+            recovery,
             encrypt,
-            sidetree_update,
-            sidetree_recovery,
+            didwebvh_update,
+            didwebvh_recovery,
             config,
             secure_keystore,
         })
@@ -71,10 +71,10 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
         KeyPairingWithConfig {
             sign: keyring.sign,
             update: keyring.update,
-            next_key: keyring.next_key,
+            recovery: keyring.recovery,
             encrypt: keyring.encrypt,
-            sidetree_update: keyring.sidetree_update,
-            sidetree_recovery: keyring.sidetree_recovery,
+            didwebvh_update: keyring.didwebvh_update,
+            didwebvh_recovery: keyring.didwebvh_recovery,
             config,
             secure_keystore,
         }
@@ -84,10 +84,10 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
         protocol::keyring::keypair::KeyPairing {
             sign: self.sign.clone(),
             update: self.update.clone(),
-            next_key: self.next_key.clone(),
+            recovery: self.recovery.clone(),
             encrypt: self.encrypt.clone(),
-            sidetree_update: self.sidetree_update.clone(),
-            sidetree_recovery: self.sidetree_recovery.clone(),
+            didwebvh_update: self.didwebvh_update.clone(),
+            didwebvh_recovery: self.didwebvh_recovery.clone(),
         }
     }
 
@@ -97,14 +97,14 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
         self.secure_keystore
             .write(&SecureKeyStoreKey::Update(&self.update));
         self.secure_keystore
-            .write(&SecureKeyStoreKey::NextKey(&self.next_key));
+            .write(&SecureKeyStoreKey::Recovery(&self.recovery));
         self.secure_keystore
             .write(&SecureKeyStoreKey::Encrypt(&self.encrypt));
         self.secure_keystore
-            .write(&SecureKeyStoreKey::SidetreeUpdate(&self.sidetree_update));
+            .write(&SecureKeyStoreKey::DidWebvhUpdate(&self.didwebvh_update));
         self.secure_keystore
-            .write(&SecureKeyStoreKey::SidetreeRecovery(
-                &self.sidetree_recovery,
+            .write(&SecureKeyStoreKey::DidWebvhRecovery(
+                &self.didwebvh_recovery,
             ));
         {
             let mut config = self.config.lock();

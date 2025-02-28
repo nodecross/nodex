@@ -92,8 +92,8 @@ mod tests {
     fn test_sign_data() -> Result<(), CryptoError> {
         let plaintext = "Hello, World!";
         let keypairs = KeyPairing::create_keyring(OsRng);
-        let sec_key = keypairs.update.get_secret_key().to_bytes();
-        let pub_key = keypairs.update.get_public_key().to_bytes();
+        let sec_key = keypairs.didwebvh_update.get_secret_key().to_bytes();
+        let pub_key = keypairs.didwebvh_update.get_public_key().to_bytes();
         let signature = sign_data(plaintext.as_bytes(), &sec_key).unwrap();
         let decoded_signature = multibase_decode(&signature).unwrap();
         let verified = verify_signature(plaintext.as_bytes(), &decoded_signature, &pub_key)?;

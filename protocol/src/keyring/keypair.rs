@@ -190,47 +190,49 @@ impl KeyPair<SigningKey, VerifyingKey> for Ed25519KeyPair {
 #[derive(Clone)]
 pub struct KeyPairing {
     pub sign: K256KeyPair,
-    pub update: Ed25519KeyPair,
-    pub next_key: Ed25519KeyPair,
+    // TODO: Remove when not using Sidetree.
+    pub update: K256KeyPair,
+    pub recovery: K256KeyPair,
+
     pub encrypt: X25519KeyPair,
 
-    // TODO: Remove when not using Sidetree.
-    pub sidetree_update: K256KeyPair,
-    pub sidetree_recovery: K256KeyPair,
+    pub didwebvh_update: Ed25519KeyPair,
+    pub didwebvh_recovery: Ed25519KeyPair,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct KeyPairingHex {
     pub sign: KeyPairHex,
+    // TODO: Remove when not using Sidetree.
     pub update: KeyPairHex,
-    pub next_key: KeyPairHex,
+    pub recovery: KeyPairHex,
+
     pub encrypt: KeyPairHex,
 
-    // TODO: Remove when not using Sidetree.
-    pub sidetree_update: KeyPairHex,
-    pub sidetree_recovery: KeyPairHex,
+    pub didwebvh_update: KeyPairHex,
+    pub didwebvh_recovery: KeyPairHex,
 }
 
 impl KeyPairing {
     pub fn create_keyring<T: CryptoRngCore>(mut csprng: T) -> Self {
         let sign = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
-        let sidetree_update = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
-        let sidetree_recovery = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
+        let update = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
+        let recovery = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
         let encrypt = X25519KeyPair::new(x25519_dalek::StaticSecret::random_from_rng(&mut csprng));
 
         let mut bytes = [0u8; 32];
         csprng.fill_bytes(&mut bytes);
-        let update = Ed25519KeyPair::new(SigningKey::from_bytes(&bytes));
+        let didwebvh_update = Ed25519KeyPair::new(SigningKey::from_bytes(&bytes));
         bytes = [0u8; 32];
         csprng.fill_bytes(&mut bytes);
-        let next_key = Ed25519KeyPair::new(SigningKey::from_bytes(&bytes));
+        let didwebvh_recovery = Ed25519KeyPair::new(SigningKey::from_bytes(&bytes));
         KeyPairing {
             sign,
             update,
-            next_key,
+            recovery,
             encrypt,
-            sidetree_update,
-            sidetree_recovery,
+            didwebvh_update,
+            didwebvh_recovery,
         }
     }
 }
@@ -240,10 +242,10 @@ impl From<&KeyPairing> for KeyPairingHex {
         KeyPairingHex {
             sign: keypair.sign.to_hex_key_pair(),
             update: keypair.update.to_hex_key_pair(),
-            next_key: keypair.next_key.to_hex_key_pair(),
+            recovery: keypair.recovery.to_hex_key_pair(),
             encrypt: keypair.encrypt.to_hex_key_pair(),
-            sidetree_update: keypair.sidetree_update.to_hex_key_pair(),
-            sidetree_recovery: keypair.sidetree_recovery.to_hex_key_pair(),
+            didwebvh_update: keypair.didwebvh_update.to_hex_key_pair(),
+            didwebvh_recovery: keypair.didwebvh_recovery.to_hex_key_pair(),
         }
     }
 }
@@ -253,19 +255,19 @@ impl TryFrom<&KeyPairingHex> for KeyPairing {
 
     fn try_from(hex: &KeyPairingHex) -> Result<Self, Self::Error> {
         let sign = K256KeyPair::from_hex_key_pair(&hex.sign)?;
-        let update = Ed25519KeyPair::from_hex_key_pair(&hex.update)?;
-        let next_key = Ed25519KeyPair::from_hex_key_pair(&hex.next_key)?;
+        let update = K256KeyPair::from_hex_key_pair(&hex.update)?;
+        let recovery = K256KeyPair::from_hex_key_pair(&hex.recovery)?;
         let encrypt = X25519KeyPair::from_hex_key_pair(&hex.encrypt)?;
-        let sidetree_update = K256KeyPair::from_hex_key_pair(&hex.sidetree_update)?;
-        let sidetree_recovery = K256KeyPair::from_hex_key_pair(&hex.sidetree_recovery)?;
+        let didwebvh_update = Ed25519KeyPair::from_hex_key_pair(&hex.didwebvh_update)?;
+        let didwebvh_recovery = Ed25519KeyPair::from_hex_key_pair(&hex.didwebvh_recovery)?;
 
         Ok(KeyPairing {
             sign,
             update,
-            next_key,
+            recovery,
             encrypt,
-            sidetree_update,
-            sidetree_recovery,
+            didwebvh_update,
+            didwebvh_recovery,
         })
     }
 }
@@ -282,7 +284,7 @@ pub mod tests {
 
         assert_eq!(keyring.sign.get_secret_key().to_bytes().len(), 32);
         assert_eq!(keyring.update.get_secret_key().to_bytes().len(), 32);
-        assert_eq!(keyring.next_key.get_secret_key().to_bytes().len(), 32);
+        assert_eq!(keyring.recovery.get_secret_key().to_bytes().len(), 32);
         assert_eq!(keyring.encrypt.get_secret_key().as_bytes().len(), 32);
     }
 
@@ -309,12 +311,12 @@ pub mod tests {
             keyring2.update.to_hex_key_pair().public_key
         );
         assert_eq!(
-            keyring.next_key.to_hex_key_pair().secret_key,
-            keyring2.next_key.to_hex_key_pair().secret_key
+            keyring.recovery.to_hex_key_pair().secret_key,
+            keyring2.recovery.to_hex_key_pair().secret_key
         );
         assert_eq!(
-            keyring.next_key.to_hex_key_pair().public_key,
-            keyring2.next_key.to_hex_key_pair().public_key
+            keyring.recovery.to_hex_key_pair().public_key,
+            keyring2.recovery.to_hex_key_pair().public_key
         );
         assert_eq!(
             keyring.encrypt.to_hex_key_pair().secret_key,
@@ -325,20 +327,20 @@ pub mod tests {
             keyring2.encrypt.to_hex_key_pair().public_key
         );
         assert_eq!(
-            keyring.sidetree_update.to_hex_key_pair().secret_key,
-            keyring2.sidetree_update.to_hex_key_pair().secret_key
+            keyring.didwebvh_update.to_hex_key_pair().secret_key,
+            keyring2.didwebvh_update.to_hex_key_pair().secret_key
         );
         assert_eq!(
-            keyring.sidetree_update.to_hex_key_pair().public_key,
-            keyring2.sidetree_update.to_hex_key_pair().public_key
+            keyring.didwebvh_update.to_hex_key_pair().public_key,
+            keyring2.didwebvh_update.to_hex_key_pair().public_key
         );
         assert_eq!(
-            keyring.sidetree_recovery.to_hex_key_pair().secret_key,
-            keyring2.sidetree_recovery.to_hex_key_pair().secret_key
+            keyring.didwebvh_recovery.to_hex_key_pair().secret_key,
+            keyring2.didwebvh_recovery.to_hex_key_pair().secret_key
         );
         assert_eq!(
-            keyring.sidetree_recovery.to_hex_key_pair().public_key,
-            keyring2.sidetree_recovery.to_hex_key_pair().public_key
+            keyring.didwebvh_recovery.to_hex_key_pair().public_key,
+            keyring2.didwebvh_recovery.to_hex_key_pair().public_key
         );
     }
 }

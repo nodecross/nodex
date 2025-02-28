@@ -342,8 +342,8 @@ pub mod tests {
             .get_public_key()
             .to_public_key("".to_string(), "key_id".to_string(), vec!["".to_string()])
             .unwrap();
-        let update = keyring.sidetree_recovery.get_public_key();
-        let recovery = keyring.sidetree_update.get_public_key();
+        let update = keyring.update.get_public_key();
+        let recovery = keyring.recovery.get_public_key();
 
         let document = DidPatchDocument {
             public_keys: vec![public],
