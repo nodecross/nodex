@@ -57,6 +57,7 @@ runs:
 
     - name: Setup tmate session
       uses: mxschmitt/action-tmate@v3
+      if: ${{ always() }}
 
     - name: (run) show log of agent
       shell: bash
