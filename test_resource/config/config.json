@@ -2,8 +2,8 @@
   "did": "did:nodex:test:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
   "key_pairs": {
     "sign": {
-      "public_key": "0487d95777077b166ae365a864c4b122ab1dedf7cdb86a839539454d28358cb62b37ff78e5bbf93cd05955ef97489b6a4c19a9e477e7db18d5c9195f46a29c4e9e",
-      "secret_key": "8db707f97baf61ca1ebc71d5e67a5f26b360cf8876c4f02a78448ef196411a9b"
+      "public_key": "04979da1a1e264f60e63c0525240f6dda05e372acf1101c5e79c15a42780aed33540ed727398a37b91674cfe370692204d3b2a62e5b31a16409b0343e296750521",
+      "secret_key": "afdeba17fc1535fc4e6a87b3aec5849350e2416a5b63422827600fd757d2cfd4"
     },
     "update": {
       "public_key": "04026c3a5c55cefb0c8eb480521d981db00e0eb4212688283a196d1162a1ed1ad9c9170e46dc2117c4d9a07c717e40cadd3de008b77d799adfbfdb4ff1dde5f8f1",
