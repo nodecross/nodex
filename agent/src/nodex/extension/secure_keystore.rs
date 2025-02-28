@@ -90,12 +90,12 @@ impl SecureKeyStore for FileBaseKeyStore {
         config.load_encrypt_key_pair()
     }
     fn read_didwebvh_update(&self) -> Option<Ed25519KeyPair> {
-        log::debug!("Called: read_internal (type: sidetree_update)");
+        log::debug!("Called: read_internal (type: didwebvh_update)");
         let config = self.config.lock();
         config.load_didwebvh_update_key_pair()
     }
     fn read_didwebvh_recovery(&self) -> Option<Ed25519KeyPair> {
-        log::debug!("Called: read_internal (type: sidetree_recovery)");
+        log::debug!("Called: read_internal (type: didwebvh_recovery)");
         let config = self.config.lock();
         config.load_didwebvh_recovery_key_pair()
     }

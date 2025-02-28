@@ -21,7 +21,7 @@ use crate::nodex::utils::UnwrapLog;
 struct KeyPairsConfig {
     sign: Option<KeyPairHex>,
     update: Option<KeyPairHex>,
-    next_key: Option<KeyPairHex>,
+    recovery: Option<KeyPairHex>,
     encrypt: Option<KeyPairHex>,
 
     didwebvh_update: Option<KeyPairHex>,
@@ -82,7 +82,7 @@ impl Default for ConfigRoot {
             key_pairs: KeyPairsConfig {
                 sign: None,
                 update: None,
-                next_key: None,
+                recovery: None,
                 encrypt: None,
                 didwebvh_update: None,
                 didwebvh_recovery: None,
@@ -263,11 +263,11 @@ impl AppConfig {
     }
 
     pub fn load_recovery_key_pair(&self) -> Option<K256KeyPair> {
-        load_key_pair(&self.root.key_pairs.next_key)
+        load_key_pair(&self.root.key_pairs.recovery)
     }
 
     pub fn save_recovery_key_pair(&mut self, value: &K256KeyPair) {
-        self.root.key_pairs.next_key = Some(value.to_hex_key_pair());
+        self.root.key_pairs.recovery = Some(value.to_hex_key_pair());
         self.write().unwrap();
     }
 
