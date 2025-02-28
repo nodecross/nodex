@@ -55,9 +55,6 @@ runs:
         NODEX_STUDIO_HTTP_ENDPOINT: http://localhost:8020
         RUST_BACKTRACE: 1
 
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
-
     - name: (run) show log of agent
       shell: bash
       run: cat log.txt
