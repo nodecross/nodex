@@ -381,34 +381,6 @@ impl DidLogEntry {
         entry.proof = None;
         entry
     }
-
-    pub fn verify_proof(&self) -> Result<bool, DidLogEntryError> {
-        let mut without_proof = self.clone();
-        if without_proof.proof.is_some() {
-            without_proof.proof = None;
-        }
-
-        let jcs = serde_json_canonicalizer::to_string(&without_proof)
-            .map_err(|_| DidLogEntryError::InvalidFormat)?;
-        for proof in self.proof.as_ref().unwrap() {
-            let proof_value =
-                multibase_decode(&proof.proof_value).map_err(|_| DidLogEntryError::InvalidProof)?;
-            let verification_method = proof
-                .verification_method
-                .split('#')
-                .next()
-                .ok_or(DidLogEntryError::InvalidProof)?
-                .parse::<Did>()
-                .map_err(|_| DidLogEntryError::InvalidProof)?;
-            let pub_key = multibase_decode(&verification_method.get_method_specific_id())
-                .map_err(|_| DidLogEntryError::InvalidProof)?;
-            if !verify_signature(jcs.as_bytes(), &proof_value, &pub_key)? {
-                return Ok(false);
-            }
-        }
-
-        Ok(true)
-    }
 }
 
 #[cfg(test)]
