@@ -1,6 +1,4 @@
-use super::crypto::crypto_utils::{
-    generate_multihash_with_base58_encode, multibase_decode, sign_data, verify_signature,
-};
+use super::crypto::crypto_utils::{generate_multihash_with_base58_encode, sign_data};
 use super::did::{Did, DidWebvh, DIDWEBVH_PLACEHOLDER};
 use super::did_document::DidDocument;
 use chrono::DateTime;
