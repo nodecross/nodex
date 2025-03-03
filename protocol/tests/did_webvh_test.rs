@@ -7,7 +7,7 @@ mod tests {
     };
     use protocol::did_webvh::service::controller::controller_service::DidWebvhControllerService;
     use protocol::did_webvh::service::resolver::resolver_service::DidWebvhResolverService;
-    use protocol::did_webvh::service::serviceimpl::DidWebvhServiceImpl;
+    use protocol::did_webvh::service::service_impl::DidWebvhServiceImpl;
     use protocol::keyring::*;
     use rand_core::OsRng;
     use std::fs;

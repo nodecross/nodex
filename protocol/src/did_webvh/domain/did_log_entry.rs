@@ -224,6 +224,23 @@ impl DidLogEntry {
         })
     }
 
+    pub fn from_db(
+        version_id: &str,
+        version_time: &str,
+        parameters: serde_json::Value,
+        state: serde_json::Value,
+        proof: serde_json::Value,
+    ) -> Result<Self, DidLogEntryError> {
+        Ok(Self {
+            version_id: version_id.to_string(),
+            version_time: version_time.to_string(),
+            parameters: serde_json::from_value(parameters)
+                .map_err(|_| DidLogEntryError::InvalidParameters)?,
+            state: serde_json::from_value(state).map_err(|_| DidLogEntryError::InvalidState)?,
+            proof: serde_json::from_value(proof).map_err(|_| DidLogEntryError::InvalidProof)?,
+        })
+    }
+
     // create a new DIDLogEntry from current entry.
     pub fn generate_next_log_entry(&self) -> Result<Self, DidLogEntryError> {
         let (_, current_entry_hash) = self.parse_verion_id()?;
@@ -347,15 +364,13 @@ impl DidLogEntry {
 
     // calculate the next key hashes by the Update Keys from the previous entry.
     pub fn calc_next_key_hash(&self, keys: &[String]) -> Result<Vec<String>, DidLogEntryError> {
-        let generate_hashed_keys = |keys: &[String]| {
-            keys.iter()
-                .map(|key| {
-                    generate_multihash_with_base58_encode(key.as_bytes())
-                        .map_err(|_| DidLogEntryError::FaildMultihash)
-                })
-                .collect::<Result<Vec<String>, DidLogEntryError>>()
-        };
-        let next_key_hashes = generate_hashed_keys(keys)?;
+        let next_key_hashes = keys
+            .iter()
+            .map(|key| {
+                generate_multihash_with_base58_encode(key.as_bytes())
+                    .map_err(|_| DidLogEntryError::FaildMultihash)
+            })
+            .collect::<Result<Vec<String>, DidLogEntryError>>()?;
         Ok(next_key_hashes)
     }
 }

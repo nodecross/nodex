@@ -1,6 +1,6 @@
 use home_config::HomeConfig;
 use protocol::keyring::keypair::{
-    K256KeyPair, KeyPair, KeyPairHex, KeyPairing, KeyPairingError, X25519KeyPair,
+    Ed25519KeyPair, K256KeyPair, KeyPair, KeyPairHex, KeyPairing, KeyPairingError, X25519KeyPair,
 };
 use serde::Deserialize;
 use serde::Serialize;
@@ -23,6 +23,9 @@ struct KeyPairsConfig {
     update: Option<KeyPairHex>,
     recovery: Option<KeyPairHex>,
     encrypt: Option<KeyPairHex>,
+
+    didwebvh_update: Option<KeyPairHex>,
+    didwebvh_recovery: Option<KeyPairHex>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -81,6 +84,8 @@ impl Default for ConfigRoot {
                 update: None,
                 recovery: None,
                 encrypt: None,
+                didwebvh_update: None,
+                didwebvh_recovery: None,
             },
             extensions: ExtensionsConfig {
                 trng: None,
@@ -236,17 +241,16 @@ impl AppConfig {
         let update = self.load_update_key_pair()?;
         let recovery = self.load_recovery_key_pair()?;
         let encrypt = self.load_encrypt_key_pair()?;
+        let didwebvh_update = self.load_didwebvh_update_key_pair()?;
+        let didwebvh_recovery = self.load_didwebvh_recovery_key_pair()?;
         Some(KeyPairing {
             sign,
             update,
             recovery,
             encrypt,
+            didwebvh_update,
+            didwebvh_recovery,
         })
-    }
-
-    pub fn save_sign_key_pair(&mut self, value: &K256KeyPair) {
-        self.root.key_pairs.sign = Some(value.to_hex_key_pair());
-        self.write().unwrap();
     }
 
     pub fn load_update_key_pair(&self) -> Option<K256KeyPair> {
@@ -264,6 +268,29 @@ impl AppConfig {
 
     pub fn save_recovery_key_pair(&mut self, value: &K256KeyPair) {
         self.root.key_pairs.recovery = Some(value.to_hex_key_pair());
+        self.write().unwrap();
+    }
+
+    pub fn save_sign_key_pair(&mut self, value: &K256KeyPair) {
+        self.root.key_pairs.sign = Some(value.to_hex_key_pair());
+        self.write().unwrap();
+    }
+
+    pub fn load_didwebvh_update_key_pair(&self) -> Option<Ed25519KeyPair> {
+        load_key_pair(&self.root.key_pairs.didwebvh_update)
+    }
+
+    pub fn save_didwebvh_update_key_pair(&mut self, value: &Ed25519KeyPair) {
+        self.root.key_pairs.didwebvh_update = Some(value.to_hex_key_pair());
+        self.write().unwrap();
+    }
+
+    pub fn load_didwebvh_recovery_key_pair(&self) -> Option<Ed25519KeyPair> {
+        load_key_pair(&self.root.key_pairs.didwebvh_recovery)
+    }
+
+    pub fn save_didwebvh_recovery_key_pair(&mut self, value: &Ed25519KeyPair) {
+        self.root.key_pairs.didwebvh_recovery = Some(value.to_hex_key_pair());
         self.write().unwrap();
     }
 

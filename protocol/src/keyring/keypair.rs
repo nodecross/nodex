@@ -1,5 +1,6 @@
 use std::convert::{TryFrom, TryInto};
 
+use ed25519_dalek::{SigningKey, VerifyingKey};
 use hex::FromHexError;
 use k256::elliptic_curve::sec1::ToEncodedPoint;
 use rand_core::{CryptoRng, RngCore};
@@ -131,19 +132,85 @@ impl KeyPair<x25519_dalek::StaticSecret, x25519_dalek::PublicKey> for X25519KeyP
 }
 
 #[derive(Clone)]
+pub struct Ed25519KeyPair {
+    secret_key: SigningKey,
+    public_key: VerifyingKey,
+}
+
+impl Ed25519KeyPair {
+    pub fn new(secret_key: SigningKey) -> Self {
+        let public_key = secret_key.verifying_key();
+        Ed25519KeyPair {
+            public_key,
+            secret_key,
+        }
+    }
+}
+
+impl KeyPair<SigningKey, VerifyingKey> for Ed25519KeyPair {
+    type Error = KeyPairingError;
+
+    fn get_secret_key(&self) -> SigningKey {
+        self.secret_key.clone()
+    }
+
+    fn get_public_key(&self) -> VerifyingKey {
+        self.public_key
+    }
+
+    fn to_hex_key_pair(&self) -> KeyPairHex {
+        let sk = self.secret_key.to_bytes();
+        let secret_key = hex::encode(sk);
+        let pk = self.public_key.to_bytes();
+        let public_key = hex::encode(pk);
+        KeyPairHex {
+            secret_key,
+            public_key,
+        }
+    }
+
+    fn from_hex_key_pair(kp: &KeyPairHex) -> Result<Self, KeyPairingError> {
+        let secret_key = hex::decode(&kp.secret_key)?;
+        let secret_key = SigningKey::from_bytes(&secret_key.try_into().map_err(|e: Vec<u8>| {
+            KeyPairingError::Crypt(format!("array length mismatch: {}", e.len()))
+        })?);
+        let public_key = hex::decode(&kp.public_key)?;
+        let public_key =
+            VerifyingKey::from_bytes(&public_key.try_into().map_err(|e: Vec<u8>| {
+                KeyPairingError::Crypt(format!("array length mismatch: {}", e.len()))
+            })?)
+            .map_err(|e| KeyPairingError::Crypt(e.to_string()))?;
+        Ok(Ed25519KeyPair {
+            public_key,
+            secret_key,
+        })
+    }
+}
+
+#[derive(Clone)]
 pub struct KeyPairing {
     pub sign: K256KeyPair,
+    // TODO: Remove when not using Sidetree.
     pub update: K256KeyPair,
     pub recovery: K256KeyPair,
+
     pub encrypt: X25519KeyPair,
+
+    pub didwebvh_update: Ed25519KeyPair,
+    pub didwebvh_recovery: Ed25519KeyPair,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct KeyPairingHex {
     pub sign: KeyPairHex,
+    // TODO: Remove when not using Sidetree.
     pub update: KeyPairHex,
     pub recovery: KeyPairHex,
+
     pub encrypt: KeyPairHex,
+
+    pub didwebvh_update: KeyPairHex,
+    pub didwebvh_recovery: KeyPairHex,
 }
 
 impl KeyPairing {
@@ -152,11 +219,20 @@ impl KeyPairing {
         let update = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
         let recovery = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
         let encrypt = X25519KeyPair::new(x25519_dalek::StaticSecret::random_from_rng(&mut csprng));
+
+        let mut bytes = [0u8; 32];
+        csprng.fill_bytes(&mut bytes);
+        let didwebvh_update = Ed25519KeyPair::new(SigningKey::from_bytes(&bytes));
+        bytes = [0u8; 32];
+        csprng.fill_bytes(&mut bytes);
+        let didwebvh_recovery = Ed25519KeyPair::new(SigningKey::from_bytes(&bytes));
         KeyPairing {
             sign,
             update,
             recovery,
             encrypt,
+            didwebvh_update,
+            didwebvh_recovery,
         }
     }
 }
@@ -168,6 +244,8 @@ impl From<&KeyPairing> for KeyPairingHex {
             update: keypair.update.to_hex_key_pair(),
             recovery: keypair.recovery.to_hex_key_pair(),
             encrypt: keypair.encrypt.to_hex_key_pair(),
+            didwebvh_update: keypair.didwebvh_update.to_hex_key_pair(),
+            didwebvh_recovery: keypair.didwebvh_recovery.to_hex_key_pair(),
         }
     }
 }
@@ -180,12 +258,16 @@ impl TryFrom<&KeyPairingHex> for KeyPairing {
         let update = K256KeyPair::from_hex_key_pair(&hex.update)?;
         let recovery = K256KeyPair::from_hex_key_pair(&hex.recovery)?;
         let encrypt = X25519KeyPair::from_hex_key_pair(&hex.encrypt)?;
+        let didwebvh_update = Ed25519KeyPair::from_hex_key_pair(&hex.didwebvh_update)?;
+        let didwebvh_recovery = Ed25519KeyPair::from_hex_key_pair(&hex.didwebvh_recovery)?;
 
         Ok(KeyPairing {
             sign,
             update,
             recovery,
             encrypt,
+            didwebvh_update,
+            didwebvh_recovery,
         })
     }
 }
@@ -204,5 +286,61 @@ pub mod tests {
         assert_eq!(keyring.update.get_secret_key().to_bytes().len(), 32);
         assert_eq!(keyring.recovery.get_secret_key().to_bytes().len(), 32);
         assert_eq!(keyring.encrypt.get_secret_key().as_bytes().len(), 32);
+    }
+
+    #[test]
+    pub fn test_keypair_hex() {
+        let keyring = KeyPairing::create_keyring(OsRng);
+        let hex = KeyPairingHex::from(&keyring);
+        let keyring2 = KeyPairing::try_from(&hex).unwrap();
+
+        assert_eq!(
+            keyring.sign.to_hex_key_pair().secret_key,
+            keyring2.sign.to_hex_key_pair().secret_key
+        );
+        assert_eq!(
+            keyring.sign.to_hex_key_pair().public_key,
+            keyring2.sign.to_hex_key_pair().public_key
+        );
+        assert_eq!(
+            keyring.update.to_hex_key_pair().secret_key,
+            keyring2.update.to_hex_key_pair().secret_key
+        );
+        assert_eq!(
+            keyring.update.to_hex_key_pair().public_key,
+            keyring2.update.to_hex_key_pair().public_key
+        );
+        assert_eq!(
+            keyring.recovery.to_hex_key_pair().secret_key,
+            keyring2.recovery.to_hex_key_pair().secret_key
+        );
+        assert_eq!(
+            keyring.recovery.to_hex_key_pair().public_key,
+            keyring2.recovery.to_hex_key_pair().public_key
+        );
+        assert_eq!(
+            keyring.encrypt.to_hex_key_pair().secret_key,
+            keyring2.encrypt.to_hex_key_pair().secret_key
+        );
+        assert_eq!(
+            keyring.encrypt.to_hex_key_pair().public_key,
+            keyring2.encrypt.to_hex_key_pair().public_key
+        );
+        assert_eq!(
+            keyring.didwebvh_update.to_hex_key_pair().secret_key,
+            keyring2.didwebvh_update.to_hex_key_pair().secret_key
+        );
+        assert_eq!(
+            keyring.didwebvh_update.to_hex_key_pair().public_key,
+            keyring2.didwebvh_update.to_hex_key_pair().public_key
+        );
+        assert_eq!(
+            keyring.didwebvh_recovery.to_hex_key_pair().secret_key,
+            keyring2.didwebvh_recovery.to_hex_key_pair().secret_key
+        );
+        assert_eq!(
+            keyring.didwebvh_recovery.to_hex_key_pair().public_key,
+            keyring2.didwebvh_recovery.to_hex_key_pair().public_key
+        );
     }
 }

@@ -2,6 +2,7 @@ use super::crypto::crypto_utils::validate_hash;
 use const_format::formatcp;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryFrom;
+use std::ops::Deref;
 use std::str::FromStr;
 
 // ref: https://www.w3.org/TR/did-core/#did-syntax
@@ -130,6 +131,14 @@ impl Serialize for Did {
     }
 }
 
+impl Deref for Did {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        &self.inner
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, thiserror::Error)]
 pub enum DidWebvhError {
     #[error(transparent)]
@@ -251,6 +260,14 @@ impl<'de> Deserialize<'de> for DidWebvh {
         let s = String::deserialize(deserializer)?;
         s.parse()
             .map_err(|_| serde::de::Error::custom("Invalid Did Format"))
+    }
+}
+
+impl Deref for DidWebvh {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        &self.did.inner
     }
 }
 

@@ -1,8 +1,8 @@
+use super::super::service_impl::DidWebvhServiceImpl;
 use crate::did_webvh::domain::crypto::crypto_utils::multibase_encode;
 use crate::did_webvh::domain::did_document::{DidDocument, VerificationMethod};
 use crate::did_webvh::domain::did_log_entry::DidLogEntry;
 use crate::did_webvh::infra::did_webvh_data_store::DidWebvhDataStore;
-use crate::did_webvh::service::serviceimpl::DidWebvhServiceImpl;
 use crate::keyring::{
     jwk::Jwk,
     keypair::{KeyPair, KeyPairing},
@@ -70,17 +70,17 @@ where
             <x25519_dalek::PublicKey as Into<Jwk>>::into(keyring.encrypt.get_public_key());
 
         let mut log_entry = DidLogEntry::new(path)?;
-        let update_keypair = keyring.update;
+        let update_keypair = keyring.didwebvh_update;
         let update_sec_key = update_keypair.get_secret_key().to_bytes();
-        let update_pub_key = multibase_encode(&update_keypair.get_public_key().to_sec1_bytes());
+        let update_pub_key = multibase_encode(&update_keypair.get_public_key().to_bytes());
         let update_keys = vec![update_pub_key.clone()];
         log_entry.parameters.update_keys = Some(update_keys);
 
         // if prerotation is enabled, add the prerotation key to the next_key_hashes
         if enable_prerotation {
             let prerotation_pub_key =
-                multibase_encode(&keyring.recovery.get_public_key().to_sec1_bytes());
-            let prerotation_keys = vec![prerotation_pub_key.clone()];
+                multibase_encode(&keyring.didwebvh_recovery.get_public_key().to_bytes());
+            let prerotation_keys = vec![prerotation_pub_key];
             let next_key_hases = log_entry.calc_next_key_hash(&prerotation_keys)?;
             log_entry.parameters.next_key_hashes = Some(next_key_hases);
         }

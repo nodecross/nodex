@@ -3,7 +3,7 @@ use crate::did_webvh::domain::did::{Did, DidWebvh};
 use crate::did_webvh::domain::did_document::DidDocument;
 use crate::did_webvh::domain::did_log_entry::DidLogEntry;
 use crate::did_webvh::infra::did_webvh_data_store::DidWebvhDataStore;
-use crate::did_webvh::service::serviceimpl::DidWebvhServiceImpl;
+use crate::did_webvh::service::service_impl::DidWebvhServiceImpl;
 use chrono::prelude::*;
 use std::convert::TryInto;
 use thiserror::Error;
