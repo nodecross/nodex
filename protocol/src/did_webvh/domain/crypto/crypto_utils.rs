@@ -12,8 +12,8 @@ pub enum CryptoError {
     GenerateHash,
     #[error("Failed to sign data")]
     SignData,
-    #[error("Failed to verify signature")]
-    Signature,
+    #[error("Failed to verify signature: {0}")]
+    Signature(String),
 }
 
 pub fn generate_multihash_with_base58_encode(data: &[u8]) -> Result<String, CryptoError> {
@@ -46,8 +46,11 @@ pub fn sign_data(data: &[u8], key: &[u8]) -> Result<String, CryptoError> {
 }
 
 pub fn verify_signature(data: &[u8], signature: &[u8], key: &[u8]) -> Result<bool, CryptoError> {
-    let verify_key = VerifyingKey::from_bytes(key.try_into().map_err(|_| CryptoError::Signature)?)
-        .map_err(|_| CryptoError::Signature)?;
+    let verify_key = VerifyingKey::from_bytes(
+        key.try_into()
+            .map_err(|_| CryptoError::Signature("Failed to covvert key to 32bytes".to_string()))?,
+    )
+    .map_err(|e| CryptoError::Signature(e.to_string()))?;
     let signature =
         Signature::from_bytes(signature.try_into().expect("Failed to convert signature"));
     let result = verify_key.verify(data, &signature);
@@ -99,5 +102,28 @@ mod tests {
         let verified = verify_signature(plaintext.as_bytes(), &decoded_signature, &pub_key)?;
         assert!(verified);
         Ok(())
+    }
+
+    #[test]
+    fn test_multibase_encode() {
+        let data = "Hello, World!";
+        let encoded = multibase_encode(data.as_bytes());
+        assert_eq!(encoded, "z72k1xXWG59fYdzSNoA");
+    }
+
+    #[test]
+    fn test_multibase_decode() {
+        let encoded = "z72k1xXWG59fYdzSNoA";
+        let decoded = multibase_decode(encoded).unwrap();
+        assert_eq!(decoded, "Hello, World!".as_bytes());
+    }
+
+    #[test]
+    fn test_keyring_multibase() {
+        let keypairs = KeyPairing::create_keyring(OsRng);
+        let public_key = keypairs.didwebvh_update.get_public_key().to_bytes();
+        let encoded = multibase_encode(&public_key);
+        let decoded = multibase_decode(&encoded).unwrap();
+        assert_eq!(decoded, public_key);
     }
 }

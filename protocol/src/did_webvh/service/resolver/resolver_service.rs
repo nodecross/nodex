@@ -67,8 +67,8 @@ where
             ));
         }
         // check existence of update_keys in the first log entry, with check is_empty
-        if first_log_entry.parameters.update_keys.is_none()
-            || first_log_entry
+        if first_log_entry.parameters.update_keys.is_some()
+            && first_log_entry
                 .parameters
                 .update_keys
                 .as_ref()
@@ -81,12 +81,7 @@ where
         }
 
         // check existence of proof in the first log entry
-        if first_log_entry.proof.is_none() {
-            return Err(DidWebvhResolverError::ResolveIdentifier(
-                "No proof found".to_string(),
-            ));
-        }
-        if first_log_entry.proof.as_ref().unwrap().is_empty() {
+        if first_log_entry.proof.is_none() || first_log_entry.proof.as_ref().unwrap().is_empty() {
             return Err(DidWebvhResolverError::ResolveIdentifier(
                 "No proof found".to_string(),
             ));
@@ -95,37 +90,6 @@ where
         // verify proof section
         // contains verification_method in update_keys of first log entry.
         for proof in first_log_entry.proof.as_ref().unwrap() {
-            // remove prefix from verification_method, 'did:key:{public_key}'
-            let verification_method: Did = proof
-                .verification_method
-                .split('#')
-                .next()
-                .ok_or(DidWebvhResolverError::ResolveIdentifier(
-                    "Failed to split verification method".to_string(),
-                ))?
-                .parse::<Did>()?;
-            if !first_log_entry
-                .parameters
-                .update_keys
-                .as_ref()
-                .unwrap()
-                .contains(&verification_method.get_method_specific_id().to_string())
-            {
-                return Err(DidWebvhResolverError::ResolveIdentifier(
-                    "Verification method not found in update keys".to_string(),
-                ));
-            }
-
-            let public_key = verification_method.get_method_specific_id();
-            let _decoded_public_key = multibase_decode(public_key).map_err(|_| {
-                DidWebvhResolverError::ResolveIdentifier("Failed to decode public key".to_string())
-            })?;
-            let _decoded_proof_value = multibase_decode(&proof.proof_value).map_err(|_| {
-                DidWebvhResolverError::ResolveIdentifier("Failed to decode proof value".to_string())
-            })?;
-
-            // TODO: verify signature
-
             let parsed_time = DateTime::parse_from_rfc3339(&proof.created).map_err(|_| {
                 DidWebvhResolverError::ResolveIdentifier(
                     "Failed to parse proof created date".to_string(),
@@ -134,6 +98,50 @@ where
             if parsed_time > Utc::now() {
                 return Err(DidWebvhResolverError::ResolveIdentifier(
                     "Proof created date is in the future".to_string(),
+                ));
+            }
+
+            // remove prefix from verification_method, 'did:key:public_key#public_key' to
+            // public_key, pickup last part of verification_method
+            let public_key = proof.verification_method.split('#').last().ok_or(
+                DidWebvhResolverError::ResolveIdentifier(
+                    "Failed to split verification method".to_string(),
+                ),
+            )?;
+
+            // check verification_method's public key is in update_keys
+            if !first_log_entry
+                .parameters
+                .update_keys
+                .as_ref()
+                .unwrap()
+                .contains(&public_key.to_string())
+            {
+                return Err(DidWebvhResolverError::ResolveIdentifier(
+                    "Verification method not found in update keys".to_string(),
+                ));
+            }
+
+            // verify signature
+            // proof.verification_method is a public key, proof.proof_value is a signature
+            let decoded_public_key = multibase_decode(public_key).map_err(|_| {
+                DidWebvhResolverError::ResolveIdentifier("Failed to decode public key".to_string())
+            })?;
+            let decoded_proof_value = multibase_decode(&proof.proof_value).map_err(|_| {
+                DidWebvhResolverError::ResolveIdentifier("Failed to decode proof value".to_string())
+            })?;
+            let jcs = serde_json_canonicalizer::to_string(&first_log_entry.remove_proof())
+                .map_err(|_| {
+                    DidWebvhResolverError::ResolveIdentifier(
+                        "Failed to canonicalize log entry".to_string(),
+                    )
+                })?;
+
+            if !verify_signature(jcs.as_bytes(), &decoded_proof_value, &decoded_public_key)
+                .map_err(|e| DidWebvhResolverError::ResolveIdentifier(e.to_string()))?
+            {
+                return Err(DidWebvhResolverError::ResolveIdentifier(
+                    "Failed to verify signature".to_string(),
                 ));
             }
         }
@@ -226,6 +234,16 @@ where
             // be in update_keys of current log entry. otherwise, public key in proof section must
             // be in update_keys of previous log entry.
             for proof in log_entry.proof.as_ref().unwrap() {
+                let parsed_time = DateTime::parse_from_rfc3339(&proof.created).map_err(|_| {
+                    DidWebvhResolverError::ResolveIdentifier(
+                        "Failed to parse proof created date".to_string(),
+                    )
+                })?;
+                if parsed_time > Utc::now() {
+                    return Err(DidWebvhResolverError::ResolveIdentifier(
+                        "Proof created date is in the future".to_string(),
+                    ));
+                }
                 // remove prefix from verification_method, 'did:key:{public_key}'
                 let verification_method: Did = proof
                     .verification_method
@@ -244,6 +262,38 @@ where
                 {
                     return Err(DidWebvhResolverError::ResolveIdentifier(
                         "Verification method not found in update keys".to_string(),
+                    ));
+                }
+                // verify signature
+                // proof.verification_method is a public key, proof.proof_value is a signature
+                let public_key = verification_method.get_method_specific_id();
+                let decoded_public_key = multibase_decode(public_key).map_err(|_| {
+                    DidWebvhResolverError::ResolveIdentifier(
+                        "Failed to decode public key".to_string(),
+                    )
+                })?;
+                let decoded_proof_value = multibase_decode(&proof.proof_value).map_err(|_| {
+                    DidWebvhResolverError::ResolveIdentifier(
+                        "Failed to decode proof value".to_string(),
+                    )
+                })?;
+                let jcs = serde_json_canonicalizer::to_string(&log_entry.remove_proof()).map_err(
+                    |_| {
+                        DidWebvhResolverError::ResolveIdentifier(
+                            "Failed to canonicalize log entry".to_string(),
+                        )
+                    },
+                )?;
+
+                if verify_signature(jcs.as_bytes(), &decoded_proof_value, &decoded_public_key)
+                    .map_err(|_| {
+                        DidWebvhResolverError::ResolveIdentifier(
+                            "Failed to verify signature".to_string(),
+                        )
+                    })?
+                {
+                    return Err(DidWebvhResolverError::ResolveIdentifier(
+                        "Failed to verify signature".to_string(),
                     ));
                 }
             }
