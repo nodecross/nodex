@@ -10,8 +10,8 @@ const SHA256: u64 = 0x12;
 pub enum CryptoError {
     #[error("Failed to generate hash")]
     GenerateHash,
-    #[error("Failed to sign data")]
-    SignData,
+    #[error("Failed to sign data: {0}")]
+    SignData(String),
     #[error("Failed to verify signature: {0}")]
     Signature(String),
 }
@@ -39,7 +39,10 @@ pub fn validate_hash(hash: &str) -> bool {
 }
 
 pub fn sign_data(data: &[u8], key: &[u8]) -> Result<String, CryptoError> {
-    let sign_key = SigningKey::from_bytes(key.try_into().map_err(|_| CryptoError::SignData)?);
+    let sign_key = SigningKey::from_bytes(
+        key.try_into()
+            .map_err(|e| CryptoError::SignData(format!("{:?}", e)))?,
+    );
     let signature = sign_key.sign(data);
     let proof_value = multibase_encode(&signature.to_bytes());
     Ok(proof_value)
