@@ -198,7 +198,7 @@ where
 
             // verify vertion_id, current log entry's version_id is generated from previous log
             // entry's version_id
-            let (_previous_id, previous_hash) = previous_entry.parse_verion_id()?;
+            let (_, previous_hash) = previous_entry.parse_verion_id()?;
             let mut tmp_entry = log_entry.clone();
             tmp_entry.version_id = previous_hash;
             let recalculated_hash = tmp_entry.calc_entry_hash()?;
@@ -211,15 +211,14 @@ where
             // verify prerotaion_keys, if next_key_hashes exists in previous log entry, compare
             // with calculated next_key_hashes from update_keys of current log entry.
             if let Some(mut previous_next_key_hashes) = previous_entry.parameters.next_key_hashes {
-                let current_update_keys = log_entry.parameters.update_keys.as_ref();
-                if current_update_keys.is_none() {
+                let Some(current_update_keys) = log_entry.parameters.update_keys.as_ref() else {
                     return Err(DidWebvhResolverError::ResolveIdentifier(
-                        "Previous update keys not found".to_string(),
+                        "Current update keys not found".to_string(),
                     ));
-                }
+                };
                 let mut calculated_prerotation_keys =
-                    log_entry.calc_next_key_hash(current_update_keys.unwrap())?;
-                //compare calculated_prerotation_keys and next_key_hashes
+                    log_entry.calc_next_key_hash(current_update_keys)?;
+                // compare calculated_prerotation_keys and next_key_hashes
                 calculated_prerotation_keys.sort();
                 previous_next_key_hashes.sort();
                 if calculated_prerotation_keys != previous_next_key_hashes {

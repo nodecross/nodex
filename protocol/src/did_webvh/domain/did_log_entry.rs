@@ -278,8 +278,7 @@ impl DidLogEntry {
                 // id is did#key format, so only need to replace the did part
                 verification_method.id = verification_method.id.replace(DIDWEBVH_PLACEHOLDER, scid);
                 let controller = DidWebvh::try_from(verification_method.controller.clone());
-                if controller.is_ok() {
-                    let did = controller.unwrap();
+                if let Ok(did) = controller {
                     verification_method.controller = did.replace_scid(scid).into();
                 }
             }
@@ -300,8 +299,7 @@ impl DidLogEntry {
                 // id is did:method_name:scid:doamin#key format, so only need to replace the scid part
                 let parts = verification_method.id.split('#').collect::<Vec<&str>>();
                 let id = parts[0].parse::<DidWebvh>();
-                if id.is_ok() {
-                    let did = id.unwrap();
+                if let Ok(did) = id {
                     verification_method.id = format!(
                         "{}#{}",
                         did.replace_scid(DIDWEBVH_PLACEHOLDER)
