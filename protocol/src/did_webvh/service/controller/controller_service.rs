@@ -111,6 +111,8 @@ where
 
         let scid = log_entry.calc_entry_hash()?;
         log_entry.replace_placeholder_to_id(&scid)?;
+        let first_entry_hash = log_entry.calc_entry_hash()?;
+        log_entry.version_id = format!("1-{}", first_entry_hash);
 
         log_entry.generate_proof(&update_sec_key, &update_pub_key)?;
 
