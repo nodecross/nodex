@@ -2,7 +2,7 @@ use crate::{
     config::SingletonAppConfig,
     nodex::extension::secure_keystore::{SecureKeyStore, SecureKeyStoreKey},
 };
-use protocol::keyring::keypair::{K256KeyPair, X25519KeyPair};
+use protocol::keyring::keypair::{Ed25519KeyPair, K256KeyPair, X25519KeyPair};
 use protocol::rand_core::OsRng;
 
 use thiserror::Error;
@@ -12,6 +12,8 @@ pub struct KeyPairingWithConfig<S: SecureKeyStore> {
     update: K256KeyPair,
     recovery: K256KeyPair,
     encrypt: X25519KeyPair,
+    didwebvh_update: Ed25519KeyPair,
+    didwebvh_recovery: Ed25519KeyPair,
     config: Box<SingletonAppConfig>,
     secure_keystore: S,
 }
@@ -43,12 +45,20 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
         let encrypt = secure_keystore
             .read_encrypt()
             .ok_or(KeyPairingError::KeyNotFound)?;
+        let didwebvh_update = secure_keystore
+            .read_didwebvh_update()
+            .ok_or(KeyPairingError::KeyNotFound)?;
+        let didwebvh_recovery = secure_keystore
+            .read_didwebvh_recovery()
+            .ok_or(KeyPairingError::KeyNotFound)?;
 
         Ok(KeyPairingWithConfig {
             sign,
             update,
             recovery,
             encrypt,
+            didwebvh_update,
+            didwebvh_recovery,
             config,
             secure_keystore,
         })
@@ -63,6 +73,8 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
             update: keyring.update,
             recovery: keyring.recovery,
             encrypt: keyring.encrypt,
+            didwebvh_update: keyring.didwebvh_update,
+            didwebvh_recovery: keyring.didwebvh_recovery,
             config,
             secure_keystore,
         }
@@ -74,6 +86,8 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
             update: self.update.clone(),
             recovery: self.recovery.clone(),
             encrypt: self.encrypt.clone(),
+            didwebvh_update: self.didwebvh_update.clone(),
+            didwebvh_recovery: self.didwebvh_recovery.clone(),
         }
     }
 
@@ -86,6 +100,12 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
             .write(&SecureKeyStoreKey::Recovery(&self.recovery));
         self.secure_keystore
             .write(&SecureKeyStoreKey::Encrypt(&self.encrypt));
+        self.secure_keystore
+            .write(&SecureKeyStoreKey::DidWebvhUpdate(&self.didwebvh_update));
+        self.secure_keystore
+            .write(&SecureKeyStoreKey::DidWebvhRecovery(
+                &self.didwebvh_recovery,
+            ));
         {
             let mut config = self.config.lock();
             config.save_did(did);
