@@ -259,7 +259,9 @@ impl AppConfig {
 
     pub fn save_update_key_pair(&mut self, value: &K256KeyPair) {
         self.root.key_pairs.update = Some(value.to_hex_key_pair());
-        self.write().unwrap();
+        self.write()
+            .map_err(|e| log::error!("{:?}", e))
+            .expect("failed to save update key pair");
     }
 
     pub fn load_recovery_key_pair(&self) -> Option<K256KeyPair> {
@@ -268,12 +270,16 @@ impl AppConfig {
 
     pub fn save_recovery_key_pair(&mut self, value: &K256KeyPair) {
         self.root.key_pairs.recovery = Some(value.to_hex_key_pair());
-        self.write().unwrap();
+        self.write()
+            .map_err(|e| log::error!("{:?}", e))
+            .expect("failed to save recovery key pair");
     }
 
     pub fn save_sign_key_pair(&mut self, value: &K256KeyPair) {
         self.root.key_pairs.sign = Some(value.to_hex_key_pair());
-        self.write().unwrap();
+        self.write()
+            .map_err(|e| log::error!("{:?}", e))
+            .expect("failed to save sign key pair");
     }
 
     pub fn load_didwebvh_update_key_pair(&self) -> Option<Ed25519KeyPair> {
@@ -282,7 +288,9 @@ impl AppConfig {
 
     pub fn save_didwebvh_update_key_pair(&mut self, value: &Ed25519KeyPair) {
         self.root.key_pairs.didwebvh_update = Some(value.to_hex_key_pair());
-        self.write().unwrap();
+        self.write()
+            .map_err(|e| log::error!("{:?}", e))
+            .expect("failed to save didwebvh update key pair");
     }
 
     pub fn load_didwebvh_recovery_key_pair(&self) -> Option<Ed25519KeyPair> {
@@ -291,7 +299,9 @@ impl AppConfig {
 
     pub fn save_didwebvh_recovery_key_pair(&mut self, value: &Ed25519KeyPair) {
         self.root.key_pairs.didwebvh_recovery = Some(value.to_hex_key_pair());
-        self.write().unwrap();
+        self.write()
+            .map_err(|e| log::error!("{:?}", e))
+            .expect("failed to save didwebvh recovery key pair");
     }
 
     pub fn load_encrypt_key_pair(&self) -> Option<X25519KeyPair> {
@@ -300,7 +310,9 @@ impl AppConfig {
 
     pub fn save_encrypt_key_pair(&mut self, value: &X25519KeyPair) {
         self.root.key_pairs.encrypt = Some(value.to_hex_key_pair());
-        self.write().unwrap();
+        self.write()
+            .map_err(|e| log::error!("{:?}", e))
+            .expect("failed to save encrypt key pair");
     }
 
     pub fn get_did(&self) -> Option<String> {
@@ -309,7 +321,9 @@ impl AppConfig {
 
     pub fn save_did(&mut self, value: &str) {
         self.root.did = Some(value.to_string());
-        self.write().unwrap_log()
+        self.write()
+            .map_err(|e| log::error!("{:?}", e))
+            .expect("failed to save did");
     }
 
     pub fn get_didcomm_body_size(&self) -> usize {
