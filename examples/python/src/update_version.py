@@ -10,7 +10,7 @@ else:
 
 payload = {
     "message": {
-        "binary_url": "https://example.com/nodex-agent-1.0.0.zip",
+        "binary_url": "http://localhost:3000/nodex.zip",
     }
 }
 

@@ -124,6 +124,13 @@ mod tests {
             unimplemented!()
         }
 
+        fn verify(
+            &self,
+            output_path: Option<impl AsRef<Path> + Send>,
+        ) -> Result<(), ResourceError> {
+            unimplemented!()
+        }
+
         fn get_paths_to_backup(&self) -> Result<Vec<PathBuf>, ResourceError> {
             unimplemented!()
         }

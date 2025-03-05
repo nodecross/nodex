@@ -3,6 +3,8 @@ use crate::state::{idle, rollback, update};
 
 #[cfg(unix)]
 use crate::managers::resource::UnixResourceManager;
+#[cfg(unix)]
+use crate::validator::sigstore::BundleVerifier;
 
 #[cfg(windows)]
 use crate::managers::resource::WindowsResourceManager;
@@ -25,7 +27,7 @@ pub async fn handle_state<R: RuntimeManager>(
 ) -> Result<(), StateHandlerError> {
     let agent_path = runtime_manager.get_runtime_info()?.exec_path;
     #[cfg(unix)]
-    let resource_manager = UnixResourceManager::new(agent_path);
+    let resource_manager = UnixResourceManager::new(agent_path, BundleVerifier);
     #[cfg(windows)]
     let resource_manager = WindowsResourceManager::new();
 

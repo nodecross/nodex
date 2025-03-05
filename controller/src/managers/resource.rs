@@ -1,5 +1,5 @@
 use crate::config::get_config;
-use crate::validator::sigstore::{BundleVerifier, Verifier, VerifyError};
+use crate::validator::sigstore::{Verifier, VerifyError};
 use bytes::Bytes;
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use glob::glob;
@@ -77,14 +77,21 @@ pub trait ResourceManagerTrait: Send + Sync {
 
     fn agent_path(&self) -> &PathBuf;
 
+    fn download_path(&self, output_path: Option<impl AsRef<Path> + Send>) -> PathBuf {
+        output_path
+            .map(|x| x.as_ref().to_path_buf())
+            .unwrap_or_else(|| self.tmp_path().clone())
+    }
+
+    fn verify(&self, output_path: Option<impl AsRef<Path> + Send>) -> Result<(), ResourceError>;
+
     async fn download_update_resources(
         &self,
         binary_url: &str,
         output_path: Option<impl AsRef<Path> + Send>,
     ) -> Result<(), ResourceError> {
         async move {
-            let output_path = output_path.map(|x| x.as_ref().to_path_buf());
-            let download_path = output_path.as_ref().unwrap_or(self.tmp_path());
+            let download_path = self.download_path(output_path);
 
             let response = reqwest::get(binary_url)
                 .await
@@ -94,22 +101,7 @@ pub trait ResourceManagerTrait: Send + Sync {
                 .await
                 .map_err(|_| ResourceError::DownloadFailed(binary_url.to_string()))?;
 
-            self.extract_zip(content, download_path)?;
-
-            let nodex_agent_path = self
-                .find_file(download_path, "nodex-agent")
-                .ok_or_else(|| ResourceError::FileNotFound("nodex-agent".to_string()))?;
-            let nodex_agent_bundle_path = self
-                .find_file(download_path, "nodex-agent.bundle")
-                .ok_or_else(|| ResourceError::FileNotFound("nodex-agent.bundle".to_string()))?;
-
-            fs::rename(&nodex_agent_path, download_path.join("nodex-agent"))
-                .map_err(|e| ResourceError::MoveFailed(e.to_string()))?;
-            fs::rename(
-                &nodex_agent_bundle_path,
-                download_path.join("nodex-agent.bundle"),
-            )
-            .map_err(|e| ResourceError::MoveFailed(e.to_string()))?;
+            self.extract_zip(content, &download_path)?;
 
             Ok(())
         }
@@ -230,13 +222,20 @@ pub trait ResourceManagerTrait: Send + Sync {
 }
 
 #[cfg(unix)]
-pub struct UnixResourceManager {
+pub struct UnixResourceManager<V>
+where
+    V: Verifier + Send + Sync,
+{
     tmp_path: PathBuf,
     agent_path: PathBuf,
+    verifier: V,
 }
 
 #[cfg(unix)]
-impl ResourceManagerTrait for UnixResourceManager {
+impl<V> ResourceManagerTrait for UnixResourceManager<V>
+where
+    V: Verifier + Send + Sync,
+{
     fn tmp_path(&self) -> &PathBuf {
         &self.tmp_path
     }
@@ -262,11 +261,49 @@ impl ResourceManagerTrait for UnixResourceManager {
         log::info!("Rollback completed successfully from {:?}", backup_file);
         Ok(())
     }
+
+    fn verify(&self, output_path: Option<impl AsRef<Path> + Send>) -> Result<(), ResourceError> {
+        let download_path = self.download_path(output_path);
+        let nodex_agent_bundle_path = self.find_file(&download_path, "nodex-agent.bundle").ok_or(
+            ResourceError::FileNotFound("nodex-agent.bundle".to_string()),
+        )?;
+
+        let extracted_directory =
+            nodex_agent_bundle_path
+                .parent()
+                .ok_or(ResourceError::FileNotFound(
+                    "nodex-agent.bundle".to_string(),
+                ))?;
+        let nodex_agent_path = extracted_directory.join("nodex-agent");
+
+        self.verifier
+            .verify(
+                &nodex_agent_bundle_path,
+                &nodex_agent_path,
+                // "https://github.com/nodecross/nodex/.github/workflows/release.yml@refs/heads/main",
+                "https://github.com/nodecross/nodex/.github/workflows/sign.yml@refs/heads/main",
+                "https://token.actions.githubusercontent.com",
+            )
+            .map_err(ResourceError::VerifyError)?;
+        log::info!("Verified successfully");
+
+        fs::rename(&nodex_agent_path, download_path.join("nodex-agent"))
+            .map_err(|e| ResourceError::MoveFailed(e.to_string()))?;
+
+        fs::remove_dir_all(extracted_directory).map_err(|e| {
+            ResourceError::RemoveFailed(format!("Failed to remove extracted directory: {}", e))
+        })?;
+
+        Ok(())
+    }
 }
 
 #[cfg(unix)]
-impl UnixResourceManager {
-    pub fn new(agent_path: impl AsRef<Path>) -> Self {
+impl<V> UnixResourceManager<V>
+where
+    V: Verifier,
+{
+    pub fn new(agent_path: impl AsRef<Path>, verifier: V) -> Self {
         let tmp_path = if PathBuf::from("/home/nodex/").exists() {
             PathBuf::from("/home/nodex/tmp")
         } else if PathBuf::from("/tmp/nodex").exists() || fs::create_dir_all("/tmp/nodex").is_ok() {
@@ -282,6 +319,7 @@ impl UnixResourceManager {
         Self {
             tmp_path,
             agent_path: agent_path.as_ref().into(),
+            verifier,
         }
     }
 
@@ -496,6 +534,10 @@ impl ResourceManagerTrait for WindowsResourceManager {
     fn rollback(&self, backup_file: &Path) -> Result<(), ResourceError> {
         unimplemented!()
     }
+
+    fn verify(&self, output_path: Option<impl AsRef<Path> + Send>) -> Result<(), ResourceError> {
+        unimplemented!()
+    }
 }
 
 #[cfg(windows)]
@@ -517,6 +559,7 @@ impl Default for WindowsResourceManager {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+    use crate::validator::sigstore::BundleVerifier;
     use filetime;
     use mockito;
     use std::fs::{self, File};
@@ -528,9 +571,26 @@ mod tests {
         CompressionMethod, ZipWriter,
     };
 
-    impl Default for UnixResourceManager {
+    struct TestVerifier;
+    impl Verifier for TestVerifier {
+        fn verify(
+            &self,
+            bundle_path: &Path,
+            blob_path: &Path,
+            identity: &str,
+            issuer: &str,
+        ) -> Result<(), VerifyError> {
+            Ok(())
+        }
+
+        fn decode_cert(&self, cert: &str) -> Result<String, VerifyError> {
+            Ok("success".to_string())
+        }
+    }
+
+    impl Default for UnixResourceManager<TestVerifier> {
         fn default() -> Self {
-            Self::new(std::env::current_exe().unwrap())
+            Self::new(std::env::current_exe().unwrap(), TestVerifier)
         }
     }
 
@@ -563,7 +623,7 @@ mod tests {
             .with_body(zip_data)
             .create();
 
-        let resource_manager = UnixResourceManager::default();
+        let resource_manager: UnixResourceManager<TestVerifier> = UnixResourceManager::default();
         let temp_dir = tempdir().unwrap();
         let output_path = temp_dir.path().to_path_buf();
 
@@ -597,7 +657,7 @@ mod tests {
         let bundle_file = bundles_dir.join("bundle1.yml");
         File::create(&bundle_file).unwrap();
 
-        let resource_manager = UnixResourceManager {
+        let resource_manager: UnixResourceManager<TestVerifier> = UnixResourceManager {
             tmp_path: temp_dir.path().to_path_buf(),
             ..Default::default()
         };
@@ -632,7 +692,7 @@ mod tests {
         filetime::set_file_mtime(&new_file, filetime::FileTime::from_system_time(new_time))
             .unwrap();
 
-        let resource_manager = UnixResourceManager {
+        let resource_manager: UnixResourceManager<TestVerifier> = UnixResourceManager {
             tmp_path: temp_dir.path().to_path_buf(),
             ..Default::default()
         };
@@ -649,7 +709,7 @@ mod tests {
     #[test]
     fn test_backup() {
         let temp_dir = tempdir().unwrap();
-        let resource_manager = UnixResourceManager {
+        let resource_manager: UnixResourceManager<TestVerifier> = UnixResourceManager {
             tmp_path: temp_dir.path().to_path_buf(),
             ..Default::default()
         };
@@ -669,7 +729,7 @@ mod tests {
     #[test]
     fn test_rollback() {
         let temp_dir = tempdir().unwrap();
-        let resource_manager = UnixResourceManager {
+        let resource_manager: UnixResourceManager<TestVerifier> = UnixResourceManager {
             tmp_path: temp_dir.path().to_path_buf(),
             ..Default::default()
         };
@@ -689,7 +749,7 @@ mod tests {
     fn test_remove() {
         let temp_dir = tempdir().unwrap();
 
-        let resource_manager = UnixResourceManager {
+        let resource_manager: UnixResourceManager<TestVerifier> = UnixResourceManager {
             tmp_path: temp_dir.path().to_path_buf(),
             ..Default::default()
         };
@@ -706,5 +766,94 @@ mod tests {
         assert!(result.is_ok(), "Expected remove to succeed");
 
         assert!(!dummy_file.exists(), "Dummy file should be removed");
+    }
+
+    #[test]
+    fn test_download_path() {
+        let temp_dir = tempdir().unwrap();
+        let resource_manager: UnixResourceManager<TestVerifier> = UnixResourceManager {
+            tmp_path: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
+
+        let provided_path = PathBuf::from("/some/path");
+        assert_eq!(
+            resource_manager.download_path(Some(&provided_path)),
+            provided_path
+        );
+        assert_eq!(
+            resource_manager.download_path(None::<&std::path::Path>),
+            temp_dir.path().to_path_buf()
+        );
+    }
+
+    #[test]
+    fn test_find_file() {
+        let temp_dir = tempdir().unwrap();
+        let resource_manager: UnixResourceManager<TestVerifier> = UnixResourceManager {
+            tmp_path: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
+
+        let base_path = temp_dir.path().to_path_buf();
+        let file_path = base_path.join("target_file.txt");
+        File::create(&file_path).unwrap();
+
+        let found = resource_manager.find_file(&base_path, "target_file.txt");
+        assert!(found.is_some());
+        assert_eq!(found.unwrap(), file_path);
+
+        let not_found = resource_manager.find_file(&base_path, "nonexistent.txt");
+        assert!(not_found.is_none());
+    }
+
+    #[test]
+    fn test_verify_success() {
+        let temp_dir = tempdir().unwrap();
+
+        let download_dir = temp_dir.path().join("download");
+        fs::create_dir_all(&download_dir).unwrap();
+
+        let extracted_dir = download_dir.join("extracted");
+        fs::create_dir_all(&extracted_dir).unwrap();
+
+        let bundle_path = extracted_dir.join("nodex-agent.bundle");
+        File::create(&bundle_path).unwrap();
+
+        let agent_path = extracted_dir.join("nodex-agent");
+        File::create(&agent_path).unwrap();
+
+        let resource_manager: UnixResourceManager<TestVerifier> = UnixResourceManager {
+            tmp_path: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
+
+        assert!(resource_manager.verify(Some(&download_dir)).is_ok());
+
+        let moved_agent_path = download_dir.join("nodex-agent");
+        assert!(moved_agent_path.exists());
+
+        assert!(!extracted_dir.exists());
+    }
+
+    #[test]
+    fn test_verify_failure_no_bundle() {
+        let temp_dir = tempdir().unwrap();
+        let download_dir = temp_dir.path().join("download");
+        fs::create_dir_all(&download_dir).unwrap();
+
+        let extracted_dir = download_dir.join("extracted");
+        fs::create_dir_all(&extracted_dir).unwrap();
+
+        let agent_path = extracted_dir.join("nodex-agent");
+        File::create(&agent_path).unwrap();
+
+        let resource_manager: UnixResourceManager<TestVerifier> = UnixResourceManager {
+            tmp_path: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
+
+        let result = resource_manager.verify(Some(&download_dir));
+        assert!(matches!(result, Err(ResourceError::FileNotFound(_))));
     }
 }

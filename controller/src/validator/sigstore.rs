@@ -7,7 +7,7 @@ use sigstore::{
     },
     errors::SigstoreError,
 };
-use std::path::PathBuf;
+use std::path::Path;
 use x509_cert;
 
 #[derive(Debug, thiserror::Error)]
@@ -22,15 +22,15 @@ pub enum VerifyError {
     X509CertLoad(#[from] x509_cert::der::Error),
     #[error("failed to read file: {0}")]
     FileRead(#[source] std::io::Error),
-    #[error("failed to verify signed artifact bundle: {0}")]
-    BundleVerification(#[source] SigstoreError),
+    #[error("failed to verify blob: {0}")]
+    BlobVerification(#[source] SigstoreError),
 }
 
-pub trait Verifier {
+pub trait Verifier: Send + Sync {
     fn verify(
         &self,
-        bundle_json: PathBuf,
-        blob_path: PathBuf,
+        bundle_path: &Path,
+        blob_path: &Path,
         identity: &str,
         issuer: &str,
     ) -> Result<(), VerifyError>;
@@ -43,16 +43,15 @@ pub struct BundleVerifier;
 impl Verifier for BundleVerifier {
     fn verify(
         &self,
-        bundle_json: PathBuf,
-        blob_path: PathBuf,
+        bundle_path: &Path,
+        blob_path: &Path,
         identity: &str,
         issuer: &str,
     ) -> Result<(), VerifyError> {
         let blob = std::fs::read(blob_path).map_err(VerifyError::FileRead)?;
-        let bundle_json_content =
-            std::fs::read_to_string(bundle_json).map_err(VerifyError::FileRead)?;
+        let bundle_json = std::fs::read_to_string(bundle_path).map_err(VerifyError::FileRead)?;
         let bundle: SignedArtifactBundle =
-            serde_json::from_str(&bundle_json_content).map_err(VerifyError::BundleParse)?;
+            serde_json::from_str(&bundle_json).map_err(VerifyError::BundleParse)?;
 
         let decoded_cert = self.decode_cert(bundle.cert.as_str())?;
         let cert_chain = x509_cert::Certificate::load_pem_chain(decoded_cert.as_bytes())
@@ -62,7 +61,7 @@ impl Verifier for BundleVerifier {
         id_policy.verify(&cert_chain[0]).expect("Failed to verify");
 
         Client::verify_blob(&decoded_cert, bundle.base64_signature.trim(), &blob)
-            .map_err(VerifyError::BundleVerification)
+            .map_err(VerifyError::BlobVerification)
     }
 
     fn decode_cert(&self, cert: &str) -> Result<String, VerifyError> {
