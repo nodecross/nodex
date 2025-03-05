@@ -10,9 +10,6 @@ inputs:
   checkout:
     required: false
     description: ""
-  binary-file-name:
-    required: true
-    description: ""
   github-token:
     required: true
     description: ""
@@ -47,13 +44,13 @@ runs:
           --oidc-issuer "https://token.actions.githubusercontent.com" \
           --oidc-client-id "sigstore" \
           --bundle nodex-agent.bundle \
-          target/${{ inputs.target }}/release/${{ inputs.binary-file-name }}
+          target/${{ inputs.target }}/release/nodex-agent
 
     - name: (run) create artifact
       uses: vimtor/action-zip@v1.1
       with:
         files: |
-          target/${{ inputs.target }}/release/${{ inputs.binary-file-name }}
+          target/${{ inputs.target }}/release/nodex-agent
           nodex-agent.bundle
         dest: nodex-agent-${{ inputs.target }}.zip
 

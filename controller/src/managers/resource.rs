@@ -186,22 +186,6 @@ pub trait ResourceManagerTrait: Send + Sync {
         Ok(())
     }
 
-    fn verify(&self, downloaded_path: &Path) -> Result<(), ResourceError> {
-        let verifier = BundleVerifier;
-        verifier
-            .verify(
-                downloaded_path.join("nodex-agent.bundle"),
-                downloaded_path.join("nodex-agent"),
-                "https://github.com/nodecross/nodex/blob/main/.github/workflows/release.yml@refs/heads/main",
-                "https://token.actions.githubusercontent.com"
-            )
-            .map_err(ResourceError::VerifyError)?;
-
-        log::info!("Verified successfully");
-
-        Ok(())
-    }
-
     fn remove_directory(&self, path: &Path) -> Result<(), io::Error> {
         if !path.exists() {
             return Ok(());
