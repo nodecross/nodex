@@ -74,22 +74,6 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn test_get_did_log_entry() {
-        let did =
-            "did:webvh:QmRsc8jrPt6eYzw4vUigFzEWwUmgLP58Z75NWGffyCP6Jc:domain.examle.com:test:did"
-                .parse::<DidWebvh>()
-                .unwrap();
-        let datastore = MockDataStore::new();
-        let service = DidWebvhServiceImpl::new(datastore);
-        let res = service
-            .get_identifier(did.get_did())
-            .await
-            .map_err(|e| e.to_string())
-            .unwrap();
-        assert_eq!(res.len(), 1);
-    }
-
-    #[tokio::test]
     pub async fn test_resolve_did_log_entry() {
         let did =
             "did:webvh:QmNdPXibKi8PDG77Zr293iYsNdEkSau2XteitZkWboGALz:domain.examle.com:test:did"
@@ -97,15 +81,11 @@ mod tests {
                 .unwrap();
         let datastore = MockDataStore::new();
         let service = DidWebvhServiceImpl::new(datastore);
-        let res = service
-            .get_identifier(did.get_did())
+        let did_doc = service
+            .resolve_identifier(did.get_did())
             .await
             .map_err(|e| e.to_string())
             .unwrap();
-        assert_eq!(res.len(), 1);
-        dbg!(&res);
-
-        let did_doc = service.resolve_identifier(res).await.unwrap();
         assert_eq!(did_doc.id, did.get_did().clone());
     }
 }

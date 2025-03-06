@@ -1,9 +1,13 @@
 use crate::nodex::utils::did_accessor::{DidAccessor, DidAccessorImpl};
-use crate::services::nodex::{NodeX, update_version};
+use crate::nodex::utils::webvh_client::DidWebvhDataStoreImpl;
+use crate::services::nodex::{update_version, NodeX};
 use crate::services::studio::{MessageResponse, Studio};
 use anyhow::anyhow;
 use controller::validator::network::can_connect_to_download_server;
-use protocol::didcomm::encrypted::DidCommEncryptedService;
+use protocol::did_webvh::service::resolver::resolver_service::DidWebvhResolverService;
+use protocol::did_webvh::service::service_impl::DidWebvhServiceImpl;
+use protocol::didcomm::sign_encrypt::decrypt_message;
+use protocol::didcomm::types::DidCommMessage;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::time::Duration;
@@ -22,24 +26,27 @@ struct AckMessage {
 
 struct MessageReceiveUsecase {
     studio: Studio,
-    agent: NodeX,
+    webvh: DidWebvhServiceImpl<DidWebvhDataStoreImpl>,
     project_did: String,
 }
 
 impl MessageReceiveUsecase {
     pub fn new() -> Self {
-        let network = crate::network_config();
-        let network = network.lock();
-        let project_did = if let Some(v) = network.get_project_did() {
-            v
-        } else {
-            panic!("Failed to read project_did")
+        let project_did = {
+            let network = crate::network_config();
+            let network = network.lock();
+            if let Some(v) = network.get_project_did() {
+                v
+            } else {
+                panic!("Failed to read project_did")
+            }
         };
-        drop(network);
-
+        let datastore =
+            DidWebvhDataStoreImpl::new_from_server_config().expect("failed to parse url");
+        let webvh = DidWebvhServiceImpl::new(datastore);
         Self {
             studio: Studio::new(),
-            agent: NodeX::new(),
+            webvh,
             project_did,
         }
     }
@@ -57,29 +64,27 @@ impl MessageReceiveUsecase {
 
     pub async fn receive_message(&self) -> anyhow::Result<()> {
         for m in self.studio.get_message(&self.project_did).await? {
-            let json_message = match serde_json::from_str(&m.raw_message) {
+            let json_message: DidCommMessage = match serde_json::from_str(&m.raw_message) {
                 Ok(msg) => msg,
                 Err(e) => return self.handle_invalid_json(&m, e).await,
             };
             log::info!("Receive message. message_id = {:?}", m.id);
-            match DidCommEncryptedService::verify(
-                self.agent.did_repository(),
-                &DidAccessorImpl {}.get_my_keyring(),
-                &json_message,
-            )
-            .await
-            {
+
+            let to_keyring = &DidAccessorImpl {}.get_my_keyring();
+            let from_did = json_message.find_sender()?;
+            let from_doc = self
+                .webvh
+                .resolve_identifier(&from_did)
+                .await?
+                .ok_or(anyhow!("Not found did document"))?;
+            match decrypt_message(&json_message, &from_doc, to_keyring) {
                 Ok(verified) => {
-                    log::info!(
-                        "Verify success. message_id = {}, from = {}",
-                        m.id,
-                        verified.message.issuer.id
-                    );
+                    log::info!("Verify success. message_id = {}, from = {}", m.id, from_did);
                     self.studio
                         .ack_message(&self.project_did, m.id, true)
                         .await?;
-                    if verified.message.issuer.id == self.project_did {
-                        let container = verified.message.credential_subject.container;
+                    if &*from_did == self.project_did {
+                        let container = serde_json::to_value(&verified)?;
                         let operation_type = container["operation"].clone();
                         match serde_json::from_value::<OperationType>(operation_type) {
                             Ok(OperationType::UpdateAgent) => {

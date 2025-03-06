@@ -1,6 +1,6 @@
 use crate::nodex::extension::secure_keystore::FileBaseKeyStore;
 use crate::nodex::keyring;
-use crate::nodex::utils::sidetree_client::SideTreeClient;
+use crate::nodex::utils::webvh_client::DidWebvhDataStoreImpl;
 use crate::{app_config, server_config};
 use anyhow;
 use controller::managers::{
@@ -8,8 +8,12 @@ use controller::managers::{
     runtime::{RuntimeManagerImpl, RuntimeManagerWithoutAsync, State},
 };
 use controller::validator::storage::check_storage;
-use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
-use protocol::did::sidetree::payload::DidResolutionResponse;
+use protocol::did_webvh::domain::did::Did;
+use protocol::did_webvh::domain::did_document::DidDocument;
+use protocol::did_webvh::service::controller::controller_service::DidWebvhControllerService;
+use protocol::did_webvh::service::resolver::resolver_service::DidWebvhResolverService;
+use protocol::did_webvh::service::service_impl::DidWebvhServiceImpl;
+use std::str::FromStr;
 
 #[cfg(windows)]
 mod windows_imports {
@@ -20,24 +24,22 @@ mod windows_imports {
 use windows_imports::*;
 
 pub struct NodeX {
-    did_repository: DidRepositoryImpl<SideTreeClient>,
+    webvh: DidWebvhServiceImpl<DidWebvhDataStoreImpl>,
+    baseurl: url::Url,
 }
 
 impl NodeX {
     pub fn new() -> Self {
         let server_config = server_config();
-        let sidetree_client = SideTreeClient::new(&server_config.did_http_endpoint()).unwrap();
-        let did_repository = DidRepositoryImpl::new(sidetree_client);
+        let baseurl =
+            url::Url::parse(&server_config.did_http_endpoint()).expect("failed to parse url");
+        let datastore = DidWebvhDataStoreImpl::new(baseurl.clone());
+        let webvh = DidWebvhServiceImpl::new(datastore);
 
-        NodeX { did_repository }
+        NodeX { webvh, baseurl }
     }
 
-    pub fn did_repository(&self) -> &DidRepositoryImpl<SideTreeClient> {
-        &self.did_repository
-    }
-
-    pub async fn create_identifier(&self) -> anyhow::Result<DidResolutionResponse> {
-        // NOTE: find did
+    pub async fn create_identifier(&self) -> anyhow::Result<DidDocument> {
         let config = app_config();
         let keystore = FileBaseKeyStore::new(config.clone());
         if let Some(did) =
@@ -45,32 +47,25 @@ impl NodeX {
                 .ok()
                 .and_then(|v| v.get_identifier().ok())
         {
-            if let Some(json) = self.find_identifier(&did).await? {
+            let did = Did::from_str(&did)?;
+            if let Some(json) = self.webvh.resolve_identifier(&did).await? {
                 return Ok(json);
             }
         }
 
         let mut keyring_with_config =
             keyring::keypair::KeyPairingWithConfig::create_keyring(config, keystore);
+        let id = uuid::Uuid::new_v4();
+        let path = self.baseurl.join(&format!("webvh/v1/{}", id)).unwrap(); // We assume that fail never.
         let res = self
-            .did_repository
-            .create_identifier(keyring_with_config.get_keyring())
+            .webvh
+            .create_identifier(path.as_str(), true, keyring_with_config.get_keyring())
             .await?;
-        keyring_with_config.save(&res.did_document.id);
-
-        Ok(res)
-    }
-
-    pub async fn find_identifier(
-        &self,
-        did: &str,
-    ) -> anyhow::Result<Option<DidResolutionResponse>> {
-        let res = self.did_repository.find_identifier(did).await?;
+        keyring_with_config.save(&res.id);
 
         Ok(res)
     }
 }
-
 
 pub async fn update_version(binary_url: &str) -> anyhow::Result<()> {
     #[cfg(windows)]
@@ -80,8 +75,7 @@ pub async fn update_version(binary_url: &str) -> anyhow::Result<()> {
 
     #[cfg(unix)]
     {
-        let handler =
-            controller::managers::mmap_storage::MmapHandler::new("nodex_runtime_info")?;
+        let handler = controller::managers::mmap_storage::MmapHandler::new("nodex_runtime_info")?;
         let mut runtime_manager = RuntimeManagerImpl::new_by_agent(
             handler,
             controller::managers::unix_process_manager::UnixProcessManager,
@@ -94,8 +88,7 @@ pub async fn update_version(binary_url: &str) -> anyhow::Result<()> {
             log::error!("Not enough storage space: {:?}", output_path);
             anyhow::bail!("Not enough storage space");
         }
-        let resource_manager =
-            controller::managers::resource::UnixResourceManager::new(agent_path);
+        let resource_manager = controller::managers::resource::UnixResourceManager::new(agent_path);
 
         resource_manager.backup().map_err(|e| {
             log::error!("Failed to backup: {}", e);
