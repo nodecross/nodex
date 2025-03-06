@@ -29,7 +29,7 @@ mod tests {
     impl DidWebvhDataStore for MockDataStore {
         type Error = MockDataStoreError;
         // localhost:8080/v1/uuidv4/did.jsonl
-        async fn post(
+        async fn create(
             &self,
             _path: &str,
             did_log_entries: &[DidLogEntry],
@@ -45,14 +45,14 @@ mod tests {
             let log = fs::read_to_string("test_resources/did.jsonl")?;
             Ok(DidLogEntryResponse::new(http::StatusCode::OK, log))
         }
-        async fn put(
+        async fn update(
             &self,
             _path: &str,
             _body: &[DidLogEntry],
         ) -> Result<Vec<DidLogEntryResponse>, Self::Error> {
             unimplemented!()
         }
-        async fn delete(&self, _path: &str) -> Result<Vec<DidLogEntryResponse>, Self::Error> {
+        async fn deactivate(&self, _path: &str) -> Result<Vec<DidLogEntryResponse>, Self::Error> {
             unimplemented!()
         }
     }

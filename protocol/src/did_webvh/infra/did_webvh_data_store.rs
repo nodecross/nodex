@@ -16,16 +16,16 @@ impl DidLogEntryResponse {
 #[trait_variant::make(Send)]
 pub trait DidWebvhDataStore {
     type Error: std::error::Error;
-    async fn post(
+    async fn create(
         &self,
         did_path: &str,
         did_log_entries: &[DidLogEntry],
     ) -> Result<DidLogEntryResponse, Self::Error>;
     async fn get(&self, did_path: &str) -> Result<DidLogEntryResponse, Self::Error>;
-    async fn put(
+    async fn update(
         &self,
         did_path: &str,
         did_log_entries: &[DidLogEntry],
     ) -> Result<Vec<DidLogEntryResponse>, Self::Error>;
-    async fn delete(&self, did_path: &str) -> Result<Vec<DidLogEntryResponse>, Self::Error>;
+    async fn deactivate(&self, did_path: &str) -> Result<Vec<DidLogEntryResponse>, Self::Error>;
 }

@@ -120,7 +120,7 @@ where
 
         let response = self
             .data_store
-            .post(path, &entries)
+            .create(path, &entries)
             .await
             .map_err(|e| DidWebvhIdentifierError::DidWebvhRequestFailed(e.to_string()))?;
         if response.status_code.is_success() {
