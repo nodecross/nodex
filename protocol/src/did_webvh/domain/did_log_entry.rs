@@ -243,7 +243,7 @@ impl DidLogEntry {
 
     // create a new DIDLogEntry from current entry.
     pub fn generate_next_log_entry(&self) -> Result<Self, DidLogEntryError> {
-        let (_, current_entry_hash) = self.parse_verion_id()?;
+        let (_, current_entry_hash) = self.parse_version_id()?;
         let version_time = chrono::Utc::now().to_rfc3339();
         Ok(Self {
             version_id: current_entry_hash,
@@ -254,7 +254,7 @@ impl DidLogEntry {
         })
     }
 
-    pub fn parse_verion_id(&self) -> Result<(u32, String), DidLogEntryError> {
+    pub fn parse_version_id(&self) -> Result<(u32, String), DidLogEntryError> {
         let parts: Vec<&str> = self.version_id.split('-').collect();
         if parts.len() != 2 {
             return Err(DidLogEntryError::InvalidVersionId);
@@ -430,7 +430,7 @@ mod tests {
     fn test_log_entry_properties() {
         let entry: DidLogEntry = serde_json::from_str(JSON).unwrap();
 
-        let (version_number, hash) = entry.parse_verion_id().unwrap();
+        let (version_number, hash) = entry.parse_version_id().unwrap();
         assert_eq!(version_number, 1);
         assert_eq!(hash, "QmRD52wqs942kZ2gs7UU9QmaopvqnMziqB4qgFDYsapCT9");
 

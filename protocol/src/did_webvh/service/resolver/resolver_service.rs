@@ -60,7 +60,7 @@ where
         }
 
         let first_log_entry = log_entries.first().unwrap();
-        let (id, hash) = first_log_entry.parse_verion_id()?;
+        let (id, hash) = first_log_entry.parse_version_id()?;
         if id != 1 {
             return Err(DidWebvhResolverError::ResolveIdentifier(
                 "First log entry is not version 1".to_string(),
@@ -169,7 +169,7 @@ where
         // verify the log entry iter start next entry
         for log_entry in log_entries.iter().skip(1) {
             // check version number is sequential
-            let (id, hash) = log_entry.parse_verion_id()?;
+            let (id, hash) = log_entry.parse_version_id()?;
             if id != previous_version_number + 1 {
                 return Err(DidWebvhResolverError::ResolveIdentifier(
                     "Log entry version is not sequential".to_string(),
@@ -198,7 +198,7 @@ where
 
             // verify vertion_id, current log entry's version_id is generated from previous log
             // entry's version_id
-            let (_, previous_hash) = previous_entry.parse_verion_id()?;
+            let (_, previous_hash) = previous_entry.parse_version_id()?;
             let mut tmp_entry = log_entry.clone();
             tmp_entry.version_id = previous_hash;
             let recalculated_hash = tmp_entry.calc_entry_hash()?;
