@@ -123,14 +123,7 @@ where
             .create(path, &entries)
             .await
             .map_err(|e| DidWebvhIdentifierError::DidWebvhRequestFailed(e.to_string()))?;
-        if response.status_code.is_success() {
-            let did_document: DidDocument = serde_json::from_str(&response.body)?;
-            Ok(did_document)
-        } else {
-            Err(DidWebvhIdentifierError::DidWebvhRequestFailed(
-                response.body,
-            ))
-        }
+        Ok(response)
     }
 
     async fn update_identifier(
