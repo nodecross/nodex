@@ -1,8 +1,8 @@
-use super::super::service_impl::DidWebvhServiceImpl;
 use crate::did_webvh::domain::crypto::crypto_utils::multibase_encode;
 use crate::did_webvh::domain::did_document::{DidDocument, VerificationMethod};
 use crate::did_webvh::domain::did_log_entry::DidLogEntry;
 use crate::did_webvh::infra::did_webvh_data_store::DidWebvhDataStore;
+use crate::did_webvh::service::service_impl::DidWebvhServiceImpl;
 use crate::keyring::{
     jwk::Jwk,
     keypair::{KeyPair, KeyPairing},
@@ -116,16 +116,11 @@ where
 
         log_entry.generate_proof(&update_sec_key, &update_pub_key)?;
 
-        // convert log entry to jsonl file format
-        let entry = serde_json::to_string(&log_entry)?
-            .replace("\n", "")
-            .replace(" ", "");
-
-        let body = format!("{}\n", entry);
+        let entries = vec![log_entry];
 
         let response = self
             .data_store
-            .post(path, &body)
+            .post(path, &entries)
             .await
             .map_err(|e| DidWebvhIdentifierError::DidWebvhRequestFailed(e.to_string()))?;
         if response.status_code.is_success() {

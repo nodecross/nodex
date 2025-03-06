@@ -28,9 +28,14 @@ mod tests {
     }
     impl DidWebvhDataStore for MockDataStore {
         type Error = MockDataStoreError;
-        async fn post(&self, _path: &str, body: &str) -> Result<DidLogEntryResponse, Self::Error> {
-            let log_entry: DidLogEntry = serde_json::from_str(body)?;
-            let doc = log_entry.state;
+        // localhost:8080/v1/uuidv4/did.jsonl
+        async fn post(
+            &self,
+            _path: &str,
+            did_log_entries: &[DidLogEntry],
+        ) -> Result<DidLogEntryResponse, Self::Error> {
+            let log_entry = did_log_entries.last().unwrap();
+            let doc = log_entry.state.clone();
             let serialized_doc = serde_json::to_string(&doc)?;
             let response = DidLogEntryResponse::new(http::StatusCode::OK, serialized_doc);
             Ok(response)
@@ -43,7 +48,7 @@ mod tests {
         async fn put(
             &self,
             _path: &str,
-            _body: &str,
+            _body: &[DidLogEntry],
         ) -> Result<Vec<DidLogEntryResponse>, Self::Error> {
             unimplemented!()
         }

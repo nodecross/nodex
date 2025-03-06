@@ -1,3 +1,4 @@
+use crate::did_webvh::domain::did_log_entry::DidLogEntry;
 use http::StatusCode;
 
 #[derive(Clone, Debug)]
@@ -18,13 +19,13 @@ pub trait DidWebvhDataStore {
     async fn post(
         &self,
         did_path: &str,
-        did_log_entry: &str,
+        did_log_entries: &[DidLogEntry],
     ) -> Result<DidLogEntryResponse, Self::Error>;
     async fn get(&self, did_path: &str) -> Result<DidLogEntryResponse, Self::Error>;
     async fn put(
         &self,
         did_path: &str,
-        did_log_entry: &str,
+        did_log_entries: &[DidLogEntry],
     ) -> Result<Vec<DidLogEntryResponse>, Self::Error>;
     async fn delete(&self, did_path: &str) -> Result<Vec<DidLogEntryResponse>, Self::Error>;
 }
