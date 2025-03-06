@@ -1,5 +1,5 @@
 use crate::nodex::utils::did_accessor::{DidAccessor, DidAccessorImpl};
-use crate::services::nodex::NodeX;
+use crate::services::nodex::{NodeX, update_version};
 use crate::services::studio::{MessageResponse, Studio};
 use anyhow::anyhow;
 use controller::validator::network::can_connect_to_download_server;
@@ -95,7 +95,7 @@ impl MessageReceiveUsecase {
                                     log::error!("Invalid url");
                                     anyhow::bail!("Invalid url");
                                 }
-                                self.agent.update_version(binary_url).await?;
+                                update_version(binary_url).await?;
                             }
                             Ok(OperationType::UpdateNetworkJson) => {
                                 self.studio.network().await?;

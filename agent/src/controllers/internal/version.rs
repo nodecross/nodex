@@ -1,4 +1,5 @@
-use crate::{controllers::errors::AgentErrorCode, services::nodex::NodeX};
+use crate::controllers::errors::AgentErrorCode;
+use crate::services::nodex::update_version;
 use axum::extract::Json;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -20,8 +21,7 @@ pub async fn handler_update(
         Some(url) => url,
         None => Err(AgentErrorCode::VersionNoBinaryUrl)?,
     };
-    let nodex = NodeX::new();
-    match nodex.update_version(binary_url).await {
+    match update_version(binary_url).await {
         Ok(_) => Ok(Json("ok")),
         Err(e) => {
             log::error!("{}", e);
