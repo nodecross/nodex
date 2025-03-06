@@ -234,6 +234,72 @@ fn verify_entries<C: std::error::Error>(
     Ok(Some(did_document))
 }
 
+// verify proof section
+// if next_key_hashes exists in previous log entry, public key in proof section must
+// be in update_keys of current log entry. otherwise, public key in proof section must
+// be in update_keys of previous log entry.
+fn verify_proofs<C: std::error::Error>(
+    update_keys: &[String],
+    log_entry: &DidLogEntry,
+) -> Result<(), DidWebvhResolverError<C>> {
+    // check existence of proof in log entry
+    let proofs = match log_entry.proof.as_deref() {
+        None | Some(&[]) => {
+            return Err(DidWebvhResolverError::ResolveIdentifier(
+                "No proof found".to_string(),
+            ))
+        }
+        Some(proofs) => proofs,
+    };
+    for proof in proofs {
+        let parsed_time = DateTime::parse_from_rfc3339(&proof.created).map_err(|_| {
+            DidWebvhResolverError::ResolveIdentifier(
+                "Failed to parse proof created date".to_string(),
+            )
+        })?;
+        if parsed_time > Utc::now() {
+            return Err(DidWebvhResolverError::ResolveIdentifier(
+                "Proof created date is in the future".to_string(),
+            ));
+        }
+        // remove prefix from verification_method, 'did:key:{public_key}'
+        let verification_method: Did = proof
+            .verification_method
+            .split('#')
+            .next()
+            .ok_or(DidWebvhResolverError::ResolveIdentifier(
+                "Failed to split verification method".to_string(),
+            ))?
+            .parse::<Did>()?;
+        if !update_keys.contains(&verification_method.get_method_specific_id().to_string()) {
+            return Err(DidWebvhResolverError::ResolveIdentifier(
+                "Verification method not found in update keys".to_string(),
+            ));
+        }
+        // verify signature
+        // proof.verification_method is a public key, proof.proof_value is a signature
+        let public_key = verification_method.get_method_specific_id();
+        let decoded_public_key = multibase_decode(public_key).map_err(|_| {
+            DidWebvhResolverError::ResolveIdentifier("Failed to decode public key".to_string())
+        })?;
+        let decoded_proof_value = multibase_decode(&proof.proof_value).map_err(|_| {
+            DidWebvhResolverError::ResolveIdentifier("Failed to decode proof value".to_string())
+        })?;
+        let jcs = serde_json_canonicalizer::to_string(&log_entry.remove_proof()).map_err(|_| {
+            DidWebvhResolverError::ResolveIdentifier("Failed to canonicalize log entry".to_string())
+        })?;
+
+        if !verify_signature(jcs.as_bytes(), &decoded_proof_value, &decoded_public_key).map_err(
+            |_| DidWebvhResolverError::ResolveIdentifier("Failed to verify signature".to_string()),
+        )? {
+            return Err(DidWebvhResolverError::ResolveIdentifier(
+                "Failed to verify signature".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 impl<C> DidWebvhResolverService for DidWebvhServiceImpl<C>
 where
     C: DidWebvhDataStore + Send + Sync,
