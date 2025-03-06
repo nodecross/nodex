@@ -197,15 +197,12 @@ fn convert_uri(uri: &str) -> String {
     // and then, if contains a http or https, remove it
     // if contains a *.jsonl, etc file name, remove it. like a domain.com:8080/test.jsonl, remove
     // /test.jsonl
-    let modified_uri = uri
-        .replace("/did.jsonl", "")
+    uri.replace("/did.jsonl", "")
         .replace("/did.json", "")
         .replace("http://", "")
         .replace("https://", "")
         .replace(":", "%3A")
-        .replace("/", ":");
-
-    modified_uri
+        .replace("/", ":")
 }
 
 impl DidLogEntry {
@@ -500,5 +497,13 @@ mod tests {
         let url = "example.com/test";
         let converted = convert_uri(url);
         assert_eq!(converted, "example.com:test");
+
+        let url = "http://example.com:8080/test/did.jsonl";
+        let converted = convert_uri(url);
+        assert_eq!(converted, "example.com%3A8080:test");
+
+        let url = "https://example.com:8080/test/did.json";
+        let converted = convert_uri(url);
+        assert_eq!(converted, "example.com%3A8080:test");
     }
 }
