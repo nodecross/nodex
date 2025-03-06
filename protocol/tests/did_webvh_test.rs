@@ -30,7 +30,7 @@ mod tests {
         type Error = MockDataStoreError;
         // localhost:8080/v1/uuidv4/did.jsonl
         async fn create(
-            &self,
+            &mut self,
             _path: &str,
             did_log_entries: &[DidLogEntry],
         ) -> Result<DidDocument, Self::Error> {
@@ -38,7 +38,7 @@ mod tests {
             let doc = log_entry.state.clone();
             Ok(doc)
         }
-        async fn get(&self, _path: &str) -> Result<Vec<DidLogEntry>, Self::Error> {
+        async fn get(&mut self, _path: &str) -> Result<Vec<DidLogEntry>, Self::Error> {
             // read file from project root dir/test_resources/did.jsonl
             let log = fs::read_to_string("test_resources/did.jsonl")?;
             let log_entries: Vec<DidLogEntry> = log
@@ -48,13 +48,13 @@ mod tests {
             Ok(log_entries)
         }
         async fn update(
-            &self,
+            &mut self,
             _path: &str,
             _body: &[DidLogEntry],
         ) -> Result<DidDocument, Self::Error> {
             unimplemented!()
         }
-        async fn deactivate(&self, _path: &str) -> Result<DidDocument, Self::Error> {
+        async fn deactivate(&mut self, _path: &str) -> Result<DidDocument, Self::Error> {
             unimplemented!()
         }
     }
@@ -80,7 +80,7 @@ mod tests {
                 .parse::<DidWebvh>()
                 .unwrap();
         let datastore = MockDataStore::new();
-        let service = DidWebvhServiceImpl::new(datastore);
+        let mut service = DidWebvhServiceImpl::new(datastore);
         let res = service
             .get_identifier(did.get_did())
             .await
@@ -96,7 +96,7 @@ mod tests {
                 .parse::<DidWebvh>()
                 .unwrap();
         let datastore = MockDataStore::new();
-        let service = DidWebvhServiceImpl::new(datastore);
+        let mut service = DidWebvhServiceImpl::new(datastore);
         let res = service
             .get_identifier(did.get_did())
             .await

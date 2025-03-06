@@ -33,18 +33,18 @@ pub enum DidWebvhIdentifierError<StudioClientError: std::error::Error> {
 pub trait DidWebvhControllerService: Sync {
     type DidWebvhIdentifierError: std::error::Error + Send + Sync;
     async fn create_identifier(
-        &self,
+        &mut self,
         path: &str,
         enable_prerotation: bool,
         keyring: KeyPairing,
     ) -> Result<DidDocument, Self::DidWebvhIdentifierError>;
     async fn update_identifier(
-        &self,
+        &mut self,
         path: &str,
         keyring: KeyPairing,
     ) -> Result<DidDocument, Self::DidWebvhIdentifierError>;
     async fn deactivate_identifier(
-        &self,
+        &mut self,
         path: &str,
         keyring: KeyPairing,
     ) -> Result<DidDocument, Self::DidWebvhIdentifierError>;
@@ -58,7 +58,7 @@ where
     type DidWebvhIdentifierError = DidWebvhIdentifierError<C::Error>;
 
     async fn create_identifier(
-        &self,
+        &mut self,
         path: &str,
         enable_prerotation: bool,
         keyring: KeyPairing,
@@ -127,7 +127,7 @@ where
     }
 
     async fn update_identifier(
-        &self,
+        &mut self,
         _path: &str,
         _keyring: KeyPairing,
     ) -> Result<DidDocument, Self::DidWebvhIdentifierError> {
@@ -135,7 +135,7 @@ where
     }
 
     async fn deactivate_identifier(
-        &self,
+        &mut self,
         _path: &str,
         _keyring: KeyPairing,
     ) -> Result<DidDocument, Self::DidWebvhIdentifierError> {

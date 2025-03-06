@@ -37,7 +37,7 @@ pub trait DidWebvhResolverService: Sync {
     ) -> Result<DidDocument, Self::DidWebvhResolverError>;
 
     async fn get_identifier(
-        &self,
+        &mut self,
         did: &Did,
     ) -> Result<Vec<DidLogEntry>, Self::DidWebvhResolverError>;
 }
@@ -254,7 +254,7 @@ where
     }
 
     async fn get_identifier(
-        &self,
+        &mut self,
         did: &Did,
     ) -> Result<Vec<DidLogEntry>, Self::DidWebvhResolverError> {
         let webvh_did: DidWebvh = did
