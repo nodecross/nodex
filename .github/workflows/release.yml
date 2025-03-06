@@ -43,6 +43,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           use-cache: true
+          binary-file-name: nodex-agent
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Rust
