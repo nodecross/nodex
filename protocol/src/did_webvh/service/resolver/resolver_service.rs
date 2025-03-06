@@ -316,26 +316,10 @@ where
             .map_err(DidWebvhResolverError::DidWebvh)?;
         let converted_did = webvh_did.did_to_https();
 
-        let res = self
+        Ok(self
             .data_store
             .get(&converted_did)
             .await
-            .map_err(DidWebvhResolverError::DidWebvhDataStore)?;
-        if res.status_code.is_success() {
-            let res_body = res.body.split('\n').collect::<Vec<&str>>();
-            let mut log_entries = Vec::new();
-            for body in res_body {
-                if body.is_empty() {
-                    continue;
-                }
-                let log_entry: DidLogEntry = serde_json::from_str(body)?;
-                log_entries.push(log_entry);
-            }
-            Ok(log_entries)
-        } else {
-            Err(DidWebvhResolverError::DidWebvhRequestFailed(
-                res.status_code.to_string(),
-            ))
-        }
+            .map_err(DidWebvhResolverError::DidWebvhDataStore)?)
     }
 }
