@@ -43,7 +43,7 @@ mod tests {
             let log = fs::read_to_string("test_resources/did.jsonl")?;
             let log_entries: Vec<DidLogEntry> = log
                 .lines()
-                .map(|line| serde_json::from_str(line))
+                .map(serde_json::from_str)
                 .collect::<Result<Vec<DidLogEntry>, serde_json::Error>>()?;
             Ok(log_entries)
         }
@@ -103,7 +103,6 @@ mod tests {
             .map_err(|e| e.to_string())
             .unwrap();
         assert_eq!(res.len(), 1);
-        dbg!(&res);
 
         let did_doc = service.resolve_identifier(&res).await.unwrap();
         assert_eq!(did_doc.id, did.get_did().clone());

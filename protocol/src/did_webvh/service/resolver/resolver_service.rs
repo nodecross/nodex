@@ -263,8 +263,7 @@ where
             .map_err(DidWebvhResolverError::DidWebvh)?;
         let converted_did = webvh_did.did_to_https();
 
-        self
-            .data_store
+        self.data_store
             .get(&converted_did)
             .await
             .map_err(DidWebvhResolverError::DidWebvhDataStore)
