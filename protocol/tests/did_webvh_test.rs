@@ -105,7 +105,7 @@ mod tests {
         assert_eq!(res.len(), 1);
         dbg!(&res);
 
-        let did_doc = service.resolve_identifier(res).await.unwrap();
+        let did_doc = service.resolve_identifier(&res).await.unwrap();
         assert_eq!(did_doc.id, did.get_did().clone());
     }
 }
