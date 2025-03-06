@@ -194,7 +194,18 @@ fn verify_proof_created(created: &str) -> Result<(), ValidationError> {
 
 fn convert_uri(uri: &str) -> String {
     // if uri contains a port, slash, replace colon with a '%3A', slash with a colon,
-    uri.replace(":", "%3A").replace("/", ":")
+    // and then, if contains a http or https, remove it
+    // if contains a *.jsonl, etc file name, remove it. like a domain.com:8080/test.jsonl, remove
+    // /test.jsonl
+    let modified_uri = uri
+        .replace("/did.jsonl", "")
+        .replace("/did.json", "")
+        .replace("http://", "")
+        .replace("https://", "")
+        .replace(":", "%3A")
+        .replace("/", ":");
+
+    modified_uri
 }
 
 impl DidLogEntry {
