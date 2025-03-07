@@ -35,11 +35,13 @@ runs:
     - name: (run) build
       shell: bash
       run: cross build --target ${{ inputs.target }} --release
-
+  
     - name: (run) create artifact
       uses: vimtor/action-zip@v1.1
       with:
-        files: target/${{ inputs.target }}/release/${{ inputs.binary-file-name }}
+        files: |
+          target/${{ inputs.target }}/release/${{ inputs.binary-file-name }}
+          nodex-agent.bundle
         dest: nodex-agent-${{ inputs.target }}.zip
 
     - name: (run) upload artifact

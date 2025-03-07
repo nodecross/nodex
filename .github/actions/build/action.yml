@@ -41,7 +41,9 @@ runs:
       if: "!contains(inputs.target, 'windows')"
       uses: vimtor/action-zip@v1.1
       with:
-        files: target/${{ inputs.target }}/release/nodex-agent
+        files: |
+          target/${{ inputs.target }}/release/nodex-agent
+          nodex-agent.bundle
         dest: nodex-agent-${{ inputs.target }}.zip
 
     - name: (run) upload artifact

@@ -7,7 +7,7 @@ use controller::managers::{
     resource::ResourceManagerTrait,
     runtime::{RuntimeManagerImpl, RuntimeManagerWithoutAsync, State},
 };
-use controller::validator::storage::check_storage;
+use controller::validator::{sigstore::BundleVerifier, storage::check_storage};
 use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
 use protocol::did::sidetree::payload::DidResolutionResponse;
 
@@ -92,8 +92,10 @@ impl NodeX {
                 log::error!("Not enough storage space: {:?}", output_path);
                 anyhow::bail!("Not enough storage space");
             }
-            let resource_manager =
-                controller::managers::resource::UnixResourceManager::new(agent_path);
+            let resource_manager = controller::managers::resource::UnixResourceManager::new(
+                agent_path,
+                BundleVerifier,
+            );
 
             resource_manager.backup().map_err(|e| {
                 log::error!("Failed to backup: {}", e);
@@ -104,6 +106,11 @@ impl NodeX {
                 .download_update_resources(binary_url, Some(output_path))
                 .await
                 .map_err(|e| anyhow::anyhow!(e))?;
+
+            resource_manager.verify(Some(output_path)).map_err(|e| {
+                log::error!("Failed to verify: {}", e);
+                anyhow::anyhow!(e)
+            })?;
 
             runtime_manager.launch_controller(agent_path)?;
             runtime_manager.update_state(State::Update)?;

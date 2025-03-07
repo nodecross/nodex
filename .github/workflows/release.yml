@@ -24,6 +24,11 @@ jobs:
           target: ${{ matrix.target }}
           use-cache: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
+  
+      - name: Sign the binary using OIDC
+        uses: ./.github/actions/sign
+        with:
+          binary-path: target/${{ matrix.target }}/release/nodex-agent
 
   build-linux:
     needs: check-user
@@ -45,6 +50,11 @@ jobs:
           use-cache: true
           binary-file-name: nodex-agent
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sign the binary using OIDC
+        uses: ./.github/actions/sign
+        with:
+          binary-path: target/${{ matrix.target }}/release/nodex-agent
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
