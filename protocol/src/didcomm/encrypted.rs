@@ -167,7 +167,7 @@ async fn verify<R: DidRepository>(
         .await
         .map_err(DidCommEncryptedServiceVerifyError::SidetreeFindRequestFailed)?
         .ok_or(DidCommEncryptedServiceVerifyError::DidDocNotFound(
-            other_did.to_string(),
+            other_did.into_inner(),
         ))?
         .did_document;
     let mut container = didcomm_verify::<R>(&other_doc, my_keyring, message)?;
