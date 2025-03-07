@@ -17,7 +17,7 @@ pub fn encrypt_message(
     to_doc: &DidDocument,
 ) -> Result<DidCommMessage, DidCommEncryptMessageError> {
     let to_did = &to_doc.id;
-    let message = Message::new().from(from_did).to(&[to_did]).body(&body)?;
+    let message = Message::new().from(from_did).to(&[to_did]).body(body)?;
 
     let public_key: x25519_dalek::PublicKey = to_doc.get_key("#encryptionKey")?.try_into()?;
     let public_key = public_key.as_bytes().to_vec();

@@ -3,7 +3,7 @@ use axum::extract::Json;
 use protocol::did_webvh::domain::did_document::DidDocument;
 
 pub async fn handler() -> Result<Json<DidDocument>, AgentErrorCode> {
-    let service = crate::services::nodex::NodeX::new();
+    let mut service = crate::services::nodex::NodeX::new();
 
     match service.create_identifier().await {
         Ok(v) => Ok(Json(v)),

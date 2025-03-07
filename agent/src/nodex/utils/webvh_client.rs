@@ -30,24 +30,24 @@ impl DidWebvhDataStore for DidWebvhDataStoreImpl {
     type Error = ParseError;
 
     async fn create(
-        &self,
+        &mut self,
         did_path: &str,
         did_log_entries: &[DidLogEntry],
     ) -> Result<DidDocument, Self::Error> {
         unimplemented!();
     }
-    async fn get(&self, did_path: &str) -> Result<Vec<DidLogEntry>, Self::Error> {
+    async fn get(&mut self, did_path: &str) -> Result<Vec<DidLogEntry>, Self::Error> {
         unimplemented!();
     }
 
     async fn update(
-        &self,
+        &mut self,
         did_path: &str,
         did_log_entries: &[DidLogEntry],
     ) -> Result<DidDocument, Self::Error> {
         unimplemented!();
     }
-    async fn deactivate(&self, did_path: &str) -> Result<DidDocument, Self::Error> {
+    async fn deactivate(&mut self, did_path: &str) -> Result<DidDocument, Self::Error> {
         unimplemented!();
     }
 }

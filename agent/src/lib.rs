@@ -45,7 +45,7 @@ pub async fn run(controlled: bool, options: &cli::AgentOptions) -> std::io::Resu
     fs::create_dir_all(&logs_dir).unwrap_log();
 
     // NOTE: generate Key Chain
-    let node_x = NodeX::new();
+    let mut node_x = NodeX::new();
     let device_did = node_x.create_identifier().await.unwrap();
 
     if options.config {

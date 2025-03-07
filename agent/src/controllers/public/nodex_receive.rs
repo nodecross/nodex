@@ -1,6 +1,6 @@
 use crate::nodex::utils::did_accessor::{DidAccessor, DidAccessorImpl};
 use crate::nodex::utils::webvh_client::DidWebvhDataStoreImpl;
-use crate::services::nodex::{update_version, NodeX};
+use crate::services::nodex::update_version;
 use crate::services::studio::{MessageResponse, Studio};
 use anyhow::anyhow;
 use controller::validator::network::can_connect_to_download_server;
@@ -62,7 +62,7 @@ impl MessageReceiveUsecase {
         Err(anyhow::anyhow!("Invalid Json: {:?}", e))
     }
 
-    pub async fn receive_message(&self) -> anyhow::Result<()> {
+    pub async fn receive_message(&mut self) -> anyhow::Result<()> {
         for m in self.studio.get_message(&self.project_did).await? {
             let json_message: DidCommMessage = match serde_json::from_str(&m.raw_message) {
                 Ok(msg) => msg,
@@ -131,7 +131,7 @@ impl MessageReceiveUsecase {
 pub async fn polling_task(shutdown_token: CancellationToken) {
     log::info!("Polling task is started");
 
-    let usecase = MessageReceiveUsecase::new();
+    let mut usecase = MessageReceiveUsecase::new();
 
     let mut interval = tokio::time::interval(Duration::from_secs(3600));
     loop {

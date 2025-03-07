@@ -39,7 +39,7 @@ impl NodeX {
         NodeX { webvh, baseurl }
     }
 
-    pub async fn create_identifier(&self) -> anyhow::Result<DidDocument> {
+    pub async fn create_identifier(&mut self) -> anyhow::Result<DidDocument> {
         let config = app_config();
         let keystore = FileBaseKeyStore::new(config.clone());
         if let Some(did) =

@@ -8,7 +8,7 @@ use protocol::did_webvh::service::service_impl::DidWebvhServiceImpl;
 use std::str::FromStr;
 
 pub async fn handler(Path(did): Path<String>) -> Result<Json<Option<DidDocument>>, AgentErrorCode> {
-    let service = DidWebvhServiceImpl::new(
+    let mut service = DidWebvhServiceImpl::new(
         DidWebvhDataStoreImpl::new_from_server_config()
             .map_err(|_| AgentErrorCode::FindIdentifierInternal)?,
     );

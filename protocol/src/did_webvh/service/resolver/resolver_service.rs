@@ -32,7 +32,7 @@ pub enum DidWebvhResolverError<StudioClientError: std::error::Error> {
 pub trait DidWebvhResolverService: Sync {
     type DidWebvhResolverError: std::error::Error + Send + Sync;
     async fn resolve_identifier(
-        &self,
+        &mut self,
         did: &Did,
     ) -> Result<Option<DidDocument>, Self::DidWebvhResolverError>;
 }
@@ -242,7 +242,7 @@ where
     type DidWebvhResolverError = DidWebvhResolverError<C::Error>;
 
     async fn resolve_identifier(
-        &self,
+        &mut self,
         did: &Did,
     ) -> Result<Option<DidDocument>, Self::DidWebvhResolverError> {
         let webvh_did: DidWebvh = did
