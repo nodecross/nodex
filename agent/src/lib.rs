@@ -184,7 +184,7 @@ async fn studio_initialize(my_did: Did) {
 
     let studio = Studio::new();
     studio
-        .register_device(my_did.to_string(), project_did)
+        .register_device(my_did.into_inner(), project_did)
         .await
         .unwrap_log();
 }
