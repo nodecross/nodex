@@ -50,6 +50,67 @@ pub trait DidWebvhControllerService: Sync {
     ) -> Result<DidDocument, Self::DidWebvhIdentifierError>;
 }
 
+pub fn generate_log_entry<C: std::error::Error>(
+    path: &str,
+    enable_prerotation: bool,
+    keyring: KeyPairing,
+) -> Result<Vec<DidLogEntry>, DidWebvhIdentifierError<C>> {
+    let sign_key_jwk: Jwk = keyring.sign.get_public_key().try_into().map_err(|_| {
+        DidWebvhIdentifierError::Jwk(crate::keyring::jwk::K256ToJwkError::PointsInvalid)
+    })?;
+    let encrypt_key_jwk: Jwk =
+        <x25519_dalek::PublicKey as Into<Jwk>>::into(keyring.encrypt.get_public_key());
+
+    let mut log_entry = DidLogEntry::new(path)?;
+    let update_keypair = keyring.didwebvh_update;
+    let update_sec_key = update_keypair.get_secret_key().to_bytes();
+    let update_pub_key = multibase_encode(&update_keypair.get_public_key().to_bytes());
+    let update_keys = vec![update_pub_key.clone()];
+    log_entry.parameters.update_keys = Some(update_keys);
+
+    // if prerotation is enabled, add the prerotation key to the next_key_hashes
+    if enable_prerotation {
+        let prerotation_pub_key =
+            multibase_encode(&keyring.didwebvh_recovery.get_public_key().to_bytes());
+        let prerotation_keys = vec![prerotation_pub_key];
+        let next_key_hases = log_entry.calc_next_key_hash(&prerotation_keys)?;
+        log_entry.parameters.next_key_hashes = Some(next_key_hases);
+    }
+
+    let sign_verification_method = VerificationMethod {
+        id: format!("{}#{}", log_entry.state.id, "signingKey"),
+        r#type: "EcdsaSecp256k1VerificationKey2019".to_string(),
+        controller: log_entry.state.id.clone(),
+        public_key_jwk: Some(sign_key_jwk),
+        blockchain_account_id: None,
+        public_key_multibase: None,
+    };
+    log_entry
+        .state
+        .add_verification_method(sign_verification_method);
+
+    let encrypt_verification_method = VerificationMethod {
+        id: format!("{}#{}", log_entry.state.id, "encryptionKey"),
+        r#type: "X25519KeyAgreementKey2019".to_string(),
+        controller: log_entry.state.id.clone(),
+        public_key_jwk: Some(encrypt_key_jwk),
+        blockchain_account_id: None,
+        public_key_multibase: None,
+    };
+    log_entry
+        .state
+        .add_verification_method(encrypt_verification_method);
+
+    let scid = log_entry.calc_entry_hash()?;
+    log_entry.replace_placeholder_to_id(&scid)?;
+    let first_entry_hash = log_entry.calc_entry_hash()?;
+    log_entry.version_id = format!("1-{}", first_entry_hash);
+
+    log_entry.generate_proof(&update_sec_key, &update_pub_key)?;
+
+    Ok(vec![log_entry])
+}
+
 impl<C> DidWebvhControllerService for DidWebvhServiceImpl<C>
 where
     C: DidWebvhDataStore + Send + Sync,
@@ -63,61 +124,7 @@ where
         enable_prerotation: bool,
         keyring: KeyPairing,
     ) -> Result<DidDocument, Self::DidWebvhIdentifierError> {
-        let sign_key_jwk: Jwk = keyring.sign.get_public_key().try_into().map_err(|_| {
-            DidWebvhIdentifierError::Jwk(crate::keyring::jwk::K256ToJwkError::PointsInvalid)
-        })?;
-        let encrypt_key_jwk: Jwk =
-            <x25519_dalek::PublicKey as Into<Jwk>>::into(keyring.encrypt.get_public_key());
-
-        let mut log_entry = DidLogEntry::new(path)?;
-        let update_keypair = keyring.didwebvh_update;
-        let update_sec_key = update_keypair.get_secret_key().to_bytes();
-        let update_pub_key = multibase_encode(&update_keypair.get_public_key().to_bytes());
-        let update_keys = vec![update_pub_key.clone()];
-        log_entry.parameters.update_keys = Some(update_keys);
-
-        // if prerotation is enabled, add the prerotation key to the next_key_hashes
-        if enable_prerotation {
-            let prerotation_pub_key =
-                multibase_encode(&keyring.didwebvh_recovery.get_public_key().to_bytes());
-            let prerotation_keys = vec![prerotation_pub_key];
-            let next_key_hases = log_entry.calc_next_key_hash(&prerotation_keys)?;
-            log_entry.parameters.next_key_hashes = Some(next_key_hases);
-        }
-
-        let sign_verification_method = VerificationMethod {
-            id: format!("{}#{}", log_entry.state.id, "signingKey"),
-            r#type: "EcdsaSecp256k1VerificationKey2019".to_string(),
-            controller: log_entry.state.id.clone(),
-            public_key_jwk: Some(sign_key_jwk),
-            blockchain_account_id: None,
-            public_key_multibase: None,
-        };
-        log_entry
-            .state
-            .add_verification_method(sign_verification_method);
-
-        let encrypt_verification_method = VerificationMethod {
-            id: format!("{}#{}", log_entry.state.id, "encryptionKey"),
-            r#type: "X25519KeyAgreementKey2019".to_string(),
-            controller: log_entry.state.id.clone(),
-            public_key_jwk: Some(encrypt_key_jwk),
-            blockchain_account_id: None,
-            public_key_multibase: None,
-        };
-        log_entry
-            .state
-            .add_verification_method(encrypt_verification_method);
-
-        let scid = log_entry.calc_entry_hash()?;
-        log_entry.replace_placeholder_to_id(&scid)?;
-        let first_entry_hash = log_entry.calc_entry_hash()?;
-        log_entry.version_id = format!("1-{}", first_entry_hash);
-
-        log_entry.generate_proof(&update_sec_key, &update_pub_key)?;
-
-        let entries = vec![log_entry];
-
+        let entries = generate_log_entry(path, enable_prerotation, keyring)?;
         let response = self
             .data_store
             .create(path, &entries)
