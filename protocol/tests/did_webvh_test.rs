@@ -86,6 +86,6 @@ mod tests {
             .await
             .map_err(|e| e.to_string())
             .unwrap();
-        assert_eq!(did_doc.id, did.get_did().clone());
+        assert_eq!(did_doc.unwrap().id, did.get_did().clone());
     }
 }

@@ -89,7 +89,7 @@ mod tests {
     fn extract_from_did() {
         let message: DidCommMessage = serde_json::from_str(MESSAGE).unwrap();
         let result = message.find_sender().unwrap();
-        assert_eq!(&result, FROM_DID);
+        assert_eq!(&*result, FROM_DID);
     }
 
     #[test]

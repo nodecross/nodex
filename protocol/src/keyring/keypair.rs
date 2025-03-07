@@ -1,10 +1,12 @@
-use std::convert::{TryFrom, TryInto};
-
+use crate::did_webvh::domain::did::Did;
+use crate::did_webvh::domain::did_document::VerificationMethod;
+use crate::keyring::jwk::{Jwk, K256ToJwkError};
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use hex::FromHexError;
 use k256::elliptic_curve::sec1::ToEncodedPoint;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
+use std::convert::{TryFrom, TryInto};
 use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -219,13 +221,9 @@ impl KeyPairing {
         let update = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
         let recovery = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
         let encrypt = X25519KeyPair::new(x25519_dalek::StaticSecret::random_from_rng(&mut csprng));
+        let didwebvh_update = Ed25519KeyPair::new(SigningKey::generate(&mut csprng));
+        let didwebvh_recovery = Ed25519KeyPair::new(SigningKey::generate(&mut csprng));
 
-        let mut bytes = [0u8; 32];
-        csprng.fill_bytes(&mut bytes);
-        let didwebvh_update = Ed25519KeyPair::new(SigningKey::from_bytes(&bytes));
-        bytes = [0u8; 32];
-        csprng.fill_bytes(&mut bytes);
-        let didwebvh_recovery = Ed25519KeyPair::new(SigningKey::from_bytes(&bytes));
         KeyPairing {
             sign,
             update,
@@ -234,6 +232,31 @@ impl KeyPairing {
             didwebvh_update,
             didwebvh_recovery,
         }
+    }
+
+    pub fn to_verification_methods(
+        &self,
+        controller: &Did,
+    ) -> Result<Vec<VerificationMethod>, K256ToJwkError> {
+        let sign: Jwk = self.sign.get_public_key().try_into()?;
+        let sign = VerificationMethod {
+            id: "#signingKey".to_string(),
+            r#type: "EcdsaSecp256k1VerificationKey2019".to_string(),
+            controller: controller.clone(),
+            public_key_jwk: Some(sign),
+            public_key_multibase: None,
+            blockchain_account_id: None,
+        };
+        let encrypt: Jwk = self.encrypt.get_public_key().into();
+        let encrypt = VerificationMethod {
+            id: "#encryptionKey".to_string(),
+            r#type: "X25519KeyAgreementKey2019".to_string(),
+            controller: controller.clone(),
+            public_key_jwk: Some(encrypt),
+            public_key_multibase: None,
+            blockchain_account_id: None,
+        };
+        Ok(vec![sign, encrypt])
     }
 }
 

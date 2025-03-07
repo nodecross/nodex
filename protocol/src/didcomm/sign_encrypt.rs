@@ -88,248 +88,69 @@ pub enum DidCommDecryptMessageError {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, iter::FromIterator as _};
-
-    use chrono::{DateTime, Utc};
+    use super::{decrypt_message, encrypt_message, DidCommDecryptMessageError};
+    use crate::did_webvh::domain::did::Did;
+    use crate::did_webvh::domain::did_document::DidDocument;
+    use crate::keyring::keypair::KeyPairing;
     use rand_core::OsRng;
-    use serde_json::{json, Value};
+    use serde_json::json;
 
-    // use super::*;
-    use super::DidCommEncryptedService;
-    use crate::{
-        did::did_repository::{mocks::MockDidRepository, GetPublicKeyError},
-        didcomm::{
-            encrypted::{DidCommEncryptedServiceGenerateError, DidCommEncryptedServiceVerifyError},
-            test_utils::create_random_did,
-            types::DidCommMessage,
-        },
-        keyring::keypair::KeyPairing,
-        verifiable_credentials::types::VerifiableCredentials,
-    };
-
-    #[tokio::test]
-    async fn test_generate_and_verify() {
-        let from_did = create_random_did();
-        let to_did = create_random_did();
-
-        let to_keyring = KeyPairing::create_keyring(OsRng);
+    fn did_document(id: &str) -> (KeyPairing, DidDocument) {
         let from_keyring = KeyPairing::create_keyring(OsRng);
+        let did = Did::new("web", id).unwrap();
+        let vms = from_keyring.to_verification_methods(&did).unwrap();
+        let mut doc = DidDocument::new(did);
+        doc.verification_method = Some(vms);
+        (from_keyring, doc)
+    }
 
-        let repo = MockDidRepository::from_single(BTreeMap::from_iter([
-            (from_did.clone(), from_keyring.clone()),
-            (to_did.clone(), to_keyring.clone()),
-        ]));
+    #[rstest::fixture]
+    fn from() -> (KeyPairing, DidDocument) {
+        did_document("from")
+    }
+
+    #[rstest::fixture]
+    fn to() -> (KeyPairing, DidDocument) {
+        did_document("to")
+    }
+
+    #[rstest::fixture]
+    fn other() -> (KeyPairing, DidDocument) {
+        did_document("other")
+    }
+
+    #[rstest::rstest]
+    fn test_generate_and_verify(from: (KeyPairing, DidDocument), to: (KeyPairing, DidDocument)) {
+        let (from_key, from_doc) = from;
+        let (to_key, to_doc) = to;
+        let from_did = from_doc.id.clone();
+        let message = json!({"test": "0123456789abcdef"});
+
+        let res = encrypt_message(&message.to_string(), &from_did, &from_key, &to_doc).unwrap();
+        let verified = decrypt_message(&res, &from_doc, &to_key).unwrap();
+
+        assert_eq!(verified, message.to_string());
+    }
+
+    #[rstest::rstest]
+    fn test_cannot_steal_message(
+        from: (KeyPairing, DidDocument),
+        to: (KeyPairing, DidDocument),
+        other: (KeyPairing, DidDocument),
+    ) {
+        let (from_key, from_doc) = from;
+        let (_, to_doc) = to;
+        let (other_key, other_doc) = other;
+        let from_did = from_doc.id.clone();
 
         let message = json!({"test": "0123456789abcdef"});
-        let issuance_date = Utc::now();
 
-        let model = VerifiableCredentials::new(from_did.clone(), message.clone(), issuance_date);
-        let res = repo
-            .generate(model, &from_keyring, &to_did, None)
-            .await
-            .unwrap();
+        let res = encrypt_message(&message.to_string(), &from_did, &from_key, &to_doc).unwrap();
+        let verified = decrypt_message(&res, &other_doc, &other_key);
 
-        let verified = repo.verify(&to_keyring, &res).await.unwrap();
-        let verified = verified.message;
-
-        assert_eq!(verified.issuer.id, from_did);
-        assert_eq!(verified.credential_subject.container, message);
-    }
-
-    mod generate_failed {
-        use super::*;
-        use crate::did::did_repository::mocks::NoPublicKeyDidRepository;
-
-        #[tokio::test]
-        async fn test_did_not_found() {
-            let from_did = create_random_did();
-            let to_did = create_random_did();
-
-            let from_keyring = KeyPairing::create_keyring(OsRng);
-
-            let repo = MockDidRepository::from_single(BTreeMap::from_iter([(
-                from_did.clone(),
-                from_keyring.clone(),
-            )]));
-
-            let message = json!({"test": "0123456789abcdef"});
-            let issuance_date = Utc::now();
-
-            let model = VerifiableCredentials::new(from_did, message, issuance_date);
-            let res = repo
-                .generate(model, &from_keyring, &to_did, None)
-                .await
-                .unwrap_err();
-
-            if let DidCommEncryptedServiceGenerateError::DidDocNotFound(did) = res {
-                assert_eq!(did, to_did);
-            } else {
-                panic!("unexpected result: {:?}", res);
-            }
-        }
-
-        #[tokio::test]
-        async fn test_did_public_key_not_found() {
-            let from_did = create_random_did();
-            let to_did = create_random_did();
-
-            let from_keyring = KeyPairing::create_keyring(OsRng);
-
-            let repo = NoPublicKeyDidRepository;
-
-            let message = json!({"test": "0123456789abcdef"});
-            let issuance_date = Utc::now();
-
-            let model = VerifiableCredentials::new(from_did, message, issuance_date);
-            let res = repo
-                .generate(model, &from_keyring, &to_did, None)
-                .await
-                .unwrap_err();
-
-            if let DidCommEncryptedServiceGenerateError::DidPublicKeyNotFound(
-                GetPublicKeyError::PublicKeyNotFound(did),
-            ) = res
-            {
-                assert_eq!(did, to_did);
-            } else {
-                panic!("unexpected result: {:?}", res);
-            }
-        }
-    }
-
-    mod verify_failed {
-        use super::*;
-        use crate::did::did_repository::mocks::NoPublicKeyDidRepository;
-
-        async fn create_didcomm(
-            from_did: &str,
-            to_did: &str,
-            from_keyring: &KeyPairing,
-            to_keyring: &KeyPairing,
-            message: &Value,
-            metadata: Option<&Value>,
-            issuance_date: DateTime<Utc>,
-        ) -> DidCommMessage {
-            let repo = MockDidRepository::from_single(BTreeMap::from_iter([(
-                to_did.to_string(),
-                to_keyring.clone(),
-            )]));
-
-            let model =
-                VerifiableCredentials::new(from_did.to_string(), message.clone(), issuance_date);
-
-            repo.generate(model, from_keyring, to_did, metadata)
-                .await
-                .unwrap()
-        }
-
-        #[tokio::test]
-        async fn test_did_not_found() {
-            let from_did = create_random_did();
-            let to_did = create_random_did();
-
-            let to_keyring = KeyPairing::create_keyring(OsRng);
-            let from_keyring = KeyPairing::create_keyring(OsRng);
-
-            let message = json!({"test": "0123456789abcdef"});
-            let issuance_date = Utc::now();
-
-            let res = create_didcomm(
-                &from_did,
-                &to_did,
-                &from_keyring,
-                &to_keyring,
-                &message,
-                None,
-                issuance_date,
-            )
-            .await;
-
-            let repo = MockDidRepository::from_single(BTreeMap::from_iter([(
-                to_did.clone(),
-                to_keyring.clone(),
-            )]));
-            let res = repo.verify(&from_keyring, &res).await.unwrap_err();
-
-            if let DidCommEncryptedServiceVerifyError::DidDocNotFound(did) = res {
-                assert_eq!(did, from_did);
-            } else {
-                panic!("unexpected result: {:?}", res);
-            }
-        }
-
-        #[tokio::test]
-        async fn test_cannot_steal_message() {
-            let from_did = create_random_did();
-            let to_did = create_random_did();
-            let other_did = create_random_did();
-
-            let to_keyring = KeyPairing::create_keyring(OsRng);
-            let from_keyring = KeyPairing::create_keyring(OsRng);
-            let other_keyring = KeyPairing::create_keyring(OsRng);
-
-            let message = json!({"test": "0123456789abcdef"});
-            let issuance_date = Utc::now();
-
-            let res = create_didcomm(
-                &from_did,
-                &to_did,
-                &from_keyring,
-                &to_keyring,
-                &message,
-                None,
-                issuance_date,
-            )
-            .await;
-
-            let repo = MockDidRepository::from_single(BTreeMap::from_iter([
-                (from_did.clone(), from_keyring.clone()),
-                (to_did.clone(), to_keyring.clone()),
-                (other_did.clone(), other_keyring.clone()),
-            ]));
-
-            let res = repo.verify(&other_keyring, &res).await.unwrap_err();
-
-            if let DidCommEncryptedServiceVerifyError::DecryptFailed(_) = res {
-            } else {
-                panic!("unexpected result: {:?}", res);
-            }
-        }
-
-        #[tokio::test]
-        async fn test_did_public_key_not_found() {
-            let from_did = create_random_did();
-            let to_did = create_random_did();
-
-            let to_keyring = KeyPairing::create_keyring(OsRng);
-            let from_keyring = KeyPairing::create_keyring(OsRng);
-
-            let message = json!({"test": "0123456789abcdef"});
-            let issuance_date = Utc::now();
-
-            let res = create_didcomm(
-                &from_did,
-                &to_did,
-                &from_keyring,
-                &to_keyring,
-                &message,
-                None,
-                issuance_date,
-            )
-            .await;
-
-            let repo = NoPublicKeyDidRepository;
-
-            let res = repo.verify(&from_keyring, &res).await.unwrap_err();
-
-            if let DidCommEncryptedServiceVerifyError::DidPublicKeyNotFound(
-                GetPublicKeyError::PublicKeyNotFound(did),
-            ) = res
-            {
-                assert_eq!(did, from_did);
-            } else {
-                panic!("unexpected result: {:?}", res);
-            }
-        }
+        assert!(matches!(
+            verified,
+            Err(DidCommDecryptMessageError::DecryptionFailed(_))
+        ));
     }
 }
