@@ -103,7 +103,7 @@ fn verify_proofs<C: std::error::Error>(
     Ok(())
 }
 
-fn verify_entries<C: std::error::Error>(
+pub fn verify_entries<C: std::error::Error>(
     log_entries: &[DidLogEntry],
 ) -> Result<Option<DidDocument>, DidWebvhResolverError<C>> {
     let (first_log_entry, rest_log_entries) = match log_entries.split_first() {
