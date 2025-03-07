@@ -83,7 +83,7 @@ impl MessageReceiveUsecase {
                     self.studio
                         .ack_message(&self.project_did, m.id, true)
                         .await?;
-                    if &*from_did == self.project_did {
+                    if *from_did == self.project_did {
                         let container = serde_json::to_value(&verified)?;
                         let operation_type = container["operation"].clone();
                         match serde_json::from_value::<OperationType>(operation_type) {

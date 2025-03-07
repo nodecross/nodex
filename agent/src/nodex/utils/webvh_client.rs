@@ -4,6 +4,7 @@ use protocol::did_webvh::domain::did_log_entry::DidLogEntry;
 use protocol::did_webvh::infra::did_webvh_data_store::DidWebvhDataStore;
 use url::{ParseError, Url};
 
+#[allow(dead_code)]
 #[derive(Clone)]
 pub struct DidWebvhDataStoreImpl {
     base_url: Url,
@@ -26,6 +27,8 @@ impl DidWebvhDataStoreImpl {
     }
 }
 
+// TODO
+#[allow(unused_variables)]
 impl DidWebvhDataStore for DidWebvhDataStoreImpl {
     type Error = ParseError;
 
@@ -39,7 +42,6 @@ impl DidWebvhDataStore for DidWebvhDataStoreImpl {
     async fn get(&mut self, did_path: &str) -> Result<Vec<DidLogEntry>, Self::Error> {
         unimplemented!();
     }
-
     async fn update(
         &mut self,
         did_path: &str,
