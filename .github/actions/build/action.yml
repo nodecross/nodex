@@ -31,11 +31,11 @@ runs:
       run: cargo build --release --target ${{ inputs.target }}
 
     - name: Install Cosign
-      if: contains(inputs.target, 'windows')
+      if: "!contains(inputs.target, 'windows')"
       uses: sigstore/cosign-installer@v3
 
     - name: Sign the binary using OIDC
-      if: contains(inputs.target, 'windows')
+      if: "!contains(inputs.target, 'windows')"
       shell: bash
       run: |
         cosign sign-blob \
