@@ -192,10 +192,13 @@ fn verify_entries<C: std::error::Error>(
 
         // verify vertion_id, current log entry's version_id is generated from previous log
         // entry's version_id
-        let (_, previous_hash) = previous_entry.parse_version_id()?;
-        let mut tmp_entry = log_entry.clone();
-        tmp_entry.version_id = previous_hash;
-        let recalculated_hash = tmp_entry.calc_entry_hash()?;
+        let recalculated_hash = {
+                let (_, previous_hash) = previous_entry.parse_version_id()?;
+                let mut tmp_entry = log_entry.clone();
+                tmp_entry.version_id = previous_hash;
+                tmp_entry.calc_entry_hash()?;
+        };
+
         if recalculated_hash != hash {
             return Err(DidWebvhResolverError::ResolveIdentifier(
                 "Version id is not matched".to_string(),
