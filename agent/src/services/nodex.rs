@@ -34,7 +34,7 @@ impl NodeX {
         let baseurl =
             url::Url::parse(&server_config.did_http_endpoint()).expect("failed to parse url");
         let datastore = DidWebvhDataStoreImpl::new(baseurl.clone());
-        let webvh = DidWebvhServiceImpl::new(datastore);
+        let webvh = DidWebvhServiceImpl::new(datastore, baseurl.scheme() == "https");
 
         NodeX { webvh, baseurl }
     }

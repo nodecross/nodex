@@ -65,6 +65,8 @@ pub enum DidWebvhResolverError<StudioClientError: std::error::Error> {
     DidWebvh(#[from] crate::did_webvh::domain::did::DidWebvhError),
     #[error("Failed to get identifier. response: {0}")]
     DidWebvhRequestFailed(String),
+    #[error("Failed to convert did to url")]
+    ConvertDid,
 }
 
 #[trait_variant::make(Send)]
@@ -243,11 +245,12 @@ where
         &mut self,
         did: &Did,
     ) -> Result<Option<DidDocument>, Self::DidWebvhResolverError> {
-        let webvh_did: DidWebvh = did
-            .clone()
-            .try_into()
-            .map_err(DidWebvhResolverError::DidWebvh)?;
-        let converted_did = webvh_did.did_to_https();
+        let webvh_did: DidWebvh = did.clone().try_into()?;
+        let converted_did = webvh_did
+            .to_url_without_method()
+            .ok_or(DidWebvhResolverError::ConvertDid)?;
+        let method = if self.use_https { "https" } else { "http" };
+        let converted_did = format!("{}://{}", method, converted_did);
 
         let entries = self
             .data_store
