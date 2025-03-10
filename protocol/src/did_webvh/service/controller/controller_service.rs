@@ -12,7 +12,17 @@ use std::convert::TryInto;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum DidWebvhIdentifierError<StudioClientError: std::error::Error> {
+pub enum GenerateIdentifierError {
+    #[error("Failed to get public key: {0}")]
+    PublicKey(#[from] crate::keyring::jwk::K256ToJwkError),
+    #[error("Failed to generate hash: {0}")]
+    CreateLogEntry(#[from] crate::did_webvh::domain::did_log_entry::DidLogEntryError),
+}
+
+#[derive(Debug, Error)]
+pub enum DidWebvhControllerError<StudioClientError: std::error::Error> {
+    #[error("Failed to create identifier: {0}")]
+    GenerateIdentifier(#[from] GenerateIdentifierError),
     #[error("Failed to convert to JWK: {0}")]
     Jwk(#[from] crate::keyring::jwk::K256ToJwkError),
     #[error("Failed to parse body: {0}")]
@@ -31,33 +41,35 @@ pub enum DidWebvhIdentifierError<StudioClientError: std::error::Error> {
 
 #[trait_variant::make(Send)]
 pub trait DidWebvhControllerService: Sync {
-    type DidWebvhIdentifierError: std::error::Error + Send + Sync;
+    type DidWebvhControllerError: std::error::Error + Send + Sync;
     async fn create_identifier(
         &mut self,
         path: &str,
         enable_prerotation: bool,
         keyring: KeyPairing,
-    ) -> Result<DidDocument, Self::DidWebvhIdentifierError>;
+    ) -> Result<DidDocument, Self::DidWebvhControllerError>;
     async fn update_identifier(
         &mut self,
         path: &str,
         keyring: KeyPairing,
-    ) -> Result<DidDocument, Self::DidWebvhIdentifierError>;
+    ) -> Result<DidDocument, Self::DidWebvhControllerError>;
     async fn deactivate_identifier(
         &mut self,
         path: &str,
         keyring: KeyPairing,
-    ) -> Result<DidDocument, Self::DidWebvhIdentifierError>;
+    ) -> Result<DidDocument, Self::DidWebvhControllerError>;
 }
 
-pub fn generate_log_entry<C: std::error::Error>(
+pub fn generate_log_entry(
     path: &str,
     enable_prerotation: bool,
     keyring: KeyPairing,
-) -> Result<Vec<DidLogEntry>, DidWebvhIdentifierError<C>> {
-    let sign_key_jwk: Jwk = keyring.sign.get_public_key().try_into().map_err(|_| {
-        DidWebvhIdentifierError::Jwk(crate::keyring::jwk::K256ToJwkError::PointsInvalid)
-    })?;
+) -> Result<Vec<DidLogEntry>, GenerateIdentifierError> {
+    let sign_key_jwk: Jwk = keyring
+        .sign
+        .get_public_key()
+        .try_into()
+        .map_err(|e| GenerateIdentifierError::PublicKey(e))?;
     let encrypt_key_jwk: Jwk =
         <x25519_dalek::PublicKey as Into<Jwk>>::into(keyring.encrypt.get_public_key());
 
@@ -116,20 +128,20 @@ where
     C: DidWebvhDataStore + Send + Sync,
     C::Error: Send + Sync,
 {
-    type DidWebvhIdentifierError = DidWebvhIdentifierError<C::Error>;
+    type DidWebvhControllerError = DidWebvhControllerError<C::Error>;
 
     async fn create_identifier(
         &mut self,
         path: &str,
         enable_prerotation: bool,
         keyring: KeyPairing,
-    ) -> Result<DidDocument, Self::DidWebvhIdentifierError> {
+    ) -> Result<DidDocument, Self::DidWebvhControllerError> {
         let entries = generate_log_entry(path, enable_prerotation, keyring)?;
         let response = self
             .data_store
             .create(path, &entries)
             .await
-            .map_err(|e| DidWebvhIdentifierError::DidWebvhRequestFailed(e.to_string()))?;
+            .map_err(|e| DidWebvhControllerError::DidWebvhRequestFailed(e.to_string()))?;
         Ok(response)
     }
 
@@ -137,7 +149,7 @@ where
         &mut self,
         _path: &str,
         _keyring: KeyPairing,
-    ) -> Result<DidDocument, Self::DidWebvhIdentifierError> {
+    ) -> Result<DidDocument, Self::DidWebvhControllerError> {
         unimplemented!()
     }
 
@@ -145,7 +157,7 @@ where
         &mut self,
         _path: &str,
         _keyring: KeyPairing,
-    ) -> Result<DidDocument, Self::DidWebvhIdentifierError> {
+    ) -> Result<DidDocument, Self::DidWebvhControllerError> {
         unimplemented!()
     }
 }

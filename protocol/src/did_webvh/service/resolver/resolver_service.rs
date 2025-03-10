@@ -9,9 +9,48 @@ use std::convert::TryInto;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
+pub enum ResolveIdentifierError {
+    #[error("First log entry is not version 1")]
+    InvalidFirstVersion,
+    #[error("Log entry time is in the future")]
+    FutureTime,
+    #[error("No update keys found")]
+    NoUpdateKeys,
+    #[error("Log entry version is not sequential")]
+    InvalidVersionSequence,
+    #[error("Prerotation keys are not matched")]
+    InvalidPrerotationKey,
+    #[error("Entry hash is not matched: calc {found:?} != {expected:?}")]
+    InvalidEntryHash { expected: String, found: String },
+    #[error("No proof found")]
+    NoProof,
+    #[error("Proof created date is in the future")]
+    FutureProofTime,
+    #[error("Failed to parse proof created date")]
+    InvalidProof,
+    #[error("Failed to split verification method")]
+    SplitVerficationMethod,
+    #[error("Verification method not found in update keys")]
+    NoVerificationMethod,
+    #[error("Failed to decode public key")]
+    DecodePubilcKey,
+    #[error("Failed to decode proof value")]
+    DecodeProof,
+    #[error("Failed to canonicalize log entry")]
+    Canonicalize,
+    #[error("Failed to verify signature")]
+    VerifySignature,
+    #[error("Failed to procesure of Did: {0}")]
+    Did(#[from] crate::did_webvh::domain::did::DidError),
+    #[error("Failed to parse version time: {0}")]
+    DateParse(#[from] chrono::ParseError),
+    #[error("Failed to parse log entry: {0}")]
+    LogEntryParse(#[from] crate::did_webvh::domain::did_log_entry::DidLogEntryError),
+}
+#[derive(Debug, Error)]
 pub enum DidWebvhResolverError<StudioClientError: std::error::Error> {
     #[error("Failed to resolve identifier: {0}")]
-    ResolveIdentifier(String),
+    ResolveIdentifier(#[from] ResolveIdentifierError),
     #[error("Failed to convert to JWK: {0}")]
     Jwk(#[from] crate::keyring::jwk::K256ToJwkError),
     #[error("Failed to parse body: {0}")]
@@ -41,71 +80,53 @@ pub trait DidWebvhResolverService: Sync {
 // if next_key_hashes exists in previous log entry, public key in proof section must
 // be in update_keys of current log entry. otherwise, public key in proof section must
 // be in update_keys of previous log entry.
-fn verify_proofs<C: std::error::Error>(
+fn verify_proofs(
     update_keys: &[String],
     log_entry: &DidLogEntry,
-) -> Result<(), DidWebvhResolverError<C>> {
+) -> Result<(), ResolveIdentifierError> {
     // check existence of proof in log entry
     let proofs = match log_entry.proof.as_deref() {
-        None | Some(&[]) => {
-            return Err(DidWebvhResolverError::ResolveIdentifier(
-                "No proof found".to_string(),
-            ))
-        }
+        None | Some(&[]) => return Err(ResolveIdentifierError::NoProof),
         Some(proofs) => proofs,
     };
     for proof in proofs {
-        let parsed_time = DateTime::parse_from_rfc3339(&proof.created).map_err(|_| {
-            DidWebvhResolverError::ResolveIdentifier(
-                "Failed to parse proof created date".to_string(),
-            )
-        })?;
+        let parsed_time = DateTime::parse_from_rfc3339(&proof.created)
+            .map_err(|e| ResolveIdentifierError::DateParse(e))?;
         if parsed_time > Utc::now() {
-            return Err(DidWebvhResolverError::ResolveIdentifier(
-                "Proof created date is in the future".to_string(),
-            ));
+            return Err(ResolveIdentifierError::FutureProofTime);
         }
         // remove prefix from verification_method, 'did:key:{public_key}'
         let verification_method: Did = proof
             .verification_method
             .split('#')
             .next()
-            .ok_or(DidWebvhResolverError::ResolveIdentifier(
-                "Failed to split verification method".to_string(),
-            ))?
+            .ok_or(ResolveIdentifierError::SplitVerficationMethod)?
             .parse::<Did>()?;
         if !update_keys.contains(&verification_method.get_method_specific_id().to_string()) {
-            return Err(DidWebvhResolverError::ResolveIdentifier(
-                "Verification method not found in update keys".to_string(),
-            ));
+            return Err(ResolveIdentifierError::NoVerificationMethod);
         }
         // verify signature
         // proof.verification_method is a public key, proof.proof_value is a signature
         let public_key = verification_method.get_method_specific_id();
-        let decoded_public_key = multibase_decode(public_key).map_err(|_| {
-            DidWebvhResolverError::ResolveIdentifier("Failed to decode public key".to_string())
-        })?;
-        let decoded_proof_value = multibase_decode(&proof.proof_value).map_err(|_| {
-            DidWebvhResolverError::ResolveIdentifier("Failed to decode proof value".to_string())
-        })?;
-        let jcs = serde_json_canonicalizer::to_string(&log_entry.remove_proof()).map_err(|_| {
-            DidWebvhResolverError::ResolveIdentifier("Failed to canonicalize log entry".to_string())
-        })?;
+        let decoded_public_key =
+            multibase_decode(public_key).map_err(|_| ResolveIdentifierError::DecodePubilcKey)?;
+        let decoded_proof_value = multibase_decode(&proof.proof_value)
+            .map_err(|_| ResolveIdentifierError::DecodeProof)?;
+        let jcs = serde_json_canonicalizer::to_string(&log_entry.remove_proof())
+            .map_err(|_| ResolveIdentifierError::Canonicalize)?;
 
-        if !verify_signature(jcs.as_bytes(), &decoded_proof_value, &decoded_public_key).map_err(
-            |_| DidWebvhResolverError::ResolveIdentifier("Failed to verify signature".to_string()),
-        )? {
-            return Err(DidWebvhResolverError::ResolveIdentifier(
-                "Failed to verify signature".to_string(),
-            ));
+        if !verify_signature(jcs.as_bytes(), &decoded_proof_value, &decoded_public_key)
+            .map_err(|_| ResolveIdentifierError::VerifySignature)?
+        {
+            return Err(ResolveIdentifierError::VerifySignature);
         }
     }
     Ok(())
 }
 
-pub fn verify_entries<C: std::error::Error>(
+pub fn verify_entries(
     log_entries: &[DidLogEntry],
-) -> Result<Option<DidDocument>, DidWebvhResolverError<C>> {
+) -> Result<Option<DidDocument>, ResolveIdentifierError> {
     let (first_log_entry, rest_log_entries) = match log_entries.split_first() {
         Some(log_entries) => log_entries,
         None => return Ok(None),
@@ -114,27 +135,17 @@ pub fn verify_entries<C: std::error::Error>(
 
     let (id, hash) = first_log_entry.parse_version_id()?;
     if id != 1 {
-        return Err(DidWebvhResolverError::ResolveIdentifier(
-            "First log entry is not version 1".to_string(),
-        ));
+        return Err(ResolveIdentifierError::InvalidFirstVersion);
     }
     // check version time is not in the future
     let current_version_time = DateTime::parse_from_rfc3339(&first_log_entry.version_time)
-        .map_err(|_| {
-            DidWebvhResolverError::ResolveIdentifier("Failed to parse version time".to_string())
-        })?;
+        .map_err(|e| ResolveIdentifierError::DateParse(e))?;
     if current_version_time > current_time {
-        return Err(DidWebvhResolverError::ResolveIdentifier(
-            "Log entry time is in the future".to_string(),
-        ));
+        return Err(ResolveIdentifierError::FutureTime);
     }
     // check existence of update_keys in the first log entry, with check is_empty
     let mut update_keys = match first_log_entry.parameters.update_keys.as_deref() {
-        None | Some(&[]) => {
-            return Err(DidWebvhResolverError::ResolveIdentifier(
-                "No update keys found".to_string(),
-            ))
-        }
+        None | Some(&[]) => return Err(ResolveIdentifierError::NoUpdateKeys),
         Some(update_keys) => update_keys,
     };
 
@@ -148,10 +159,10 @@ pub fn verify_entries<C: std::error::Error>(
 
     let calculated_hash = replaced_hash_entry.calc_entry_hash()?;
     if calculated_hash != hash {
-        return Err(DidWebvhResolverError::ResolveIdentifier(format!(
-            "Entry hash is not matched: calc {} != {}",
-            calculated_hash, hash
-        )));
+        return Err(ResolveIdentifierError::InvalidEntryHash {
+            expected: hash,
+            found: calculated_hash,
+        });
     }
 
     let mut previous_version_number = id;
@@ -162,29 +173,19 @@ pub fn verify_entries<C: std::error::Error>(
         // check version number is sequential
         let (id, hash) = log_entry.parse_version_id()?;
         if id != previous_version_number + 1 {
-            return Err(DidWebvhResolverError::ResolveIdentifier(
-                "Log entry version is not sequential".to_string(),
-            ));
+            return Err(ResolveIdentifierError::InvalidVersionSequence);
         }
 
         // check version time is not in the future
-        let current_version_time =
-            DateTime::parse_from_rfc3339(&log_entry.version_time).map_err(|_| {
-                DidWebvhResolverError::ResolveIdentifier("Failed to parse version time".to_string())
-            })?;
+        let current_version_time = DateTime::parse_from_rfc3339(&log_entry.version_time)
+            .map_err(|e| ResolveIdentifierError::DateParse(e))?;
         if current_version_time > current_time {
-            return Err(DidWebvhResolverError::ResolveIdentifier(
-                "Log entry time is in the future".to_string(),
-            ));
+            return Err(ResolveIdentifierError::FutureTime);
         }
         let previous_version_time = DateTime::parse_from_rfc3339(&previous_entry.version_time)
-            .map_err(|_| {
-                DidWebvhResolverError::ResolveIdentifier("Failed to parse version time".to_string())
-            })?;
+            .map_err(|e| ResolveIdentifierError::DateParse(e))?;
         if current_version_time > previous_version_time {
-            return Err(DidWebvhResolverError::ResolveIdentifier(
-                "Log entry time is in the future".to_string(),
-            ));
+            return Err(ResolveIdentifierError::FutureTime);
         }
 
         // verify vertion_id, current log entry's version_id is generated from previous log
@@ -197,18 +198,17 @@ pub fn verify_entries<C: std::error::Error>(
         };
 
         if recalculated_hash != hash {
-            return Err(DidWebvhResolverError::ResolveIdentifier(
-                "Version id is not matched".to_string(),
-            ));
+            return Err(ResolveIdentifierError::InvalidEntryHash {
+                expected: hash,
+                found: recalculated_hash,
+            });
         }
 
         // verify prerotaion_keys, if next_key_hashes exists in previous log entry, compare
         // with calculated next_key_hashes from update_keys of current log entry.
         if let Some(mut previous_next_key_hashes) = previous_entry.parameters.next_key_hashes {
             let Some(current_update_keys) = log_entry.parameters.update_keys.as_ref() else {
-                return Err(DidWebvhResolverError::ResolveIdentifier(
-                    "Current update keys not found".to_string(),
-                ));
+                return Err(ResolveIdentifierError::NoUpdateKeys);
             };
             let mut calculated_prerotation_keys =
                 log_entry.calc_next_key_hash(current_update_keys)?;
@@ -216,9 +216,7 @@ pub fn verify_entries<C: std::error::Error>(
             calculated_prerotation_keys.sort();
             previous_next_key_hashes.sort();
             if calculated_prerotation_keys != previous_next_key_hashes {
-                return Err(DidWebvhResolverError::ResolveIdentifier(
-                    "Prerotation keys are not matched".to_string(),
-                ));
+                return Err(ResolveIdentifierError::InvalidPrerotationKey);
             }
             update_keys = current_update_keys;
         }
@@ -256,6 +254,6 @@ where
             .get(&converted_did)
             .await
             .map_err(DidWebvhResolverError::DidWebvhDataStore)?;
-        verify_entries(&entries)
+        Ok(verify_entries(&entries)?)
     }
 }
