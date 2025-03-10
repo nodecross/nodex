@@ -14,7 +14,12 @@ services:
       timeout: 30s
       retries: 5
       start_period: 10s
-    entrypoint: ["/bin/sh", "-c", "apk add --no-cache curl && chmod +x /usr/local/bin/prism && prism mock -h 0.0.0.0 /tmp/api.yaml"]
+    entrypoint:
+      [
+        "/bin/sh",
+        "-c",
+        "apk add --no-cache curl && chmod +x /usr/local/bin/prism && prism mock -h 0.0.0.0 /tmp/api.yaml",
+      ]
 
   studio_prism:
     image: stoplight/prism:5.8.1
@@ -29,7 +34,12 @@ services:
       timeout: 30s
       retries: 5
       start_period: 10s
-    entrypoint: ["/bin/sh", "-c", "apk add --no-cache curl && chmod +x /usr/local/bin/prism && prism mock -h 0.0.0.0 /tmp/api.yaml"]
+    entrypoint:
+      [
+        "/bin/sh",
+        "-c",
+        "apk add --no-cache curl && chmod +x /usr/local/bin/prism && prism mock -h 0.0.0.0 /tmp/api.yaml",
+      ]
 
   systemd_test:
     depends_on:
@@ -53,7 +63,7 @@ services:
         condition: service_healthy
       studio_prism:
         condition: service_healthy
-    image: ubuntu:20.04
+    image: ubuntu:22.04
     platform: linux/amd64
     volumes:
       - ./config:/root/.config/nodex/

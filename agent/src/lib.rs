@@ -23,6 +23,7 @@ mod usecase;
 pub use crate::config::app_config;
 pub use crate::config::server_config;
 pub use crate::network::network_config;
+use protocol::did_webvh::domain::did::Did;
 
 #[tokio::main]
 pub async fn run(controlled: bool, options: &cli::AgentOptions) -> std::io::Result<()> {
@@ -44,15 +45,15 @@ pub async fn run(controlled: bool, options: &cli::AgentOptions) -> std::io::Resu
     fs::create_dir_all(&logs_dir).unwrap_log();
 
     // NOTE: generate Key Chain
-    let node_x = NodeX::new();
+    let mut node_x = NodeX::new();
     let device_did = node_x.create_identifier().await.unwrap();
 
     if options.config {
-        use_cli(options.command.as_ref(), device_did.did_document.id.clone());
+        use_cli(options.command.as_ref(), device_did.id.clone());
         return Ok(());
     }
 
-    studio_initialize(device_did.did_document.id.clone()).await;
+    studio_initialize(device_did.id.clone()).await;
     send_device_info().await;
 
     let shutdown_token = CancellationToken::new();
@@ -117,7 +118,7 @@ pub async fn run(controlled: bool, options: &cli::AgentOptions) -> std::io::Resu
     Ok(())
 }
 
-fn use_cli(command: Option<&AgentCommands>, did: String) {
+fn use_cli(command: Option<&AgentCommands>, did: Did) {
     let network_config = crate::network_config();
     let mut network_config = network_config.lock();
     const SECRET_KEY: &str = "secret_key";
@@ -166,7 +167,7 @@ fn use_cli(command: Option<&AgentCommands>, did: String) {
     }
 }
 
-async fn studio_initialize(my_did: String) {
+async fn studio_initialize(my_did: Did) {
     let project_did = {
         let network = network_config();
         let network_config = network.lock();
@@ -183,7 +184,7 @@ async fn studio_initialize(my_did: String) {
 
     let studio = Studio::new();
     studio
-        .register_device(my_did, project_did)
+        .register_device(my_did.into_inner(), project_did)
         .await
         .unwrap_log();
 }

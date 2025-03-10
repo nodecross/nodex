@@ -214,7 +214,7 @@ impl DidWebvh {
         if parts[0].contains("%3A") {
             parts[0] = parts[0].replace("%3A", ":");
         }
-        format!("https://{}", parts.join("/"))
+        format!("https://{}/did.jsonl", parts.join("/"))
     }
 }
 
@@ -339,7 +339,10 @@ mod tests {
             "QmdEjpG2gwEWZAx8YjBrw7mF1iuCqgrMh8S63M7PaC1Ldr"
         );
         assert_eq!(did.get_uri(), "example.com:path:to:resource");
-        assert_eq!(did.did_to_https(), "https://example.com/path/to/resource");
+        assert_eq!(
+            did.did_to_https(),
+            "https://example.com/path/to/resource/did.jsonl"
+        );
 
         let did = "did:webvh:QmdEjpG2gwEWZAx8YjBrw7mF1iuCqgrMh8S63M7PaC1Ldr:example.com%3A8000:path:to:resource"
             .parse::<DidWebvh>()
@@ -351,7 +354,7 @@ mod tests {
         assert_eq!(did.get_uri(), "example.com%3A8000:path:to:resource");
         assert_eq!(
             did.did_to_https(),
-            "https://example.com:8000/path/to/resource"
+            "https://example.com:8000/path/to/resource/did.jsonl"
         );
 
         let did = Did::new(
@@ -366,7 +369,7 @@ mod tests {
         assert_eq!(did_webvh.get_uri(), "example.com:path:to:resource");
         assert_eq!(
             did_webvh.did_to_https(),
-            "https://example.com/path/to/resource"
+            "https://example.com/path/to/resource/did.jsonl"
         );
 
         Ok(())
