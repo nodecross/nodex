@@ -1,5 +1,6 @@
 use crate::nodex::utils::did_accessor::{DidAccessor, DidAccessorImpl};
 use crate::nodex::utils::webvh_client::DidWebvhDataStoreImpl;
+use crate::server_config;
 use crate::services::nodex::update_version;
 use crate::services::studio::{MessageResponse, Studio};
 use anyhow::anyhow;
@@ -12,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
+use url::Url;
 
 #[derive(Deserialize)]
 enum OperationType {
@@ -41,9 +43,14 @@ impl MessageReceiveUsecase {
                 panic!("Failed to read project_did")
             }
         };
-        let datastore =
-            DidWebvhDataStoreImpl::new_from_server_config().expect("failed to parse url");
-        let webvh = DidWebvhServiceImpl::new(datastore);
+        let base_url = {
+            let server_config = server_config();
+            let base_url = &server_config.did_http_endpoint();
+            Url::parse(base_url).expect("failed to parse url")
+        };
+        let use_https = base_url.scheme() == "https";
+        let datastore = DidWebvhDataStoreImpl::new(base_url);
+        let webvh = DidWebvhServiceImpl::new(datastore, use_https);
         Self {
             studio: Studio::new(),
             webvh,
