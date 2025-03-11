@@ -23,7 +23,7 @@ enum SendToStudioError {
     Clone,
     #[error(transparent)]
     Others(#[from] reqwest::Error),
-    #[error("Server Error")]
+    #[error("Retry to send request")]
     Retry,
 }
 
