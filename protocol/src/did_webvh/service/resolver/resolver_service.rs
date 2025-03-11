@@ -93,7 +93,7 @@ fn verify_proofs(
     };
     for proof in proofs {
         let parsed_time = DateTime::parse_from_rfc3339(&proof.created)
-            .map_err(|e| ResolveIdentifierError::DateParse(e))?;
+            .map_err(ResolveIdentifierError::DateParse)?;
         if parsed_time > Utc::now() {
             return Err(ResolveIdentifierError::FutureProofTime);
         }
@@ -141,7 +141,7 @@ pub fn verify_entries(
     }
     // check version time is not in the future
     let current_version_time = DateTime::parse_from_rfc3339(&first_log_entry.version_time)
-        .map_err(|e| ResolveIdentifierError::DateParse(e))?;
+        .map_err(ResolveIdentifierError::DateParse)?;
     if current_version_time > current_time {
         return Err(ResolveIdentifierError::FutureTime);
     }
@@ -180,12 +180,12 @@ pub fn verify_entries(
 
         // check version time is not in the future
         let current_version_time = DateTime::parse_from_rfc3339(&log_entry.version_time)
-            .map_err(|e| ResolveIdentifierError::DateParse(e))?;
+            .map_err(ResolveIdentifierError::DateParse)?;
         if current_version_time > current_time {
             return Err(ResolveIdentifierError::FutureTime);
         }
         let previous_version_time = DateTime::parse_from_rfc3339(&previous_entry.version_time)
-            .map_err(|e| ResolveIdentifierError::DateParse(e))?;
+            .map_err(ResolveIdentifierError::DateParse)?;
         if current_version_time > previous_version_time {
             return Err(ResolveIdentifierError::FutureTime);
         }

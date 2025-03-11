@@ -10,7 +10,8 @@ use std::str::FromStr;
 
 pub async fn handler(Path(did): Path<String>) -> Result<Json<Option<DidDocument>>, AgentErrorCode> {
     let server_config = server_config();
-    let baseurl = url::Url::parse(&server_config.did_http_endpoint()).expect("failed to parse url");
+    let baseurl = url::Url::parse(&server_config.did_http_endpoint())
+        .map_err(|_| AgentErrorCode::FindIdentifierInternal)?;
     let datastore = DidWebvhDataStoreImpl::new(baseurl.clone());
     let mut service = DidWebvhServiceImpl::new(datastore, baseurl.scheme() == "https");
     let did = Did::from_str(&did).map_err(|_| AgentErrorCode::FindIdentifierInternal)?;
