@@ -249,8 +249,6 @@ where
         let converted_did = webvh_did
             .to_url_without_method()
             .ok_or(DidWebvhResolverError::ConvertDid)?;
-        let method = if self.use_https { "https" } else { "http" };
-        let converted_did = format!("{}://{}", method, converted_did);
 
         let entries = self
             .data_store

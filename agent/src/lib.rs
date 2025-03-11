@@ -197,19 +197,9 @@ async fn send_device_info() {
         _ => String::from("No MAC address found."),
     };
 
-    let project_did = network_config()
-        .lock()
-        .get_project_did()
-        .expect("Failed to get project_did");
-
     let studio = Studio::new();
     studio
-        .send_device_info(
-            project_did,
-            mac_address,
-            VERSION.to_string(),
-            OS.to_string(),
-        )
+        .send_device_info(mac_address, VERSION.to_string(), OS.to_string())
         .await
         .unwrap_log();
 }

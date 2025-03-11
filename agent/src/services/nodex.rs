@@ -34,7 +34,7 @@ impl NodeX {
         let baseurl =
             url::Url::parse(&server_config.did_http_endpoint()).expect("failed to parse url");
         let datastore = DidWebvhDataStoreImpl::new(baseurl.clone());
-        let webvh = DidWebvhServiceImpl::new(datastore, baseurl.scheme() == "https");
+        let webvh = DidWebvhServiceImpl::new(datastore);
 
         NodeX { webvh, baseurl }
     }
@@ -56,10 +56,21 @@ impl NodeX {
         let mut keyring_with_config =
             keyring::keypair::KeyPairingWithConfig::create_keyring(config, keystore);
         let id = uuid::Uuid::new_v4();
-        let path = self.baseurl.join(&format!("webvh/v1/{}", id)).unwrap(); // We assume that fail never.
+
+        let host = self
+            .baseurl
+            .host_str()
+            .ok_or(anyhow::anyhow!("Failed to get host"))?;
+        let port = self.baseurl.port();
+        let base = match port {
+            Some(port) => &format!("{}:{}", host, port),
+            None => host,
+        };
+        let path = format!("{}/webvh/v1/{}", base, id);
+
         let res = self
             .webvh
-            .create_identifier(path.as_str(), true, keyring_with_config.get_keyring())
+            .create_identifier(&path, true, keyring_with_config.get_keyring())
             .await?;
         keyring_with_config.save(&res.id);
 

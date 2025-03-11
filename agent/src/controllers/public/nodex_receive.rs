@@ -48,9 +48,8 @@ impl MessageReceiveUsecase {
             let base_url = &server_config.did_http_endpoint();
             Url::parse(base_url).expect("failed to parse url")
         };
-        let use_https = base_url.scheme() == "https";
         let datastore = DidWebvhDataStoreImpl::new(base_url);
-        let webvh = DidWebvhServiceImpl::new(datastore, use_https);
+        let webvh = DidWebvhServiceImpl::new(datastore);
         Self {
             studio: Studio::new(),
             webvh,

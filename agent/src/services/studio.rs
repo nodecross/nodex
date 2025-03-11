@@ -17,12 +17,12 @@ use crate::{
 use anyhow::Context;
 use protocol::did::did_repository::DidRepositoryImpl;
 use protocol::didcomm::encrypted::DidCommEncryptedService;
+use protocol::keyring::keypair::KeyPair;
 use protocol::verifiable_credentials::did_vc::DidVcService;
 use protocol::verifiable_credentials::types::VerifiableCredentials;
-use std::collections::VecDeque;
-
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::VecDeque;
 
 // The maximum JSON body size is actually 1MB
 // We reserve 100KB as a buffer for Verifiable Credential capacity
@@ -110,7 +110,7 @@ impl Studio {
         let payload = serde_json::to_string(&request).expect("failed to serialize");
         let res = self
             .http_client
-            .post_with_auth_header("/v1/device", &payload)
+            .post_with_auth_header("/v1/device", payload)
             .await?;
 
         let status = res.status();
@@ -143,14 +143,13 @@ impl Studio {
 
     pub async fn send_device_info(
         &self,
-        project_did: String,
         mac_address: String,
         version: String,
         os: String,
     ) -> anyhow::Result<()> {
         let res = self
             .http_client
-            .send_device_info("/v1/device-info", &project_did, &mac_address, &version, &os)
+            .send_device_info("/v1/device-info", &mac_address, &version, &os)
             .await?;
 
         let status = res.status();
@@ -244,6 +243,38 @@ impl Studio {
     }
 
     #[inline]
+    async fn relay_to_studio_via_cbor<T: serde::Serialize + std::fmt::Debug>(
+        &self,
+        path: &str,
+        request: T,
+    ) -> anyhow::Result<()> {
+        let my_did = self.did_accessor.get_my_did();
+        let my_keyring = self.did_accessor.get_my_keyring();
+        let signing_key = &my_keyring.sign_time_series.get_secret_key();
+        let token = protocol::cbor::sign::Token::new(my_did);
+        let request = protocol::cbor::sign::WithToken {
+            inner: request,
+            token,
+        };
+        let payload = protocol::cbor::sign::sign_message(signing_key, &request)?;
+        let res = self.http_client.post_binary(path, payload).await?;
+        let status = res.status();
+        let json: Value = res.json().await.context("Failed to read response body")?;
+        let message = json
+            .get("message")
+            .map(|v| v.to_string())
+            .unwrap_or_default();
+        match status {
+            reqwest::StatusCode::OK => Ok(()),
+            reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
+            reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
+                anyhow::bail!("StatusCode=500, {}", message)
+            }
+            other => anyhow::bail!("StatusCode={other}, {}", message),
+        }
+    }
+
+    #[inline]
     async fn relay_to_studio<T: serde::Serialize>(
         &self,
         path: &str,
@@ -251,47 +282,26 @@ impl Studio {
     ) -> anyhow::Result<()> {
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
-        let model =
-            VerifiableCredentials::new(my_did, serde_json::to_value(request)?, chrono::Utc::now());
+        let model = VerifiableCredentials::new(
+            my_did.to_string(),
+            serde_json::to_value(request)?,
+            chrono::Utc::now(),
+        );
         let payload = DidVcService::generate(&self.did_repository, model, &my_keyring)
             .context("failed to generate payload")?;
         let payload = serde_json::to_string(&payload).context("failed to serialize")?;
-
-        async fn send(
-            studio: &Studio,
-            path: &str,
-            payload: String,
-        ) -> anyhow::Result<(reqwest::StatusCode, String)> {
-            let res = studio.http_client.post(path, &payload).await?;
-
-            let status = res.status();
-            let json: Value = res.json().await.context("Failed to read response body")?;
-            let message = if let Some(message) = json.get("message").map(|v| v.to_string()) {
-                message
-            } else {
-                "".to_string()
-            };
-
-            Ok((status, message))
-        }
-
-        let (status, message) = send(self, path, payload.clone()).await?;
-
+        let res = self.http_client.post(path, payload).await?;
+        let status = res.status();
+        let json: Value = res.json().await.context("Failed to read response body")?;
+        let message = json
+            .get("message")
+            .map(|v| v.to_string())
+            .unwrap_or_default();
         match status {
             reqwest::StatusCode::OK => Ok(()),
             reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
             reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
-                // retry once
-                log::info!("failed to send custom_metric: {}, retrying...", message);
-                let (status, message) = send(self, path, payload).await?;
-                match status {
-                    reqwest::StatusCode::OK => Ok(()),
-                    reqwest::StatusCode::NOT_FOUND => anyhow::bail!("StatusCode=404, {}", message),
-                    reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
-                        anyhow::bail!("StatusCode=500, {}", message);
-                    }
-                    other => anyhow::bail!("StatusCode={other}, {}", message),
-                }
+                anyhow::bail!("StatusCode=500, {}", message)
             }
             other => anyhow::bail!("StatusCode={other}, {}", message),
         }
@@ -314,7 +324,8 @@ impl MessageActivityRepository for Studio {
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
 
-        let model = VerifiableCredentials::new(my_did, json!(request), request.occurred_at);
+        let model =
+            VerifiableCredentials::new(my_did.to_string(), json!(request), request.occurred_at);
         let payload = DidCommEncryptedService::generate(
             &self.did_repository,
             model,
@@ -328,7 +339,7 @@ impl MessageActivityRepository for Studio {
 
         let res = self
             .http_client
-            .post("/v1/message-activity", &payload)
+            .post("/v1/message-activity", payload)
             .await?;
 
         let status = res.status();
@@ -370,7 +381,8 @@ impl MessageActivityRepository for Studio {
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
 
-        let model = VerifiableCredentials::new(my_did, json!(request), request.verified_at);
+        let model =
+            VerifiableCredentials::new(my_did.to_string(), json!(request), request.verified_at);
         let payload = DidCommEncryptedService::generate(
             &self.did_repository,
             model,
@@ -419,11 +431,13 @@ impl MetricStoreRepository for Studio {
         while !metrics.is_empty() {
             let my_did = self.did_accessor.get_my_did();
             let my_keyring = self.did_accessor.get_my_keyring();
-            let mut metrics_str = Vec::new();
+            let signing_key = &my_keyring.sign_time_series.get_secret_key();
+
+            let mut metrics_dst = Vec::new();
             let mut current_size = 0;
 
             while let Some(m) = metrics.pop_front() {
-                let item_size = serde_json::to_string(&m)?.len();
+                let item_size = protocol::cbor::sign::to_message(&m)?.len();
                 if item_size > JSON_BODY_MAX_SIZE {
                     anyhow::bail!("invalid item size: JSON body size too large")
                 }
@@ -432,15 +446,16 @@ impl MetricStoreRepository for Studio {
                     break;
                 }
                 current_size += item_size;
-                metrics_str.push(m);
+                metrics_dst.push(m);
             }
 
-            let model = VerifiableCredentials::new(my_did, json!(metrics_str), chrono::Utc::now());
-            let payload = DidVcService::generate(&self.did_repository, model, &my_keyring)
-                .context("failed to generate payload")?;
-
-            let payload = serde_json::to_string(&payload).context("failed to serialize")?;
-            let res = self.http_client.post("/v1/metrics", &payload).await?;
+            let token = protocol::cbor::sign::Token::new(my_did);
+            let payload = protocol::cbor::sign::WithToken {
+                inner: metrics_dst,
+                token,
+            };
+            let payload = protocol::cbor::sign::sign_message(signing_key, &payload)?;
+            let res = self.http_client.post_binary("/v1/metrics", payload).await?;
 
             let status = res.status();
             let json: Value = res.json().await.context("Failed to read response body")?;
@@ -465,13 +480,14 @@ impl MetricStoreRepository for Studio {
 
 impl EventStoreRepository for Studio {
     async fn save(&self, request: Vec<EventStoreRequest>) -> anyhow::Result<()> {
-        self.relay_to_studio("/v1/events", request).await
+        self.relay_to_studio_via_cbor("/v1/events", request).await
     }
 }
 
 impl CustomMetricStoreRepository for Studio {
     async fn save(&self, request: Vec<CustomMetricStoreRequest>) -> anyhow::Result<()> {
-        self.relay_to_studio("/v1/custom-metrics", request).await
+        self.relay_to_studio_via_cbor("/v1/custom-metrics", request)
+            .await
     }
 }
 

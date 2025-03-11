@@ -9,9 +9,10 @@ use thiserror::Error;
 
 pub struct KeyPairingWithConfig<S: SecureKeyStore> {
     sign: K256KeyPair,
+    encrypt: X25519KeyPair,
+    sign_time_series: Ed25519KeyPair,
     update: K256KeyPair,
     recovery: K256KeyPair,
-    encrypt: X25519KeyPair,
     didwebvh_update: Ed25519KeyPair,
     didwebvh_recovery: Ed25519KeyPair,
     config: Box<SingletonAppConfig>,
@@ -36,6 +37,9 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
         let sign = secure_keystore
             .read_sign()
             .ok_or(KeyPairingError::KeyNotFound)?;
+        let sign_time_series = secure_keystore
+            .read_sign_time_series()
+            .ok_or(KeyPairingError::KeyNotFound)?;
         let update = secure_keystore
             .read_update()
             .ok_or(KeyPairingError::KeyNotFound)?;
@@ -54,6 +58,7 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
 
         Ok(KeyPairingWithConfig {
             sign,
+            sign_time_series,
             update,
             recovery,
             encrypt,
@@ -70,6 +75,7 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
 
         KeyPairingWithConfig {
             sign: keyring.sign,
+            sign_time_series: keyring.sign_time_series,
             update: keyring.update,
             recovery: keyring.recovery,
             encrypt: keyring.encrypt,
@@ -83,6 +89,7 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
     pub fn get_keyring(&self) -> protocol::keyring::keypair::KeyPairing {
         protocol::keyring::keypair::KeyPairing {
             sign: self.sign.clone(),
+            sign_time_series: self.sign_time_series.clone(),
             update: self.update.clone(),
             recovery: self.recovery.clone(),
             encrypt: self.encrypt.clone(),
@@ -94,6 +101,8 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
     pub fn save(&mut self, did: &str) {
         self.secure_keystore
             .write(&SecureKeyStoreKey::Sign(&self.sign));
+        self.secure_keystore
+            .write(&SecureKeyStoreKey::SignTimeSeries(&self.sign_time_series));
         self.secure_keystore
             .write(&SecureKeyStoreKey::Update(&self.update));
         self.secure_keystore

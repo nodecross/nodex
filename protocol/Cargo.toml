@@ -32,6 +32,8 @@ uuid = { workspace = true }
 validator = { workspace = true }
 validator_derive = { workspace = true }
 x25519-dalek = { workspace = true }
+ciborium = "0.2.2"
+coset = "0.3.8"
 zeroize = { workspace = true }
 
 [dev-dependencies]

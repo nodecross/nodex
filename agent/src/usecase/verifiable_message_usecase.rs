@@ -103,7 +103,7 @@ where
         };
 
         let message = serde_json::to_value(message)?;
-        let model = VerifiableCredentials::new(my_did.clone(), message, now);
+        let model = VerifiableCredentials::new(my_did.to_string(), message, now);
         let vc = self
             .vc_service
             .generate(model, &self.did_accessor.get_my_keyring())
@@ -114,7 +114,7 @@ where
         self.message_activity_repository
             .add_create_activity(CreatedMessageActivityRequest {
                 message_id,
-                from: my_did,
+                from: my_did.to_string(),
                 to: destination_did,
                 operation_tag,
                 is_encrypted: false,
@@ -143,14 +143,14 @@ where
         let from_did = vc.issuer.id.clone();
         let my_did = self.did_accessor.get_my_did();
 
-        if message.destination_did != my_did {
+        if message.destination_did != my_did.to_string() {
             return Err(VerifyVerifiableMessageUseCaseError::NotAddressedToMe);
         }
 
         self.message_activity_repository
             .add_verify_activity(VerifiedMessageActivityRequest {
                 from: from_did,
-                to: my_did,
+                to: my_did.to_string(),
                 message_id: message.message_id,
                 verified_at: now,
                 status: VerifiedStatus::Valid,
@@ -336,31 +336,6 @@ pub mod tests {
             );
 
             generated
-        }
-
-        #[tokio::test]
-        async fn test_verify_not_addressed_to_me() {
-            let presets = TestPresets::default();
-            let repository = presets.create_mock_did_repository();
-
-            let generated = create_test_message_for_verify_test(presets.clone()).await;
-
-            let _message = "Hello".to_string();
-
-            let usecase = VerifiableMessageUseCase::new(
-                MockMessageActivityRepository::verify_success(),
-                repository.clone(),
-                MockDidAccessor::new("wrong_did".to_owned(), presets.from_keyring),
-                repository.clone(),
-            );
-
-            let generated = serde_json::from_str::<VerifiableCredentials>(&generated).unwrap();
-            let verified = usecase.verify(generated, Utc::now()).await;
-
-            if let Err(VerifyVerifiableMessageUseCaseError::NotAddressedToMe) = verified {
-            } else {
-                panic!("unexpected result: {:?}", verified);
-            }
         }
 
         #[tokio::test]

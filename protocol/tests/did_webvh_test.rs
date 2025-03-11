@@ -63,7 +63,7 @@ mod tests {
     pub async fn test_create_did_log_entry() {
         let keyring = keypair::KeyPairing::create_keyring(OsRng);
         let datastore = MockDataStore::new();
-        let res = DidWebvhServiceImpl::new(datastore, true)
+        let res = DidWebvhServiceImpl::new(datastore)
             .create_identifier("domain.examle.com/test/did", true, keyring)
             .await
             .unwrap();
@@ -80,7 +80,7 @@ mod tests {
                 .parse::<DidWebvh>()
                 .unwrap();
         let datastore = MockDataStore::new();
-        let mut service = DidWebvhServiceImpl::new(datastore, true);
+        let mut service = DidWebvhServiceImpl::new(datastore);
         let did_doc = service
             .resolve_identifier(did.get_did())
             .await

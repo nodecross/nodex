@@ -20,9 +20,10 @@ use crate::nodex::utils::UnwrapLog;
 #[derive(Clone, Deserialize, Serialize)]
 struct KeyPairsConfig {
     sign: Option<KeyPairHex>,
+    encrypt: Option<KeyPairHex>,
+    sign_time_series: Option<KeyPairHex>,
     update: Option<KeyPairHex>,
     recovery: Option<KeyPairHex>,
-    encrypt: Option<KeyPairHex>,
 
     didwebvh_update: Option<KeyPairHex>,
     didwebvh_recovery: Option<KeyPairHex>,
@@ -81,6 +82,7 @@ impl Default for ConfigRoot {
             did: None,
             key_pairs: KeyPairsConfig {
                 sign: None,
+                sign_time_series: None,
                 update: None,
                 recovery: None,
                 encrypt: None,
@@ -236,18 +238,24 @@ impl AppConfig {
         load_key_pair(&self.root.key_pairs.sign)
     }
 
+    pub fn load_sign_time_series_key_pair(&self) -> Option<Ed25519KeyPair> {
+        load_key_pair(&self.root.key_pairs.sign_time_series)
+    }
+
     pub fn load_keyring(&self) -> Option<KeyPairing> {
         let sign = self.load_sign_key_pair()?;
+        let encrypt = self.load_encrypt_key_pair()?;
+        let sign_time_series = self.load_sign_time_series_key_pair()?;
         let update = self.load_update_key_pair()?;
         let recovery = self.load_recovery_key_pair()?;
-        let encrypt = self.load_encrypt_key_pair()?;
         let didwebvh_update = self.load_didwebvh_update_key_pair()?;
         let didwebvh_recovery = self.load_didwebvh_recovery_key_pair()?;
         Some(KeyPairing {
             sign,
+            encrypt,
+            sign_time_series,
             update,
             recovery,
-            encrypt,
             didwebvh_update,
             didwebvh_recovery,
         })
@@ -280,6 +288,13 @@ impl AppConfig {
         self.write()
             .map_err(|e| log::error!("{:?}", e))
             .expect("failed to save sign key pair");
+    }
+
+    pub fn save_sign_time_series_key_pair(&mut self, value: &Ed25519KeyPair) {
+        self.root.key_pairs.sign_time_series = Some(value.to_hex_key_pair());
+        self.write()
+            .map_err(|e| log::error!("{:?}", e))
+            .expect("failed to save sign time series key pair");
     }
 
     pub fn load_didwebvh_update_key_pair(&self) -> Option<Ed25519KeyPair> {
