@@ -90,7 +90,7 @@ where
         let message = serde_json::to_value(message)?;
         let my_did = self.did_accessor.get_my_did();
 
-        let model = VerifiableCredentials::new(my_did.into_inner(), message, now);
+        let model = VerifiableCredentials::new(my_did.clone().into_inner(), message, now);
         let didcomm_message = self
             .didcomm_service
             .generate(
@@ -126,7 +126,10 @@ where
     ) -> Result<VerifiableCredentials, VerifyDidcommMessageUseCaseError<D::VerifyError, R::Error>>
     {
         let my_did = self.did_accessor.get_my_did();
-        if !message.find_receivers().contains(&my_did.into_inner()) {
+        if !message
+            .find_receivers()
+            .contains(&my_did.clone().into_inner())
+        {
             return Err(VerifyDidcommMessageUseCaseError::NotAddressedToMe);
         }
         let verified = self

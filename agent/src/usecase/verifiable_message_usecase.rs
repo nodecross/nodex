@@ -103,7 +103,7 @@ where
         };
 
         let message = serde_json::to_value(message)?;
-        let model = VerifiableCredentials::new(my_did.into_inner(), message, now);
+        let model = VerifiableCredentials::new(my_did.clone().into_inner(), message, now);
         let vc = self
             .vc_service
             .generate(model, &self.did_accessor.get_my_keyring())
@@ -143,7 +143,7 @@ where
         let from_did = vc.issuer.id.clone();
         let my_did = self.did_accessor.get_my_did();
 
-        if message.destination_did != my_did.into_inner() {
+        if message.destination_did != my_did.clone().into_inner() {
             return Err(VerifyVerifiableMessageUseCaseError::NotAddressedToMe);
         }
 
