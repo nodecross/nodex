@@ -69,7 +69,7 @@ pub fn generate_log_entry(
         .sign
         .get_public_key()
         .try_into()
-        .map_err(|e| GenerateIdentifierError::PublicKey(e))?;
+        .map_err(GenerateIdentifierError::PublicKey)?;
     let encrypt_key_jwk: Jwk =
         <x25519_dalek::PublicKey as Into<Jwk>>::into(keyring.encrypt.get_public_key());
 
