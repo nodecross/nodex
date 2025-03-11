@@ -7,7 +7,9 @@ version = "0.2.0"
 [dependencies]
 bs58 = { workspace = true }
 chrono = { workspace = true }
+ciborium = "0.2.2"
 const_format = { workspace = true }
+coset = "0.3.8"
 cuid = { workspace = true }
 data-encoding = { workspace = true }
 didcomm-rs = { git = "https://github.com/nodecross/didcomm-rs.git", tag = "v0.8.1", default-features = false, features = [
@@ -32,11 +34,9 @@ uuid = { workspace = true }
 validator = { workspace = true }
 validator_derive = { workspace = true }
 x25519-dalek = { workspace = true }
-ciborium = "0.2.2"
-coset = "0.3.8"
 zeroize = { workspace = true }
 
 [dev-dependencies]
 rand = "0.8.5"
-tokio = { version = "1.43.0", features = ["full"] }
 rstest = "0.19.0"
+tokio = { version = "1.43.0", features = ["full"] }

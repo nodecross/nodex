@@ -6,10 +6,10 @@ name = "agent"
 version = { workspace = true }
 
 [dependencies]
-backon = "1.3.0"
 anyhow = { workspace = true }
 async-trait = "0.1.85"
 axum = { version = "0.8.1", features = ["macros"] }
+backon = "1.3.0"
 bytes = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
