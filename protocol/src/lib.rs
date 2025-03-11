@@ -1,3 +1,4 @@
+pub mod cbor;
 pub mod did;
 pub mod did_webvh;
 pub mod didcomm;

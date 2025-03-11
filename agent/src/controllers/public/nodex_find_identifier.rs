@@ -13,7 +13,7 @@ pub async fn handler(Path(did): Path<String>) -> Result<Json<Option<DidDocument>
     let baseurl = url::Url::parse(&server_config.did_http_endpoint())
         .map_err(|_| AgentErrorCode::FindIdentifierInternal)?;
     let datastore = DidWebvhDataStoreImpl::new(baseurl.clone());
-    let mut service = DidWebvhServiceImpl::new(datastore, baseurl.scheme() == "https");
+    let mut service = DidWebvhServiceImpl::new(datastore);
     let did = Did::from_str(&did).map_err(|_| AgentErrorCode::FindIdentifierInternal)?;
     match service.resolve_identifier(&did).await {
         Ok(v) => Ok(Json(v)),

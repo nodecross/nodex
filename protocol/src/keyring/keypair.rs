@@ -192,11 +192,12 @@ impl KeyPair<SigningKey, VerifyingKey> for Ed25519KeyPair {
 #[derive(Clone)]
 pub struct KeyPairing {
     pub sign: K256KeyPair,
+    pub encrypt: X25519KeyPair,
+    pub sign_time_series: Ed25519KeyPair,
+
     // TODO: Remove when not using Sidetree.
     pub update: K256KeyPair,
     pub recovery: K256KeyPair,
-
-    pub encrypt: X25519KeyPair,
 
     pub didwebvh_update: Ed25519KeyPair,
     pub didwebvh_recovery: Ed25519KeyPair,
@@ -205,11 +206,12 @@ pub struct KeyPairing {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct KeyPairingHex {
     pub sign: KeyPairHex,
+    pub encrypt: KeyPairHex,
+    pub sign_time_series: KeyPairHex,
+
     // TODO: Remove when not using Sidetree.
     pub update: KeyPairHex,
     pub recovery: KeyPairHex,
-
-    pub encrypt: KeyPairHex,
 
     pub didwebvh_update: KeyPairHex,
     pub didwebvh_recovery: KeyPairHex,
@@ -218,17 +220,20 @@ pub struct KeyPairingHex {
 impl KeyPairing {
     pub fn create_keyring<T: RngCore + CryptoRng>(mut csprng: T) -> Self {
         let sign = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
+        let encrypt = X25519KeyPair::new(x25519_dalek::StaticSecret::random_from_rng(&mut csprng));
+        let sign_time_series = Ed25519KeyPair::new(SigningKey::generate(&mut csprng));
+
         let update = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
         let recovery = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
-        let encrypt = X25519KeyPair::new(x25519_dalek::StaticSecret::random_from_rng(&mut csprng));
         let didwebvh_update = Ed25519KeyPair::new(SigningKey::generate(&mut csprng));
         let didwebvh_recovery = Ed25519KeyPair::new(SigningKey::generate(&mut csprng));
 
         KeyPairing {
             sign,
+            encrypt,
+            sign_time_series,
             update,
             recovery,
-            encrypt,
             didwebvh_update,
             didwebvh_recovery,
         }
@@ -256,7 +261,16 @@ impl KeyPairing {
             public_key_multibase: None,
             blockchain_account_id: None,
         };
-        Ok(vec![sign, encrypt])
+        let sign_time_series: Jwk = self.sign_time_series.get_public_key().into();
+        let sign_time_series = VerificationMethod {
+            id: "#signTimeSeriesKey".to_string(),
+            r#type: "Ed25519VerificationKey2018".to_string(),
+            controller: controller.clone(),
+            public_key_jwk: Some(sign_time_series),
+            public_key_multibase: None,
+            blockchain_account_id: None,
+        };
+        Ok(vec![sign, encrypt, sign_time_series])
     }
 }
 
@@ -264,9 +278,10 @@ impl From<&KeyPairing> for KeyPairingHex {
     fn from(keypair: &KeyPairing) -> Self {
         KeyPairingHex {
             sign: keypair.sign.to_hex_key_pair(),
+            encrypt: keypair.encrypt.to_hex_key_pair(),
+            sign_time_series: keypair.sign_time_series.to_hex_key_pair(),
             update: keypair.update.to_hex_key_pair(),
             recovery: keypair.recovery.to_hex_key_pair(),
-            encrypt: keypair.encrypt.to_hex_key_pair(),
             didwebvh_update: keypair.didwebvh_update.to_hex_key_pair(),
             didwebvh_recovery: keypair.didwebvh_recovery.to_hex_key_pair(),
         }
@@ -278,17 +293,20 @@ impl TryFrom<&KeyPairingHex> for KeyPairing {
 
     fn try_from(hex: &KeyPairingHex) -> Result<Self, Self::Error> {
         let sign = K256KeyPair::from_hex_key_pair(&hex.sign)?;
+        let encrypt = X25519KeyPair::from_hex_key_pair(&hex.encrypt)?;
+        let sign_time_series = Ed25519KeyPair::from_hex_key_pair(&hex.sign_time_series)?;
+
         let update = K256KeyPair::from_hex_key_pair(&hex.update)?;
         let recovery = K256KeyPair::from_hex_key_pair(&hex.recovery)?;
-        let encrypt = X25519KeyPair::from_hex_key_pair(&hex.encrypt)?;
         let didwebvh_update = Ed25519KeyPair::from_hex_key_pair(&hex.didwebvh_update)?;
         let didwebvh_recovery = Ed25519KeyPair::from_hex_key_pair(&hex.didwebvh_recovery)?;
 
         Ok(KeyPairing {
             sign,
+            encrypt,
+            sign_time_series,
             update,
             recovery,
-            encrypt,
             didwebvh_update,
             didwebvh_recovery,
         })
@@ -306,6 +324,10 @@ pub mod tests {
         let keyring = KeyPairing::create_keyring(OsRng);
 
         assert_eq!(keyring.sign.get_secret_key().to_bytes().len(), 32);
+        assert_eq!(
+            keyring.sign_time_series.get_secret_key().to_bytes().len(),
+            32
+        );
         assert_eq!(keyring.update.get_secret_key().to_bytes().len(), 32);
         assert_eq!(keyring.recovery.get_secret_key().to_bytes().len(), 32);
         assert_eq!(keyring.encrypt.get_secret_key().as_bytes().len(), 32);
@@ -317,6 +339,14 @@ pub mod tests {
         let hex = KeyPairingHex::from(&keyring);
         let keyring2 = KeyPairing::try_from(&hex).unwrap();
 
+        assert_eq!(
+            keyring.sign_time_series.to_hex_key_pair().secret_key,
+            keyring2.sign_time_series.to_hex_key_pair().secret_key
+        );
+        assert_eq!(
+            keyring.sign_time_series.to_hex_key_pair().public_key,
+            keyring2.sign_time_series.to_hex_key_pair().public_key
+        );
         assert_eq!(
             keyring.sign.to_hex_key_pair().secret_key,
             keyring2.sign.to_hex_key_pair().secret_key

@@ -8,13 +8,16 @@ use url::Url;
 pub struct DidWebvhDataStoreImpl {
     base_url: Url,
     client: reqwest::Client,
+    use_https: bool,
 }
 
 impl DidWebvhDataStoreImpl {
     pub fn new(base_url: Url) -> Self {
+        let use_https = base_url.scheme() == "https";
         Self {
             base_url,
             client: reqwest::Client::new(),
+            use_https,
         }
     }
 }
@@ -41,9 +44,10 @@ impl DidWebvhDataStore for DidWebvhDataStoreImpl {
         did_path: &str,
         did_log_entries: &[DidLogEntry],
     ) -> Result<DidDocument, Self::Error> {
+        let scheme = if self.use_https { "https" } else { "http" };
         let response = self
             .client
-            .post(did_path)
+            .post(format!("{}://{}", scheme, did_path))
             .header("Content-Type", "application/json")
             .body(serde_json::to_string(did_log_entries)?)
             .send()
@@ -60,7 +64,12 @@ impl DidWebvhDataStore for DidWebvhDataStoreImpl {
     }
 
     async fn get(&mut self, did_path: &str) -> Result<Vec<DidLogEntry>, Self::Error> {
-        let response = self.client.get(did_path).send().await?;
+        let scheme = if self.use_https { "https" } else { "http" };
+        let response = self
+            .client
+            .get(format!("{}://{}", scheme, did_path))
+            .send()
+            .await?;
 
         let status = response.status();
         if !status.is_success() {
