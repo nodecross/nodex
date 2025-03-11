@@ -198,7 +198,7 @@ impl StudioClient {
         let my_keyring = self.did_accessor.get_my_keyring();
 
         let model =
-            VerifiableCredentials::new(my_did.to_string(), serde_json::Value::Null, Utc::now());
+            VerifiableCredentials::new(my_did.into_inner(), serde_json::Value::Null, Utc::now());
         let payload = self
             .didcomm_service
             .generate(model, &my_keyring, project_did, None)
@@ -223,7 +223,7 @@ impl StudioClient {
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
 
-        let model = VerifiableCredentials::new(my_did.to_string(), payload, Utc::now());
+        let model = VerifiableCredentials::new(my_did.into_inner(), payload, Utc::now());
         let payload = self
             .didcomm_service
             .generate(model, &my_keyring, project_did, None)
@@ -242,7 +242,7 @@ impl StudioClient {
         let my_keyring = self.did_accessor.get_my_keyring();
 
         let model =
-            VerifiableCredentials::new(my_did.to_string(), serde_json::Value::Null, Utc::now());
+            VerifiableCredentials::new(my_did.into_inner(), serde_json::Value::Null, Utc::now());
         let payload = self
             .didcomm_service
             .generate(model, &my_keyring, project_did, None)

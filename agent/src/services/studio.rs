@@ -283,7 +283,7 @@ impl Studio {
         let my_did = self.did_accessor.get_my_did();
         let my_keyring = self.did_accessor.get_my_keyring();
         let model = VerifiableCredentials::new(
-            my_did.to_string(),
+            my_did.into_inner(),
             serde_json::to_value(request)?,
             chrono::Utc::now(),
         );
@@ -325,7 +325,7 @@ impl MessageActivityRepository for Studio {
         let my_keyring = self.did_accessor.get_my_keyring();
 
         let model =
-            VerifiableCredentials::new(my_did.to_string(), json!(request), request.occurred_at);
+            VerifiableCredentials::new(my_did.into_inner(), json!(request), request.occurred_at);
         let payload = DidCommEncryptedService::generate(
             &self.did_repository,
             model,
@@ -382,7 +382,7 @@ impl MessageActivityRepository for Studio {
         let my_keyring = self.did_accessor.get_my_keyring();
 
         let model =
-            VerifiableCredentials::new(my_did.to_string(), json!(request), request.verified_at);
+            VerifiableCredentials::new(my_did.into_inner(), json!(request), request.verified_at);
         let payload = DidCommEncryptedService::generate(
             &self.did_repository,
             model,

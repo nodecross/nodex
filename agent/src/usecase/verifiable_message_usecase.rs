@@ -103,7 +103,7 @@ where
         };
 
         let message = serde_json::to_value(message)?;
-        let model = VerifiableCredentials::new(my_did.to_string(), message, now);
+        let model = VerifiableCredentials::new(my_did.into_inner(), message, now);
         let vc = self
             .vc_service
             .generate(model, &self.did_accessor.get_my_keyring())
@@ -114,7 +114,7 @@ where
         self.message_activity_repository
             .add_create_activity(CreatedMessageActivityRequest {
                 message_id,
-                from: my_did.to_string(),
+                from: my_did.into_inner(),
                 to: destination_did,
                 operation_tag,
                 is_encrypted: false,
@@ -143,14 +143,14 @@ where
         let from_did = vc.issuer.id.clone();
         let my_did = self.did_accessor.get_my_did();
 
-        if message.destination_did != my_did.to_string() {
+        if message.destination_did != my_did.into_inner() {
             return Err(VerifyVerifiableMessageUseCaseError::NotAddressedToMe);
         }
 
         self.message_activity_repository
             .add_verify_activity(VerifiedMessageActivityRequest {
                 from: from_did,
-                to: my_did.to_string(),
+                to: my_did.into_inner(),
                 message_id: message.message_id,
                 verified_at: now,
                 status: VerifiedStatus::Valid,
