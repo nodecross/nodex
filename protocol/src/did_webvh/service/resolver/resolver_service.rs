@@ -40,7 +40,7 @@ pub enum ResolveIdentifierError {
     Canonicalize,
     #[error("Failed to verify signature")]
     VerifySignature,
-    #[error("Failed to procesure of Did: {0}")]
+    #[error("Failed to procedure of Did: {0}")]
     Did(#[from] crate::did_webvh::domain::did::DidError),
     #[error("Failed to parse version time: {0}")]
     DateParse(#[from] chrono::ParseError),
@@ -59,9 +59,9 @@ pub enum DidWebvhResolverError<StudioClientError: std::error::Error> {
     LogEntryParse(#[from] crate::did_webvh::domain::did_log_entry::DidLogEntryError),
     #[error("Failed to send request: {0}")]
     DidWebvhDataStore(StudioClientError),
-    #[error("Failed to procesure of Did: {0}")]
+    #[error("Failed to procedure of Did: {0}")]
     Did(#[from] crate::did_webvh::domain::did::DidError),
-    #[error("Failed to procesure of DidWebvh: {0}")]
+    #[error("Failed to procedure of DidWebvh: {0}")]
     DidWebvh(#[from] crate::did_webvh::domain::did::DidWebvhError),
     #[error("Failed to get identifier. response: {0}")]
     DidWebvhRequestFailed(String),
