@@ -1,10 +1,8 @@
 use crate::nodex::utils::did_accessor::{DidAccessor, DidAccessorImpl};
 use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::repository::attribute_repository::{AttributeStoreRepository, AttributeStoreRequest};
-use crate::repository::custom_metric_repository::{
-    CustomMetricStoreRepository, CustomMetricStoreRequest,
-};
-use crate::repository::event_repository::{EventStoreRepository, EventStoreRequest};
+use crate::repository::custom_metric_repository::CustomMetricStoreRepository;
+use crate::repository::event_repository::EventStoreRepository;
 use crate::repository::message_activity_repository::MessageActivityHttpError;
 use crate::repository::metric_repository::{MetricStoreRepository, MetricsWithTimestamp};
 use crate::server_config;
@@ -15,6 +13,7 @@ use crate::{
     },
 };
 use anyhow::Context;
+use protocol::cbor::types::{CustomMetric, Event};
 use protocol::did::did_repository::DidRepositoryImpl;
 use protocol::didcomm::encrypted::DidCommEncryptedService;
 use protocol::keyring::keypair::KeyPair;
@@ -479,13 +478,13 @@ impl MetricStoreRepository for Studio {
 }
 
 impl EventStoreRepository for Studio {
-    async fn save(&self, request: Vec<EventStoreRequest>) -> anyhow::Result<()> {
+    async fn save(&self, request: Vec<Event>) -> anyhow::Result<()> {
         self.relay_to_studio_via_cbor("/v1/events", request).await
     }
 }
 
 impl CustomMetricStoreRepository for Studio {
-    async fn save(&self, request: Vec<CustomMetricStoreRequest>) -> anyhow::Result<()> {
+    async fn save(&self, request: Vec<CustomMetric>) -> anyhow::Result<()> {
         self.relay_to_studio_via_cbor("/v1/custom-metrics", request)
             .await
     }
