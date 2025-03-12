@@ -119,9 +119,7 @@ fn verify_proofs(
         let jcs = serde_json_canonicalizer::to_string(&log_entry.remove_proof())
             .map_err(|_| ResolveIdentifierError::Canonicalize)?;
 
-        if !verify_signature(jcs.as_bytes(), &decoded_proof_value, &decoded_public_key)
-            .map_err(|e| ResolveIdentifierError::VerifySignature(e))?
-        {
+        if !verify_signature(jcs.as_bytes(), &decoded_proof_value, &decoded_public_key)? {
             return Err(ResolveIdentifierError::InvalidSignature);
         }
     }
