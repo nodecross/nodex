@@ -11,8 +11,8 @@ use std::str::FromStr;
 
 pub async fn handler(uri: Uri) -> Result<Json<Option<DidDocument>>, AgentErrorCode> {
     let raw_path = uri.path();
-    let did = if raw_path.starts_with("/identifiers/") {
-        &raw_path[13..]
+    let did = if let Some(stripped) = raw_path.strip_prefix("/identifiers/") {
+        stripped
     } else {
         return Err(AgentErrorCode::FindIdentifierInternal)?;
     };
@@ -21,7 +21,7 @@ pub async fn handler(uri: Uri) -> Result<Json<Option<DidDocument>>, AgentErrorCo
         .map_err(|_| AgentErrorCode::FindIdentifierInternal)?;
     let datastore = DidWebvhDataStoreImpl::new(baseurl.clone());
     let mut service = DidWebvhServiceImpl::new(datastore);
-    let did = Did::from_str(&did).map_err(|_| AgentErrorCode::FindIdentifierInternal)?;
+    let did = Did::from_str(did).map_err(|_| AgentErrorCode::FindIdentifierInternal)?;
     match service.resolve_identifier(&did).await {
         Ok(v) => Ok(Json(v)),
         Err(e) => {
