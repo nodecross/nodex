@@ -39,7 +39,7 @@ pub enum SignMessageError {
     Cbor(ciborium::ser::Error<std::io::Error>),
     #[error(transparent)]
     Signature(SignatureError),
-    #[error("cose error")]
+    #[error("cose error: {0}")]
     Cose(CoseError),
 }
 
@@ -73,7 +73,7 @@ pub fn sign_message<M: Serialize>(
 pub enum DecodeMessageError<F: std::error::Error + Send + Sync> {
     #[error(transparent)]
     Cbor(ciborium::de::Error<std::io::Error>),
-    #[error("cose error")]
+    #[error("cose error: {0}")]
     Cose(CoseError),
     #[error("payload is empty")]
     PayloadEmpty,
