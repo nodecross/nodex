@@ -38,8 +38,10 @@ pub enum ResolveIdentifierError {
     DecodeProof,
     #[error("Failed to canonicalize log entry")]
     Canonicalize,
-    #[error("Failed to verify signature")]
-    VerifySignature,
+    #[error("Failed to verify signature: {0}")]
+    VerifySignature(#[from] crate::did_webvh::domain::crypto::crypto_utils::CryptoError),
+    #[error("Invalid Signature")]
+    InvalidSignature,
     #[error("Failed to procedure of Did: {0}")]
     Did(#[from] crate::did_webvh::domain::did::DidError),
     #[error("Failed to parse version time: {0}")]
@@ -97,7 +99,7 @@ fn verify_proofs(
         if parsed_time > Utc::now() {
             return Err(ResolveIdentifierError::FutureProofTime);
         }
-        // remove prefix from verification_method, 'did:key:{public_key}'
+        // remove prefix from verification_method, 'did:key:{public_key}#{public_key}'
         let verification_method: Did = proof
             .verification_method
             .split('#')
@@ -118,9 +120,9 @@ fn verify_proofs(
             .map_err(|_| ResolveIdentifierError::Canonicalize)?;
 
         if !verify_signature(jcs.as_bytes(), &decoded_proof_value, &decoded_public_key)
-            .map_err(|_| ResolveIdentifierError::VerifySignature)?
+            .map_err(|e| ResolveIdentifierError::VerifySignature(e))?
         {
-            return Err(ResolveIdentifierError::VerifySignature);
+            return Err(ResolveIdentifierError::InvalidSignature);
         }
     }
     Ok(())
