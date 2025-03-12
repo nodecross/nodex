@@ -32,6 +32,9 @@ pub async fn handler(
                 if key.is_empty() {
                     return Err(AgentErrorCode::SendEventNoKey);
                 }
+                if detail.is_empty() {
+                    return Err(AgentErrorCode::SendEventNoDetail);
+                }
                 let occurred_at = milliseconds_to_time(occurred_at)
                     .ok_or(AgentErrorCode::SendEventInvalidOccurredAt)?;
                 acc.entry(key)
