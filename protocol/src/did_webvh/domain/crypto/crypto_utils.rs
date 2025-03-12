@@ -51,7 +51,7 @@ pub fn sign_data(data: &[u8], key: &[u8]) -> Result<String, CryptoError> {
 pub fn verify_signature(data: &[u8], signature: &[u8], key: &[u8]) -> Result<bool, CryptoError> {
     let verify_key = VerifyingKey::from_bytes(
         key.try_into()
-            .map_err(|_| CryptoError::Signature("Failed to covvert key to 32bytes".to_string()))?,
+            .map_err(|_| CryptoError::Signature("Failed to convert key to 32bytes".to_string()))?,
     )
     .map_err(|e| CryptoError::Signature(e.to_string()))?;
     let signature =

@@ -1,17 +1,18 @@
 use chrono::serde::ts_milliseconds;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use validator::Validate;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct TimeValue(
-    #[serde(with = "ts_milliseconds")] pub DateTime<Utc>,
-    pub f32,
-);
+pub struct TimeValue<T>(#[serde(with = "ts_milliseconds")] pub DateTime<Utc>, pub T);
 
-#[derive(Serialize, Deserialize, Debug, Validate)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CustomMetric {
-    #[validate(length(min = 1))]
     pub key: String,
-    pub values: Vec<TimeValue>,
+    pub values: Vec<TimeValue<f32>>,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct Event {
+    pub key: String,
+    pub details: Vec<TimeValue<String>>,
 }
