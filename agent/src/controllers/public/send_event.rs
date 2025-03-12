@@ -30,10 +30,10 @@ pub async fn handler(
                  occurred_at,
              }| {
                 if key.is_empty() {
-                    return Err(AgentErrorCode::SendCustomMetricNoKey);
+                    return Err(AgentErrorCode::SendEventNoKey);
                 }
                 let occurred_at = milliseconds_to_time(occurred_at)
-                    .ok_or(AgentErrorCode::SendCustomMetricInvalidOccurredAt)?;
+                    .ok_or(AgentErrorCode::SendEventInvalidOccurredAt)?;
                 acc.entry(key)
                     .or_default()
                     .push(TimeValue(occurred_at, detail));
