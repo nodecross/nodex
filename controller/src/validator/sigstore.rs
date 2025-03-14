@@ -1,6 +1,6 @@
 use base64::{engine::general_purpose::STANDARD as BASE64_STD_ENGINE, Engine as _};
 use sigstore::{
-    bundle::verify::{policy, VerificationPolicy},
+    bundle::verify::{policy, PolicyError, VerificationPolicy},
     cosign::{
         bundle::SignedArtifactBundle,
         {client::Client, CosignCapabilities},
@@ -22,6 +22,8 @@ pub enum VerifyError {
     X509CertLoad(#[from] x509_cert::der::Error),
     #[error("failed to read file: {0}")]
     FileRead(#[source] std::io::Error),
+    #[error("failed to verify policy: {0}")]
+    PolicyVerification(#[source] PolicyError),
     #[error("failed to verify blob: {0}")]
     BlobVerification(#[source] SigstoreError),
 }
@@ -58,7 +60,9 @@ impl Verifier for BundleVerifier {
             .map_err(VerifyError::X509CertLoad)?;
 
         let id_policy = policy::Identity::new(identity, issuer);
-        id_policy.verify(&cert_chain[0]).expect("Failed to verify");
+        id_policy
+            .verify(&cert_chain[0])
+            .map_err(VerifyError::PolicyVerification)?;
 
         Client::verify_blob(&decoded_cert, bundle.base64_signature.trim(), &blob)
             .map_err(VerifyError::BlobVerification)

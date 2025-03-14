@@ -30,6 +30,21 @@ runs:
       shell: bash
       run: cargo build --release --target ${{ inputs.target }}
 
+    - name: Install Cosign
+      if: "!contains(inputs.target, 'windows')"
+      uses: sigstore/cosign-installer@v3
+
+    - name: Sign the binary using OIDC
+      if: "!contains(inputs.target, 'windows')"
+      shell: bash
+      run: |
+        cosign sign-blob \
+          --yes \
+          --oidc-issuer "https://token.actions.githubusercontent.com" \
+          --oidc-client-id "sigstore" \
+          --bundle nodex-agent.bundle \
+          target/${{ inputs.target }}/release/nodex-agent
+
     - name: (run) create artifact for Windows
       if: contains(inputs.target, 'windows')
       uses: vimtor/action-zip@v1.1
