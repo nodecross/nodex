@@ -11,7 +11,7 @@ pub struct CustomMetric {
     pub values: Vec<TimeValue<f32>>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Event {
     pub key: String,
     pub details: Vec<TimeValue<String>>,
