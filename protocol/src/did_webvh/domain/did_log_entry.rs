@@ -395,6 +395,12 @@ impl DidLogEntry {
         entry.proof = None;
         entry
     }
+
+    pub fn deactivate(&self) -> DidLogEntry {
+        let mut entry = self.clone();
+        entry.parameters.deactivate = Some(true);
+        entry
+    }
 }
 
 #[cfg(test)]

@@ -76,6 +76,49 @@ impl NodeX {
 
         Ok(res)
     }
+
+    pub fn update_identifier(&mut self) -> anyhow::Result<()> {
+        let config = app_config();
+        let keystore = FileBaseKeyStore::new(config.clone());
+        if keyring::keypair::KeyPairingWithConfig::load_keyring(config.clone(), keystore.clone())?
+            .get_identifier()
+            .is_err()
+        {}
+
+        // if let Some(did) =
+        //     keyring::keypair::KeyPairingWithConfig::load_keyring(config.clone(), keystore.clone())
+        //         .ok()
+        //         .and_then(|v| v.get_identifier().ok())
+        // {
+        //     let did = Did::from_str(&did)?;
+        //     if let Some(json) = self.webvh.resolve_identifier(&did).await? {
+        //         return Ok(json);
+        //     }
+        // }
+
+        // let mut keyring_with_config =
+        //     keyring::keypair::KeyPairingWithConfig::create_keyring(config, keystore);
+        // let id = uuid::Uuid::new_v4();
+
+        // let host = self
+        //     .baseurl
+        //     .host_str()
+        //     .ok_or(anyhow::anyhow!("Failed to get host"))?;
+        // let port = self.baseurl.port();
+        // let base = match port {
+        //     Some(port) => &format!("{}:{}", host, port),
+        //     None => host,
+        // };
+        // let path = format!("{}/webvh/v1/{}", base, id);
+
+        // let res = self
+        //     .webvh
+        //     .create_identifier(&path, true, keyring_with_config.get_keyring())
+        //     .await?;
+        // keyring_with_config.save(&res.id);
+
+        Ok(res)
+    }
 }
 
 pub async fn update_version(binary_url: &str) -> anyhow::Result<()> {

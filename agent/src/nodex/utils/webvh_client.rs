@@ -86,9 +86,45 @@ impl DidWebvhDataStore for DidWebvhDataStoreImpl {
         did_path: &str,
         did_log_entries: &[DidLogEntry],
     ) -> Result<DidDocument, Self::Error> {
-        unimplemented!();
+        let scheme = if self.use_https { "https" } else { "http" };
+        let response = self
+            .client
+            .put(format!("{}://{}", scheme, did_path))
+            .header("Content-Type", "application/json")
+            .body(serde_json::to_string(did_log_entries)?)
+            .send()
+            .await?;
+
+        let status = response.status();
+        if !status.is_success() {
+            return Err(DidWebvhDataStoreImplError::ServerError {
+                code: status,
+                message: response.text().await?,
+            });
+        }
+        Ok(response.json().await?)
     }
-    async fn deactivate(&mut self, did_path: &str) -> Result<DidDocument, Self::Error> {
-        unimplemented!();
+    async fn deactivate(
+        &mut self,
+        did_path: &str,
+        did_log_entries: &[DidLogEntry],
+    ) -> Result<DidDocument, Self::Error> {
+        let scheme = if self.use_https { "https" } else { "http" };
+        let response = self
+            .client
+            .delete(format!("{}://{}", scheme, did_path))
+            .header("Content-Type", "application/json")
+            .body(serde_json::to_string(did_log_entries)?)
+            .send()
+            .await?;
+
+        let status = response.status();
+        if !status.is_success() {
+            return Err(DidWebvhDataStoreImplError::ServerError {
+                code: status,
+                message: response.text().await?,
+            });
+        }
+        Ok(response.json().await?)
     }
 }

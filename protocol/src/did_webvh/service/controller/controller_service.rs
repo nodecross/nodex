@@ -177,6 +177,67 @@ pub fn append_new_entry(
     Ok(new_log_entries)
 }
 
+pub fn append_deactivation_entry(
+    log_entries: &Vec<DidLogEntry>,
+    keyring: &mut KeyPairing,
+) -> Result<Vec<DidLogEntry>, UpdateIdentifierError> {
+    let latest_entry = if log_entries.is_empty() {
+        return Err(UpdateIdentifierError::NoEntries);
+    } else {
+        log_entries.last().unwrap().clone()
+    };
+    let (previous_id, _) = latest_entry.parse_version_id()?;
+
+    // Generate a new log entry based on the existing log entries
+    // TODO: If we need to consider updates that change the URL (domain) included in the DID, this part will need to be modified
+    // The current implementation assumes that the DID itself included in the existing log entry will not change
+    let mut new_entry = latest_entry.generate_next_log_entry()?;
+
+    let rotated_keying = keyring.rotate_keypair(OsRng);
+    let update_keypair = rotated_keying.didwebvh_update.clone();
+    let update_sec_key = update_keypair.get_secret_key().to_bytes();
+    let update_pub_key = multibase_encode(&update_keypair.get_public_key().to_bytes());
+
+    let update_keys = vec![update_pub_key.clone()];
+
+    // verify prerotaion_keys, if next_key_hashes exists in previous log entry,
+    // compare with calculated next_key_hashes from update_keys of current log entry.
+    if let Some(mut previous_next_key_hashes) = latest_entry.parameters.next_key_hashes {
+        // compare calculated_prerotation_keys and next_key_hashes
+        let mut calc_key_hash_from_current_update_key =
+            new_entry.calc_next_key_hash(&update_keys)?;
+        calc_key_hash_from_current_update_key.sort();
+        previous_next_key_hashes.sort();
+        if calc_key_hash_from_current_update_key != previous_next_key_hashes {
+            return Err(UpdateIdentifierError::PrerotationKeys);
+        }
+    }
+
+    // Do not add update_keys to the deactivation entry
+    new_entry.parameters.update_keys = None;
+    // Similarly, do not add next key hashes to the deactivation entry
+    new_entry.parameters.next_key_hashes = None;
+
+    let mut deactivate_entry = new_entry.deactivate();
+    let vms = &rotated_keying.to_verification_methods(&deactivate_entry.state.id)?;
+    deactivate_entry.state.verification_method = None;
+    for vm in vms {
+        deactivate_entry.state.add_verification_method(vm.clone());
+    }
+    deactivate_entry.state = deactivate_entry.state.deactivate();
+
+    let entry_hash = deactivate_entry.calc_entry_hash()?;
+    let current_id = previous_id + 1;
+    deactivate_entry.version_id = format!("{}-{}", current_id, entry_hash);
+
+    deactivate_entry.generate_proof(&update_sec_key, &update_pub_key)?;
+
+    let mut new_log_entries = log_entries.clone();
+    new_log_entries.push(deactivate_entry);
+
+    Ok(new_log_entries)
+}
+
 impl<C> DidWebvhControllerService for DidWebvhServiceImpl<C>
 where
     C: DidWebvhDataStore + Send + Sync,
@@ -226,9 +287,25 @@ where
 
     async fn deactivate_identifier(
         &mut self,
-        _log_entries: &Vec<DidLogEntry>,
-        _keyring: &mut KeyPairing,
+        log_entries: &Vec<DidLogEntry>,
+        keyring: &mut KeyPairing,
     ) -> Result<DidDocument, Self::DidWebvhControllerError> {
-        unimplemented!()
+        let deactivate_log_entries = append_deactivation_entry(log_entries, keyring)?;
+        let Some(deactivate_entry) = deactivate_log_entries.last() else {
+            return Err(DidWebvhControllerError::UpdateIdentifier(
+                UpdateIdentifierError::NoEntries,
+            ));
+        };
+        let did = DidWebvh::try_from(deactivate_entry.state.id.clone()).map_err(|e| {
+            DidWebvhControllerError::UpdateIdentifier(UpdateIdentifierError::ConvertDidMethod(e))
+        })?;
+        let uri = did.get_uri();
+        let response = self
+            .data_store
+            .deactivate(&uri, &deactivate_log_entries)
+            .await
+            .map_err(|e| DidWebvhControllerError::DidWebvhRequestFailed(e.to_string()))?;
+
+        Ok(response)
     }
 }

@@ -54,7 +54,11 @@ mod tests {
         ) -> Result<DidDocument, Self::Error> {
             unimplemented!()
         }
-        async fn deactivate(&mut self, _path: &str) -> Result<DidDocument, Self::Error> {
+        async fn deactivate(
+            &mut self,
+            _path: &str,
+            _body: &[DidLogEntry],
+        ) -> Result<DidDocument, Self::Error> {
             unimplemented!()
         }
     }
