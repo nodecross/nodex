@@ -1,7 +1,6 @@
-use crate::{
-    repository::event_repository::{EventStoreRepository, EventStoreRequest},
-    services::studio::Studio,
-};
+use protocol::cbor::types::Event;
+
+use crate::{repository::event_repository::EventStoreRepository, services::studio::Studio};
 
 pub struct EventUsecase<R>
 where
@@ -19,7 +18,7 @@ impl EventUsecase<Studio> {
 }
 
 impl<R: EventStoreRepository> EventUsecase<R> {
-    pub async fn save(&self, request: Vec<EventStoreRequest>) -> anyhow::Result<()> {
+    pub async fn save(&self, request: Vec<Event>) -> anyhow::Result<()> {
         match self.repository.save(request).await {
             Ok(_) => {
                 log::info!("save event");
@@ -35,15 +34,16 @@ impl<R: EventStoreRepository> EventUsecase<R> {
 
 #[cfg(test)]
 mod tests {
+    use protocol::cbor::types::{Event, TimeValue};
+
     use crate::{
-        repository::event_repository::{EventStoreRepository, EventStoreRequest},
-        usecase::event_usecase::EventUsecase,
+        repository::event_repository::EventStoreRepository, usecase::event_usecase::EventUsecase,
     };
 
     pub struct MockEventStoreRepository {}
 
     impl EventStoreRepository for MockEventStoreRepository {
-        async fn save(&self, _: Vec<EventStoreRequest>) -> anyhow::Result<()> {
+        async fn save(&self, _: Vec<Event>) -> anyhow::Result<()> {
             Ok(())
         }
     }
@@ -54,10 +54,9 @@ mod tests {
             repository: MockEventStoreRepository {},
         };
         let _ = usecase
-            .save(vec![EventStoreRequest {
+            .save(vec![Event {
                 key: "test".to_string(),
-                detail: "test".to_string(),
-                occurred_at: chrono::Utc::now(),
+                details: vec![TimeValue(chrono::Utc::now(), "test".to_string())],
             }])
             .await
             .map_err(|e| panic!("{:?}", e));

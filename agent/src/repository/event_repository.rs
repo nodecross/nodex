@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use protocol::cbor::types::Event;
 use serde::Serialize;
 
 #[derive(Debug, Serialize, Clone)]
@@ -10,5 +11,5 @@ pub struct EventStoreRequest {
 
 #[trait_variant::make(Send)]
 pub trait EventStoreRepository {
-    async fn save(&self, request: Vec<EventStoreRequest>) -> anyhow::Result<()>;
+    async fn save(&self, request: Vec<Event>) -> anyhow::Result<()>;
 }

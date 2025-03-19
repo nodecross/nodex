@@ -209,12 +209,10 @@ impl DidWebvh {
         }
     }
 
-    pub fn did_to_https(&self) -> String {
-        let mut parts: Vec<String> = self.uri.split(':').map(|s| s.to_string()).collect();
-        if parts[0].contains("%3A") {
-            parts[0] = parts[0].replace("%3A", ":");
-        }
-        format!("https://{}", parts.join("/"))
+    pub fn to_url_without_method(&self) -> Option<String> {
+        let mut uri = self.uri.split(':');
+        let part = uri.next()?.replace("%3A", ":");
+        Some(format!("{}/did.jsonl", uri.fold(part, |a, b| a + "/" + b)))
     }
 }
 
@@ -339,7 +337,10 @@ mod tests {
             "QmdEjpG2gwEWZAx8YjBrw7mF1iuCqgrMh8S63M7PaC1Ldr"
         );
         assert_eq!(did.get_uri(), "example.com:path:to:resource");
-        assert_eq!(did.did_to_https(), "https://example.com/path/to/resource");
+        assert_eq!(
+            did.to_url_without_method().unwrap(),
+            "example.com/path/to/resource/did.jsonl"
+        );
 
         let did = "did:webvh:QmdEjpG2gwEWZAx8YjBrw7mF1iuCqgrMh8S63M7PaC1Ldr:example.com%3A8000:path:to:resource"
             .parse::<DidWebvh>()
@@ -350,8 +351,8 @@ mod tests {
         );
         assert_eq!(did.get_uri(), "example.com%3A8000:path:to:resource");
         assert_eq!(
-            did.did_to_https(),
-            "https://example.com:8000/path/to/resource"
+            did.to_url_without_method().unwrap(),
+            "example.com:8000/path/to/resource/did.jsonl"
         );
 
         let did = Did::new(
@@ -365,8 +366,8 @@ mod tests {
         );
         assert_eq!(did_webvh.get_uri(), "example.com:path:to:resource");
         assert_eq!(
-            did_webvh.did_to_https(),
-            "https://example.com/path/to/resource"
+            did_webvh.to_url_without_method().unwrap(),
+            "example.com/path/to/resource/did.jsonl"
         );
 
         Ok(())

@@ -1,4 +1,5 @@
 pub mod encrypted;
+pub mod sign_encrypt;
 pub mod types;
 
 #[cfg(test)]
