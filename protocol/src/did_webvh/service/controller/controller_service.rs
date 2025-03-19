@@ -3,6 +3,9 @@ use crate::did_webvh::domain::did::DidWebvh;
 use crate::did_webvh::domain::did_document::DidDocument;
 use crate::did_webvh::domain::did_log_entry::DidLogEntry;
 use crate::did_webvh::infra::did_webvh_data_store::DidWebvhDataStore;
+use crate::did_webvh::service::resolver::resolver_service::{
+    verify_entries, ResolveIdentifierError,
+};
 use crate::did_webvh::service::service_impl::DidWebvhServiceImpl;
 use crate::keyring::keypair::{KeyPair, KeyPairing};
 use crate::rand_core::OsRng;
@@ -36,6 +39,8 @@ pub enum DidWebvhControllerError<StudioClientError: std::error::Error> {
     GenerateIdentifier(#[from] GenerateIdentifierError),
     #[error("Failed to update identifier: {0}")]
     UpdateIdentifier(#[from] UpdateIdentifierError),
+    #[error("Failed to resolve identifier: {0}")]
+    ResolveIdentifier(#[from] ResolveIdentifierError),
     #[error("Failed to convert to JWK: {0}")]
     Jwk(#[from] crate::keyring::jwk::K256ToJwkError),
     #[error("Failed to parse body: {0}")]
@@ -63,13 +68,13 @@ pub trait DidWebvhControllerService: Sync {
     ) -> Result<DidDocument, Self::DidWebvhControllerError>;
     async fn update_identifier(
         &mut self,
-        log_entries: &Vec<DidLogEntry>,
+        did: &DidWebvh,
         enable_prerotation: bool,
         keyring: &mut KeyPairing,
     ) -> Result<DidDocument, Self::DidWebvhControllerError>;
     async fn deactivate_identifier(
         &mut self,
-        log_entries: &Vec<DidLogEntry>,
+        did: &DidWebvh,
         keyring: &mut KeyPairing,
     ) -> Result<DidDocument, Self::DidWebvhControllerError>;
 }
@@ -262,19 +267,20 @@ where
 
     async fn update_identifier(
         &mut self,
-        log_entries: &Vec<DidLogEntry>,
+        did: &DidWebvh,
         enable_prerotation: bool,
         keyring: &mut KeyPairing,
     ) -> Result<DidDocument, Self::DidWebvhControllerError> {
-        let new_log_entries = append_new_entry(log_entries, enable_prerotation, keyring)?;
-        let Some(new_entry) = new_log_entries.last() else {
-            return Err(DidWebvhControllerError::UpdateIdentifier(
-                UpdateIdentifierError::NoEntries,
-            ));
-        };
-        let did = DidWebvh::try_from(new_entry.state.id.clone()).map_err(|e| {
-            DidWebvhControllerError::UpdateIdentifier(UpdateIdentifierError::ConvertDidMethod(e))
-        })?;
+        let log_entries = self
+            .data_store
+            .get(did.get_uri())
+            .await
+            .map_err(|e| DidWebvhControllerError::DidWebvhRequestFailed(e.to_string()))?;
+        let _ = verify_entries(&log_entries)
+            .map_err(|e| DidWebvhControllerError::ResolveIdentifier(e))?;
+
+        let new_log_entries = append_new_entry(&log_entries, enable_prerotation, keyring)?;
+
         let uri = did.get_uri();
         let response = self
             .data_store
@@ -287,18 +293,19 @@ where
 
     async fn deactivate_identifier(
         &mut self,
-        log_entries: &Vec<DidLogEntry>,
+        did: &DidWebvh,
         keyring: &mut KeyPairing,
     ) -> Result<DidDocument, Self::DidWebvhControllerError> {
-        let deactivate_log_entries = append_deactivation_entry(log_entries, keyring)?;
-        let Some(deactivate_entry) = deactivate_log_entries.last() else {
-            return Err(DidWebvhControllerError::UpdateIdentifier(
-                UpdateIdentifierError::NoEntries,
-            ));
-        };
-        let did = DidWebvh::try_from(deactivate_entry.state.id.clone()).map_err(|e| {
-            DidWebvhControllerError::UpdateIdentifier(UpdateIdentifierError::ConvertDidMethod(e))
-        })?;
+        let log_entries = self
+            .data_store
+            .get(did.get_uri())
+            .await
+            .map_err(|e| DidWebvhControllerError::DidWebvhRequestFailed(e.to_string()))?;
+        let _ = verify_entries(&log_entries)
+            .map_err(|e| DidWebvhControllerError::ResolveIdentifier(e))?;
+
+        let deactivate_log_entries = append_deactivation_entry(&log_entries, keyring)?;
+
         let uri = did.get_uri();
         let response = self
             .data_store
