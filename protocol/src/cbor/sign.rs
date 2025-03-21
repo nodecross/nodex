@@ -1,6 +1,5 @@
 use crate::did_webvh::domain::did::Did;
-use crate::did_webvh::domain::did_document::GetPublicKeyError;
-use crate::did_webvh::service::resolver::resolver_service::DidWebvhResolverService;
+use crate::did_webvh::domain::did_document::{DidDocument, GetPublicKeyError};
 use crate::keyring::jwk::JwkToEd25519Error;
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, Utc};
@@ -70,7 +69,7 @@ pub fn sign_message<M: Serialize>(
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum DecodeMessageError<F: std::error::Error + Send + Sync> {
+pub enum DecodeMessageError {
     #[error(transparent)]
     Cbor(ciborium::de::Error<std::io::Error>),
     #[error("cose error: {0}")]
@@ -81,8 +80,6 @@ pub enum DecodeMessageError<F: std::error::Error + Send + Sync> {
     NotFoundPubkey,
     #[error(transparent)]
     GetPubkey(#[from] GetPublicKeyError),
-    #[error(transparent)]
-    GetDidDocument(F),
     #[error("expired message")]
     Expired,
     #[error("incompatible array size: {0}")]
@@ -93,117 +90,42 @@ pub enum DecodeMessageError<F: std::error::Error + Send + Sync> {
     JwkToEd25519(#[from] JwkToEd25519Error),
 }
 
-#[trait_variant::make(Send)]
-pub trait MessageVerifier: DidWebvhResolverService {
-    async fn verify_message<M>(
-        &mut self,
-        data: &[u8],
-    ) -> Result<WithToken<M>, DecodeMessageError<Self::DidWebvhResolverError>>
-    where
-        M: DeserializeOwned + Send,
-    {
-        async {
-            let sign1 = coset::CoseSign1::from_slice(data).map_err(DecodeMessageError::Cose)?;
-            let payload = sign1
-                .payload
-                .as_ref()
-                .ok_or(DecodeMessageError::PayloadEmpty)?;
-            let message: WithToken<M> =
-                ciborium::from_reader(Cursor::new(payload)).map_err(DecodeMessageError::Cbor)?;
-
-            let from_doc = self
-                .resolve_identifier(&message.token.did)
-                .await
-                .map_err(DecodeMessageError::GetDidDocument)?
-                .ok_or(DecodeMessageError::NotFoundPubkey)?;
-            let public_key: VerifyingKey = from_doc.get_key("#signTimeSeriesKey")?.try_into()?;
-            if message.token.exp < Utc::now() {
-                return Err(DecodeMessageError::Expired);
-            }
-            sign1.verify_signature(b"", |sig, data| {
-                sig.try_into()
-                    .map_err(|_| DecodeMessageError::VecToArray(sig.len()))
-                    .and_then(|sig| {
-                        public_key
-                            .verify(data, &Signature::from_bytes(sig))
-                            .map_err(DecodeMessageError::Signature)
-                    })
-            })?;
-            Ok(message)
-        }
-    }
+pub fn decode_message<M>(
+    data: &[u8],
+) -> Result<(WithToken<M>, coset::CoseSign1), DecodeMessageError>
+where
+    M: DeserializeOwned,
+{
+    let sign1 = coset::CoseSign1::from_slice(data).map_err(DecodeMessageError::Cose)?;
+    let payload = sign1
+        .payload
+        .as_ref()
+        .ok_or(DecodeMessageError::PayloadEmpty)?;
+    Ok((
+        ciborium::from_reader(Cursor::new(payload)).map_err(DecodeMessageError::Cbor)?,
+        sign1,
+    ))
 }
 
-impl<R: DidWebvhResolverService> MessageVerifier for R {}
-
-// pub fn decode_message<M>(data: &[u8]) -> Result<(WithToken<M>, coset::CoseSign1), DecodeMessageError>
-// where
-//     M: DeserializeOwned
-// {
-//     let sign1 = coset::CoseSign1::from_slice(data).map_err(DecodeMessageError::Cose)?;
-//     let payload = sign1
-//         .payload
-//         .as_ref()
-//         .ok_or(DecodeMessageError::PayloadEmpty)?;
-//     Ok((ciborium::from_reader(Cursor::new(payload)).map_err(DecodeMessageError::Cbor)?, sign1))
-// }
-
-// pub fn verify_message<M>(
-//     from_doc: &DidDocument,
-//     (message, sign1): (WithToken<M>, coset::CoseSign1)
-// ) -> Result<WithToken<M>, DecodeMessageError>
-// where
-//     M: DeserializeOwned,
-// {
-//     let public_key: VerifyingKey = from_doc.get_key("#signTimeSeriesKey")?.try_into()?;
-//     if message.token.exp < Utc::now() {
-//         return Err(DecodeMessageError::Expired);
-//     }
-//     sign1.verify_signature(b"", |sig, data| {
-//         sig.try_into()
-//             .map_err(|_| DecodeMessageError::VecToArray(sig.len()))
-//             .and_then(|sig| {
-//                 public_key
-//                     .verify(data, &Signature::from_bytes(sig))
-//                     .map_err(DecodeMessageError::Signature)
-//             })
-//     })?;
-//     Ok(message)
-// }
-
-// pub async fn verify_message<R, M>(
-//     resolver: &mut R,
-//     data: &[u8],
-// ) -> Result<WithToken<M>, DecodeMessageError<R::DidWebvhResolverError>>
-// where
-//     R: DidWebvhResolverService,
-//     M: DeserializeOwned,
-// {
-//     let sign1 = coset::CoseSign1::from_slice(data).map_err(DecodeMessageError::Cose)?;
-//     let payload = sign1
-//         .payload
-//         .as_ref()
-//         .ok_or(DecodeMessageError::PayloadEmpty)?;
-//     let message: WithToken<M> =
-//         ciborium::from_reader(Cursor::new(payload)).map_err(DecodeMessageError::Cbor)?;
-
-//     let from_doc = resolver
-//         .resolve_identifier(&message.token.did)
-//         .await
-//         .map_err(DecodeMessageError::GetDidDocument)?
-//         .ok_or(DecodeMessageError::NotFoundPubkey)?;
-//     let public_key: VerifyingKey = from_doc.get_key("#signTimeSeriesKey")?.try_into()?;
-//     if message.token.exp < Utc::now() {
-//         return Err(DecodeMessageError::Expired);
-//     }
-//     sign1.verify_signature(b"", |sig, data| {
-//         sig.try_into()
-//             .map_err(|_| DecodeMessageError::VecToArray(sig.len()))
-//             .and_then(|sig| {
-//                 public_key
-//                     .verify(data, &Signature::from_bytes(sig))
-//                     .map_err(DecodeMessageError::Signature)
-//             })
-//     })?;
-//     Ok(message)
-// }
+pub fn verify_message<M>(
+    from_doc: &DidDocument,
+    (message, sign1): (WithToken<M>, coset::CoseSign1),
+) -> Result<WithToken<M>, DecodeMessageError>
+where
+    M: DeserializeOwned,
+{
+    let public_key: VerifyingKey = from_doc.get_key("#signTimeSeriesKey")?.try_into()?;
+    if message.token.exp < Utc::now() {
+        return Err(DecodeMessageError::Expired);
+    }
+    sign1.verify_signature(b"", |sig, data| {
+        sig.try_into()
+            .map_err(|_| DecodeMessageError::VecToArray(sig.len()))
+            .and_then(|sig| {
+                public_key
+                    .verify(data, &Signature::from_bytes(sig))
+                    .map_err(DecodeMessageError::Signature)
+            })
+    })?;
+    Ok(message)
+}
