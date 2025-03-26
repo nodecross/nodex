@@ -1,6 +1,8 @@
 use super::utils;
 use crate::controllers::errors::AgentErrorCode;
 use crate::nodex::utils::did_accessor::DidAccessorImpl;
+use crate::nodex::utils::webvh_client::DidWebvhDataStoreImpl;
+use crate::server_config;
 use crate::{
     services::studio::Studio,
     usecase::didcomm_message_usecase::{
@@ -9,10 +11,10 @@ use crate::{
 };
 use axum::extract::Json;
 use chrono::Utc;
-use protocol::didcomm::encrypted::DidCommEncryptedServiceVerifyError as S;
+use protocol::did_webvh::service::service_impl::DidWebvhServiceImpl;
 use protocol::didcomm::types::DidCommMessage;
-use protocol::verifiable_credentials::types::VerifiableCredentials;
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 // NOTE: POST /verify-verifiable-message
 #[derive(Deserialize, Serialize)]
@@ -21,13 +23,16 @@ pub struct MessageContainer {
     message: String,
 }
 
-pub async fn handler(
-    Json(json): Json<MessageContainer>,
-) -> Result<Json<VerifiableCredentials>, AgentErrorCode> {
+pub async fn handler(Json(json): Json<MessageContainer>) -> Result<Json<String>, AgentErrorCode> {
     let now = Utc::now();
+    let base_url = {
+        let base_url = &server_config().did_http_endpoint();
+        Url::parse(base_url).expect("failed to parse url")
+    };
+    let datasotre = DidWebvhDataStoreImpl::new(base_url);
+    let webvh = DidWebvhServiceImpl::new(datasotre);
 
-    let usecase =
-        DidcommMessageUseCase::new(Studio::new(), utils::did_repository(), DidAccessorImpl {});
+    let mut usecase = DidcommMessageUseCase::new(Studio::new(), webvh, DidAccessorImpl {});
 
     match serde_json::from_str::<DidCommMessage>(&json.message) {
         Err(e) => {
@@ -38,41 +43,20 @@ pub async fn handler(
             Ok(v) => Ok(Json(v)),
             Err(e) => match e {
                 U::MessageActivity(e) => Err(utils::handle_status(e)),
-                U::NotAddressedToMe => {
-                    log::warn!("this message is not addressed to me: {}", e);
-                    Err(AgentErrorCode::VerifyDidcommMessageNotAddressedToMe)?
-                }
-                U::ServiceVerify(S::FindSender(e)) => {
+                // U::NotAddressedToMe => {
+                //     log::warn!("this message is not addressed to me: {}", e);
+                //     Err(AgentErrorCode::VerifyDidcommMessageNotAddressedToMe)?
+                // }
+                U::FindSender(e) => {
                     log::warn!("cannot find sender: {}", e);
                     Err(AgentErrorCode::VerifyDidcommMessageNoSender)?
                 }
-                U::ServiceVerify(S::DidPublicKeyNotFound(e)) => {
-                    log::warn!("cannot find public key: {}", e);
-                    Err(AgentErrorCode::VerifyDidcommMessageNoPublicKey)?
+                U::Verify(e) => {
+                    log::warn!("Failed to verify didcomm message: {}", e);
+                    Err(AgentErrorCode::VerifyDidcommMessageInternal)?
                 }
-                U::ServiceVerify(S::MetadataBodyNotFound(e)) => {
-                    let e = e.map(|e| e.to_string()).unwrap_or("".to_string());
-                    log::warn!("cannot find metadata: {}", e);
-                    Err(AgentErrorCode::VerifyDidcommMessageNoMetadata)?
-                }
-                U::ServiceVerify(S::VcService(e)) => {
-                    log::warn!("verify failed: {}", e);
-                    Err(AgentErrorCode::VerifyDidcommMessageVerifyFailed)?
-                }
-                U::ServiceVerify(S::DidDocNotFound(target)) => {
-                    log::warn!("target DID not found. DID = {}", target);
-                    Err(AgentErrorCode::VerifyDidcommMessageNoTargetDid)?
-                }
-                U::Json(e) | U::ServiceVerify(S::Json(e)) => {
+                U::Json(e) => {
                     log::warn!("json error: {}", e);
-                    Err(AgentErrorCode::VerifyDidcommMessageInternal)?
-                }
-                U::ServiceVerify(S::DecryptFailed(e)) => {
-                    log::warn!("decrypt failed: {}", e);
-                    Err(AgentErrorCode::VerifyDidcommMessageInternal)?
-                }
-                U::ServiceVerify(S::SidetreeFindRequestFailed(e)) => {
-                    log::warn!("sidetree error: {}", e);
                     Err(AgentErrorCode::VerifyDidcommMessageInternal)?
                 }
             },

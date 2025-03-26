@@ -50,11 +50,11 @@ pub enum MessageActivityHttpError {
 pub trait MessageActivityRepository {
     type Error: std::error::Error;
     async fn add_create_activity(
-        &self,
+        &mut self,
         request: CreatedMessageActivityRequest,
     ) -> Result<(), Self::Error>;
     async fn add_verify_activity(
-        &self,
+        &mut self,
         request: VerifiedMessageActivityRequest,
     ) -> Result<(), Self::Error>;
 }
@@ -101,7 +101,7 @@ pub mod mocks {
     impl MessageActivityRepository for MockMessageActivityRepository {
         type Error = MessageActivityHttpError;
         async fn add_create_activity(
-            &self,
+            &mut self,
             _request: CreatedMessageActivityRequest,
         ) -> Result<(), MessageActivityHttpError> {
             let create = self.create.expect("this method should not be called");
@@ -115,7 +115,7 @@ pub mod mocks {
         }
 
         async fn add_verify_activity(
-            &self,
+            &mut self,
             _request: VerifiedMessageActivityRequest,
         ) -> Result<(), MessageActivityHttpError> {
             let verify = self.verify.expect("this method should not be called");

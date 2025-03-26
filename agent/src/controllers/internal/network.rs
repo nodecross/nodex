@@ -12,7 +12,7 @@ pub struct MessageContainer {
 pub async fn handler(
     Json(_): Json<MessageContainer>,
 ) -> Result<Json<&'static str>, AgentErrorCode> {
-    let studio = Studio::new();
+    let mut studio = Studio::new();
     match studio.network().await {
         Ok(_) => Ok(Json("ok")),
         Err(e) => {

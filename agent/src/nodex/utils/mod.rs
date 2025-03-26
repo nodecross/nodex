@@ -1,5 +1,5 @@
 pub mod did_accessor;
-pub mod sidetree_client;
+pub mod mock_webvh_resover;
 pub mod studio_client;
 pub mod webvh_client;
 

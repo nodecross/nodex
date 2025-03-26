@@ -1,18 +1,6 @@
 use crate::controllers::errors::AgentErrorCode;
-use crate::nodex::utils::sidetree_client::SideTreeClient;
 use crate::repository::message_activity_repository::MessageActivityHttpError;
-use crate::server_config;
-use anyhow::Context as _;
 use chrono::{DateTime, Utc};
-use protocol::did::did_repository::DidRepositoryImpl;
-
-pub fn did_repository() -> DidRepositoryImpl<SideTreeClient> {
-    let server_config = server_config();
-    let sidetree_client = SideTreeClient::new(&server_config.did_http_endpoint())
-        .context("")
-        .unwrap();
-    DidRepositoryImpl::new(sidetree_client)
-}
 
 pub fn handle_status(e: MessageActivityHttpError) -> AgentErrorCode {
     match e {

@@ -89,6 +89,7 @@ dependencies = [
  "mac_address",
  "nix 0.29.0",
  "protocol",
+ "rand 0.9.0",
  "reqwest",
  "rstest 0.21.0",
  "serde",

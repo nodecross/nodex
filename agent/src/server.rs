@@ -197,14 +197,6 @@ pub fn make_router() -> Router {
             get(controllers::public::nodex_find_identifier::handler),
         )
         .route(
-            "/create-verifiable-message",
-            post(controllers::public::nodex_create_verifiable_message::handler),
-        )
-        .route(
-            "/verify-verifiable-message",
-            post(controllers::public::nodex_verify_verifiable_message::handler),
-        )
-        .route(
             "/create-didcomm-message",
             post(controllers::public::nodex_create_didcomm_message::handler),
         )
