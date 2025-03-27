@@ -39,10 +39,6 @@ pub async fn handler(Json(json): Json<MessageContainer>) -> Result<Json<String>,
             Ok(v) => Ok(Json(v)),
             Err(e) => match e {
                 U::MessageActivity(e) => Err(utils::handle_status(e)),
-                // U::NotAddressedToMe => {
-                //     log::warn!("this message is not addressed to me: {}", e);
-                //     Err(AgentErrorCode::VerifyDidcommMessageNotAddressedToMe)?
-                // }
                 U::FindSender(e) => {
                     log::warn!("cannot find sender: {}", e);
                     Err(AgentErrorCode::VerifyDidcommMessageNoSender)?
