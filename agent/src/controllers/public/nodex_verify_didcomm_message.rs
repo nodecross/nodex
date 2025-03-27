@@ -14,7 +14,6 @@ use chrono::Utc;
 use protocol::did_webvh::service::service_impl::DidWebvhServiceImpl;
 use protocol::didcomm::types::DidCommMessage;
 use serde::{Deserialize, Serialize};
-use url::Url;
 
 // NOTE: POST /verify-verifiable-message
 #[derive(Deserialize, Serialize)]
@@ -25,10 +24,7 @@ pub struct MessageContainer {
 
 pub async fn handler(Json(json): Json<MessageContainer>) -> Result<Json<String>, AgentErrorCode> {
     let now = Utc::now();
-    let base_url = {
-        let base_url = &server_config().did_http_endpoint();
-        Url::parse(base_url).expect("failed to parse url")
-    };
+    let base_url = server_config().did_http_endpoint();
     let datasotre = DidWebvhDataStoreImpl::new(base_url);
     let webvh = DidWebvhServiceImpl::new(datasotre);
 

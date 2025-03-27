@@ -24,7 +24,6 @@ use protocol::keyring::keypair::KeyPair;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::VecDeque;
-use url::Url;
 
 // The maximum JSON body size is actually 1MB
 // We reserve 100KB as a buffer for Verifiable Credential capacity
@@ -82,10 +81,7 @@ impl Studio {
             }
         };
 
-        let base_url = {
-            let base_url = &server_config.did_http_endpoint();
-            Url::parse(base_url).expect("failed to parse url")
-        };
+        let base_url = server_config.did_http_endpoint();
         let datasotre = DidWebvhDataStoreImpl::new(base_url);
         let webvh = DidWebvhServiceImpl::new(datasotre);
 

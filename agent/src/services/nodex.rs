@@ -31,8 +31,7 @@ pub struct NodeX {
 impl NodeX {
     pub fn new() -> Self {
         let server_config = server_config();
-        let baseurl =
-            url::Url::parse(&server_config.did_http_endpoint()).expect("failed to parse url");
+        let baseurl = server_config.did_http_endpoint();
         let datastore = DidWebvhDataStoreImpl::new(baseurl.clone());
         let webvh = DidWebvhServiceImpl::new(datastore);
 

@@ -13,17 +13,6 @@ pub mod mocks {
         },
         keyring::keypair::KeyPairing,
     };
-    use rand::*;
-
-    fn random_scid() -> String {
-        const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        (0..46)
-            .map(|_| {
-                let idx = rng().random_range(0..CHARSET.len());
-                CHARSET[idx] as char
-            })
-            .collect()
-    }
 
     pub struct MockDidWebvhResolverService {
         did_document: DidDocument,

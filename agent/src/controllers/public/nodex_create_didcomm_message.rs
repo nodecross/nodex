@@ -9,7 +9,6 @@ use axum::extract::Json;
 use chrono::Utc;
 use protocol::did_webvh::service::service_impl::DidWebvhServiceImpl;
 use serde::{Deserialize, Serialize};
-use url::Url;
 
 // NOTE: POST /create-didcomm-message
 #[derive(Deserialize, Serialize)]
@@ -33,10 +32,7 @@ pub async fn handler(Json(json): Json<MessageContainer>) -> Result<String, Agent
         Err(AgentErrorCode::CreateDidCommMessageNoOperationTag)?
     }
 
-    let base_url = {
-        let base_url = &server_config().did_http_endpoint();
-        Url::parse(base_url).expect("failed to parse url")
-    };
+    let base_url = server_config().did_http_endpoint();
     let datasotre = DidWebvhDataStoreImpl::new(base_url);
     let webvh = DidWebvhServiceImpl::new(datasotre);
 

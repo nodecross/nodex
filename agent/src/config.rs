@@ -14,6 +14,7 @@ use std::{
 };
 use std::{fs::OpenOptions, sync::MutexGuard};
 use thiserror::Error;
+use url::Url;
 
 use crate::nodex::utils::UnwrapLog;
 
@@ -411,14 +412,14 @@ impl ServerConfig {
             studio_http_endpoint: studio_endpoint,
         }
     }
-    pub fn did_http_endpoint(&self) -> String {
-        self.did_http_endpoint.clone()
+    pub fn did_http_endpoint(&self) -> Url {
+        Url::parse(&self.did_http_endpoint).expect("failed to parse url")
     }
-    pub fn did_attachment_link(&self) -> String {
-        self.did_attachment_link.clone()
+    pub fn did_attachment_link(&self) -> Url {
+        Url::parse(&self.did_attachment_link).expect("failed to parse url")
     }
-    pub fn studio_http_endpoint(&self) -> String {
-        self.studio_http_endpoint.clone()
+    pub fn studio_http_endpoint(&self) -> Url {
+        Url::parse(&self.studio_http_endpoint).expect("failed to parse url")
     }
 }
 

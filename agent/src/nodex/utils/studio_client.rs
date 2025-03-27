@@ -27,7 +27,7 @@ enum SendToStudioError {
 type HmacSha256 = Hmac<Sha256>;
 
 pub struct StudioClientConfig {
-    pub base_url: String,
+    pub base_url: Url,
 }
 
 pub struct StudioClient {
@@ -38,7 +38,7 @@ pub struct StudioClient {
 
 impl StudioClient {
     pub fn new(_config: &StudioClientConfig) -> anyhow::Result<Self> {
-        let url = Url::parse(&_config.base_url.to_string())?;
+        let url = _config.base_url.clone();
         let client = reqwest::Client::new();
         let did_accessor = DidAccessorImpl {};
 
@@ -227,7 +227,7 @@ pub mod tests {
     #[ignore]
     async fn it_should_success_post() {
         let client_config: StudioClientConfig = StudioClientConfig {
-            base_url: "https://httpbin.org".to_string(),
+            base_url: Url::parse("https://httpbin.org").unwrap(),
         };
 
         let client = match StudioClient::new(&client_config) {
@@ -252,7 +252,7 @@ pub mod tests {
     #[ignore]
     async fn it_should_success_put() {
         let client_config: StudioClientConfig = StudioClientConfig {
-            base_url: "https://httpbin.org".to_string(),
+            base_url: Url::parse("https://httpbin.org").unwrap(),
         };
 
         let client = match StudioClient::new(&client_config) {
