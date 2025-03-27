@@ -16,7 +16,7 @@ pub async fn handler(uri: Uri) -> Result<Json<Option<DidDocument>>, AgentErrorCo
     } else {
         return Err(AgentErrorCode::FindIdentifierInternal)?;
     };
-    let server_config = server_config();
+    let server_config = server_config().map_err(|_| AgentErrorCode::FindIdentifierInternal)?;
     let baseurl = server_config.did_http_endpoint();
     let datastore = DidWebvhDataStoreImpl::new(baseurl.clone());
     let mut service = DidWebvhServiceImpl::new(datastore);

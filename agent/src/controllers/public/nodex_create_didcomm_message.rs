@@ -32,7 +32,9 @@ pub async fn handler(Json(json): Json<MessageContainer>) -> Result<String, Agent
         Err(AgentErrorCode::CreateDidCommMessageNoOperationTag)?
     }
 
-    let base_url = server_config().did_http_endpoint();
+    let base_url = server_config()
+        .map_err(|_| AgentErrorCode::CreateDidcommMessageInternal)?
+        .did_http_endpoint();
     let datasotre = DidWebvhDataStoreImpl::new(base_url);
     let webvh = DidWebvhServiceImpl::new(datasotre);
 

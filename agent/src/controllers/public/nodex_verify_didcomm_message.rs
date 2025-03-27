@@ -24,7 +24,9 @@ pub struct MessageContainer {
 
 pub async fn handler(Json(json): Json<MessageContainer>) -> Result<Json<String>, AgentErrorCode> {
     let now = Utc::now();
-    let base_url = server_config().did_http_endpoint();
+    let base_url = server_config()
+        .map_err(|_| AgentErrorCode::VerifyDidcommMessageInternal)?
+        .did_http_endpoint();
     let datasotre = DidWebvhDataStoreImpl::new(base_url);
     let webvh = DidWebvhServiceImpl::new(datasotre);
 

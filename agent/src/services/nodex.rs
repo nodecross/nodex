@@ -30,7 +30,7 @@ pub struct NodeX {
 
 impl NodeX {
     pub fn new() -> Self {
-        let server_config = server_config();
+        let server_config = server_config().expect("Failed to get server config");
         let baseurl = server_config.did_http_endpoint();
         let datastore = DidWebvhDataStoreImpl::new(baseurl.clone());
         let webvh = DidWebvhServiceImpl::new(datastore);

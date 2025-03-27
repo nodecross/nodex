@@ -68,7 +68,7 @@ pub struct NetworkResponse {
 
 impl Studio {
     pub fn new() -> Self {
-        let server_config = server_config();
+        let server_config = server_config().expect("Failed to get server config");
         let client_config: StudioClientConfig = StudioClientConfig {
             base_url: server_config.studio_http_endpoint(),
         };

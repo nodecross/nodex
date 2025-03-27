@@ -384,46 +384,61 @@ impl AppConfig {
     }
 }
 
+#[derive(Debug, Error, Clone)]
+pub enum ServerConfigError {
+    #[error("failed to parse url: {0}")]
+    Parse(#[from] url::ParseError),
+}
+
 #[derive(Debug)]
 pub struct ServerConfig {
-    did_http_endpoint: String,
-    did_attachment_link: String,
-    studio_http_endpoint: String,
+    did_http_endpoint: Url,
+    did_attachment_link: Url,
+    studio_http_endpoint: Url,
 }
 
 impl Default for ServerConfig {
     fn default() -> Self {
-        Self::new()
+        Self::new().unwrap_log()
     }
 }
 
 impl ServerConfig {
-    pub fn new() -> ServerConfig {
-        let did_endpoint =
-            env::var("NODEX_DID_HTTP_ENDPOINT").unwrap_or("https://did.nodecross.io".to_string());
-        let link =
-            env::var("NODEX_DID_ATTACHMENT_LINK").unwrap_or("https://did.getnodex.io".to_string());
-        let studio_endpoint = env::var("NODEX_STUDIO_HTTP_ENDPOINT")
-            .unwrap_or("https://http.hub.nodecross.io".to_string());
+    pub fn new() -> Result<Self, ServerConfigError> {
+        let did_endpoint = Url::parse(
+            &env::var("NODEX_DID_HTTP_ENDPOINT").unwrap_or("https://did.nodecross.io".to_string()),
+        )
+        .map_err(|e| ServerConfigError::Parse(e))?;
 
-        ServerConfig {
+        let link = Url::parse(
+            &env::var("NODEX_DID_ATTACHMENT_LINK").unwrap_or("https://did.getnodex.io".to_string()),
+        )
+        .map_err(|e| ServerConfigError::Parse(e))?;
+
+        let studio_endpoint = Url::parse(
+            &env::var("NODEX_STUDIO_HTTP_ENDPOINT")
+                .unwrap_or("https://http.hub.nodecross.io".to_string()),
+        )
+        .map_err(|e| ServerConfigError::Parse(e))?;
+
+        Ok(ServerConfig {
             did_http_endpoint: did_endpoint,
             did_attachment_link: link,
             studio_http_endpoint: studio_endpoint,
-        }
+        })
     }
     pub fn did_http_endpoint(&self) -> Url {
-        Url::parse(&self.did_http_endpoint).expect("failed to parse url")
+        self.did_http_endpoint.clone()
     }
     pub fn did_attachment_link(&self) -> Url {
-        Url::parse(&self.did_attachment_link).expect("failed to parse url")
+        self.did_attachment_link.clone()
     }
     pub fn studio_http_endpoint(&self) -> Url {
-        Url::parse(&self.studio_http_endpoint).expect("failed to parse url")
+        self.studio_http_endpoint.clone()
     }
 }
 
-pub fn server_config() -> ServerConfig {
+pub fn server_config() -> Result<ServerConfig, ServerConfigError> {
     ServerConfig::new()
 }
 
