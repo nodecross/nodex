@@ -598,6 +598,8 @@ components:
           items:
             $ref: "#/components/schemas/Recipient"
           example: []
+        tag:
+          type: string
 
     Metric:
       format: binary
