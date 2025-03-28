@@ -10,7 +10,7 @@ runs:
     - name: Setup Node.js
       uses: actions/setup-node@v2
       with:
-        node-version: '20.15.0'
+        node-version: "20.15.0"
 
     - name: (setup) copy default config to home
       shell: powershell
@@ -31,10 +31,8 @@ runs:
       shell: powershell
       run: |
         $prismPath = "${{ steps.get-prism-path.outputs.prismPath }}"
-        $sidetreeResourcePath = Join-Path -Path $PWD -ChildPath "test_resource/did_sidetree.yaml"
         $studioResourcePath = Join-Path -Path $PWD -ChildPath "test_resource/studio.yaml"
 
-        Start-Process -NoNewWindow -FilePath "powershell" -ArgumentList "-File $prismPath mock -h 127.0.0.1 -p 4010 $sidetreeResourcePath"
         Start-Process -NoNewWindow -FilePath "powershell" -ArgumentList "-File $prismPath mock -h 127.0.0.1 -p 8020 $studioResourcePath"
         Start-Sleep -Seconds 10
 
@@ -47,7 +45,7 @@ runs:
         cd e2e
         cargo test
       env:
-        NODEX_DID_HTTP_ENDPOINT: http://127.0.0.1:4010
+        NODEX_DID_HTTP_ENDPOINT: http://127.0.0.1:8020
         NODEX_DID_ATTACHMENT_LINK: http://127.0.0.1:4010
         NODEX_STUDIO_HTTP_ENDPOINT: http://127.0.0.1:8020
         NODEX_SERVER_PORT: 3000
