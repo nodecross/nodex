@@ -318,8 +318,6 @@ impl MessageActivityRepository for Studio {
 
         let status = res.status();
 
-        dbg!("CreateActivity status: {:?}", status);
-
         let json: Value = res.json().await.context("Failed to read response body")?;
         let message = json
             .get("message")
