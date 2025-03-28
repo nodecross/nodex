@@ -171,7 +171,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /v1/metric:
+  /v1/metrics:
     post:
       summary: Send metrics
       operationId: sendMetics
