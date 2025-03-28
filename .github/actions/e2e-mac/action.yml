@@ -52,7 +52,7 @@ runs:
         NODEX_DID_HTTP_ENDPOINT: http://localhost:8020
         NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
         NODEX_STUDIO_HTTP_ENDPOINT: http://localhost:8020
-        RUST_BACKTRACE: 1
+        RUST_BACKTRACE: full
 
     - name: (run) show log of agent
       shell: bash
