@@ -600,7 +600,7 @@ components:
           example: []
 
     Metric:
-      type: object
+      format: binary
       properties:
         device_did:
           type: string
