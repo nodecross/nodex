@@ -179,7 +179,13 @@ paths:
         - metric
       requestBody:
         content:
-          application/json:
+          application/cbor:
+            schema:
+              $ref: "#/components/schemas/Metric"
+          application/cose+cbor:
+            schema:
+              $ref: "#/components/schemas/Metric"
+          application/cose; cose-type="cose-sign1":
             schema:
               $ref: "#/components/schemas/Metric"
       responses:
