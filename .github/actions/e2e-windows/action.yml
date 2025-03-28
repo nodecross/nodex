@@ -14,7 +14,7 @@ runs:
 
     - name: (setup) copy default config to home
       shell: powershell
-      run: New-Item -ItemType Directory -Force -Path $env:USERPROFILE\.config\nodex; Copy-Item test_resource\config\* $env:USERPROFILE\.config\nodex\
+      run: New-Item -ItemType Directory -Force -Path $env:USERPROFILE\.config\nodex; Copy-Item test_resource\localhost_config\* $env:USERPROFILE\.config\nodex\
 
     - name: Install Prism CLI
       shell: powershell
