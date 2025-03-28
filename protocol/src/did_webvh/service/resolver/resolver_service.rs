@@ -258,3 +258,17 @@ where
         Ok(verify_entries(&entries)?)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const JSONL: &str = r##"[{"versionId":"1-QmfDgiqNS69GQqb5e6eVLtproWAVyWvekSkgMjqriF6ehJ","versionTime":"2025-03-21T03:21:00.716706795+00:00","parameters":{"portable":true,"updateKeys":["z2mdH1rSC4E8rEUjGGSZ7TwLEBYkcLbsMsFj1Eozapk1e"],"nextKeyHashes":["QmYrcirvNfx25azESaM4WF7srq6s5gKWRhZgYDKGpnyMtr"],"method":"did:webvh:0.5","scid":"QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD"},"state":{"@context":["https://www.w3.org/ns/did/v1"],"id":"did:webvh:QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD:localhost%3A8000:webvh:v1:20800404-ceb4-402c-a192-3070e47506ec","verificationMethod":[{"id":"#signingKey","type":"EcdsaSecp256k1VerificationKey2019","controller":"did:webvh:QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD:localhost%3A8000:webvh:v1:20800404-ceb4-402c-a192-3070e47506ec","publicKeyJwk":{"kty":"EC","crv":"secp256k1","x":"DoA-wckHki4_9ufZ5tsJg8vkYS3svGg-ZtkMsj6z7Nc","y":"pAf53ypf9JPhfHkoZ53JEAggJ9xa4nJyC6YPFlHSiJw"}},{"id":"#encryptionKey","type":"X25519KeyAgreementKey2019","controller":"did:webvh:QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD:localhost%3A8000:webvh:v1:20800404-ceb4-402c-a192-3070e47506ec","publicKeyJwk":{"kty":"OKP","crv":"X25519","x":"Xu1H6UJ69Z0u8lUdIqH0Z7jKXwq-Nj07Q1MKYCl1EnA"}},{"id":"#signTimeSeriesKey","type":"Ed25519VerificationKey2018","controller":"did:webvh:QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD:localhost%3A8000:webvh:v1:20800404-ceb4-402c-a192-3070e47506ec","publicKeyJwk":{"kty":"OKP","crv":"Ed25519","x":"RHV7OGMXs7PjE1LFvhckSMpz8KXc-I6cFEWEm76uWbY"}}]},"proof":[{"type":"DataIntegrityProof","cryptosuite":"eddsa-jcs-2022","verificationMethod":"did:key:z2mdH1rSC4E8rEUjGGSZ7TwLEBYkcLbsMsFj1Eozapk1e#z2mdH1rSC4E8rEUjGGSZ7TwLEBYkcLbsMsFj1Eozapk1e","created":"2025-03-21T03:21:00.719638964+00:00","proofPurpose":"authentication","proofValue":"z4gjrasEPKSoFXgfgsC43u3rAYm63oG8wuV8XWConaWPDPQdfdBN9hWu2Zv9GbpNL46L6r6K1LfxxJf4i7iBx9JLX"}]}]"##;
+
+    #[test]
+    fn test_verify_entries() {
+        let entries: Vec<DidLogEntry> = serde_json::from_str(JSONL).unwrap();
+        let result = verify_entries(&entries);
+        assert!(result.is_ok());
+    }
+}

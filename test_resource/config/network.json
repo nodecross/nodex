@@ -1,7 +1,8 @@
 {
   "secret_key": "secret_key",
-  "project_did": "project_did",
+  "project_did": "did:webvh:QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD:studio_prism%3A4010:webvh:v1:20800404-ceb4-402c-a192-3070e47506ec",
   "recipient_dids": null,
   "studio_endpoint": null,
   "heartbeat": null
 }
+

@@ -407,19 +407,16 @@ impl ServerConfig {
     pub fn new() -> Result<Self, ServerConfigError> {
         let did_endpoint = Url::parse(
             &env::var("NODEX_DID_HTTP_ENDPOINT").unwrap_or("https://did.nodecross.io".to_string()),
-        )
-        .map_err(|e| ServerConfigError::Parse(e))?;
+        )?;
 
         let link = Url::parse(
             &env::var("NODEX_DID_ATTACHMENT_LINK").unwrap_or("https://did.getnodex.io".to_string()),
-        )
-        .map_err(|e| ServerConfigError::Parse(e))?;
+        )?;
 
         let studio_endpoint = Url::parse(
             &env::var("NODEX_STUDIO_HTTP_ENDPOINT")
                 .unwrap_or("https://http.hub.nodecross.io".to_string()),
-        )
-        .map_err(|e| ServerConfigError::Parse(e))?;
+        )?;
 
         Ok(ServerConfig {
             did_http_endpoint: did_endpoint,

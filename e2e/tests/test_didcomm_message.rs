@@ -25,16 +25,13 @@ async fn create_didcomm_message_scenario() -> anyhow::Result<String> {
         .uri(create_url)
         .header("Content-Type", "application/json")
         .body(body)?;
-    dbg!(&request);
 
     let response = client.request(request).await?;
-    dbg!(&response);
     assert_eq!(response.status(), StatusCode::OK);
 
     let body: String = response_to_string(response).await?;
     // parse check
     let parsed = serde_json::from_str::<serde_json::Value>(&body)?;
-    dbg!(&parsed);
 
     Ok(body)
 }
@@ -52,18 +49,19 @@ async fn verify_didcomm_message_scenario(input: String) -> anyhow::Result<()> {
         .uri(verify_url)
         .header("Content-Type", "application/json")
         .body(body)?;
-    dbg!(&request);
 
     let response = client.request(request).await?;
-    dbg!(&response);
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body: String = response_to_string(response).await?;
+    let body = response_to_string(response).await?;
+    let body: String = serde_json::from_str(&body)?;
     let body_json = serde_json::from_str::<serde_json::Value>(&body)?;
+
     assert_eq!(
-        body_json["credentialSubject"]["container"]["payload"]
-            .as_str()
-            .unwrap(),
+        body_json
+            .get("payload")
+            .and_then(|v| v.as_str())
+            .expect("payload not found"),
         "Hello, world!"
     );
 

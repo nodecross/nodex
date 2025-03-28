@@ -15,6 +15,33 @@ paths:
         "200":
           description: Expected response to a valid request
 
+  /webvh/v1/{did}/did.jsonl:
+    get:
+      summary: Find a did
+      operationId: findDID
+      tags:
+        - did
+      parameters:
+        - name: did
+          in: path
+          required: true
+          description: The did to retrieve
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogEntries"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /v1/device:
     post:
       summary: Register a new device
@@ -48,7 +75,13 @@ paths:
         - device
       requestBody:
         content:
-          application/json:
+          application/cbor:
+            schema:
+              $ref: "#/components/schemas/DeviceInfoRequest"
+          application/cose+cbor:
+            schema:
+              $ref: "#/components/schemas/DeviceInfoRequest"
+          application/cose; cose-type="cose-sign1":
             schema:
               $ref: "#/components/schemas/DeviceInfoRequest"
       responses:
@@ -165,6 +198,355 @@ paths:
 
 components:
   schemas:
+    LogEntries:
+      type: array
+      items:
+        $ref: "#/components/schemas/DidLogEntry"
+      example:
+        [
+          {
+            "versionId": "1-QmfDgiqNS69GQqb5e6eVLtproWAVyWvekSkgMjqriF6ehJ",
+            "versionTime": "2025-03-21T03:21:00.716706795+00:00",
+            "parameters":
+              {
+                "portable": true,
+                "updateKeys": ["z2mdH1rSC4E8rEUjGGSZ7TwLEBYkcLbsMsFj1Eozapk1e"],
+                "nextKeyHashes":
+                  ["QmYrcirvNfx25azESaM4WF7srq6s5gKWRhZgYDKGpnyMtr"],
+                "method": "did:webvh:0.5",
+                "scid": "QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD",
+              },
+            "state":
+              {
+                "@context": ["https://www.w3.org/ns/did/v1"],
+                "id": "did:webvh:QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD:localhost%3A8000:webvh:v1:20800404-ceb4-402c-a192-3070e47506ec",
+                "verificationMethod":
+                  [
+                    {
+                      "id": "#signingKey",
+                      "type": "EcdsaSecp256k1VerificationKey2019",
+                      "controller": "did:webvh:QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD:localhost%3A8000:webvh:v1:20800404-ceb4-402c-a192-3070e47506ec",
+                      "publicKeyJwk":
+                        {
+                          "kty": "EC",
+                          "crv": "secp256k1",
+                          "x": "DoA-wckHki4_9ufZ5tsJg8vkYS3svGg-ZtkMsj6z7Nc",
+                          "y": "pAf53ypf9JPhfHkoZ53JEAggJ9xa4nJyC6YPFlHSiJw",
+                        },
+                    },
+                    {
+                      "id": "#encryptionKey",
+                      "type": "X25519KeyAgreementKey2019",
+                      "controller": "did:webvh:QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD:localhost%3A8000:webvh:v1:20800404-ceb4-402c-a192-3070e47506ec",
+                      "publicKeyJwk":
+                        {
+                          "kty": "OKP",
+                          "crv": "X25519",
+                          "x": "Xu1H6UJ69Z0u8lUdIqH0Z7jKXwq-Nj07Q1MKYCl1EnA",
+                        },
+                    },
+                    {
+                      "id": "#signTimeSeriesKey",
+                      "type": "Ed25519VerificationKey2018",
+                      "controller": "did:webvh:QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD:localhost%3A8000:webvh:v1:20800404-ceb4-402c-a192-3070e47506ec",
+                      "publicKeyJwk":
+                        {
+                          "kty": "OKP",
+                          "crv": "Ed25519",
+                          "x": "RHV7OGMXs7PjE1LFvhckSMpz8KXc-I6cFEWEm76uWbY",
+                        },
+                    },
+                  ],
+              },
+            "proof":
+              [
+                {
+                  "type": "DataIntegrityProof",
+                  "cryptosuite": "eddsa-jcs-2022",
+                  "verificationMethod": "did:key:z2mdH1rSC4E8rEUjGGSZ7TwLEBYkcLbsMsFj1Eozapk1e#z2mdH1rSC4E8rEUjGGSZ7TwLEBYkcLbsMsFj1Eozapk1e",
+                  "created": "2025-03-21T03:21:00.719638964+00:00",
+                  "proofPurpose": "authentication",
+                  "proofValue": "z4gjrasEPKSoFXgfgsC43u3rAYm63oG8wuV8XWConaWPDPQdfdBN9hWu2Zv9GbpNL46L6r6K1LfxxJf4i7iBx9JLX",
+                },
+              ],
+          },
+        ]
+
+    DidLogEntry:
+      type: object
+      required:
+        - versionId
+        - versionTime
+        - parameters
+        - state
+      properties:
+        versionId:
+          type: string
+          description: "Format is <version_number>-<base58(multihash(jsc(did_log_entry without proof)))>"
+          example: "1-QmfDgiqNS69GQqb5e6eVLtproWAVyWvekSkgMjqriF6ehJ"
+        versionTime:
+          type: string
+          format: date-time
+          description: "UTC ISO8601 date/time string"
+          example: "2025-03-21T03:21:00.716706795+00:00"
+        parameters:
+          $ref: "#/components/schemas/Parameters"
+        state:
+          $ref: "#/components/schemas/DidDocument"
+        proof:
+          type: array
+          items:
+            $ref: "#/components/schemas/Proof"
+          example:
+            [
+              {
+                "type": "DataIntegrityProof",
+                "cryptosuite": "eddsa-jcs-2022",
+                "verificationMethod": "did:key:z2mdH1rSC4E8rEUjGGSZ7TwLEBYkcLbsMsFj1Eozapk1e#z2mdH1rSC4E8rEUjGGSZ7TwLEBYkcLbsMsFj1Eozapk1e",
+                "created": "2025-03-21T03:21:00.719638964+00:00",
+                "proofPurpose": "authentication",
+                "proofValue": "z4gjrasEPKSoFXgfgsC43u3rAYm63oG8wuV8XWConaWPDPQdfdBN9hWu2Zv9GbpNL46L6r6K1LfxxJf4i7iBx9JLX",
+              },
+            ]
+
+    Parameters:
+      type: object
+      properties:
+        portable:
+          type: boolean
+          example: true
+        updateKeys:
+          type: array
+          items:
+            type: string
+          example: ["z2mdH1rSC4E8rEUjGGSZ7TwLEBYkcLbsMsFj1Eozapk1e"]
+        nextKeyHashes:
+          type: array
+          items:
+            type: string
+          example: ["QmYrcirvNfx25azESaM4WF7srq6s5gKWRhZgYDKGpnyMtr"]
+        method:
+          type: string
+          example: "did:webvh:0.5"
+        scid:
+          type: string
+          example: "QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD"
+        deactivate:
+          type: boolean
+        witness:
+          $ref: "#/components/schemas/WitnessConfig"
+        ttl:
+          type: integer
+          format: int32
+
+    WitnessConfig:
+      type: object
+      required:
+        - threshold
+        - witnesses
+      properties:
+        threshold:
+          type: integer
+          format: int32
+        witnesses:
+          type: array
+          items:
+            $ref: "#/components/schemas/Witness"
+          example: []
+
+    Witness:
+      type: object
+      required:
+        - id
+        - weight
+      properties:
+        id:
+          type: string
+          description: "DID of the witness"
+        weight:
+          type: integer
+          format: int32
+
+    Proof:
+      type: object
+      required:
+        - type
+        - cryptosuite
+        - verificationMethod
+        - created
+        - proofPurpose
+        - proofValue
+      properties:
+        type:
+          type: string
+          example: "DataIntegrityProof"
+        cryptosuite:
+          type: string
+          example: "eddsa-jcs-2022"
+        verificationMethod:
+          type: string
+          example: "did:key:z2mdH1rSC4E8rEUjGGSZ7TwLEBYkcLbsMsFj1Eozapk1e#z2mdH1rSC4E8rEUjGGSZ7TwLEBYkcLbsMsFj1Eozapk1e"
+        created:
+          type: string
+          format: date-time
+          example: "2025-03-21T03:21:00.719638964+00:00"
+        proofPurpose:
+          type: string
+          example: "authentication"
+        proofValue:
+          type: string
+          example: "z4gjrasEPKSoFXgfgsC43u3rAYm63oG8wuV8XWConaWPDPQdfdBN9hWu2Zv9GbpNL46L6r6K1LfxxJf4i7iBx9JLX"
+
+    DidDocument:
+      type: object
+      required:
+        - "@context"
+        - id
+      properties:
+        "@context":
+          type: array
+          items:
+            type: string
+          example: ["https://www.w3.org/ns/did/v1"]
+        id:
+          type: string
+          example: "did:webvh:QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD:localhost%3A8000:webvh:v1:20800404-ceb4-402c-a192-3070e47506ec"
+        deactivated:
+          type: boolean
+        verificationMethod:
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationMethod"
+          example:
+            [
+              {
+                "id": "#signingKey",
+                "type": "EcdsaSecp256k1VerificationKey2019",
+                "controller": "did:webvh:QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD:localhost%3A8000:webvh:v1:20800404-ceb4-402c-a192-3070e47506ec",
+                "publicKeyJwk":
+                  {
+                    "kty": "EC",
+                    "crv": "secp256k1",
+                    "x": "DoA-wckHki4_9ufZ5tsJg8vkYS3svGg-ZtkMsj6z7Nc",
+                    "y": "pAf53ypf9JPhfHkoZ53JEAggJ9xa4nJyC6YPFlHSiJw",
+                  },
+              },
+              {
+                "id": "#encryptionKey",
+                "type": "X25519KeyAgreementKey2019",
+                "controller": "did:webvh:QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD:localhost%3A8000:webvh:v1:20800404-ceb4-402c-a192-3070e47506ec",
+                "publicKeyJwk":
+                  {
+                    "kty": "OKP",
+                    "crv": "X25519",
+                    "x": "Xu1H6UJ69Z0u8lUdIqH0Z7jKXwq-Nj07Q1MKYCl1EnA",
+                  },
+              },
+              {
+                "id": "#signTimeSeriesKey",
+                "type": "Ed25519VerificationKey2018",
+                "controller": "did:webvh:QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD:localhost%3A8000:webvh:v1:20800404-ceb4-402c-a192-3070e47506ec",
+                "publicKeyJwk":
+                  {
+                    "kty": "OKP",
+                    "crv": "Ed25519",
+                    "x": "RHV7OGMXs7PjE1LFvhckSMpz8KXc-I6cFEWEm76uWbY",
+                  },
+              },
+            ]
+        authentication:
+          type: array
+          items:
+            type: string
+          example: []
+        assertionMethod:
+          type: array
+          items:
+            type: string
+          example: []
+        keyAgreement:
+          type: array
+          items:
+            type: string
+          example: []
+        capabilityInvocation:
+          type: array
+          items:
+            type: string
+          example: []
+        capabilityDelegation:
+          type: array
+          items:
+            type: string
+          example: []
+        service:
+          type: array
+          items:
+            $ref: "#/components/schemas/Service"
+          example: []
+        alsoKnownAs:
+          type: array
+          items:
+            type: string
+          example: []
+        controller:
+          type: array
+          items:
+            type: string
+          example: []
+        created:
+          type: string
+          format: date-time
+
+    VerificationMethod:
+      type: object
+      required:
+        - id
+        - type
+        - controller
+      properties:
+        id:
+          type: string
+          example: "#signingKey"
+        type:
+          type: string
+          example: "EcdsaSecp256k1VerificationKey2019"
+        controller:
+          type: string
+          example: "did:webvh:QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD:localhost%3A8000:webvh:v1:20800404-ceb4-402c-a192-3070e47506ec"
+        publicKeyMultibase:
+          type: string
+          example: "z6MkijyunEqPi7hzgJirb4tQLjztCPbJeeZvXEySuzbY6MLv"
+        publicKeyJwk:
+          type: object
+          description: "JSON Web Key"
+          example:
+            {
+              "kty": "EC",
+              "crv": "secp256k1",
+              "x": "DoA-wckHki4_9ufZ5tsJg8vkYS3svGg-ZtkMsj6z7Nc",
+              "y": "pAf53ypf9JPhfHkoZ53JEAggJ9xa4nJyC6YPFlHSiJw",
+            }
+        blockchainAccountId:
+          type: string
+
+    Service:
+      type: object
+      required:
+        - id
+        - type
+        - serviceEndpoint
+      properties:
+        id:
+          type: string
+          example: "did:webvh:QmaJp6pmb6RUk4oaDyWQcjeqYbvxsc3kvmHWPpz7B5JwDU:domain.example#domain"
+        type:
+          type: string
+          example: "LinkedDomains"
+        serviceEndpoint:
+          type: string
+          example: "https://domain.example"
+
     RegisterDeviceRequest:
       type: object
       required:
@@ -177,10 +559,21 @@ components:
           type: string
 
     DeviceInfoRequest:
-      type: object
+      format: binary
+      description: "CBOR encoded and COSE signed device information"
       properties:
-        did:
+        payload:
           type: string
+          format: binary
+          description: "CBOR encoded payload containing device information"
+        protected:
+          type: string
+          format: binary
+          description: "COSE protected headers"
+        signature:
+          type: string
+          format: binary
+          description: "COSE signature"
 
     EmptyResponse:
       type: object
@@ -213,7 +606,7 @@ components:
         timestamp:
           type: string
           format: date-time
-  
+
     Recipient:
       type: object
       properties:
