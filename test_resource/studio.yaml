@@ -604,14 +604,16 @@ components:
       properties:
         device_did:
           type: string
+          format: binary
         metric_name:
           type: string
+          format: binary
         metric_value:
           type: number
-          format: float
+          format: binary
         timestamp:
           type: string
-          format: date-time
+          format: binary
 
     Recipient:
       type: object
