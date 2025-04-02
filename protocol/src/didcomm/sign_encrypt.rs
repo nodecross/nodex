@@ -16,8 +16,8 @@ pub fn encrypt_message(
     from_keyring: &KeyPairing,
     to_doc: &DidDocument,
 ) -> Result<DidCommMessage, DidCommEncryptMessageError> {
-    let to_did = &to_doc.id;
-    let message = Message::new().from(from_did).to(&[to_did]).body(body)?;
+    let to_did = to_doc.clone().id;
+    let message = Message::new().from(from_did).to(&[&to_did]).body(body)?;
 
     let public_key: x25519_dalek::PublicKey = to_doc.get_key("#encryptionKey")?.try_into()?;
     let public_key = public_key.as_bytes().to_vec();
@@ -25,6 +25,7 @@ pub fn encrypt_message(
 
     let seal_message = message
         .as_jwe(&CryptoAlgorithm::XC20P, public_key.clone())
+        .kid(&to_did.into_inner())
         .seal_signed(
             from_keyring.encrypt.get_secret_key().as_bytes(),
             Some(vec![public_key]),
@@ -127,8 +128,14 @@ mod tests {
         let message = json!({"test": "0123456789abcdef"});
 
         let res = encrypt_message(&message.to_string(), &from_did, &from_key, &to_doc).unwrap();
-        let verified = decrypt_message(&res, &from_doc, &to_key).unwrap();
 
+        let from_did_in_msg = res.find_sender().unwrap();
+        assert_eq!(from_did_in_msg, from_did);
+
+        let to_did_in_msg = res.find_receivers();
+        assert_eq!(to_did_in_msg, vec![to_doc.id.clone().into_inner()]);
+
+        let verified = decrypt_message(&res, &from_doc, &to_key).unwrap();
         assert_eq!(verified, message.to_string());
     }
 

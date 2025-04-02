@@ -65,6 +65,8 @@ where
     MessageActivity(F),
     #[error("failed serialize/deserialize : {0}")]
     Json(#[from] serde_json::Error),
+    #[error("This message is not addressed to me")]
+    NotAddressedToMe,
 }
 
 impl<R, D, A> DidcommMessageUseCase<R, D, A>
@@ -104,17 +106,16 @@ where
                 DidCommEncryptMessageError::DidDocNotFound(e.to_string()),
             )
         })?;
-        let did_doc = did_doc.ok_or_else(|| {
-            GenerateDidcommMessageUseCaseError::Generate(
-                DidCommEncryptMessageError::DidDocNotFound(to_did.to_string()),
-            )
-        })?;
 
         let didcomm_message = encrypt_message(
             &message.to_string(),
             &my_did,
             &self.did_accessor.get_my_keyring(),
-            &did_doc,
+            &did_doc.ok_or_else(|| {
+                GenerateDidcommMessageUseCaseError::Generate(
+                    DidCommEncryptMessageError::DidDocNotFound("did doc not found".to_string()),
+                )
+            })?,
         )?;
 
         let result = serde_json::to_string(&didcomm_message)?;
@@ -140,6 +141,12 @@ where
         now: DateTime<Utc>,
     ) -> Result<String, VerifyDidcommMessageUseCaseError<R::Error>> {
         let my_did = self.did_accessor.get_my_did();
+        if !message
+            .find_receivers()
+            .contains(&my_did.clone().into_inner())
+        {
+            return Err(VerifyDidcommMessageUseCaseError::NotAddressedToMe);
+        }
 
         let sender_did = message.find_sender()?;
         let from_doc = self
@@ -322,12 +329,9 @@ mod tests {
 
             let verified = usecase.verify(generated, Utc::now()).await;
 
-            if let Err(VerifyDidcommMessageUseCaseError::Verify(
-                DidCommDecryptMessageError::DidDocNotFound(_),
-            )) = verified
-            {
+            if let Err(VerifyDidcommMessageUseCaseError::NotAddressedToMe) = verified {
             } else {
-                panic!("unexpected result: {:#?}", verified);
+                panic!("unexpected result: {:?}", verified);
             }
         }
 
