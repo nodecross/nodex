@@ -1,5 +1,5 @@
 {
-  "did": "did:webvh:QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD:localhost%3A8000:webvh:v1:20800404-ceb4-402c-a192-3070e47506ec",
+  "did": "did:webvh:QmUJpkEMP9ynkxLA6HXBvS5KiduQbsdTxK7nczpQ88nU67:localhost%3A8020:webvh:v1:fad9884b-3ced-44d6-ba24-a78ccd2b5cd2",
   "key_pairs": {
     "sign": {
       "public_key": "040e803ec1c907922e3ff6e7d9e6db0983cbe4612decbc683e66d90cb23eb3ecd7a407f9df2a5ff493e17c7928679dc910082027dc5ae272720ba60f1651d2889c",

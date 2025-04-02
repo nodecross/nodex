@@ -1,6 +1,6 @@
 {
   "secret_key": "secret_key",
-  "project_did": "did:webvh:QmTsgx6TRXZQM1godmV652RCEU8ZfFFVW41z6j1DtnKdSD:localhost%3A8020:webvh:v1:20800404-ceb4-402c-a192-3070e47506ec",
+  "project_did": "did:webvh:QmUJpkEMP9ynkxLA6HXBvS5KiduQbsdTxK7nczpQ88nU67:localhost%3A8020:webvh:v1:fad9884b-3ced-44d6-ba24-a78ccd2b5cd2",
   "recipient_dids": null,
   "studio_endpoint": null,
   "heartbeat": null

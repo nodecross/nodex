@@ -11,6 +11,8 @@ mod tests {
     use protocol::keyring::*;
     use rand_core::OsRng;
     use std::fs;
+    use std::io::Write;
+    use uuid::Uuid;
 
     struct MockDataStore {}
     impl MockDataStore {
@@ -34,6 +36,18 @@ mod tests {
             _path: &str,
             did_log_entries: &[DidLogEntry],
         ) -> Result<DidDocument, Self::Error> {
+            // write log entries to file, formatted as jsonl
+            // let now = chrono::Utc::now();
+            // let file_name = format!("test_resources/{}_did.jsonl", now);
+            // let mut file = fs::OpenOptions::new()
+            //     .write(true)
+            //     .append(true)
+            //     .create(true)
+            //     .open(file_name)?;
+            // for log_entry in did_log_entries {
+            //     let log_entry_json = serde_json::to_string(log_entry)?;
+            //     writeln!(file, "{}", log_entry_json)?;
+            // }
             let log_entry = did_log_entries.last().unwrap();
             let doc = log_entry.state.clone();
             Ok(doc)
@@ -63,14 +77,17 @@ mod tests {
     pub async fn test_create_did_log_entry() {
         let keyring = keypair::KeyPairing::create_keyring(OsRng);
         let datastore = MockDataStore::new();
+        let uuid = Uuid::new_v4();
+        let path = format!("localhost:8020/webvh/v1/{}", uuid);
         let res = DidWebvhServiceImpl::new(datastore)
-            .create_identifier("domain.examle.com/test/did", true, keyring)
+            .create_identifier(&path, true, keyring)
             .await
             .unwrap();
         assert_eq!(res.id.get_method(), "webvh");
         let webvh_did: DidWebvh = res.id.clone().try_into().unwrap();
         assert_eq!(webvh_did.get_did(), &res.id);
-        assert_eq!(webvh_did.get_uri(), "domain.examle.com:test:did");
+        let path = path.replace(":", "%3A").replace("/", ":");
+        assert_eq!(webvh_did.get_uri(), path);
     }
 
     #[tokio::test]
