@@ -103,6 +103,7 @@ runs:
                 } catch {
                     Write-Host "Warning: Server is listening but health endpoint may not be ready: $_"
                     Start-Sleep -Seconds 5
+                }
                 $connection.Close()
             } catch {
                 $retryCount++
