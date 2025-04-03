@@ -16,20 +16,20 @@ runs:
       run: |
         cd test_resource/mock_studio
         PORT=8020 cargo run > mock_studio.log 2>&1 &
-        echo $! > mock_server.pid
+        echo $! > mock_studio.pid
 
         echo "Waiting for mock server to start on port 8020..."
-        for i in {1..30}; do
+        for i in {1..60}; do
           if nc -z localhost 8020; then
             echo "Mock server is up and running on port 8020"
             break
           fi
-          if [ $i -eq 30 ]; then
+          if [ $i -eq 60 ]; then
             echo "Timed out waiting for mock server to start"
-            cat mock_server.log
+            cat mock_studio.log
             exit 1
           fi
-          sleep 1
+          sleep 5 
         done
 
     - name: Setup and Run Tests
@@ -62,12 +62,13 @@ runs:
         NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
         NODEX_STUDIO_HTTP_ENDPOINT: http://localhost:8020
         RUST_BACKTRACE: full
+
     - name: Stop mock studio
       shell: bash
       run: |
-        if [ -f test_resource/mock_studio/mock_server.pid ]; then
-          kill $(cat test_resource/mock_studio/mock_server.pid)
-          rm test_resource/mock_studio/mock_server.pid
+        if [ -f test_resource/mock_studio/mock_studio.pid ]; then
+          kill $(cat test_resource/mock_studio/mock_studio.pid)
+          rm test_resource/mock_studio/mock_studio.pid
         else
           echo "Mock server PID file not found."
         fi

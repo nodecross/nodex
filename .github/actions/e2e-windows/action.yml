@@ -14,8 +14,8 @@ runs:
     - name: Start mock server
       shell: powershell
       run: |
-        $mockServerDir = Join-Path -Path $PWD -ChildPath "test_resource\mock_server"
-        $mockServerLogPath = Join-Path -Path $mockServerDir -ChildPath "mock_server.log"
+        $mockServerDir = Join-Path -Path $PWD -ChildPath "test_resource\mock_studio"
+        $mockServerLogPath = Join-Path -Path $mockServerDir -ChildPath "mock_studio.log"
 
         # Change to the mock server directory
         Push-Location $mockServerDir
@@ -25,14 +25,14 @@ runs:
         $mockServerProcess = Start-Process -FilePath "npm" -ArgumentList "start" -NoNewWindow -PassThru -RedirectStandardOutput $mockServerLogPath -RedirectStandardError $mockServerLogPath
 
         # Save the process ID for later cleanup
-        $mockServerProcess.Id | Out-File -FilePath "mock_server.pid"
+        $mockServerProcess.Id | Out-File -FilePath "mock_studio.pid"
 
         # Return to the original directory
         Pop-Location
 
         # Wait for the mock server to start
         Write-Host "Waiting for mock server to start on port 8020..."
-        $maxRetries = 30
+        $maxRetries = 60
         $retryCount = 0
         $serverStarted = $false
 
@@ -46,7 +46,7 @@ runs:
                 $connection.Close()
             } catch {
                 $retryCount++
-                Start-Sleep -Seconds 1
+                Start-Sleep -Seconds 5
             }
         }
 
@@ -77,7 +77,7 @@ runs:
     - name: Stop mock server
       shell: powershell
       run: |
-        $mockServerPidFile = Join-Path -Path $PWD -ChildPath "test_resource\mock_server\mock_server.pid"
+        $mockServerPidFile = Join-Path -Path $PWD -ChildPath "test_resource\mock_studio\mock_studio.pid"
         if (Test-Path $mockServerPidFile) {
             $pid = Get-Content $mockServerPidFile
             try {
@@ -102,6 +102,6 @@ runs:
     - name: (run) show log of mock server
       shell: powershell
       run: |
-        $mockServerLogPath = Join-Path -Path $PWD -ChildPath "test_resource\mock_server\mock_server.log"
+        $mockServerLogPath = Join-Path -Path $PWD -ChildPath "test_resource\mock_studio\mock_studio.log"
         Get-Content $mockServerLogPath
       if: ${{ always() }}
