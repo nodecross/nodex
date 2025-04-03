@@ -151,8 +151,8 @@ runs:
         New-Item -ItemType File -Force -Path "agent_err.log" | Out-Null
 
         # Start the agent in background
-        Write-Host "Starting agent with 'controller' argument..."
-        $agentProcess = Start-Process -FilePath "${{ inputs.binary-path }}" -ArgumentList "controller" -NoNewWindow -PassThru -RedirectStandardOutput "agent_out.log" -RedirectStandardError "agent_err.log"
+        Write-Host "Starting agent ..."
+        $agentProcess = Start-Process -FilePath "${{ inputs.binary-path }}" -NoNewWindow -PassThru -RedirectStandardOutput "agent_out.log" -RedirectStandardError "agent_err.log"
         $agentProcessId = $agentProcess.Id
         Write-Host "Agent started with PID: $agentProcessId"
 
