@@ -36,7 +36,7 @@ mod tests {
             _path: &str,
             did_log_entries: &[DidLogEntry],
         ) -> Result<DidDocument, Self::Error> {
-            // write log entries to file, formatted as jsonl
+            // // write log entries to file, formatted as jsonl
             // let now = chrono::Utc::now();
             // let file_name = format!("test_resources/{}_did.jsonl", now);
             // let mut file = fs::OpenOptions::new()

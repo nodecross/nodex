@@ -31,7 +31,7 @@ async fn create_didcomm_message_scenario() -> anyhow::Result<String> {
 
     let body: String = response_to_string(response).await?;
     // parse check
-    let _parsed = serde_json::from_str::<serde_json::Value>(&body)?;
+    let parsed = serde_json::from_str::<serde_json::Value>(&body)?;
 
     Ok(body)
 }
