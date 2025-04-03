@@ -59,8 +59,9 @@ runs:
         # Navigate to mock studio directory
         Push-Location test_resource\mock_studio
 
-        # Ensure log file exists
-        New-Item -ItemType File -Force -Path "mock_studio.log" | Out-Null
+        # Create separate log files for stdout and stderr
+        New-Item -ItemType File -Force -Path "mock_studio_out.log" | Out-Null
+        New-Item -ItemType File -Force -Path "mock_studio_err.log" | Out-Null
 
         # Ensure cargo is in PATH
         $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
@@ -71,10 +72,10 @@ runs:
             exit 1
         }
 
-        # Run the mock server in the background
+        # Run the mock server in the background with different files for stdout and stderr
         $env:PORT = "8020"
         Write-Host "Starting mock server on port 8020..."
-        $mockServerProcess = Start-Process -FilePath "cargo" -ArgumentList "run" -NoNewWindow -PassThru -RedirectStandardOutput "mock_studio.log" -RedirectStandardError "mock_studio.log"
+        $mockServerProcess = Start-Process -FilePath "cargo" -ArgumentList "run" -NoNewWindow -PassThru -RedirectStandardOutput "mock_studio_out.log" -RedirectStandardError "mock_studio_err.log"
 
         # Save the PID for later cleanup
         $mockServerProcess.Id | Out-File -FilePath "mock_studio.pid"
@@ -106,18 +107,21 @@ runs:
                     $processStillRunning = Get-Process -Id $mockServerProcess.Id -ErrorAction SilentlyContinue
                     if (-not $processStillRunning) {
                         Write-Host "Error: Mock server process has terminated unexpectedly"
-                        Get-Content test_resource\mock_studio\mock_studio.log
+                        Get-Content test_resource\mock_studio\mock_studio_out.log
+                        Get-Content test_resource\mock_studio\mock_studio_err.log
                         exit 1
                     }
                 } catch {
                     Write-Host "Error: Could not check mock server process status"
-                    Get-Content test_resource\mock_studio\mock_studio.log
+                    Get-Content test_resource\mock_studio\mock_studio_out.log
+                    Get-Content test_resource\mock_studio\mock_studio_err.log
                     exit 1
                 }
                 
                 if ($retryCount -eq $maxRetries) {
                     Write-Host "Timed out waiting for mock server to start"
-                    Get-Content test_resource\mock_studio\mock_studio.log
+                    Get-Content test_resource\mock_studio\mock_studio_out.log
+                    Get-Content test_resource\mock_studio\mock_studio_err.log
                     exit 1
                 }
                 
@@ -125,8 +129,10 @@ runs:
                 
                 # Check log periodically
                 if ($retryCount % 10 -eq 0) {
-                    Write-Host "=== Current mock server log ==="
-                    Get-Content test_resource\mock_studio\mock_studio.log -Tail 20
+                    Write-Host "=== Current mock server stdout ==="
+                    Get-Content test_resource\mock_studio\mock_studio_out.log -Tail 20
+                    Write-Host "=== Current mock server stderr ==="
+                    Get-Content test_resource\mock_studio\mock_studio_err.log -Tail 20
                 }
             }
         }
@@ -140,18 +146,19 @@ runs:
             exit 1
         }
 
-        # Create log file
-        New-Item -ItemType File -Force -Path "log.txt" | Out-Null
+        # Create separate log files for stdout and stderr
+        New-Item -ItemType File -Force -Path "agent_out.log" | Out-Null
+        New-Item -ItemType File -Force -Path "agent_err.log" | Out-Null
 
         # Start the agent in background
         Write-Host "Starting agent with 'controller' argument..."
-        $agentProcess = Start-Process -FilePath "${{ inputs.binary-path }}" -ArgumentList "controller" -NoNewWindow -PassThru -RedirectStandardOutput "log.txt" -RedirectStandardError "log.txt"
+        $agentProcess = Start-Process -FilePath "${{ inputs.binary-path }}" -ArgumentList "controller" -NoNewWindow -PassThru -RedirectStandardOutput "agent_out.log" -RedirectStandardError "agent_err.log"
         $agentProcessId = $agentProcess.Id
         Write-Host "Agent started with PID: $agentProcessId"
 
         # Give it time to initialize
         Write-Host "Waiting for agent to initialize..."
-        Start-Sleep -Seconds 5
+        Start-Sleep -Seconds 10
 
         # Ensure cargo is in PATH for running tests
         $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
@@ -184,14 +191,16 @@ runs:
         Write-Host "Waiting for agent to process signal..."
         Start-Sleep -Seconds 5
 
-        # Check if SIGINT appears in the log
-        Write-Host "Checking for SIGINT in log file..."
-        $logContent = Get-Content log.txt -Raw
-        if (-not ($logContent -match "SIGINT")) {
-            Write-Host "Error: SIGINT not found in log."
-            exit 1
-        } else {
+        # Check if SIGINT appears in either of the logs
+        Write-Host "Checking for SIGINT in log files..."
+        $outLogContent = Get-Content agent_out.log -Raw -ErrorAction SilentlyContinue
+        $errLogContent = Get-Content agent_err.log -Raw -ErrorAction SilentlyContinue
+
+        if (($outLogContent -match "SIGINT") -or ($errLogContent -match "SIGINT")) {
             Write-Host "SIGINT found in log as expected."
+        } else {
+            Write-Host "Error: SIGINT not found in logs."
+            exit 1
         }
 
         # Verify process has terminated
@@ -244,22 +253,37 @@ runs:
     - name: (run) show log of agent
       shell: powershell
       run: |
-        Write-Host "=== Agent Log ==="
-        if (Test-Path "log.txt") {
-            Get-Content log.txt
+        Write-Host "=== Agent Standard Output ==="
+        if (Test-Path "agent_out.log") {
+            Get-Content agent_out.log
         } else {
-            Write-Host "Warning: Agent log file not found"
+            Write-Host "Warning: Agent stdout log file not found"
+        }
+
+        Write-Host "=== Agent Standard Error ==="
+        if (Test-Path "agent_err.log") {
+            Get-Content agent_err.log
+        } else {
+            Write-Host "Warning: Agent stderr log file not found"
         }
       if: ${{ always() }}
 
     - name: (run) show log of mock studio
       shell: powershell
       run: |
-        Write-Host "=== Mock Studio Log ==="
-        $logPath = "test_resource\mock_studio\mock_studio.log"
-        if (Test-Path $logPath) {
-            Get-Content $logPath
+        Write-Host "=== Mock Studio Standard Output ==="
+        $outLogPath = "test_resource\mock_studio\mock_studio_out.log"
+        if (Test-Path $outLogPath) {
+            Get-Content $outLogPath
         } else {
-            Write-Host "Warning: Mock studio log file not found"
+            Write-Host "Warning: Mock studio stdout log file not found"
+        }
+
+        Write-Host "=== Mock Studio Standard Error ==="
+        $errLogPath = "test_resource\mock_studio\mock_studio_err.log"
+        if (Test-Path $errLogPath) {
+            Get-Content $errLogPath
+        } else {
+            Write-Host "Warning: Mock studio stderr log file not found"
         }
       if: ${{ always() }}
