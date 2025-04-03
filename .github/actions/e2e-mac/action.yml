@@ -11,6 +11,27 @@ runs:
       shell: bash
       run: mkdir -p ~/.config/nodex && cp -r test_resource/localhost_config/* ~/.config/nodex/
 
+    - name: Start mock studio
+      shell: bash
+      run: |
+        cd test_resource/mock_studio
+        PORT=8020 cargo run > mock_studio.log 2>&1 &
+        echo $! > mock_server.pid
+
+        echo "Waiting for mock server to start on port 8020..."
+        for i in {1..30}; do
+          if nc -z localhost 8020; then
+            echo "Mock server is up and running on port 8020"
+            break
+          fi
+          if [ $i -eq 30 ]; then
+            echo "Timed out waiting for mock server to start"
+            cat mock_server.log
+            exit 1
+          fi
+          sleep 1
+        done
+
     - name: Setup and Run Tests
       shell: bash
       run: |
@@ -41,8 +62,23 @@ runs:
         NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
         NODEX_STUDIO_HTTP_ENDPOINT: http://localhost:8020
         RUST_BACKTRACE: full
+    - name: Stop mock studio
+      shell: bash
+      run: |
+        if [ -f test_resource/mock_studio/mock_server.pid ]; then
+          kill $(cat test_resource/mock_studio/mock_server.pid)
+          rm test_resource/mock_studio/mock_server.pid
+        else
+          echo "Mock server PID file not found."
+        fi
+      if: ${{ always() }}
 
     - name: (run) show log of agent
       shell: bash
       run: cat log.txt
+      if: ${{ always() }}
+
+    - name: (run) show log of mock studio
+      shell: bash
+      run: cat test_resource/mock_studio/mock_studio.log
       if: ${{ always() }}
