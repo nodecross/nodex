@@ -7,35 +7,13 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Setup Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: "20.15.0"
-
     - name: (setup) copy default config to home
       shell: powershell
       run: New-Item -ItemType Directory -Force -Path $env:USERPROFILE\.config\nodex; Copy-Item test_resource\localhost_config\* $env:USERPROFILE\.config\nodex\
 
-    - name: Install Prism CLI
-      shell: powershell
-      run: npm install -g @stoplight/prism-cli
-
-    - name: Get Prism Path
-      id: get-prism-path
-      shell: powershell
-      run: |
-        $prismPath = Get-Command prism | Select-Object -ExpandProperty Source
-        echo "::set-output name=prismPath::$prismPath"
-
     - name: Setup and Run Tests
       shell: powershell
       run: |
-        $prismPath = "${{ steps.get-prism-path.outputs.prismPath }}"
-        $studioResourcePath = Join-Path -Path $PWD -ChildPath "test_resource/studio.yaml"
-
-        Start-Process -NoNewWindow -FilePath "powershell" -ArgumentList "-File $prismPath mock -h 127.0.0.1 -p 8020 $studioResourcePath"
-        Start-Sleep -Seconds 10
-
         $agentPath = Join-Path -Path $PWD -ChildPath ${{ inputs.binary-path }}
         $stdErrLogTmp = Join-Path -Path $PWD -ChildPath ".\stderr.log"
         $stdOutLogTmp = Join-Path -Path $PWD -ChildPath ".\stdout.log"
