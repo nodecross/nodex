@@ -15,14 +15,19 @@ runs:
       shell: powershell
       run: |
         $mockServerDir = Join-Path -Path $PWD -ChildPath "test_resource\mock_studio"
-        $mockServerLogPath = Join-Path -Path $mockServerDir -ChildPath "mock_studio.log"
+        if (-not (Test-Path $mockServerDir)) {
+            New-Item -ItemType Directory -Force -Path $mockServerDir
+        }
+
+        $mockServerOutLogPath = Join-Path -Path $mockServerDir -ChildPath "mock_studio_out.log"
+        $mockServerErrLogPath = Join-Path -Path $mockServerDir -ChildPath "mock_studio_err.log"
 
         # Change to the mock server directory
         Push-Location $mockServerDir
 
         # Start the mock server with PORT=8020
         $env:PORT = "8020"
-        $mockServerProcess = Start-Process -FilePath "npm" -ArgumentList "start" -NoNewWindow -PassThru -RedirectStandardOutput $mockServerLogPath -RedirectStandardError $mockServerLogPath
+        $mockServerProcess = Start-Process -FilePath "npm" -ArgumentList "start" -NoNewWindow -PassThru -RedirectStandardOutput $mockServerOutLogPath -RedirectStandardError $mockServerErrLogPath
 
         # Save the process ID for later cleanup
         $mockServerProcess.Id | Out-File -FilePath "mock_studio.pid"
@@ -52,7 +57,12 @@ runs:
 
         if (-not $serverStarted) {
             Write-Host "Timed out waiting for mock server to start"
-            Get-Content $mockServerLogPath
+            if (Test-Path $mockServerOutLogPath) {
+                Get-Content $mockServerOutLogPath
+            }
+            if (Test-Path $mockServerErrLogPath) {
+                Get-Content $mockServerErrLogPath
+            }
             exit 1
         }
 
@@ -62,6 +72,10 @@ runs:
         $agentPath = Join-Path -Path $PWD -ChildPath ${{ inputs.binary-path }}
         $stdErrLogTmp = Join-Path -Path $PWD -ChildPath ".\stderr.log"
         $stdOutLogTmp = Join-Path -Path $PWD -ChildPath ".\stdout.log"
+
+        New-Item -ItemType File -Force -Path $stdOutLogTmp
+        New-Item -ItemType File -Force -Path $stdErrLogTmp
+
         Start-Process -FilePath "$agentPath" -NoNewWindow -RedirectStandardOutput "$stdOutLogTmp" -RedirectStandardError "$stdErrLogTmp"
         Start-Sleep -Seconds 10
 
@@ -94,14 +108,37 @@ runs:
       shell: powershell
       run: |
         $stdOutLogTmp = Join-Path -Path $PWD -ChildPath ".\stdout.log"
-        Get-Content $stdOutLogTmp
+        if (Test-Path $stdOutLogTmp) {
+            Get-Content $stdOutLogTmp
+        } else {
+            Write-Host "Warning: stdout.log does not exist"
+        }
+
         $stdErrLogTmp = Join-Path -Path $PWD -ChildPath ".\stderr.log"
-        Get-Content $stdErrLogTmp
+        if (Test-Path $stdErrLogTmp) {
+            Get-Content $stdErrLogTmp
+        } else {
+            Write-Host "Warning: stderr.log does not exist"
+        }
       if: ${{ always() }}
 
     - name: (run) show log of mock server
       shell: powershell
       run: |
-        $mockServerLogPath = Join-Path -Path $PWD -ChildPath "test_resource\mock_studio\mock_studio.log"
-        Get-Content $mockServerLogPath
+        $mockServerOutLogPath = Join-Path -Path $PWD -ChildPath "test_resource\mock_studio\mock_studio_out.log"
+        $mockServerErrLogPath = Join-Path -Path $PWD -ChildPath "test_resource\mock_studio\mock_studio_err.log"
+
+        if (Test-Path $mockServerOutLogPath) {
+            Write-Host "=== Mock Server Standard Output ==="
+            Get-Content $mockServerOutLogPath
+        } else {
+            Write-Host "Warning: mock_studio_out.log does not exist"
+        }
+
+        if (Test-Path $mockServerErrLogPath) {
+            Write-Host "=== Mock Server Standard Error ==="
+            Get-Content $mockServerErrLogPath
+        } else {
+            Write-Host "Warning: mock_studio_err.log does not exist"
+        }
       if: ${{ always() }}
