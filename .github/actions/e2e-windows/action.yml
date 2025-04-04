@@ -146,13 +146,6 @@ runs:
         New-Item -ItemType File -Force -Path $agentOutLog | Out-Null
         New-Item -ItemType File -Force -Path $agentErrLog | Out-Null
 
-        # Set environment variables for the agent process
-        $env:NODEX_DID_HTTP_ENDPOINT = "http://127.0.0.1:8020"
-        $env:NODEX_DID_ATTACHMENT_LINK = "http://127.0.0.1:4010"
-        $env:NODEX_STUDIO_HTTP_ENDPOINT = "http://127.0.0.1:8020"
-        $env:NODEX_SERVER_PORT = "3000"
-        $env:RUST_BACKTRACE = "full"
-
         # Log environment variables for debugging
         Write-Host "Starting agent with environment variables:"
         Write-Host "NODEX_DID_HTTP_ENDPOINT: $env:NODEX_DID_HTTP_ENDPOINT"
@@ -288,10 +281,3 @@ runs:
             Write-Host "Warning: Mock server stderr log file not found"
         }
       if: ${{ always() }}
-
-    - name: Setup tmate SSH session on failure
-      uses: mxschmitt/action-tmate@v3
-      if: ${{ failure() }}
-      with:
-        limit-access-to-actor: true
-        timeout-minutes: 60
