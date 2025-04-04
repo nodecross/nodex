@@ -9,7 +9,7 @@ runs:
   steps:
     - name: (setup) copy default config to home
       shell: bash
-      run: mkdir -p ~/.config/nodex && cp -r test_resource/localhost_config/* ~/.config/nodex/
+      run: mkdir -p ~/.config/nodex && cp -r test_resource/localhost_config/network.json ~/.config/nodex/
 
     - name: Start mock studio
       shell: bash
