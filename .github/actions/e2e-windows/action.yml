@@ -90,12 +90,12 @@ runs:
 
         # Wait a fixed time initially
         Write-Host "Waiting for mock server to initialize (initial wait)..."
-        Start-Sleep -Seconds 180
+        Start-Sleep -Seconds 90
 
         # Simple validation that server is running and wait for health endpoint
         $ready = $false
         $attempts = 0
-        $maxAttempts = 60
+        $maxAttempts = 30
 
         while (-not $ready -and $attempts -lt $maxAttempts) {
             $attempts++
@@ -148,6 +148,21 @@ runs:
         $agentErrLog = ".\agent_err.log"
         New-Item -ItemType File -Force -Path $agentOutLog | Out-Null
         New-Item -ItemType File -Force -Path $agentErrLog | Out-Null
+
+        # Set environment variables for the agent process
+        $env:NODEX_DID_HTTP_ENDPOINT = "http://127.0.0.1:8020"
+        $env:NODEX_DID_ATTACHMENT_LINK = "http://127.0.0.1:4010"
+        $env:NODEX_STUDIO_HTTP_ENDPOINT = "http://127.0.0.1:8020"
+        $env:NODEX_SERVER_PORT = "3000"
+        $env:RUST_BACKTRACE = "full"
+
+        # Log environment variables for debugging
+        Write-Host "Starting agent with environment variables:"
+        Write-Host "NODEX_DID_HTTP_ENDPOINT: $env:NODEX_DID_HTTP_ENDPOINT"
+        Write-Host "NODEX_DID_ATTACHMENT_LINK: $env:NODEX_DID_ATTACHMENT_LINK"
+        Write-Host "NODEX_STUDIO_HTTP_ENDPOINT: $env:NODEX_STUDIO_HTTP_ENDPOINT"
+        Write-Host "NODEX_SERVER_PORT: $env:NODEX_SERVER_PORT"
+        Write-Host "RUST_BACKTRACE: $env:RUST_BACKTRACE"
 
         # Start agent with simpler approach
         Write-Host "Starting agent..."
