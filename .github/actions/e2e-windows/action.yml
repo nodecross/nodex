@@ -89,12 +89,12 @@ runs:
 
         # Wait a fixed time initially
         Write-Host "Waiting for mock server to initialize (initial wait)..."
-        Start-Sleep -Seconds 15
+        Start-Sleep -Seconds 60
 
         # Simple validation that server is running and wait for health endpoint
         $ready = $false
         $attempts = 0
-        $maxAttempts = 30
+        $maxAttempts = 60
 
         while (-not $ready -and $attempts -lt $maxAttempts) {
             $attempts++
@@ -121,15 +121,15 @@ runs:
                     Write-Host "Error: Failed to check process status: $_"
                     exit 1
                 }
-                
+
                 if ($attempts -eq $maxAttempts) {
                     Write-Host "Timed out waiting for mock server health check"
                     Get-Content $mockOutLog
                     Get-Content $mockErrLog
                     exit 1
                 }
-                
-                Start-Sleep -Seconds 2
+
+                Start-Sleep -Seconds 10
             }
         }
 
@@ -170,7 +170,7 @@ runs:
 
         for ($retry = 1; $retry -le $maxRetries; $retry++) {
             Write-Host "Test attempt $retry of $maxRetries..."
-            
+
             Push-Location e2e
             try {
                 # Run the tests
