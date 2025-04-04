@@ -277,7 +277,9 @@ runs:
         }
       if: ${{ always() }}
 
-    - name: Setup tmate session
-      if: ${{ failure() }}
+    - name: Setup tmate SSH session on failure
       uses: mxschmitt/action-tmate@v3
-      timeout-minutes: 60
+      if: ${{ failure() }}
+      with:
+        limit-access-to-actor: true
+        timeout-minutes: 60
