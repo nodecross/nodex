@@ -75,6 +75,7 @@ runs:
         # Start mock server with simplified process
         Push-Location test_resource\mock_studio
         $env:PORT = "8020"
+        $env:RUST_LOG = "Debug"
         Write-Host "Starting mock server on port 8020..."
 
         try {
@@ -89,7 +90,7 @@ runs:
 
         # Wait a fixed time initially
         Write-Host "Waiting for mock server to initialize (initial wait)..."
-        Start-Sleep -Seconds 60
+        Start-Sleep -Seconds 180
 
         # Simple validation that server is running and wait for health endpoint
         $ready = $false
@@ -99,7 +100,7 @@ runs:
         while (-not $ready -and $attempts -lt $maxAttempts) {
             $attempts++
             try {
-                $healthCheck = Invoke-WebRequest -Uri "http://localhost:8020/health" -Method GET -TimeoutSec 2
+                $healthCheck = Invoke-WebRequest -Uri "http://127.0.0.1:8020/health" -Method GET -TimeoutSec 2
                 if ($healthCheck.StatusCode -eq 200) {
                     $ready = $true
                     Write-Host "Mock server confirmed ready! (Health check successful)"
@@ -129,7 +130,7 @@ runs:
                     exit 1
                 }
 
-                Start-Sleep -Seconds 10
+                Start-Sleep -Seconds 30
             }
         }
 
