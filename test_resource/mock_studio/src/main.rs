@@ -58,7 +58,7 @@ async fn main() -> Result<()> {
     println!("Server URL: http://{}", server_addr);
     println!("Available endpoints:");
     println!("  - GET    /health");
-    println!("  - POST   /webvh/v1/{{uuid}}/did.jsonl");
+    println!("  - POST   /webvh/v1/{{uuid}}");
     println!("  - GET    /webvh/v1/{{uuid}}/did.jsonl");
     println!("  - POST   /v1/device");
     println!("  - POST   /v1/device-info");

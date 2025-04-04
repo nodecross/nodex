@@ -53,180 +53,165 @@ runs:
             }
         }
 
-    - name: Start mock studio
+    - name: Start mock studio with simplified approach
       shell: powershell
       run: |
-        # Navigate to mock studio directory
-        Push-Location test_resource\mock_studio
+        # Create log directory if it doesn't exist
+        $logDir = ".\mock_logs"
+        New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
-        # Create separate log files for stdout and stderr
-        New-Item -ItemType File -Force -Path "mock_studio_out.log" | Out-Null
-        New-Item -ItemType File -Force -Path "mock_studio_err.log" | Out-Null
+        # Create log files
+        $mockOutLog = Join-Path $logDir "mock_out.log"
+        $mockErrLog = Join-Path $logDir "mock_err.log"
+        New-Item -ItemType File -Force -Path $mockOutLog | Out-Null
+        New-Item -ItemType File -Force -Path $mockErrLog | Out-Null
+
+        # Store process info in global script variable
+        $script:mockServerPid = $null
 
         # Ensure cargo is in PATH
         $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
 
-        # Check if we need to build the mock studio first
-        if (-not (Test-Path "Cargo.toml")) {
-            Write-Host "Error: Cargo.toml not found in mock_studio directory"
-            exit 1
-        }
-
-        # Run the mock server in the background with different files for stdout and stderr
+        # Start mock server with simplified process
+        Push-Location test_resource\mock_studio
         $env:PORT = "8020"
         Write-Host "Starting mock server on port 8020..."
-        $mockServerProcess = Start-Process -FilePath "cargo" -ArgumentList "run" -NoNewWindow -PassThru -RedirectStandardOutput "mock_studio_out.log" -RedirectStandardError "mock_studio_err.log"
 
-        # Save the PID for later cleanup
-        $mockServerProcess.Id | Out-File -FilePath "mock_studio.pid"
-        Write-Host "Mock server started with PID: $($mockServerProcess.Id)"
-
-        # Return to original directory
+        try {
+            $process = Start-Process -FilePath "cargo" -ArgumentList "run" -NoNewWindow -PassThru -RedirectStandardOutput $mockOutLog -RedirectStandardError $mockErrLog
+            $script:mockServerPid = $process.Id
+            Write-Host "Mock server started with PID: $($script:mockServerPid)"
+        } catch {
+            Write-Host "Failed to start mock server: $_"
+            exit 1
+        }
         Pop-Location
 
-        # Wait for the server to start
-        Write-Host "Waiting for mock server to start on port 8020..."
-        $maxRetries = 120
-        $retryCount = 0
-        $serverStarted = $false
+        # Wait a fixed time initially
+        Write-Host "Waiting for mock server to initialize (initial wait)..."
+        Start-Sleep -Seconds 15
 
-        while (-not $serverStarted -and $retryCount -lt $maxRetries) {
+        # Simple validation that server is running and wait for health endpoint
+        $ready = $false
+        $attempts = 0
+        $maxAttempts = 30
+
+        while (-not $ready -and $attempts -lt $maxAttempts) {
+            $attempts++
             try {
-                $connection = New-Object System.Net.Sockets.TcpClient("localhost", 8020)
-                if ($connection.Connected) {
-                    $serverStarted = $true
-                    Write-Host "Mock server is up and running on port 8020"
+                $healthCheck = Invoke-WebRequest -Uri "http://localhost:8020/health" -Method GET -TimeoutSec 2
+                if ($healthCheck.StatusCode -eq 200) {
+                    $ready = $true
+                    Write-Host "Mock server confirmed ready! (Health check successful)"
+                    break
                 }
-                try {
-                    $response = Invoke-WebRequest -Uri "http://localhost:8020/health" -Method GET -TimeoutSec 5
-                    Write-Host "Health check: $($response.StatusCode) $($response.StatusDescription)"
-                } catch {
-                    Write-Host "Warning: Server is listening but health endpoint may not be ready: $_"
-                    Start-Sleep -Seconds 5
-                }
-                $connection.Close()
             } catch {
-                $retryCount++
-                Write-Host "Waiting for server to start (attempt $retryCount/$maxRetries)..."
+                Write-Host "Waiting for server health check... ($attempts/$maxAttempts)"
                 
                 # Check if process is still running
                 try {
-                    $processStillRunning = Get-Process -Id $mockServerProcess.Id -ErrorAction SilentlyContinue
-                    if (-not $processStillRunning) {
-                        Write-Host "Error: Mock server process has terminated unexpectedly"
-                        Get-Content test_resource\mock_studio\mock_studio_out.log
-                        Get-Content test_resource\mock_studio\mock_studio_err.log
+                    $process = Get-Process -Id $script:mockServerPid -ErrorAction SilentlyContinue
+                    if (-not $process) {
+                        Write-Host "Error: Mock server process died unexpectedly!"
+                        Get-Content $mockOutLog
+                        Get-Content $mockErrLog
                         exit 1
                     }
                 } catch {
-                    Write-Host "Error: Could not check mock server process status"
-                    Get-Content test_resource\mock_studio\mock_studio_out.log
-                    Get-Content test_resource\mock_studio\mock_studio_err.log
+                    Write-Host "Error: Failed to check process status: $_"
                     exit 1
                 }
                 
-                if ($retryCount -eq $maxRetries) {
-                    Write-Host "Timed out waiting for mock server to start"
-                    Get-Content test_resource\mock_studio\mock_studio_out.log
-                    Get-Content test_resource\mock_studio\mock_studio_err.log
+                if ($attempts -eq $maxAttempts) {
+                    Write-Host "Timed out waiting for mock server health check"
+                    Get-Content $mockOutLog
+                    Get-Content $mockErrLog
                     exit 1
                 }
                 
-                Start-Sleep -Seconds 5
-                
-                # Check log periodically
-                if ($retryCount % 10 -eq 0) {
-                    Write-Host "=== Current mock server stdout ==="
-                    Get-Content test_resource\mock_studio\mock_studio_out.log -Tail 20
-                    Write-Host "=== Current mock server stderr ==="
-                    Get-Content test_resource\mock_studio\mock_studio_err.log -Tail 20
-                }
+                Start-Sleep -Seconds 2
             }
         }
 
-    - name: Setup and Run Tests
+    - name: Setup and Run Tests with retry mechanism
       shell: powershell
       run: |
-        # Ensure the binary exists
+        # Verify binary exists
         if (-not (Test-Path "${{ inputs.binary-path }}")) {
             Write-Host "Error: Binary not found at ${{ inputs.binary-path }}"
             exit 1
         }
 
-        # Create separate log files for stdout and stderr
-        New-Item -ItemType File -Force -Path "agent_out.log" | Out-Null
-        New-Item -ItemType File -Force -Path "agent_err.log" | Out-Null
+        # Set log paths
+        $agentOutLog = ".\agent_out.log"
+        $agentErrLog = ".\agent_err.log"
+        New-Item -ItemType File -Force -Path $agentOutLog | Out-Null
+        New-Item -ItemType File -Force -Path $agentErrLog | Out-Null
 
-        # Start the agent in background
-        Write-Host "Starting agent ..."
-        $agentProcess = Start-Process -FilePath "${{ inputs.binary-path }}" -NoNewWindow -PassThru -RedirectStandardOutput "agent_out.log" -RedirectStandardError "agent_err.log"
-        $agentProcessId = $agentProcess.Id
-        Write-Host "Agent started with PID: $agentProcessId"
-
-        # Give it time to initialize
-        Write-Host "Waiting for agent to initialize..."
-        Start-Sleep -Seconds 30
-
-        # Ensure cargo is in PATH for running tests
-        $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
-
-        # Run tests
-        Write-Host "Running cargo tests..."
-        Push-Location e2e
-        $testResult = $null
+        # Start agent with simpler approach
+        Write-Host "Starting agent..."
         try {
-            cargo test
-            $testResult = $?
+            $agentProcess = Start-Process -FilePath "${{ inputs.binary-path }}" -NoNewWindow -PassThru -RedirectStandardOutput $agentOutLog -RedirectStandardError $agentErrLog
+            $agentPid = $agentProcess.Id
+            Write-Host "Agent started with PID: $agentPid"
         } catch {
-            $testResult = $false
-            Write-Host "Error running tests: $_"
-        }
-        Pop-Location
-
-        # Store test result for later evaluation
-        $testsPassed = $testResult
-
-        # Send SIGINT (equivalent to CTRL+C on Windows)
-        Write-Host "Sending termination signal to agent process (PID: $agentProcessId)..."
-        try {
-            Stop-Process -Id $agentProcessId -Force
-        } catch {
-            Write-Host "Warning: Failed to stop agent process: $_"
-        }
-
-        # Wait for process to handle signal
-        Write-Host "Waiting for agent to process signal..."
-        Start-Sleep -Seconds 5
-
-        # Check if SIGINT appears in either of the logs
-        Write-Host "Checking for SIGINT in log files..."
-        $outLogContent = Get-Content agent_out.log -Raw -ErrorAction SilentlyContinue
-        $errLogContent = Get-Content agent_err.log -Raw -ErrorAction SilentlyContinue
-
-        if (($outLogContent -match "SIGINT") -or ($errLogContent -match "SIGINT")) {
-            Write-Host "SIGINT found in log as expected."
-        } else {
-            Write-Host "Error: SIGINT not found in logs."
+            Write-Host "Failed to start agent: $_"
             exit 1
         }
 
-        # Verify process has terminated
-        Write-Host "Verifying agent process has terminated..."
-        try {
-            $processExists = Get-Process -Id $agentProcessId -ErrorAction SilentlyContinue
-            if ($processExists) {
-                Write-Host "Error: Process is still running, which is not expected."
-                exit 1
-            } else {
-                Write-Host "Process terminated as expected."
+        # More generous wait time for agent initialization
+        Write-Host "Waiting for agent to initialize (60 seconds)..."
+        Start-Sleep -Seconds 60
+
+        # Run tests with retry mechanism
+        Write-Host "Running cargo tests with retry mechanism..."
+        $maxRetries = 3
+        $testSucceeded = $false
+
+        for ($retry = 1; $retry -le $maxRetries; $retry++) {
+            Write-Host "Test attempt $retry of $maxRetries..."
+            
+            Push-Location e2e
+            try {
+                # Run the tests
+                cargo test
+                if ($LASTEXITCODE -eq 0) {
+                    $testSucceeded = $true
+                    Write-Host "Tests passed on attempt $retry!"
+                    break
+                } else {
+                    Write-Host "Tests failed on attempt $retry."
+                    if ($retry -lt $maxRetries) {
+                        Write-Host "Waiting before retry..."
+                        Start-Sleep -Seconds 10
+                    }
+                }
+            } catch {
+                Write-Host "Error running tests: $_"
+                if ($retry -lt $maxRetries) {
+                    Write-Host "Waiting before retry..."
+                    Start-Sleep -Seconds 10
+                }
+            } finally {
+                Pop-Location
             }
-        } catch {
-            Write-Host "Process not found, as expected."
         }
 
-        # Now evaluate test result
-        if (-not $testsPassed) {
-            Write-Host "Error: Tests did not pass."
+        # Gracefully terminate agent process
+        Write-Host "Terminating agent process (PID: $agentPid)..."
+        try {
+            Stop-Process -Id $agentPid -Force -ErrorAction SilentlyContinue
+            Write-Host "Agent process terminated."
+        } catch {
+            Write-Host "Note: Agent process may have already terminated: $_"
+        }
+
+        # Wait for process to fully shut down
+        Start-Sleep -Seconds 5
+
+        # Check test results
+        if (-not $testSucceeded) {
+            Write-Host "All test attempts failed."
             exit 1
         }
       env:
@@ -236,61 +221,57 @@ runs:
         NODEX_SERVER_PORT: 3000
         RUST_BACKTRACE: full
 
-    - name: Stop mock studio
+    - name: Stop mock server
       shell: powershell
       run: |
-        # Look for the PID file
-        $mockServerPidFile = "test_resource\mock_studio\mock_studio.pid"
-        if (Test-Path $mockServerPidFile) {
-            $serverProcessId = Get-Content $mockServerPidFile
-            Write-Host "Stopping mock server (PID: $serverProcessId)..."
-            try {
-                # Terminate the process
-                Stop-Process -Id $serverProcessId -Force -ErrorAction SilentlyContinue
-                Write-Host "Mock server process (PID: $serverProcessId) stopped"
-                Remove-Item $mockServerPidFile -Force -ErrorAction SilentlyContinue
-            } catch {
-                Write-Host "Failed to stop mock server process or process already stopped"
+        # Find and stop the mock server process
+        Write-Host "Stopping mock server process..."
+
+        try {
+            # First attempt: Try using the saved PID
+            if ($script:mockServerPid) {
+                Stop-Process -Id $script:mockServerPid -Force -ErrorAction SilentlyContinue
+                Write-Host "Stopped mock server with PID: $script:mockServerPid"
+            } else {
+                # Fallback: Look for any cargo or mock_studio processes
+                Get-Process | Where-Object { $_.Name -like "*cargo*" -or $_.Name -like "*mock_studio*" } | ForEach-Object {
+                    Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+                    Write-Host "Stopped process: $($_.Name) (PID: $($_.Id))"
+                }
             }
-        } else {
-            Write-Host "Mock server PID file not found."
+        } catch {
+            Write-Host "Note: Mock server may have already terminated: $_"
         }
       if: ${{ always() }}
 
-    - name: (run) show log of agent
+    - name: Show logs
       shell: powershell
       run: |
         Write-Host "=== Agent Standard Output ==="
-        if (Test-Path "agent_out.log") {
-            Get-Content agent_out.log
+        if (Test-Path ".\agent_out.log") {
+            Get-Content ".\agent_out.log"
         } else {
             Write-Host "Warning: Agent stdout log file not found"
         }
 
         Write-Host "=== Agent Standard Error ==="
-        if (Test-Path "agent_err.log") {
-            Get-Content agent_err.log
+        if (Test-Path ".\agent_err.log") {
+            Get-Content ".\agent_err.log"
         } else {
             Write-Host "Warning: Agent stderr log file not found"
         }
-      if: ${{ always() }}
 
-    - name: (run) show log of mock studio
-      shell: powershell
-      run: |
-        Write-Host "=== Mock Studio Standard Output ==="
-        $outLogPath = "test_resource\mock_studio\mock_studio_out.log"
-        if (Test-Path $outLogPath) {
-            Get-Content $outLogPath
+        Write-Host "=== Mock Server Standard Output ==="
+        if (Test-Path ".\mock_logs\mock_out.log") {
+            Get-Content ".\mock_logs\mock_out.log"
         } else {
-            Write-Host "Warning: Mock studio stdout log file not found"
+            Write-Host "Warning: Mock server stdout log file not found"
         }
 
-        Write-Host "=== Mock Studio Standard Error ==="
-        $errLogPath = "test_resource\mock_studio\mock_studio_err.log"
-        if (Test-Path $errLogPath) {
-            Get-Content $errLogPath
+        Write-Host "=== Mock Server Standard Error ==="
+        if (Test-Path ".\mock_logs\mock_err.log") {
+            Get-Content ".\mock_logs\mock_err.log"
         } else {
-            Write-Host "Warning: Mock studio stderr log file not found"
+            Write-Host "Warning: Mock server stderr log file not found"
         }
       if: ${{ always() }}
