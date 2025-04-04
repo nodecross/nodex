@@ -9,7 +9,7 @@ runs:
   steps:
     - name: (setup) copy default config to home
       shell: powershell
-      run: New-Item -ItemType Directory -Force -Path $env:USERPROFILE\.config\nodex; Copy-Item test_resource\localhost_config\netwrok.json $env:USERPROFILE\.config\nodex\
+      run: New-Item -ItemType Directory -Force -Path $env:USERPROFILE\.config\nodex; Copy-Item test_resource\localhost_config\network.json $env:USERPROFILE\.config\nodex\
 
     - name: Check and install Rust/Cargo if needed
       shell: powershell
