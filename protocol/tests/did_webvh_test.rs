@@ -11,7 +11,7 @@ mod tests {
     use protocol::keyring::*;
     use rand_core::OsRng;
     use std::fs;
-    use std::io::Write;
+    // use std::io::Write;
     use uuid::Uuid;
 
     struct MockDataStore {}

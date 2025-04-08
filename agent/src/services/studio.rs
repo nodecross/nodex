@@ -1,25 +1,12 @@
 use crate::nodex::utils::did_accessor::{DidAccessor, DidAccessorImpl};
+use crate::nodex::utils::studio_client::{StudioClient, StudioClientConfig};
 use crate::repository::attribute_repository::{AttributeStoreRepository, AttributeStoreRequest};
 use crate::repository::custom_metric_repository::CustomMetricStoreRepository;
 use crate::repository::event_repository::EventStoreRepository;
-use crate::repository::message_activity_repository::MessageActivityHttpError;
 use crate::repository::metric_repository::{MetricStoreRepository, MetricsWithTimestamp};
 use crate::server_config;
-use crate::{
-    nodex::utils::{
-        studio_client::{StudioClient, StudioClientConfig},
-        webvh_client::DidWebvhDataStoreImpl,
-    },
-    repository::message_activity_repository::{
-        CreatedMessageActivityRequest, MessageActivityRepository, VerifiedMessageActivityRequest,
-    },
-};
 use anyhow::Context;
 use protocol::cbor::types::{CustomMetric, Event};
-use protocol::did_webvh::domain::did::Did;
-use protocol::did_webvh::service::resolver::resolver_service::DidWebvhResolverService;
-use protocol::did_webvh::service::service_impl::DidWebvhServiceImpl;
-use protocol::didcomm::sign_encrypt::encrypt_message;
 use protocol::keyring::keypair::KeyPair;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -32,14 +19,8 @@ const JSON_BODY_MAX_SIZE: usize = 900_000;
 #[derive(Deserialize)]
 pub struct EmptyResponse {}
 
-#[derive(Deserialize, Debug, Clone)]
-struct ErrorResponse {
-    pub message: String,
-}
-
 pub struct Studio {
     http_client: StudioClient,
-    webvh: DidWebvhServiceImpl<DidWebvhDataStoreImpl>,
     did_accessor: DidAccessorImpl,
 }
 
@@ -57,15 +38,6 @@ struct SendDeviceInfoRequest {
     os: String,
 }
 
-#[derive(Deserialize, Debug, Clone)]
-pub struct NetworkResponse {
-    pub secret_key: String,
-    pub project_did: String,
-    pub recipient_dids: Vec<String>,
-    pub studio_endpoint: String,
-    pub heartbeat: u64,
-}
-
 impl Studio {
     pub fn new() -> Self {
         let server_config = server_config().expect("Failed to get server config");
@@ -81,15 +53,10 @@ impl Studio {
             }
         };
 
-        let base_url = server_config.did_http_endpoint();
-        let datasotre = DidWebvhDataStoreImpl::new(base_url);
-        let webvh = DidWebvhServiceImpl::new(datasotre);
-
         let did_accessor = DidAccessorImpl {};
 
         Studio {
             http_client: client,
-            webvh,
             did_accessor,
         }
     }
@@ -170,47 +137,6 @@ impl Studio {
         }
     }
 
-    pub async fn network(&mut self) -> anyhow::Result<()> {
-        let project_did = {
-            let network = crate::network_config();
-            let network = network.lock();
-            network.get_project_did().expect("project_did is not set")
-        }
-        .parse::<Did>()?;
-
-        let doc = self
-            .webvh
-            .resolve_identifier(&project_did)
-            .await
-            .context("failed to resolve project_did")?;
-        if let Some(doc) = doc {
-            let res = self.http_client.network("/v1/network", &doc).await?;
-
-            match res.status() {
-                reqwest::StatusCode::OK => match res.json::<NetworkResponse>().await {
-                    Ok(v) => {
-                        let network = crate::network_config();
-                        let mut network = network.lock();
-                        network.save_secret_key(&v.secret_key);
-                        network.save_project_did(&v.project_did);
-                        network.save_recipient_dids(v.recipient_dids);
-                        network.save_studio_endpoint(&v.studio_endpoint);
-                        network.save_heartbeat(v.heartbeat);
-                        Ok(())
-                    }
-                    Err(e) => anyhow::bail!("StatusCode=200, but parse failed. {:?}", e),
-                },
-                reqwest::StatusCode::BAD_REQUEST => match res.json::<ErrorResponse>().await {
-                    Ok(v) => anyhow::bail!("StatusCode=400, error message = {:?}", v.message),
-                    Err(e) => anyhow::bail!("StatusCode=400, but parse failed. {:?}", e),
-                },
-                other => anyhow::bail!("StatusCode={other}, unexpected response"),
-            }
-        } else {
-            anyhow::bail!("Failed to verify entries")
-        }
-    }
-
     #[inline]
     async fn relay_to_studio_via_cbor<T: serde::Serialize + std::fmt::Debug>(
         &self,
@@ -275,135 +201,6 @@ impl Studio {
     //         other => anyhow::bail!("StatusCode={other}, {}", message),
     //     }
     // }
-}
-
-impl MessageActivityRepository for Studio {
-    type Error = MessageActivityHttpError;
-    async fn add_create_activity(
-        &mut self,
-        request: CreatedMessageActivityRequest,
-    ) -> Result<(), MessageActivityHttpError> {
-        // TODO: refactoring more simple
-
-        let project_did = {
-            let network = crate::network_config();
-            let network = network.lock();
-            network.get_project_did().expect("project_did is not set")
-        }
-        .parse::<Did>()
-        .context("failed to parse project_did")?;
-        let my_did = self.did_accessor.get_my_did();
-        let my_keyring = self.did_accessor.get_my_keyring();
-        let to_doc = self
-            .webvh
-            .resolve_identifier(&project_did)
-            .await
-            .context("failed to resolve")?;
-        let body = serde_json::to_string(&request).context("failed to serialize")?;
-
-        let payload = encrypt_message(
-            &body,
-            &my_did,
-            &my_keyring,
-            &to_doc.expect("project_did is not found"),
-        )
-        .context("failed to encrypt message")?;
-
-        let payload = serde_json::to_string(&payload).context("failed to serialize")?;
-
-        let res = self
-            .http_client
-            .post("/v1/message-activity", payload)
-            .await?;
-
-        let status = res.status();
-
-        let json: Value = res.json().await.context("Failed to read response body")?;
-        let message = json
-            .get("message")
-            .map(|v| v.to_string())
-            .unwrap_or("".to_string());
-
-        match status {
-            reqwest::StatusCode::OK => Ok(()),
-            reqwest::StatusCode::BAD_REQUEST => Err(MessageActivityHttpError::BadRequest(message)),
-            reqwest::StatusCode::UNAUTHORIZED => {
-                Err(MessageActivityHttpError::Unauthorized(message))
-            }
-            reqwest::StatusCode::FORBIDDEN => Err(MessageActivityHttpError::Forbidden(message)),
-            reqwest::StatusCode::NOT_FOUND => Err(MessageActivityHttpError::NotFound(message)),
-            reqwest::StatusCode::CONFLICT => Err(MessageActivityHttpError::Conflict(message)),
-            reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
-                Err(MessageActivityHttpError::InternalServerError(message))
-            }
-
-            other => Err(MessageActivityHttpError::Other(anyhow::anyhow!(
-                "StatusCode={other}, unexpected response"
-            ))),
-        }
-    }
-
-    async fn add_verify_activity(
-        &mut self,
-        request: VerifiedMessageActivityRequest,
-    ) -> Result<(), MessageActivityHttpError> {
-        // TODO: refactoring more simple
-        let project_did = {
-            let network = crate::network_config();
-            let network = network.lock();
-            network.get_project_did().expect("project_did is not set")
-        }
-        .parse::<Did>()
-        .context("failed to parse project_did")?;
-
-        let my_did = self.did_accessor.get_my_did();
-        let my_keyring = self.did_accessor.get_my_keyring();
-        let to_doc = self
-            .webvh
-            .resolve_identifier(&project_did)
-            .await
-            .context("failed to resolve")?;
-        let body = serde_json::to_string(&request).context("failed to serialize")?;
-
-        let payload = encrypt_message(
-            &body,
-            &my_did,
-            &my_keyring,
-            &to_doc.expect("project_did is not found"),
-        )
-        .context("failed to encrypt message")?;
-
-        let payload = serde_json::to_string(&payload).context("failed to serialize")?;
-
-        let res = self
-            .http_client
-            .put("/v1/message-activity", &payload)
-            .await?;
-
-        let status = res.status();
-        let json: Value = res.json().await.context("Failed to read response body")?;
-        let message = json
-            .get("message")
-            .map(|v| v.to_string())
-            .unwrap_or("".to_string());
-
-        match status {
-            reqwest::StatusCode::OK => Ok(()),
-            reqwest::StatusCode::BAD_REQUEST => Err(MessageActivityHttpError::BadRequest(message)),
-            reqwest::StatusCode::UNAUTHORIZED => {
-                Err(MessageActivityHttpError::Unauthorized(message))
-            }
-            reqwest::StatusCode::FORBIDDEN => Err(MessageActivityHttpError::Forbidden(message)),
-            reqwest::StatusCode::NOT_FOUND => Err(MessageActivityHttpError::NotFound(message)),
-            reqwest::StatusCode::CONFLICT => Err(MessageActivityHttpError::Conflict(message)),
-            reqwest::StatusCode::INTERNAL_SERVER_ERROR => {
-                Err(MessageActivityHttpError::InternalServerError(message))
-            }
-            other => Err(MessageActivityHttpError::Other(anyhow::anyhow!(
-                "StatusCode={other}, unexpected response"
-            ))),
-        }
-    }
 }
 
 impl MetricStoreRepository for Studio {

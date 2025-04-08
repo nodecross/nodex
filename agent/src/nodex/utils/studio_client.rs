@@ -3,8 +3,6 @@ use crate::network_config;
 use backon::ExponentialBuilder;
 use backon::Retryable;
 use hmac::{Hmac, Mac};
-use protocol::did_webvh::domain::did_document::DidDocument;
-use protocol::didcomm::sign_encrypt::encrypt_message;
 use protocol::keyring::keypair::KeyPair;
 use reqwest::Body;
 use reqwest::{
@@ -129,13 +127,13 @@ impl StudioClient {
         self._post_common(path, body, headers).await
     }
 
-    pub async fn post(
-        &self,
-        path: &str,
-        body: impl Into<Body>,
-    ) -> anyhow::Result<reqwest::Response> {
-        self._post(path, body.into()).await
-    }
+    // pub async fn post(
+    //     &self,
+    //     path: &str,
+    //     body: impl Into<Body>,
+    // ) -> anyhow::Result<reqwest::Response> {
+    //     self._post(path, body.into()).await
+    // }
 
     async fn _post_binary(&self, path: &str, body: Body) -> anyhow::Result<reqwest::Response> {
         let mut headers = HeaderMap::new();
@@ -179,97 +177,58 @@ impl StudioClient {
         self.post_binary(url.as_str(), payload).await
     }
 
-    pub async fn network(
-        &self,
-        path: &str,
-        project_doc: &DidDocument,
-    ) -> anyhow::Result<reqwest::Response> {
-        let my_did = self.did_accessor.get_my_did();
-        let my_keyring = self.did_accessor.get_my_keyring();
+    // pub async fn put(&self, path: &str, body: &str) -> anyhow::Result<reqwest::Response> {
+    //     let url = self.base_url.join(path)?;
+    //     let mut headers = HeaderMap::new();
+    //     headers.insert(
+    //         reqwest::header::CONTENT_TYPE,
+    //         HeaderValue::from_static("application/json"),
+    //     );
 
-        let payload = encrypt_message("", &my_did, &my_keyring, project_doc)?;
+    //     let response = self
+    //         .instance
+    //         .put(url)
+    //         .headers(headers)
+    //         .body(body.to_string())
+    //         .send()
+    //         .await?;
 
-        let payload = serde_json::to_string(&payload)?;
-        self.post(path, payload).await
-    }
-
-    pub async fn put(&self, path: &str, body: &str) -> anyhow::Result<reqwest::Response> {
-        let url = self.base_url.join(path)?;
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            reqwest::header::CONTENT_TYPE,
-            HeaderValue::from_static("application/json"),
-        );
-
-        let response = self
-            .instance
-            .put(url)
-            .headers(headers)
-            .body(body.to_string())
-            .send()
-            .await?;
-
-        Ok(response)
-    }
+    //     Ok(response)
+    // }
 }
 
-#[cfg(test)]
-pub mod tests {
-    use super::*;
-    use serde::Deserialize;
+// #[cfg(test)]
+// pub mod tests {
+//     use super::*;
+//     use serde::Deserialize;
 
-    #[derive(Deserialize)]
-    struct Res {
-        origin: String,
-    }
+//     #[derive(Deserialize)]
+//     struct Res {
+//         origin: String,
+//     }
 
-    #[tokio::test]
-    #[ignore]
-    async fn it_should_success_post() {
-        let client_config: StudioClientConfig = StudioClientConfig {
-            base_url: Url::parse("https://httpbin.org").unwrap(),
-        };
+//     #[tokio::test]
+//     #[ignore]
+//     async fn it_should_success_post() {
+//         let client_config: StudioClientConfig = StudioClientConfig {
+//             base_url: Url::parse("https://httpbin.org").unwrap(),
+//         };
 
-        let client = match StudioClient::new(&client_config) {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
+//         let client = match StudioClient::new(&client_config) {
+//             Ok(v) => v,
+//             Err(_) => panic!(),
+//         };
 
-        let res = match client.post("/post", r#"{"key":"value"}"#).await {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
+//         let res = match client.post("/post", r#"{"key":"value"}"#).await {
+//             Ok(v) => v,
+//             Err(_) => panic!(),
+//         };
 
-        let json: Res = match res.json().await {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
+//         let json: Res = match res.json().await {
+//             Ok(v) => v,
+//             Err(_) => panic!(),
+//         };
 
-        assert!(!json.origin.is_empty());
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn it_should_success_put() {
-        let client_config: StudioClientConfig = StudioClientConfig {
-            base_url: Url::parse("https://httpbin.org").unwrap(),
-        };
-
-        let client = match StudioClient::new(&client_config) {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
-
-        let res = match client.put("/put", r#"{"key":"value"}"#).await {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
-
-        let json: Res = match res.json().await {
-            Ok(v) => v,
-            Err(_) => panic!(),
-        };
-
-        assert!(!json.origin.is_empty());
-    }
-}
+//         assert!(!json.origin.is_empty());
+//     }
+// }

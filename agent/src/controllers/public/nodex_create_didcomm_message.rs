@@ -1,10 +1,9 @@
-use super::utils;
 use crate::controllers::errors::AgentErrorCode;
 use crate::nodex::utils::did_accessor::DidAccessorImpl;
 use crate::nodex::utils::webvh_client::DidWebvhDataStoreImpl;
 use crate::server_config;
+use crate::usecase::didcomm_message_usecase::DidcommMessageUseCase;
 use crate::usecase::didcomm_message_usecase::GenerateDidcommMessageUseCaseError as U;
-use crate::{services::studio::Studio, usecase::didcomm_message_usecase::DidcommMessageUseCase};
 use axum::extract::Json;
 use chrono::Utc;
 use protocol::did_webvh::service::service_impl::DidWebvhServiceImpl;
@@ -40,15 +39,14 @@ pub async fn handler(Json(json): Json<MessageContainer>) -> Result<String, Agent
 
     let now = Utc::now();
 
-    let mut usecase = DidcommMessageUseCase::new(Studio::new(), webvh, DidAccessorImpl {});
+    let mut usecase = DidcommMessageUseCase::new(webvh, DidAccessorImpl {});
 
     match usecase
-        .generate(json.destination_did, json.message, json.operation_tag, now)
+        .generate(json.destination_did, json.message, now)
         .await
     {
         Ok(v) => Ok(v),
         Err(e) => match e {
-            U::MessageActivity(e) => Err(utils::handle_status(e)),
             U::Json(e) => {
                 log::warn!("json error: {}", e);
                 Err(AgentErrorCode::CreateDidcommMessageInternal)?

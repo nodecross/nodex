@@ -18,66 +18,46 @@ use protocol::{
     },
 };
 
-use crate::{
-    nodex::utils::did_accessor::DidAccessor,
-    repository::message_activity_repository::{
-        CreatedMessageActivityRequest, MessageActivityRepository, VerifiedMessageActivityRequest,
-        VerifiedStatus,
-    },
-};
+use crate::nodex::utils::did_accessor::DidAccessor;
 
-pub struct DidcommMessageUseCase<R, D, A>
+pub struct DidcommMessageUseCase<D, A>
 where
-    R: MessageActivityRepository,
     D: DidWebvhResolverService,
     A: DidAccessor,
 {
-    message_activity_repository: R,
     webvh: D,
     did_accessor: A,
 }
 
 #[derive(Debug, Error)]
-pub enum GenerateDidcommMessageUseCaseError<F>
-where
-    F: std::error::Error,
-{
+pub enum GenerateDidcommMessageUseCaseError {
     #[error("Failed to convert did: {0}")]
     InvalidDid(#[from] DidError),
     #[error("Failed to generate message: {0}")]
     Generate(#[from] DidCommEncryptMessageError),
-    #[error("message activity error: {0}")]
-    MessageActivity(F),
     #[error("failed serialize/deserialize : {0}")]
     Json(#[from] serde_json::Error),
 }
 
 #[derive(Debug, Error)]
-pub enum VerifyDidcommMessageUseCaseError<F>
-where
-    F: std::error::Error,
-{
+pub enum VerifyDidcommMessageUseCaseError {
     #[error("Failed to verify message: {0}")]
     Verify(#[from] DidCommDecryptMessageError),
     #[error("Failed to find sender: {0}")]
     FindSender(#[from] FindSenderError),
-    #[error("message activity error: {0}")]
-    MessageActivity(F),
     #[error("failed serialize/deserialize : {0}")]
     Json(#[from] serde_json::Error),
     #[error("This message is not addressed to me")]
     NotAddressedToMe,
 }
 
-impl<R, D, A> DidcommMessageUseCase<R, D, A>
+impl<D, A> DidcommMessageUseCase<D, A>
 where
-    R: MessageActivityRepository,
     D: DidWebvhResolverService,
     A: DidAccessor,
 {
-    pub fn new(message_activity_repository: R, webvh: D, did_accessor: A) -> Self {
+    pub fn new(webvh: D, did_accessor: A) -> Self {
         DidcommMessageUseCase {
-            message_activity_repository,
             webvh,
             did_accessor,
         }
@@ -87,9 +67,8 @@ where
         &mut self,
         destination_did: String,
         message: String,
-        operation_tag: String,
         now: DateTime<Utc>,
-    ) -> Result<String, GenerateDidcommMessageUseCaseError<R::Error>> {
+    ) -> Result<String, GenerateDidcommMessageUseCaseError> {
         let message_id = Uuid::new_v4();
 
         let message = EncodedMessage {
@@ -120,26 +99,13 @@ where
 
         let result = serde_json::to_string(&didcomm_message)?;
 
-        self.message_activity_repository
-            .add_create_activity(CreatedMessageActivityRequest {
-                message_id,
-                from: my_did.into_inner(),
-                to: destination_did,
-                operation_tag,
-                is_encrypted: true,
-                occurred_at: now,
-            })
-            .await
-            .map_err(GenerateDidcommMessageUseCaseError::MessageActivity)?;
-
         Ok(result)
     }
 
     pub async fn verify(
         &mut self,
         message: DidCommMessage,
-        now: DateTime<Utc>,
-    ) -> Result<String, VerifyDidcommMessageUseCaseError<R::Error>> {
+    ) -> Result<String, VerifyDidcommMessageUseCaseError> {
         let my_did = self.did_accessor.get_my_did();
         if !message
             .find_receivers()
@@ -164,19 +130,6 @@ where
             ))
         })?;
         let verified = decrypt_message(&message, &from_doc, &self.did_accessor.get_my_keyring())?;
-        let message = serde_json::from_str::<EncodedMessage>(&verified)?;
-        let from_did = from_doc.id.clone();
-
-        self.message_activity_repository
-            .add_verify_activity(VerifiedMessageActivityRequest {
-                from: from_did.into_inner(),
-                to: my_did.into_inner(),
-                message_id: message.message_id,
-                verified_at: now,
-                status: VerifiedStatus::Valid,
-            })
-            .await
-            .map_err(VerifyDidcommMessageUseCaseError::MessageActivity)?;
 
         Ok(verified)
     }
@@ -195,7 +148,6 @@ mod tests {
 
     use crate::nodex::utils::did_accessor::mocks::MockDidAccessor;
     use crate::nodex::utils::mock_webvh_resover::mocks::MockDidWebvhResolverService;
-    use crate::repository::message_activity_repository::mocks::MockMessageActivityRepository;
     use crate::usecase::test_util::TestPresets;
 
     use super::*;
@@ -204,7 +156,6 @@ mod tests {
     async fn test_create_and_verify() {
         let presets = TestPresets::default();
         let mut usecase = DidcommMessageUseCase::new(
-            MockMessageActivityRepository::create_success(),
             MockDidWebvhResolverService::new(presets.to_did.clone(), presets.to_keyring.clone()),
             MockDidAccessor::new(presets.from_did.clone(), presets.from_keyring.clone()),
         );
@@ -213,23 +164,17 @@ mod tests {
 
         let now = Utc::now();
         let generated = usecase
-            .generate(
-                presets.to_did.clone(),
-                message.clone(),
-                "test".to_string(),
-                now,
-            )
+            .generate(presets.to_did.clone(), message.clone(), now)
             .await
             .unwrap();
         let generated = serde_json::from_str::<DidCommMessage>(&generated).unwrap();
 
         let mut usecase = DidcommMessageUseCase::new(
-            MockMessageActivityRepository::verify_success(),
             MockDidWebvhResolverService::new(presets.from_did, presets.from_keyring),
             MockDidAccessor::new(presets.to_did, presets.to_keyring),
         );
 
-        let verified = usecase.verify(generated, Utc::now()).await.unwrap();
+        let verified = usecase.verify(generated).await.unwrap();
         let verified = serde_json::from_str::<EncodedMessage>(&verified).unwrap();
         assert_eq!(verified.payload, message);
     }
@@ -244,7 +189,6 @@ mod tests {
             let presets = TestPresets::default();
 
             let mut usecase = DidcommMessageUseCase::new(
-                MockMessageActivityRepository::create_success(),
                 MockDidWebvhResolverService::empty(),
                 MockDidAccessor::new(presets.from_did, presets.from_keyring),
             );
@@ -252,37 +196,12 @@ mod tests {
             let message = "Hello".to_string();
 
             let now = Utc::now();
-            let generated = usecase
-                .generate(presets.to_did.clone(), message, "test".to_string(), now)
-                .await;
+            let generated = usecase.generate(presets.to_did.clone(), message, now).await;
 
             if let Err(GenerateDidcommMessageUseCaseError::Generate(
                 DidCommEncryptMessageError::DidDocNotFound(_),
             )) = generated
             {
-            } else {
-                panic!("unexpected result: {:?}", generated);
-            }
-        }
-
-        #[tokio::test]
-        async fn test_generate_add_activity_failed() {
-            let presets = TestPresets::default();
-
-            let mut usecase = DidcommMessageUseCase::new(
-                MockMessageActivityRepository::create_fail(),
-                MockDidWebvhResolverService::new(presets.to_did.clone(), presets.to_keyring),
-                MockDidAccessor::new(presets.from_did, presets.from_keyring),
-            );
-
-            let message = "Hello".to_string();
-
-            let now = Utc::now();
-            let generated = usecase
-                .generate(presets.to_did.clone(), message, "test".to_string(), now)
-                .await;
-
-            if let Err(GenerateDidcommMessageUseCaseError::MessageActivity(_)) = generated {
             } else {
                 panic!("unexpected result: {:?}", generated);
             }
@@ -295,7 +214,6 @@ mod tests {
 
         async fn create_test_message_for_verify_test(presets: TestPresets) -> String {
             let mut usecase = DidcommMessageUseCase::new(
-                MockMessageActivityRepository::create_success(),
                 MockDidWebvhResolverService::new(presets.to_did.clone(), presets.to_keyring),
                 MockDidAccessor::new(presets.from_did, presets.from_keyring),
             );
@@ -305,12 +223,7 @@ mod tests {
             let now = Utc::now();
 
             usecase
-                .generate(
-                    presets.to_did.clone(),
-                    message.clone(),
-                    "test".to_string(),
-                    now,
-                )
+                .generate(presets.to_did.clone(), message.clone(), now)
                 .await
                 .unwrap()
         }
@@ -322,35 +235,14 @@ mod tests {
             let generated = serde_json::from_str::<DidCommMessage>(&generated).unwrap();
 
             let mut usecase = DidcommMessageUseCase::new(
-                MockMessageActivityRepository::verify_success(),
                 MockDidWebvhResolverService::empty(),
                 MockDidAccessor::new(presets.to_did, presets.to_keyring),
             );
 
-            let verified = usecase.verify(generated, Utc::now()).await;
+            let verified = usecase.verify(generated).await;
 
             dbg!(&verified);
             if let Err(VerifyDidcommMessageUseCaseError::Verify(_)) = verified {
-            } else {
-                panic!("unexpected result: {:?}", verified);
-            }
-        }
-
-        #[tokio::test]
-        async fn test_verify_add_activity_failed() {
-            let presets = TestPresets::default();
-            let generated = create_test_message_for_verify_test(presets.clone()).await;
-            let generated = serde_json::from_str::<DidCommMessage>(&generated).unwrap();
-
-            let mut usecase = DidcommMessageUseCase::new(
-                MockMessageActivityRepository::verify_fail(),
-                MockDidWebvhResolverService::new(presets.from_did.clone(), presets.from_keyring),
-                MockDidAccessor::new(presets.to_did, presets.to_keyring),
-            );
-
-            let verified = usecase.verify(generated, Utc::now()).await;
-
-            if let Err(VerifyDidcommMessageUseCaseError::MessageActivity(_)) = verified {
             } else {
                 panic!("unexpected result: {:?}", verified);
             }

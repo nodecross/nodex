@@ -220,12 +220,4 @@ pub fn make_router() -> Router {
             "/internal/version/get",
             get(controllers::internal::version::handler_get),
         )
-        .route(
-            "/internal/version/update",
-            post(controllers::internal::version::handler_update),
-        )
-        .route(
-            "/internal/network",
-            post(controllers::internal::network::handler),
-        )
 }
