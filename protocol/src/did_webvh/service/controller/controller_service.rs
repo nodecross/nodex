@@ -119,7 +119,7 @@ pub fn generate_log_entry(
 }
 
 pub fn append_new_entry(
-    log_entries: &Vec<DidLogEntry>,
+    log_entries: &[DidLogEntry],
     enable_prerotation: bool,
     keyring: &mut KeyPairing,
 ) -> Result<Vec<DidLogEntry>, UpdateIdentifierError> {
@@ -176,14 +176,14 @@ pub fn append_new_entry(
 
     new_entry.generate_proof(&update_sec_key, &update_pub_key)?;
 
-    let mut new_log_entries = log_entries.clone();
+    let mut new_log_entries = log_entries.to_owned();
     new_log_entries.push(new_entry);
 
     Ok(new_log_entries)
 }
 
 pub fn append_deactivation_entry(
-    log_entries: &Vec<DidLogEntry>,
+    log_entries: &[DidLogEntry],
     keyring: &mut KeyPairing,
 ) -> Result<Vec<DidLogEntry>, UpdateIdentifierError> {
     let latest_entry = if log_entries.is_empty() {
@@ -237,7 +237,7 @@ pub fn append_deactivation_entry(
 
     deactivate_entry.generate_proof(&update_sec_key, &update_pub_key)?;
 
-    let mut new_log_entries = log_entries.clone();
+    let mut new_log_entries = log_entries.to_owned();
     new_log_entries.push(deactivate_entry);
 
     Ok(new_log_entries)
@@ -276,15 +276,14 @@ where
             .get(did.get_uri())
             .await
             .map_err(|e| DidWebvhControllerError::DidWebvhRequestFailed(e.to_string()))?;
-        let _ = verify_entries(&log_entries)
-            .map_err(|e| DidWebvhControllerError::ResolveIdentifier(e))?;
+        let _ = verify_entries(&log_entries)?;
 
         let new_log_entries = append_new_entry(&log_entries, enable_prerotation, keyring)?;
 
         let uri = did.get_uri();
         let response = self
             .data_store
-            .update(&uri, &new_log_entries)
+            .update(uri, &new_log_entries)
             .await
             .map_err(|e| DidWebvhControllerError::DidWebvhRequestFailed(e.to_string()))?;
 
@@ -301,15 +300,14 @@ where
             .get(did.get_uri())
             .await
             .map_err(|e| DidWebvhControllerError::DidWebvhRequestFailed(e.to_string()))?;
-        let _ = verify_entries(&log_entries)
-            .map_err(|e| DidWebvhControllerError::ResolveIdentifier(e))?;
+        let _ = verify_entries(&log_entries)?;
 
         let deactivate_log_entries = append_deactivation_entry(&log_entries, keyring)?;
 
         let uri = did.get_uri();
         let response = self
             .data_store
-            .deactivate(&uri, &deactivate_log_entries)
+            .deactivate(uri, &deactivate_log_entries)
             .await
             .map_err(|e| DidWebvhControllerError::DidWebvhRequestFailed(e.to_string()))?;
 
