@@ -14,3 +14,4 @@ latex/
 .env
 nodex-agent
 __pycache__
+test_resource/**/config.json

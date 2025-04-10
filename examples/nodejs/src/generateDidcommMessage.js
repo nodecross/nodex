@@ -2,7 +2,7 @@ import { post } from "./lib/sock.js";
 
 // PLEASE WRITE destination_did, messageJson, AND operation_tag.
 const destination_did =
-  "did:nodex:test:DummyDummyDummyDummyDummyDummyDummyDummyDummyD";
+  "did:webvh:DummyDummyDummyDummyDummyDummyDummyDummyDummyD";
 const messageJson = {
   message: {
     string: "value",
@@ -12,14 +12,12 @@ const messageJson = {
     map: { key: "value" },
   },
 };
-const operation_tag = "test-operation-tag";
 
 (async () => {
   const message = JSON.stringify(messageJson, null, 4);
   const response = await post("/create-didcomm-message", {
     destination_did,
     message,
-    operation_tag,
   });
 
   console.log('\nPlease paste below to "verifyDidcommMessage.js".\n');

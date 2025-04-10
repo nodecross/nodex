@@ -1,4 +1,3 @@
-use crate::controllers::public::nodex_receive;
 use cli::AgentCommands;
 use dotenvy::dotenv;
 use mac_address::get_mac_address;
@@ -84,7 +83,6 @@ pub async fn run(controlled: bool, options: &cli::AgentOptions) -> std::io::Resu
         );
         metric_usecase.send_task().await
     });
-    tasks.spawn(nodex_receive::polling_task(shutdown_token.clone()));
 
     // NOTE: booting...
     #[cfg(unix)]

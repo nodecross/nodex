@@ -7,26 +7,34 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Setup Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '20.15.0'
-
-    - name: (setup) install prism
-      shell: bash
-      run: npm install -g @stoplight/prism-cli
-
     - name: (setup) copy default config to home
       shell: bash
-      run: mkdir -p ~/.config/nodex && cp -r test_resource/config/* ~/.config/nodex/
+      run: mkdir -p ~/.config/nodex && cp -r test_resource/localhost_config/network.json ~/.config/nodex/
+
+    - name: Start mock studio
+      shell: bash
+      run: |
+        cd test_resource/mock_studio
+        PORT=8020 cargo run > mock_studio.log 2>&1 &
+        echo $! > mock_studio.pid
+
+        echo "Waiting for mock server to start on port 8020..."
+        for i in {1..60}; do
+          if nc -z localhost 8020; then
+            echo "Mock server is up and running on port 8020"
+            break
+          fi
+          if [ $i -eq 60 ]; then
+            echo "Timed out waiting for mock server to start"
+            cat mock_studio.log
+            exit 1
+          fi
+          sleep 5 
+        done
 
     - name: Setup and Run Tests
       shell: bash
       run: |
-        prism mock -h localhost -p 4010 test_resource/did_sidetree.yaml > sidetree.txt 2>&1 &
-        prism mock -h localhost -p 8020 test_resource/studio.yaml > studio.txt 2>&1 &
-        sleep 5
-
         ${{ inputs.binary-path }} controller > log.txt 2>&1 &
         sleep 5
 
@@ -50,22 +58,28 @@ runs:
           exit 1
         fi
       env:
-        NODEX_DID_HTTP_ENDPOINT: http://localhost:4010
+        NODEX_DID_HTTP_ENDPOINT: http://localhost:8020
         NODEX_DID_ATTACHMENT_LINK: http://localhost:4010
         NODEX_STUDIO_HTTP_ENDPOINT: http://localhost:8020
-        RUST_BACKTRACE: 1
+        RUST_BACKTRACE: full
+
+    - name: Stop mock studio
+      shell: bash
+      run: |
+        if [ -f test_resource/mock_studio/mock_studio.pid ]; then
+          kill $(cat test_resource/mock_studio/mock_studio.pid)
+          rm test_resource/mock_studio/mock_studio.pid
+        else
+          echo "Mock server PID file not found."
+        fi
+      if: ${{ always() }}
 
     - name: (run) show log of agent
       shell: bash
       run: cat log.txt
       if: ${{ always() }}
 
-    - name: (run) show mock sidetree log
+    - name: (run) show log of mock studio
       shell: bash
-      run: cat sidetree.txt
-      if: ${{ always() }}
-
-    - name: (run) show mock studio log
-      shell: bash
-      run: cat studio.txt
+      run: cat test_resource/mock_studio/mock_studio.log
       if: ${{ always() }}

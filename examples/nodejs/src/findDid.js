@@ -2,7 +2,7 @@ import { get } from "./lib/sock.js";
 
 // PLEASE WRITE destination_did
 const destination_did =
-  "did:nodex:test:DummyDummyDummyDummyDummyDummyDummyDummyDummyD";
+  "did:webvh:DummyDummyDummyDummyDummyDummyDummyDummyDummyD";
 
 (async () => {
   const response = await get(`/identifiers/${destination_did}`);

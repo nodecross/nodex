@@ -1,5 +1,5 @@
 [workspace]
-exclude = ["e2e"]
+exclude = ["e2e", "test_resource/mock_studio"]
 members = ["agent", "bin", "controller", "protocol"]
 resolver = "2"
 

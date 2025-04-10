@@ -9,9 +9,7 @@ else:
 
 
 # PLEASE WRITE destination_did, message, AND operation_tag.
-destination_did = (
-    "did:nodex:test:DummyDummyDummyDummyDummyDummyDummyDummyDummyD"
-)
+destination_did = "did:webvh:DummyDummyDummyDummyDummyDummyDummyDummyDummyD"
 message = {
     "message": {
         "string": "value",

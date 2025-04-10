@@ -52,10 +52,39 @@ pub enum FindSenderError {
 
 impl DidCommMessage {
     pub fn find_receivers(&self) -> Vec<String> {
-        self.recipients
+        let mut receivers = self
+            .recipients
             .iter()
             .map(|v| v.header.kid.clone())
-            .collect()
+            .filter(|kid| !kid.is_empty()) // 空のkidはフィルタリング
+            .collect::<Vec<String>>();
+
+        if receivers.is_empty() || receivers.iter().all(|kid| kid.is_empty()) {
+            if let Some(kid) = self.extract_kid_from_protected() {
+                receivers.push(kid);
+            }
+        }
+
+        receivers
+    }
+    // This function extracts the "kid" from the protected header of the JWE.
+    fn extract_kid_from_protected(&self) -> Option<String> {
+        let decoded = match data_encoding::BASE64URL_NOPAD.decode(self.protected.as_bytes()) {
+            Ok(d) => d,
+            Err(_) => return None,
+        };
+
+        let decoded_str = match String::from_utf8(decoded) {
+            Ok(s) => s,
+            Err(_) => return None,
+        };
+
+        let parsed: serde_json::Value = match serde_json::from_str(&decoded_str) {
+            Ok(v) => v,
+            Err(_) => return None,
+        };
+
+        parsed["kid"].as_str().map(|s| s.to_string())
     }
 
     pub fn find_sender(&self) -> Result<Did, FindSenderError> {
