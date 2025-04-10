@@ -11,7 +11,6 @@ mod tests {
     use protocol::keyring::*;
     use rand_core::OsRng;
     use std::fs;
-    // use std::io::Write;
     use uuid::Uuid;
 
     struct MockDataStore {}
@@ -36,24 +35,11 @@ mod tests {
             _path: &str,
             did_log_entries: &[DidLogEntry],
         ) -> Result<DidDocument, Self::Error> {
-            // // write log entries to file, formatted as jsonl
-            // let now = chrono::Utc::now();
-            // let file_name = format!("test_resources/{}_did.jsonl", now);
-            // let mut file = fs::OpenOptions::new()
-            //     .write(true)
-            //     .append(true)
-            //     .create(true)
-            //     .open(file_name)?;
-            // for log_entry in did_log_entries {
-            //     let log_entry_json = serde_json::to_string(log_entry)?;
-            //     writeln!(file, "{}", log_entry_json)?;
-            // }
             let log_entry = did_log_entries.last().unwrap();
             let doc = log_entry.state.clone();
             Ok(doc)
         }
         async fn get(&mut self, _path: &str) -> Result<Vec<DidLogEntry>, Self::Error> {
-            // read file from project root dir/test_resources/did.jsonl
             let log = fs::read_to_string("test_resources/did.jsonl")?;
             let log_entries: Vec<DidLogEntry> = log
                 .lines()

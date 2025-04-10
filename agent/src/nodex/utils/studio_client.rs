@@ -127,14 +127,6 @@ impl StudioClient {
         self._post_common(path, body, headers).await
     }
 
-    // pub async fn post(
-    //     &self,
-    //     path: &str,
-    //     body: impl Into<Body>,
-    // ) -> anyhow::Result<reqwest::Response> {
-    //     self._post(path, body.into()).await
-    // }
-
     async fn _post_binary(&self, path: &str, body: Body) -> anyhow::Result<reqwest::Response> {
         let mut headers = HeaderMap::new();
         headers.insert(
@@ -176,59 +168,4 @@ impl StudioClient {
         let url = self.base_url.join(path)?;
         self.post_binary(url.as_str(), payload).await
     }
-
-    // pub async fn put(&self, path: &str, body: &str) -> anyhow::Result<reqwest::Response> {
-    //     let url = self.base_url.join(path)?;
-    //     let mut headers = HeaderMap::new();
-    //     headers.insert(
-    //         reqwest::header::CONTENT_TYPE,
-    //         HeaderValue::from_static("application/json"),
-    //     );
-
-    //     let response = self
-    //         .instance
-    //         .put(url)
-    //         .headers(headers)
-    //         .body(body.to_string())
-    //         .send()
-    //         .await?;
-
-    //     Ok(response)
-    // }
 }
-
-// #[cfg(test)]
-// pub mod tests {
-//     use super::*;
-//     use serde::Deserialize;
-
-//     #[derive(Deserialize)]
-//     struct Res {
-//         origin: String,
-//     }
-
-//     #[tokio::test]
-//     #[ignore]
-//     async fn it_should_success_post() {
-//         let client_config: StudioClientConfig = StudioClientConfig {
-//             base_url: Url::parse("https://httpbin.org").unwrap(),
-//         };
-
-//         let client = match StudioClient::new(&client_config) {
-//             Ok(v) => v,
-//             Err(_) => panic!(),
-//         };
-
-//         let res = match client.post("/post", r#"{"key":"value"}"#).await {
-//             Ok(v) => v,
-//             Err(_) => panic!(),
-//         };
-
-//         let json: Res = match res.json().await {
-//             Ok(v) => v,
-//             Err(_) => panic!(),
-//         };
-
-//         assert!(!json.origin.is_empty());
-//     }
-// }
