@@ -11,6 +11,7 @@ mod tests {
     use protocol::keyring::*;
     use rand_core::OsRng;
     use std::fs;
+    use uuid::Uuid;
 
     struct MockDataStore {}
     impl MockDataStore {
@@ -39,7 +40,6 @@ mod tests {
             Ok(doc)
         }
         async fn get(&mut self, _path: &str) -> Result<Vec<DidLogEntry>, Self::Error> {
-            // read file from project root dir/test_resources/did.jsonl
             let log = fs::read_to_string("test_resources/did.jsonl")?;
             let log_entries: Vec<DidLogEntry> = log
                 .lines()
@@ -67,14 +67,17 @@ mod tests {
     pub async fn test_create_did_log_entry() {
         let keyring = keypair::KeyPairing::create_keyring(OsRng);
         let datastore = MockDataStore::new();
+        let uuid = Uuid::new_v4();
+        let path = format!("localhost:8020/webvh/v1/{}", uuid);
         let res = DidWebvhServiceImpl::new(datastore)
-            .create_identifier("domain.examle.com/test/did", true, keyring)
+            .create_identifier(&path, true, keyring)
             .await
             .unwrap();
         assert_eq!(res.id.get_method(), "webvh");
         let webvh_did: DidWebvh = res.id.clone().try_into().unwrap();
         assert_eq!(webvh_did.get_did(), &res.id);
-        assert_eq!(webvh_did.get_uri(), "domain.examle.com:test:did");
+        let path = path.replace(":", "%3A").replace("/", ":");
+        assert_eq!(webvh_did.get_uri(), path);
     }
 
     #[tokio::test]

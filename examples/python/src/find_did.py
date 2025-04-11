@@ -7,9 +7,7 @@ else:
     from sock import get
 
 # PLEASE WRITE destination_did
-destination_did = (
-    "did:nodex:test:DummyDummyDummyDummyDummyDummyDummyDummyDummyD"
-)
+destination_did = "did:webvh:DummyDummyDummyDummyDummyDummyDummyDummyDummyD"
 
 json_response = get(f"/identifiers/{destination_did}")
 

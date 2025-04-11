@@ -1,11 +1,12 @@
-use super::utils;
 use crate::controllers::errors::AgentErrorCode;
 use crate::nodex::utils::did_accessor::DidAccessorImpl;
+use crate::nodex::utils::webvh_client::DidWebvhDataStoreImpl;
+use crate::server_config;
+use crate::usecase::didcomm_message_usecase::DidcommMessageUseCase;
 use crate::usecase::didcomm_message_usecase::GenerateDidcommMessageUseCaseError as U;
-use crate::{services::studio::Studio, usecase::didcomm_message_usecase::DidcommMessageUseCase};
 use axum::extract::Json;
 use chrono::Utc;
-use protocol::didcomm::encrypted::DidCommEncryptedServiceGenerateError as S;
+use protocol::did_webvh::service::service_impl::DidWebvhServiceImpl;
 use serde::{Deserialize, Serialize};
 
 // NOTE: POST /create-didcomm-message
@@ -30,40 +31,32 @@ pub async fn handler(Json(json): Json<MessageContainer>) -> Result<String, Agent
         Err(AgentErrorCode::CreateDidCommMessageNoOperationTag)?
     }
 
+    let base_url = server_config()
+        .map_err(|_| AgentErrorCode::CreateDidcommMessageInternal)?
+        .did_http_endpoint();
+    let datasotre = DidWebvhDataStoreImpl::new(base_url);
+    let webvh = DidWebvhServiceImpl::new(datasotre);
+
     let now = Utc::now();
 
-    let usecase =
-        DidcommMessageUseCase::new(Studio::new(), utils::did_repository(), DidAccessorImpl {});
+    let mut usecase = DidcommMessageUseCase::new(webvh, DidAccessorImpl {});
 
     match usecase
-        .generate(json.destination_did, json.message, json.operation_tag, now)
+        .generate(json.destination_did, json.message, now)
         .await
     {
         Ok(v) => Ok(v),
         Err(e) => match e {
-            U::MessageActivity(e) => Err(utils::handle_status(e)),
-            U::ServiceGenerate(S::DidDocNotFound(target)) => {
-                log::warn!("target DID not found. did = {}", target);
-                Err(AgentErrorCode::CreateDidCommMessageNoDid)?
-            }
-            U::ServiceGenerate(S::DidPublicKeyNotFound(e)) => {
-                log::warn!("cannot find public key: {}", e);
-                Err(AgentErrorCode::CreateDidCommMessageNoPubKey)?
-            }
-            U::Json(e) | U::ServiceGenerate(S::Json(e)) => {
+            U::Json(e) => {
                 log::warn!("json error: {}", e);
                 Err(AgentErrorCode::CreateDidcommMessageInternal)?
             }
-            U::ServiceGenerate(S::VcService(e)) => {
-                log::warn!("verify failed: {}", e);
-                Err(AgentErrorCode::CreateDidCommMessageVerifyFailed)?
-            }
-            U::ServiceGenerate(S::SidetreeFindRequestFailed(e)) => {
-                log::warn!("sidetree error: {}", e);
+            U::Generate(e) => {
+                log::warn!("didcomm generate error: {}", e);
                 Err(AgentErrorCode::CreateDidcommMessageInternal)?
             }
-            U::ServiceGenerate(S::EncryptFailed(e)) => {
-                log::warn!("decrypt failed: {}", e);
+            U::InvalidDid(e) => {
+                log::warn!("invalid did error: {}", e);
                 Err(AgentErrorCode::CreateDidcommMessageInternal)?
             }
         },

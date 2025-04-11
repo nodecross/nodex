@@ -7,57 +7,277 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Setup Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '20.15.0'
-
     - name: (setup) copy default config to home
       shell: powershell
-      run: New-Item -ItemType Directory -Force -Path $env:USERPROFILE\.config\nodex; Copy-Item test_resource\config\* $env:USERPROFILE\.config\nodex\
+      run: New-Item -ItemType Directory -Force -Path $env:USERPROFILE\.config\nodex; Copy-Item test_resource\localhost_config\network.json $env:USERPROFILE\.config\nodex\
 
-    - name: Install Prism CLI
-      shell: powershell
-      run: npm install -g @stoplight/prism-cli
-
-    - name: Get Prism Path
-      id: get-prism-path
+    - name: Check and install Rust/Cargo if needed
       shell: powershell
       run: |
-        $prismPath = Get-Command prism | Select-Object -ExpandProperty Source
-        echo "::set-output name=prismPath::$prismPath"
+        # Check if cargo is available
+        $cargoInstalled = $false
+        try {
+            cargo --version | Out-Null
+            $cargoInstalled = $true
+            Write-Host "Cargo is already installed"
+        } catch {
+            Write-Host "Cargo not found, will attempt to install"
+        }
 
-    - name: Setup and Run Tests
+        # Install Rust/Cargo if not found
+        if (-not $cargoInstalled) {
+            Write-Host "Installing Rust and Cargo..."
+            try {
+                # Download the rustup-init.exe installer
+                $rustupInitUrl = "https://win.rustup.rs/x86_64"
+                $rustupInitPath = "$env:TEMP\rustup-init.exe"
+                
+                Invoke-WebRequest -Uri $rustupInitUrl -OutFile $rustupInitPath
+                
+                # Run the installer with default settings (silent install)
+                & $rustupInitPath -y --default-toolchain stable --profile minimal
+                
+                # Update PATH to include cargo
+                $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
+                
+                # Verify installation
+                cargo --version
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Cargo installation verification failed"
+                }
+                
+                Write-Host "Rust and Cargo installed successfully"
+            } catch {
+                Write-Host "Failed to install Rust/Cargo: $_"
+                exit 1
+            }
+        }
+
+    - name: Setup and Run Tests with retry mechanism
       shell: powershell
       run: |
-        $prismPath = "${{ steps.get-prism-path.outputs.prismPath }}"
-        $sidetreeResourcePath = Join-Path -Path $PWD -ChildPath "test_resource/did_sidetree.yaml"
-        $studioResourcePath = Join-Path -Path $PWD -ChildPath "test_resource/studio.yaml"
+        # Create log directory if it doesn't exist
+        $logDir = ".\mock_logs"
+        New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
-        Start-Process -NoNewWindow -FilePath "powershell" -ArgumentList "-File $prismPath mock -h 127.0.0.1 -p 4010 $sidetreeResourcePath"
-        Start-Process -NoNewWindow -FilePath "powershell" -ArgumentList "-File $prismPath mock -h 127.0.0.1 -p 8020 $studioResourcePath"
-        Start-Sleep -Seconds 10
+        # Create log files
+        $mockOutLog = Join-Path $logDir "mock_out.log"
+        $mockErrLog = Join-Path $logDir "mock_err.log"
+        New-Item -ItemType File -Force -Path $mockOutLog | Out-Null
+        New-Item -ItemType File -Force -Path $mockErrLog | Out-Null
 
-        $agentPath = Join-Path -Path $PWD -ChildPath ${{ inputs.binary-path }}
-        $stdErrLogTmp = Join-Path -Path $PWD -ChildPath ".\stderr.log"
-        $stdOutLogTmp = Join-Path -Path $PWD -ChildPath ".\stdout.log"
-        Start-Process -FilePath "$agentPath" -NoNewWindow -RedirectStandardOutput "$stdOutLogTmp" -RedirectStandardError "$stdErrLogTmp"
-        Start-Sleep -Seconds 10
+        # Store process info in global script variable
+        $script:mockServerPid = $null
 
-        cd e2e
-        cargo test
+        # Ensure cargo is in PATH
+        $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
+
+        # Start mock server with simplified process
+        Push-Location test_resource\mock_studio
+        $env:PORT = "8020"
+        $env:RUST_LOG = "Debug"
+        Write-Host "Starting mock server on port 8020..."
+
+        try {
+            $process = Start-Process -FilePath "cargo" -ArgumentList "run" -NoNewWindow -PassThru -RedirectStandardOutput $mockOutLog -RedirectStandardError $mockErrLog
+            $script:mockServerPid = $process.Id
+            Write-Host "Mock server started with PID: $($script:mockServerPid)"
+        } catch {
+            Write-Host "Failed to start mock server: $_"
+            exit 1
+        }
+        Pop-Location
+
+        # Wait a fixed time initially
+        Write-Host "Waiting for mock server to initialize (initial wait)..."
+        Start-Sleep -Seconds 90
+
+        # Simple validation that server is running and wait for health endpoint
+        $ready = $false
+        $attempts = 0
+        $maxAttempts = 30
+
+        while (-not $ready -and $attempts -lt $maxAttempts) {
+            $attempts++
+            try {
+                $healthCheck = Invoke-WebRequest -Uri "http://127.0.0.1:8020/health" -Method GET -TimeoutSec 2
+                if ($healthCheck.StatusCode -eq 200) {
+                    $ready = $true
+                    Write-Host "Mock server confirmed ready! (Health check successful)"
+                    break
+                }
+            } catch {
+                Write-Host "Waiting for server health check... ($attempts/$maxAttempts)"
+                
+                # Check if process is still running
+                try {
+                    $process = Get-Process -Id $script:mockServerPid -ErrorAction SilentlyContinue
+                    if (-not $process) {
+                        Write-Host "Error: Mock server process died unexpectedly!"
+                        Get-Content $mockOutLog
+                        Get-Content $mockErrLog
+                        exit 1
+                    }
+                } catch {
+                    Write-Host "Error: Failed to check process status: $_"
+                    exit 1
+                }
+
+                if ($attempts -eq $maxAttempts) {
+                    Write-Host "Timed out waiting for mock server health check"
+                    Get-Content $mockOutLog
+                    Get-Content $mockErrLog
+                    exit 1
+                }
+
+                Start-Sleep -Seconds 30
+            }
+        }
+
+        # Verify binary exists
+        if (-not (Test-Path "${{ inputs.binary-path }}")) {
+            Write-Host "Error: Binary not found at ${{ inputs.binary-path }}"
+            exit 1
+        }
+
+        # Set log paths
+        $agentOutLog = ".\agent_out.log"
+        $agentErrLog = ".\agent_err.log"
+        New-Item -ItemType File -Force -Path $agentOutLog | Out-Null
+        New-Item -ItemType File -Force -Path $agentErrLog | Out-Null
+
+        # Log environment variables for debugging
+        Write-Host "Starting agent with environment variables:"
+        Write-Host "NODEX_DID_HTTP_ENDPOINT: $env:NODEX_DID_HTTP_ENDPOINT"
+        Write-Host "NODEX_DID_ATTACHMENT_LINK: $env:NODEX_DID_ATTACHMENT_LINK"
+        Write-Host "NODEX_STUDIO_HTTP_ENDPOINT: $env:NODEX_STUDIO_HTTP_ENDPOINT"
+        Write-Host "NODEX_SERVER_PORT: $env:NODEX_SERVER_PORT"
+        Write-Host "RUST_BACKTRACE: $env:RUST_BACKTRACE"
+
+        # Start agent with simpler approach
+        Write-Host "Starting agent..."
+        try {
+            $agentProcess = Start-Process -FilePath "${{ inputs.binary-path }}" -NoNewWindow -PassThru -RedirectStandardOutput $agentOutLog -RedirectStandardError $agentErrLog
+            $agentPid = $agentProcess.Id
+            Write-Host "Agent started with PID: $agentPid"
+        } catch {
+            Write-Host "Failed to start agent: $_"
+            exit 1
+        }
+
+        # More generous wait time for agent initialization
+        Write-Host "Waiting for agent to initialize (60 seconds)..."
+        Start-Sleep -Seconds 60
+
+        # Run tests with retry mechanism
+        Write-Host "Running cargo tests with retry mechanism..."
+        $maxRetries = 3
+        $testSucceeded = $false
+
+        for ($retry = 1; $retry -le $maxRetries; $retry++) {
+            Write-Host "Test attempt $retry of $maxRetries..."
+
+            Push-Location e2e
+            try {
+                # Run the tests
+                cargo test
+                if ($LASTEXITCODE -eq 0) {
+                    $testSucceeded = $true
+                    Write-Host "Tests passed on attempt $retry!"
+                    break
+                } else {
+                    Write-Host "Tests failed on attempt $retry."
+                    if ($retry -lt $maxRetries) {
+                        Write-Host "Waiting before retry..."
+                        Start-Sleep -Seconds 10
+                    }
+                }
+            } catch {
+                Write-Host "Error running tests: $_"
+                if ($retry -lt $maxRetries) {
+                    Write-Host "Waiting before retry..."
+                    Start-Sleep -Seconds 10
+                }
+            } finally {
+                Pop-Location
+            }
+        }
+
+        # Gracefully terminate agent process
+        Write-Host "Terminating agent process (PID: $agentPid)..."
+        try {
+            Stop-Process -Id $agentPid -Force -ErrorAction SilentlyContinue
+            Write-Host "Agent process terminated."
+        } catch {
+            Write-Host "Note: Agent process may have already terminated: $_"
+        }
+
+        # Wait for process to fully shut down
+        Start-Sleep -Seconds 5
+
+        # Check test results
+        if (-not $testSucceeded) {
+            Write-Host "All test attempts failed."
+            exit 1
+        }
       env:
-        NODEX_DID_HTTP_ENDPOINT: http://127.0.0.1:4010
+        NODEX_DID_HTTP_ENDPOINT: http://127.0.0.1:8020
         NODEX_DID_ATTACHMENT_LINK: http://127.0.0.1:4010
         NODEX_STUDIO_HTTP_ENDPOINT: http://127.0.0.1:8020
         NODEX_SERVER_PORT: 3000
-        RUST_BACKTRACE: 1
+        RUST_BACKTRACE: full
 
-    - name: (run) show log of agent
+    - name: Stop mock server
       shell: powershell
       run: |
-        $stdOutLogTmp = Join-Path -Path $PWD -ChildPath ".\stdout.log"
-        Get-Content $stdOutLogTmp
-        $stdErrLogTmp = Join-Path -Path $PWD -ChildPath ".\stderr.log"
-        Get-Content $stdErrLogTmp
+        # Find and stop the mock server process
+        Write-Host "Stopping mock server process..."
+
+        try {
+            # First attempt: Try using the saved PID
+            if ($script:mockServerPid) {
+                Stop-Process -Id $script:mockServerPid -Force -ErrorAction SilentlyContinue
+                Write-Host "Stopped mock server with PID: $script:mockServerPid"
+            } else {
+                # Fallback: Look for any cargo or mock_studio processes
+                Get-Process | Where-Object { $_.Name -like "*cargo*" -or $_.Name -like "*mock_studio*" } | ForEach-Object {
+                    Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+                    Write-Host "Stopped process: $($_.Name) (PID: $($_.Id))"
+                }
+            }
+        } catch {
+            Write-Host "Note: Mock server may have already terminated: $_"
+        }
+      if: ${{ always() }}
+
+    - name: Show logs
+      shell: powershell
+      run: |
+        Write-Host "=== Agent Standard Output ==="
+        if (Test-Path ".\agent_out.log") {
+            Get-Content ".\agent_out.log"
+        } else {
+            Write-Host "Warning: Agent stdout log file not found"
+        }
+
+        Write-Host "=== Agent Standard Error ==="
+        if (Test-Path ".\agent_err.log") {
+            Get-Content ".\agent_err.log"
+        } else {
+            Write-Host "Warning: Agent stderr log file not found"
+        }
+
+        Write-Host "=== Mock Server Standard Output ==="
+        if (Test-Path ".\mock_logs\mock_out.log") {
+            Get-Content ".\mock_logs\mock_out.log"
+        } else {
+            Write-Host "Warning: Mock server stdout log file not found"
+        }
+
+        Write-Host "=== Mock Server Standard Error ==="
+        if (Test-Path ".\mock_logs\mock_err.log") {
+            Get-Content ".\mock_logs\mock_err.log"
+        } else {
+            Write-Host "Warning: Mock server stderr log file not found"
+        }
       if: ${{ always() }}

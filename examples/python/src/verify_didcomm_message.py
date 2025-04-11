@@ -25,7 +25,7 @@ message = {
                 },
                 "iv": "ZJkeAxXYJ2TCagOWUK4nl5vCOOuxKzK2",
                 "key_ops": [],
-                "kid": "did:nodex:test:DummyDummyDummyDummyDummyDummyDummyDummyDummyD",
+                "kid": "did:webvh:DummyDummyDummyDummyDummyDummyDummyDummyDummyD",
                 "tag": "mqkx9V8kKAvT-OvwGoJS6Q",
             },
         }

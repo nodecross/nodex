@@ -3,11 +3,6 @@ use crate::nodex::keyring;
 use crate::nodex::utils::webvh_client::DidWebvhDataStoreImpl;
 use crate::{app_config, server_config};
 use anyhow;
-use controller::managers::{
-    resource::ResourceManagerTrait,
-    runtime::{RuntimeManagerImpl, RuntimeManagerWithoutAsync, State},
-};
-use controller::validator::storage::check_storage;
 use protocol::did_webvh::domain::did::{Did, DidWebvh};
 use protocol::did_webvh::domain::did_document::DidDocument;
 use protocol::did_webvh::service::controller::controller_service::DidWebvhControllerService;
@@ -30,9 +25,8 @@ pub struct NodeX {
 
 impl NodeX {
     pub fn new() -> Self {
-        let server_config = server_config();
-        let baseurl =
-            url::Url::parse(&server_config.did_http_endpoint()).expect("failed to parse url");
+        let server_config = server_config().expect("Failed to get server config");
+        let baseurl = server_config.did_http_endpoint();
         let datastore = DidWebvhDataStoreImpl::new(baseurl.clone());
         let webvh = DidWebvhServiceImpl::new(datastore);
 
@@ -125,44 +119,4 @@ impl NodeX {
 
         Ok(res)
     }
-}
-
-pub async fn update_version(binary_url: &str) -> anyhow::Result<()> {
-    #[cfg(windows)]
-    {
-        unimplemented!();
-    }
-
-    #[cfg(unix)]
-    {
-        let handler = controller::managers::mmap_storage::MmapHandler::new("nodex_runtime_info")?;
-        let mut runtime_manager = RuntimeManagerImpl::new_by_agent(
-            handler,
-            controller::managers::unix_process_manager::UnixProcessManager,
-        );
-        let agent_path = &runtime_manager.get_runtime_info()?.exec_path;
-        let output_path = agent_path
-            .parent()
-            .ok_or(anyhow::anyhow!("Failed to get path of parent directory"))?;
-        if !check_storage(output_path) {
-            log::error!("Not enough storage space: {:?}", output_path);
-            anyhow::bail!("Not enough storage space");
-        }
-        let resource_manager = controller::managers::resource::UnixResourceManager::new(agent_path);
-
-        resource_manager.backup().map_err(|e| {
-            log::error!("Failed to backup: {}", e);
-            anyhow::anyhow!(e)
-        })?;
-
-        resource_manager
-            .download_update_resources(binary_url, Some(output_path))
-            .await
-            .map_err(|e| anyhow::anyhow!(e))?;
-
-        runtime_manager.launch_controller(agent_path)?;
-        runtime_manager.update_state(State::Update)?;
-    }
-
-    Ok(())
 }
