@@ -239,6 +239,29 @@ impl KeyPairing {
         }
     }
 
+    pub fn rotate_keypair<T: RngCore + CryptoRng>(&self, mut csprng: T) -> Self {
+        let sign = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
+        let encrypt = X25519KeyPair::new(x25519_dalek::StaticSecret::random_from_rng(&mut csprng));
+        let sign_time_series = Ed25519KeyPair::new(SigningKey::generate(&mut csprng));
+
+        let update = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
+        let recovery = K256KeyPair::new(k256::SecretKey::random(&mut csprng));
+
+        // didwebvh_recovery is the prerotated key for didwebvh_update next time
+        let didwebvh_update = self.didwebvh_recovery.clone();
+        let didwebvh_recovery = Ed25519KeyPair::new(SigningKey::generate(&mut csprng));
+
+        KeyPairing {
+            sign,
+            encrypt,
+            sign_time_series,
+            update,
+            recovery,
+            didwebvh_update,
+            didwebvh_recovery,
+        }
+    }
+
     pub fn to_verification_methods(
         &self,
         controller: &Did,

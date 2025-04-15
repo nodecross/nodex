@@ -98,6 +98,16 @@ impl<S: SecureKeyStore> KeyPairingWithConfig<S> {
         }
     }
 
+    pub fn update_keyring(&mut self, keyring: protocol::keyring::keypair::KeyPairing) {
+        self.sign = keyring.sign;
+        self.sign_time_series = keyring.sign_time_series;
+        self.update = keyring.update;
+        self.recovery = keyring.recovery;
+        self.encrypt = keyring.encrypt;
+        self.didwebvh_update = keyring.didwebvh_update;
+        self.didwebvh_recovery = keyring.didwebvh_recovery;
+    }
+
     pub fn save(&mut self, did: &str) {
         self.secure_keystore
             .write(&SecureKeyStoreKey::Sign(&self.sign));

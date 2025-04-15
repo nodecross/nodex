@@ -15,5 +15,9 @@ pub trait DidWebvhDataStore {
         did_path: &str,
         did_log_entries: &[DidLogEntry],
     ) -> Result<DidDocument, Self::Error>;
-    async fn deactivate(&mut self, did_path: &str) -> Result<DidDocument, Self::Error>;
+    async fn deactivate(
+        &mut self,
+        did_path: &str,
+        did_log_entries: &[DidLogEntry],
+    ) -> Result<DidDocument, Self::Error>;
 }

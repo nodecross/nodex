@@ -106,6 +106,12 @@ impl DidDocument {
             .cloned()
             .ok_or_else(|| GetPublicKeyError::PublicKeyNotFound(did.to_string()))
     }
+
+    pub fn deactivate(&self) -> Self {
+        let mut did_document = self.clone();
+        did_document.deactivated = Some(true);
+        did_document
+    }
 }
 
 #[cfg(test)]

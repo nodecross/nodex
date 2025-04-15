@@ -256,7 +256,17 @@ impl DidLogEntry {
         Ok(Self {
             version_id: current_entry_hash,
             version_time,
-            parameters: self.parameters.clone(),
+            // Only overwrite the information to be updated, so the initial value is None
+            parameters: Parameters {
+                portable: None,
+                update_keys: None,
+                next_key_hashes: None,
+                method: None,
+                scid: None,
+                deactivate: None,
+                witness: None,
+                ttl: None,
+            },
             state: self.state.clone(),
             proof: None,
         })
@@ -383,6 +393,12 @@ impl DidLogEntry {
     pub fn remove_proof(&self) -> DidLogEntry {
         let mut entry = self.clone();
         entry.proof = None;
+        entry
+    }
+
+    pub fn deactivate(&self) -> DidLogEntry {
+        let mut entry = self.clone();
+        entry.parameters.deactivate = Some(true);
         entry
     }
 }

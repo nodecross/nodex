@@ -3,7 +3,7 @@ use crate::nodex::keyring;
 use crate::nodex::utils::webvh_client::DidWebvhDataStoreImpl;
 use crate::{app_config, server_config};
 use anyhow;
-use protocol::did_webvh::domain::did::Did;
+use protocol::did_webvh::domain::did::{Did, DidWebvh};
 use protocol::did_webvh::domain::did_document::DidDocument;
 use protocol::did_webvh::service::controller::controller_service::DidWebvhControllerService;
 use protocol::did_webvh::service::resolver::resolver_service::DidWebvhResolverService;
@@ -66,6 +66,55 @@ impl NodeX {
             .webvh
             .create_identifier(&path, true, keyring_with_config.get_keyring())
             .await?;
+        keyring_with_config.save(&res.id);
+
+        Ok(res)
+    }
+
+    #[allow(dead_code)]
+    pub async fn rotate_identifier(&mut self) -> anyhow::Result<DidDocument> {
+        let config = app_config();
+        let keystore = FileBaseKeyStore::new(config.clone());
+
+        let did =
+            keyring::keypair::KeyPairingWithConfig::load_keyring(config.clone(), keystore.clone())
+                .ok()
+                .and_then(|v| v.get_identifier().ok())
+                .ok_or(anyhow::anyhow!("Failed to get identifier"))?;
+        let did = DidWebvh::from_str(&did)?;
+
+        let mut keyring_with_config =
+            keyring::keypair::KeyPairingWithConfig::create_keyring(config, keystore);
+        let mut keyring = keyring_with_config.get_keyring();
+
+        let res = self
+            .webvh
+            .update_identifier(&did, true, &mut keyring)
+            .await?;
+        keyring_with_config.update_keyring(keyring);
+        keyring_with_config.save(&res.id);
+
+        Ok(res)
+    }
+
+    #[allow(dead_code)]
+    pub async fn revoke_identifier(&mut self) -> anyhow::Result<DidDocument> {
+        let config = app_config();
+        let keystore = FileBaseKeyStore::new(config.clone());
+
+        let did =
+            keyring::keypair::KeyPairingWithConfig::load_keyring(config.clone(), keystore.clone())
+                .ok()
+                .and_then(|v| v.get_identifier().ok())
+                .ok_or(anyhow::anyhow!("Failed to get identifier"))?;
+        let did = DidWebvh::from_str(&did)?;
+
+        let mut keyring_with_config =
+            keyring::keypair::KeyPairingWithConfig::create_keyring(config, keystore);
+        let mut keyring = keyring_with_config.get_keyring();
+
+        let res = self.webvh.deactivate_identifier(&did, &mut keyring).await?;
+        keyring_with_config.update_keyring(keyring);
         keyring_with_config.save(&res.id);
 
         Ok(res)

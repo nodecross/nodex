@@ -8,16 +8,20 @@ use url::Url;
 pub struct DidWebvhDataStoreImpl {
     base_url: Url,
     client: reqwest::Client,
-    use_https: bool,
+    scheme: &'static str,
 }
 
 impl DidWebvhDataStoreImpl {
     pub fn new(base_url: Url) -> Self {
-        let use_https = base_url.scheme() == "https";
+        let scheme = if base_url.scheme() == "https" {
+            "https"
+        } else {
+            "http"
+        };
         Self {
             base_url,
             client: reqwest::Client::new(),
-            use_https,
+            scheme,
         }
     }
 }
@@ -44,7 +48,7 @@ impl DidWebvhDataStore for DidWebvhDataStoreImpl {
         did_path: &str,
         did_log_entries: &[DidLogEntry],
     ) -> Result<DidDocument, Self::Error> {
-        let scheme = if self.use_https { "https" } else { "http" };
+        let scheme = self.scheme;
         let response = self
             .client
             .post(format!("{}://{}", scheme, did_path))
@@ -64,7 +68,7 @@ impl DidWebvhDataStore for DidWebvhDataStoreImpl {
     }
 
     async fn get(&mut self, did_path: &str) -> Result<Vec<DidLogEntry>, Self::Error> {
-        let scheme = if self.use_https { "https" } else { "http" };
+        let scheme = self.scheme;
         let response = self
             .client
             .get(format!("{}://{}", scheme, did_path))
@@ -86,9 +90,45 @@ impl DidWebvhDataStore for DidWebvhDataStoreImpl {
         did_path: &str,
         did_log_entries: &[DidLogEntry],
     ) -> Result<DidDocument, Self::Error> {
-        unimplemented!();
+        let scheme = self.scheme;
+        let response = self
+            .client
+            .put(format!("{}://{}", scheme, did_path))
+            .header("Content-Type", "application/json")
+            .body(serde_json::to_string(did_log_entries)?)
+            .send()
+            .await?;
+
+        let status = response.status();
+        if !status.is_success() {
+            return Err(DidWebvhDataStoreImplError::ServerError {
+                code: status,
+                message: response.text().await?,
+            });
+        }
+        Ok(response.json().await?)
     }
-    async fn deactivate(&mut self, did_path: &str) -> Result<DidDocument, Self::Error> {
-        unimplemented!();
+    async fn deactivate(
+        &mut self,
+        did_path: &str,
+        did_log_entries: &[DidLogEntry],
+    ) -> Result<DidDocument, Self::Error> {
+        let scheme = self.scheme;
+        let response = self
+            .client
+            .delete(format!("{}://{}", scheme, did_path))
+            .header("Content-Type", "application/json")
+            .body(serde_json::to_string(did_log_entries)?)
+            .send()
+            .await?;
+
+        let status = response.status();
+        if !status.is_success() {
+            return Err(DidWebvhDataStoreImplError::ServerError {
+                code: status,
+                message: response.text().await?,
+            });
+        }
+        Ok(response.json().await?)
     }
 }
