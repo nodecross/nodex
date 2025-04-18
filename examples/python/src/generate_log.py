@@ -11,10 +11,7 @@ log = {
     "occurred_at": int(time.time() * 1000),
 }
 
-json_response = post(
-    "/log",
-    log
-)
+json_response = post("/logs", log)
 
 print("The response is as follows.\n")
 print(json_response)
