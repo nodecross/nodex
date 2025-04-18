@@ -111,6 +111,11 @@ where
             .find_receivers()
             .contains(&my_did.clone().into_inner())
         {
+            log::error!(
+                "message not addressed to me: {}, contains: {:?}",
+                my_did,
+                message.find_receivers()
+            );
             return Err(VerifyDidcommMessageUseCaseError::NotAddressedToMe);
         }
 

@@ -27,9 +27,6 @@ pub async fn handler(Json(json): Json<MessageContainer>) -> Result<String, Agent
     if json.message.is_empty() {
         Err(AgentErrorCode::CreateDidCommMessageNoMessage)?
     }
-    if json.operation_tag.is_empty() {
-        Err(AgentErrorCode::CreateDidCommMessageNoOperationTag)?
-    }
 
     let base_url = server_config()
         .map_err(|_| AgentErrorCode::CreateDidcommMessageInternal)?
