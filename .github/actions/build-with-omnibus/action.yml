@@ -41,7 +41,7 @@ runs:
       run: rustup target add ${{ inputs.target }}
 
     - name: (setup) sccache
-      uses: mozilla-actions/sccache-action@v0.0.7
+      uses: mozilla-actions/sccache-action@v0.0.8
 
     - name: (setup) environment variables for sccache
       shell: bash
@@ -75,7 +75,7 @@ runs:
         gem install bundler -v '2.5.17'
         bundle install
       shell: bash
-    
+
     - name: (setup) prepare for ubuntu
       uses: ./.github/actions/build-with-omnibus/prepare
       with:
