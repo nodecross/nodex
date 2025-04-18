@@ -16,3 +16,8 @@ pub struct Event {
     pub key: String,
     pub details: Vec<TimeValue<String>>,
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Log {
+    pub messages: Vec<TimeValue<String>>,
+}

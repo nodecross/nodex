@@ -53,6 +53,10 @@ pub enum AgentErrorCode {
     SendEventInvalidOccurredAt = 1022,
     #[error("Bad Request")]
     MessageActivityBadRequest = 1023,
+    #[error("message is invalid")]
+    SendLogNoMessage = 1024,
+    #[error("occurred_at is invalid format")]
+    SendLogInvalidOccurredAt = 1025,
 
     #[error("this message is not addressed to me")]
     VerifyDidcommMessageNotAddressedToMe = 2001,

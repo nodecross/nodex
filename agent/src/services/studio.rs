@@ -3,10 +3,11 @@ use crate::nodex::utils::studio_client::{StudioClient, StudioClientConfig};
 use crate::repository::attribute_repository::{AttributeStoreRepository, AttributeStoreRequest};
 use crate::repository::custom_metric_repository::CustomMetricStoreRepository;
 use crate::repository::event_repository::EventStoreRepository;
+use crate::repository::log_repository::LogStoreRepository;
 use crate::repository::metric_repository::{MetricStoreRepository, MetricsWithTimestamp};
 use crate::server_config;
 use anyhow::Context;
-use protocol::cbor::types::{CustomMetric, Event};
+use protocol::cbor::types::{CustomMetric, Event, Log};
 use protocol::keyring::keypair::KeyPair;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -253,6 +254,12 @@ impl MetricStoreRepository for Studio {
         }
 
         Ok(())
+    }
+}
+
+impl LogStoreRepository for Studio {
+    async fn save(&self, request: Vec<Log>) -> anyhow::Result<()> {
+        self.relay_to_studio_via_cbor("/v1/logs", request).await
     }
 }
 
