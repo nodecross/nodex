@@ -259,7 +259,7 @@ impl MetricStoreRepository for Studio {
 
 impl LogStoreRepository for Studio {
     async fn save(&self, request: Log) -> anyhow::Result<()> {
-        self.relay_to_studio_via_cbor("/v1/log", request).await
+        self.relay_to_studio_via_cbor("/v1/logs", request).await
     }
 }
 
