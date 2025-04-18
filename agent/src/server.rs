@@ -207,7 +207,7 @@ pub fn make_router() -> Router {
         )
         .layer(DefaultBodyLimit::max(body_limit))
         .route("/events", post(controllers::public::send_event::handler))
-        .route("/logs", post(controllers::public::send_log::handler))
+        .route("/log", post(controllers::public::send_log::handler))
         .route(
             "/custom-metrics",
             post(controllers::public::send_custom_metric::handler),

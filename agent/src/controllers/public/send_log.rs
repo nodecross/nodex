@@ -16,29 +16,21 @@ pub struct MessageContainer {
 }
 
 pub async fn handler(
-    Json(json): Json<Vec<MessageContainer>>,
+    Json(MessageContainer {
+        message,
+        occurred_at,
+    }): Json<MessageContainer>,
 ) -> Result<StatusCode, AgentErrorCode> {
-    let messages: Result<Vec<_>, AgentErrorCode> = json
-        .into_iter()
-        .map(
-            |MessageContainer {
-                 message,
-                 occurred_at,
-             }| {
-                if message.is_empty() {
-                    return Err(AgentErrorCode::SendLogNoMessage);
-                }
-                let occurred_at = milliseconds_to_time(occurred_at)
-                    .ok_or(AgentErrorCode::SendLogInvalidOccurredAt)?;
-                Ok(TimeValue(occurred_at, message))
-            },
-        )
-        .collect();
+    if message.is_empty() {
+        return Err(AgentErrorCode::SendLogNoMessage);
+    }
+    let occurred_at =
+        milliseconds_to_time(occurred_at).ok_or(AgentErrorCode::SendLogInvalidOccurredAt)?;
     let log = Log {
-        messages: messages?,
+        message: TimeValue(occurred_at, message),
     };
     let studio = Studio::new();
-    match LogStoreRepository::save(&studio, vec![log]).await {
+    match LogStoreRepository::save(&studio, log).await {
         Ok(_) => {
             log::info!("save log");
             Ok(StatusCode::NO_CONTENT)

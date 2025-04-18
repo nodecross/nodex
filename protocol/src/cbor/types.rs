@@ -19,5 +19,5 @@ pub struct Event {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Log {
-    pub messages: Vec<TimeValue<String>>,
+    pub message: TimeValue<String>,
 }
