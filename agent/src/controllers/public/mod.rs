@@ -5,4 +5,5 @@ pub mod nodex_verify_didcomm_message;
 pub mod send_attribute;
 pub mod send_custom_metric;
 pub mod send_event;
+pub mod send_log;
 mod utils;

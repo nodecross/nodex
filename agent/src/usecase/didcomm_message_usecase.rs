@@ -246,7 +246,6 @@ mod tests {
 
             let verified = usecase.verify(generated).await;
 
-            dbg!(&verified);
             if let Err(VerifyDidcommMessageUseCaseError::Verify(_)) = verified {
             } else {
                 panic!("unexpected result: {:?}", verified);
