@@ -1,5 +1,7 @@
+use crate::did_webvh::domain::did::{Did, DidError};
 use data_encoding::BASE64URL_NOPAD;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use thiserror::Error;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -42,19 +44,50 @@ pub enum FindSenderError {
     FromUtf8(#[from] std::string::FromUtf8Error),
     #[error("failed to base64 decode protected: {0}")]
     Decode(#[from] data_encoding::DecodeError),
+    #[error(transparent)]
+    Did(#[from] DidError),
     #[error("skid error")]
     Skid,
 }
 
 impl DidCommMessage {
     pub fn find_receivers(&self) -> Vec<String> {
-        self.recipients
+        let mut receivers = self
+            .recipients
             .iter()
             .map(|v| v.header.kid.clone())
-            .collect()
+            .filter(|kid| !kid.is_empty()) // 空のkidはフィルタリング
+            .collect::<Vec<String>>();
+
+        if receivers.is_empty() || receivers.iter().all(|kid| kid.is_empty()) {
+            if let Some(kid) = self.extract_kid_from_protected() {
+                receivers.push(kid);
+            }
+        }
+
+        receivers
+    }
+    // This function extracts the "kid" from the protected header of the JWE.
+    fn extract_kid_from_protected(&self) -> Option<String> {
+        let decoded = match data_encoding::BASE64URL_NOPAD.decode(self.protected.as_bytes()) {
+            Ok(d) => d,
+            Err(_) => return None,
+        };
+
+        let decoded_str = match String::from_utf8(decoded) {
+            Ok(s) => s,
+            Err(_) => return None,
+        };
+
+        let parsed: serde_json::Value = match serde_json::from_str(&decoded_str) {
+            Ok(v) => v,
+            Err(_) => return None,
+        };
+
+        parsed["kid"].as_str().map(|s| s.to_string())
     }
 
-    pub fn find_sender(&self) -> Result<String, FindSenderError> {
+    pub fn find_sender(&self) -> Result<Did, FindSenderError> {
         let protected = &self.protected;
 
         let decoded = BASE64URL_NOPAD.decode(protected.as_bytes())?;
@@ -68,7 +101,7 @@ impl DidCommMessage {
             .ok_or(FindSenderError::Skid)?
             .to_string();
 
-        Ok(from_did)
+        Ok(Did::from_str(&from_did)?)
     }
 }
 
@@ -85,7 +118,7 @@ mod tests {
     fn extract_from_did() {
         let message: DidCommMessage = serde_json::from_str(MESSAGE).unwrap();
         let result = message.find_sender().unwrap();
-        assert_eq!(&result, FROM_DID);
+        assert_eq!(&*result, FROM_DID);
     }
 
     #[test]

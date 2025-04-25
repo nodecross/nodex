@@ -1,8 +1,10 @@
+pub mod cbor;
 pub mod did;
 pub mod did_webvh;
 pub mod didcomm;
 pub mod keyring;
 pub mod verifiable_credentials;
+pub use ed25519_dalek;
 pub use http;
 pub use k256;
 pub use rand_core;

@@ -194,7 +194,15 @@ fn verify_proof_created(created: &str) -> Result<(), ValidationError> {
 
 fn convert_uri(uri: &str) -> String {
     // if uri contains a port, slash, replace colon with a '%3A', slash with a colon,
-    uri.replace(":", "%3A").replace("/", ":")
+    // and then, if contains a http or https, remove it
+    // if contains a *.jsonl, etc file name, remove it. like a domain.com:8080/test.jsonl, remove
+    // /test.jsonl
+    uri.replace("/did.jsonl", "")
+        .replace("/did.json", "")
+        .replace("http://", "")
+        .replace("https://", "")
+        .replace(":", "%3A")
+        .replace("/", ":")
 }
 
 impl DidLogEntry {
@@ -243,18 +251,28 @@ impl DidLogEntry {
 
     // create a new DIDLogEntry from current entry.
     pub fn generate_next_log_entry(&self) -> Result<Self, DidLogEntryError> {
-        let (_, current_entry_hash) = self.parse_verion_id()?;
+        let (_, current_entry_hash) = self.parse_version_id()?;
         let version_time = chrono::Utc::now().to_rfc3339();
         Ok(Self {
             version_id: current_entry_hash,
             version_time,
-            parameters: self.parameters.clone(),
+            // Only overwrite the information to be updated, so the initial value is None
+            parameters: Parameters {
+                portable: None,
+                update_keys: None,
+                next_key_hashes: None,
+                method: None,
+                scid: None,
+                deactivate: None,
+                witness: None,
+                ttl: None,
+            },
             state: self.state.clone(),
             proof: None,
         })
     }
 
-    pub fn parse_verion_id(&self) -> Result<(u32, String), DidLogEntryError> {
+    pub fn parse_version_id(&self) -> Result<(u32, String), DidLogEntryError> {
         let parts: Vec<&str> = self.version_id.split('-').collect();
         if parts.len() != 2 {
             return Err(DidLogEntryError::InvalidVersionId);
@@ -268,7 +286,7 @@ impl DidLogEntry {
 
     pub fn replace_placeholder_to_id(&mut self, scid: &str) -> Result<(), DidLogEntryError> {
         self.parameters.scid = Some(scid.to_string());
-        self.version_id = format!("1-{}", scid);
+        self.version_id = scid.to_string();
         let did = DidWebvh::try_from(self.state.id.clone())
             .map_err(|_| DidLogEntryError::InvalidState)?
             .replace_scid(scid);
@@ -277,7 +295,10 @@ impl DidLogEntry {
             for verification_method in verification_methods.iter_mut() {
                 // id is did#key format, so only need to replace the did part
                 verification_method.id = verification_method.id.replace(DIDWEBVH_PLACEHOLDER, scid);
-                verification_method.controller = did.get_did().clone();
+                let controller = DidWebvh::try_from(verification_method.controller.clone());
+                if let Ok(did) = controller {
+                    verification_method.controller = did.replace_scid(scid).into();
+                }
             }
         }
 
@@ -289,9 +310,30 @@ impl DidLogEntry {
         entry.parameters.scid = Some(DIDWEBVH_PLACEHOLDER.to_string());
         entry.version_id = DIDWEBVH_PLACEHOLDER.to_string();
         let did = DidWebvh::try_from(entry.state.id.clone())
-            .map_err(|_| DidLogEntryError::InvalidState)?
-            .replace_scid(DIDWEBVH_PLACEHOLDER);
-        entry.state.id = did.into();
+            .map_err(|_| DidLogEntryError::InvalidState)?;
+        entry.state.id = did.replace_scid(DIDWEBVH_PLACEHOLDER).into();
+        if let Some(verification_methods) = entry.state.verification_method.as_mut() {
+            for verification_method in verification_methods.iter_mut() {
+                // id is did:method_name:scid:doamin#key format, so only need to replace the scid part
+                let parts = verification_method.id.split('#').collect::<Vec<&str>>();
+                let id = parts[0].parse::<DidWebvh>();
+                if let Ok(did) = id {
+                    verification_method.id = format!(
+                        "{}#{}",
+                        did.replace_scid(DIDWEBVH_PLACEHOLDER)
+                            .get_did()
+                            .clone()
+                            .into_inner(),
+                        parts[1]
+                    );
+                }
+                let controller = DidWebvh::try_from(verification_method.controller.clone());
+                if controller.is_ok() {
+                    let did = controller.unwrap();
+                    verification_method.controller = did.replace_scid(DIDWEBVH_PLACEHOLDER).into();
+                }
+            }
+        }
         Ok(entry)
     }
 
@@ -347,6 +389,18 @@ impl DidLogEntry {
             .collect::<Result<Vec<String>, DidLogEntryError>>()?;
         Ok(next_key_hashes)
     }
+
+    pub fn remove_proof(&self) -> DidLogEntry {
+        let mut entry = self.clone();
+        entry.proof = None;
+        entry
+    }
+
+    pub fn deactivate(&self) -> DidLogEntry {
+        let mut entry = self.clone();
+        entry.parameters.deactivate = Some(true);
+        entry
+    }
 }
 
 #[cfg(test)]
@@ -400,7 +454,7 @@ mod tests {
     fn test_log_entry_properties() {
         let entry: DidLogEntry = serde_json::from_str(JSON).unwrap();
 
-        let (version_number, hash) = entry.parse_verion_id().unwrap();
+        let (version_number, hash) = entry.parse_version_id().unwrap();
         assert_eq!(version_number, 1);
         assert_eq!(hash, "QmRD52wqs942kZ2gs7UU9QmaopvqnMziqB4qgFDYsapCT9");
 
@@ -459,5 +513,13 @@ mod tests {
         let url = "example.com/test";
         let converted = convert_uri(url);
         assert_eq!(converted, "example.com:test");
+
+        let url = "http://example.com:8080/test/did.jsonl";
+        let converted = convert_uri(url);
+        assert_eq!(converted, "example.com%3A8080:test");
+
+        let url = "https://example.com:8080/test/did.json";
+        let converted = convert_uri(url);
+        assert_eq!(converted, "example.com%3A8080:test");
     }
 }

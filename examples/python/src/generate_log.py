@@ -1,20 +1,17 @@
-import json
+import time
 from platform_os import is_windows
-
 
 if is_windows():
     from request import post
 else:
     from sock import post
 
-
-payload = {
-    "message": {
-        "binary_url": "https://example.com/nodex-agent-1.0.0.zip",
-    }
+log = {
+    "message": "test-message",
+    "occurred_at": int(time.time() * 1000),
 }
 
-json_response = post("/internal/version/update", payload)
+json_response = post("/logs", log)
 
 print("The response is as follows.\n")
 print(json_response)

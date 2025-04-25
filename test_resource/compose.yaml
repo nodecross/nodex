@@ -1,41 +1,22 @@
-version: "3.9"
-
 services:
-  sidetree_prism:
-    image: stoplight/prism:5.8.1
-    platform: linux/amd64
-    volumes:
-      - ./did_sidetree.yaml:/tmp/api.yaml:ro
+  mock_studio:
+    build:
+      context: ./mock_studio
+      dockerfile: Dockerfile
     ports:
-      - "4010:4010"
+      - "8020:8020"
+    environment:
+      RUST_LOG: debug
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:4010/health || exit 1"]
-      interval: 5s
-      timeout: 30s
-      retries: 5
-      start_period: 10s
-    entrypoint: ["/bin/sh", "-c", "apk add --no-cache curl && chmod +x /usr/local/bin/prism && prism mock -h 0.0.0.0 /tmp/api.yaml"]
-
-  studio_prism:
-    image: stoplight/prism:5.8.1
-    platform: linux/amd64
-    volumes:
-      - ./studio.yaml:/tmp/api.yaml:ro
-    ports:
-      - "8020:4010"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:4010/health || exit 1"]
-      interval: 5s
-      timeout: 30s
-      retries: 5
-      start_period: 10s
-    entrypoint: ["/bin/sh", "-c", "apk add --no-cache curl && chmod +x /usr/local/bin/prism && prism mock -h 0.0.0.0 /tmp/api.yaml"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8020/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   systemd_test:
     depends_on:
-      sidetree_prism:
-        condition: service_healthy
-      studio_prism:
+      mock_studio:
         condition: service_healthy
     build:
       context: .
@@ -49,11 +30,9 @@ services:
 
   e2e_agent:
     depends_on:
-      sidetree_prism:
+      mock_studio:
         condition: service_healthy
-      studio_prism:
-        condition: service_healthy
-    image: ubuntu:20.04
+    image: ubuntu:22.04
     platform: linux/amd64
     volumes:
       - ./config:/root/.config/nodex/
@@ -61,20 +40,18 @@ services:
       - ./nodex-agent:/tmp/nodex-agent
     command: /tmp/nodex-agent controller
     environment:
-      NODEX_DID_HTTP_ENDPOINT: http://sidetree_prism:4010
+      NODEX_DID_HTTP_ENDPOINT: http://mock_studio:8020
       NODEX_DID_ATTACHMENT_LINK: http://sidetree_prism:4010
-      NODEX_STUDIO_HTTP_ENDPOINT: http://studio_prism:4010
+      NODEX_STUDIO_HTTP_ENDPOINT: http://mock_studio:8020
       RUST_BACKTRACE: 1
     profiles:
       - e2e
 
   e2e_runner:
     depends_on:
-      sidetree_prism:
+      mock_studio:
         condition: service_healthy
-      studio_prism:
-        condition: service_healthy
-    image: rust:slim-buster
+    image: rust:latest
     platform: linux/amd64
     volumes:
       - ./config:/root/.config/nodex/
@@ -82,9 +59,9 @@ services:
       - ../:/tmp
     working_dir: /tmp/e2e
     environment:
-      NODEX_DID_HTTP_ENDPOINT: http://sidetree_prism:4010
+      NODEX_DID_HTTP_ENDPOINT: http://mock_studio:8020
       NODEX_DID_ATTACHMENT_LINK: http://sidetree_prism:4010
-      NODEX_STUDIO_HTTP_ENDPOINT: http://studio_prism:4010
+      NODEX_STUDIO_HTTP_ENDPOINT: http://mock_studio:8020
       RUST_BACKTRACE: 1
     profiles:
       - e2e

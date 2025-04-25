@@ -1,18 +1,46 @@
-use super::super::service_impl::DidWebvhServiceImpl;
 use crate::did_webvh::domain::crypto::crypto_utils::multibase_encode;
-use crate::did_webvh::domain::did_document::{DidDocument, VerificationMethod};
+use crate::did_webvh::domain::did::DidWebvh;
+use crate::did_webvh::domain::did_document::DidDocument;
 use crate::did_webvh::domain::did_log_entry::DidLogEntry;
 use crate::did_webvh::infra::did_webvh_data_store::DidWebvhDataStore;
-use crate::keyring::{
-    jwk::Jwk,
-    keypair::{KeyPair, KeyPairing},
+use crate::did_webvh::service::resolver::resolver_service::{
+    verify_entries, ResolveIdentifierError,
 };
-
-use std::convert::TryInto;
+use crate::did_webvh::service::service_impl::DidWebvhServiceImpl;
+use crate::keyring::keypair::{KeyPair, KeyPairing};
+use crate::rand_core::OsRng;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum DidWebvhIdentifierError<StudioClientError: std::error::Error> {
+pub enum GenerateIdentifierError {
+    #[error("Failed to get public key: {0}")]
+    PublicKey(#[from] crate::keyring::jwk::K256ToJwkError),
+    #[error("Failed to generate hash: {0}")]
+    CreateLogEntry(#[from] crate::did_webvh::domain::did_log_entry::DidLogEntryError),
+}
+
+#[derive(Debug, Error)]
+pub enum UpdateIdentifierError {
+    #[error("No entries found")]
+    NoEntries,
+    #[error("Invalid Prerotation Keys")]
+    PrerotationKeys,
+    #[error("Invalid DId Method")]
+    ConvertDidMethod(#[from] crate::did_webvh::domain::did::DidWebvhError),
+    #[error("Failed to verify log entry: {0}")]
+    LogEntry(#[from] crate::did_webvh::domain::did_log_entry::DidLogEntryError),
+    #[error("Failed to convert key to verification method: {0}")]
+    PublicKey(#[from] crate::keyring::jwk::K256ToJwkError),
+}
+
+#[derive(Debug, Error)]
+pub enum DidWebvhControllerError<StudioClientError: std::error::Error> {
+    #[error("Failed to create identifier: {0}")]
+    GenerateIdentifier(#[from] GenerateIdentifierError),
+    #[error("Failed to update identifier: {0}")]
+    UpdateIdentifier(#[from] UpdateIdentifierError),
+    #[error("Failed to resolve identifier: {0}")]
+    ResolveIdentifier(#[from] ResolveIdentifierError),
     #[error("Failed to convert to JWK: {0}")]
     Jwk(#[from] crate::keyring::jwk::K256ToJwkError),
     #[error("Failed to parse body: {0}")]
@@ -31,23 +59,188 @@ pub enum DidWebvhIdentifierError<StudioClientError: std::error::Error> {
 
 #[trait_variant::make(Send)]
 pub trait DidWebvhControllerService: Sync {
-    type DidWebvhIdentifierError: std::error::Error + Send + Sync;
+    type DidWebvhControllerError: std::error::Error + Send + Sync;
     async fn create_identifier(
-        &self,
+        &mut self,
         path: &str,
         enable_prerotation: bool,
         keyring: KeyPairing,
-    ) -> Result<DidDocument, Self::DidWebvhIdentifierError>;
+    ) -> Result<DidDocument, Self::DidWebvhControllerError>;
     async fn update_identifier(
-        &self,
-        path: &str,
-        keyring: KeyPairing,
-    ) -> Result<DidDocument, Self::DidWebvhIdentifierError>;
+        &mut self,
+        did: &DidWebvh,
+        enable_prerotation: bool,
+        keyring: &mut KeyPairing,
+    ) -> Result<DidDocument, Self::DidWebvhControllerError>;
     async fn deactivate_identifier(
-        &self,
-        path: &str,
-        keyring: KeyPairing,
-    ) -> Result<DidDocument, Self::DidWebvhIdentifierError>;
+        &mut self,
+        did: &DidWebvh,
+        keyring: &mut KeyPairing,
+    ) -> Result<DidDocument, Self::DidWebvhControllerError>;
+}
+
+pub fn generate_log_entry(
+    path: &str,
+    enable_prerotation: bool,
+    keyring: KeyPairing,
+) -> Result<Vec<DidLogEntry>, GenerateIdentifierError> {
+    let mut log_entry = DidLogEntry::new(path)?;
+    let vms = keyring
+        .to_verification_methods(&log_entry.state.id)
+        .map_err(GenerateIdentifierError::PublicKey)?;
+
+    let update_keypair = keyring.didwebvh_update;
+    let update_sec_key = update_keypair.get_secret_key().to_bytes();
+    let update_pub_key = multibase_encode(&update_keypair.get_public_key().to_bytes());
+    let update_keys = vec![update_pub_key.clone()];
+    log_entry.parameters.update_keys = Some(update_keys);
+
+    // if prerotation is enabled, add the prerotation key to the next_key_hashes
+    if enable_prerotation {
+        let prerotation_pub_key =
+            multibase_encode(&keyring.didwebvh_recovery.get_public_key().to_bytes());
+        let prerotation_keys = vec![prerotation_pub_key];
+        let next_key_hases = log_entry.calc_next_key_hash(&prerotation_keys)?;
+        log_entry.parameters.next_key_hashes = Some(next_key_hases);
+    }
+
+    for vm in vms {
+        log_entry.state.add_verification_method(vm);
+    }
+
+    let scid = log_entry.calc_entry_hash()?;
+    log_entry.replace_placeholder_to_id(&scid)?;
+    let first_entry_hash = log_entry.calc_entry_hash()?;
+    log_entry.version_id = format!("1-{}", first_entry_hash);
+
+    log_entry.generate_proof(&update_sec_key, &update_pub_key)?;
+
+    Ok(vec![log_entry])
+}
+
+pub fn append_new_entry(
+    log_entries: &[DidLogEntry],
+    enable_prerotation: bool,
+    keyring: &mut KeyPairing,
+) -> Result<Vec<DidLogEntry>, UpdateIdentifierError> {
+    let latest_entry = if log_entries.is_empty() {
+        return Err(UpdateIdentifierError::NoEntries);
+    } else {
+        log_entries.last().unwrap().clone()
+    };
+    let (previous_id, _) = latest_entry.parse_version_id()?;
+
+    // Generate a new log entry based on the existing log entries
+    // TODO: If we need to consider updates that change the URL (domain) included in the DID, this part will need to be modified
+    // The current implementation assumes that the DID itself included in the existing log entry will not change
+    let mut new_entry = latest_entry.generate_next_log_entry()?;
+
+    let rotated_keying = keyring.rotate_keypair(OsRng);
+    let update_keypair = rotated_keying.didwebvh_update.clone();
+    let update_sec_key = update_keypair.get_secret_key().to_bytes();
+    let update_pub_key = multibase_encode(&update_keypair.get_public_key().to_bytes());
+
+    let update_keys = vec![update_pub_key.clone()];
+
+    // verify prerotaion_keys, if next_key_hashes exists in previous log entry,
+    // compare with calculated next_key_hashes from update_keys of current log entry.
+    if let Some(mut previous_next_key_hashes) = latest_entry.parameters.next_key_hashes {
+        // compare calculated_prerotation_keys and next_key_hashes
+        let mut calc_key_hash_from_current_update_key =
+            new_entry.calc_next_key_hash(&update_keys)?;
+        calc_key_hash_from_current_update_key.sort();
+        previous_next_key_hashes.sort();
+        if calc_key_hash_from_current_update_key != previous_next_key_hashes {
+            return Err(UpdateIdentifierError::PrerotationKeys);
+        }
+    }
+
+    new_entry.parameters.update_keys = Some(update_keys);
+
+    if enable_prerotation {
+        let next_keypair = rotated_keying.didwebvh_recovery.clone();
+        let prerotation_pub_key = multibase_encode(&next_keypair.get_public_key().to_bytes());
+        let prerotation_keys = vec![prerotation_pub_key];
+        let next_key_hases = new_entry.calc_next_key_hash(&prerotation_keys)?;
+        new_entry.parameters.next_key_hashes = Some(next_key_hases);
+    }
+    let vms = &rotated_keying.to_verification_methods(&latest_entry.state.id)?;
+    new_entry.state.verification_method = None;
+    for vm in vms {
+        new_entry.state.add_verification_method(vm.clone());
+    }
+
+    let entry_hash = new_entry.calc_entry_hash()?;
+    let current_id = previous_id + 1;
+    new_entry.version_id = format!("{}-{}", current_id, entry_hash);
+
+    new_entry.generate_proof(&update_sec_key, &update_pub_key)?;
+
+    let mut new_log_entries = log_entries.to_owned();
+    new_log_entries.push(new_entry);
+
+    Ok(new_log_entries)
+}
+
+pub fn append_deactivation_entry(
+    log_entries: &[DidLogEntry],
+    keyring: &mut KeyPairing,
+) -> Result<Vec<DidLogEntry>, UpdateIdentifierError> {
+    let latest_entry = if log_entries.is_empty() {
+        return Err(UpdateIdentifierError::NoEntries);
+    } else {
+        log_entries.last().unwrap().clone()
+    };
+    let (previous_id, _) = latest_entry.parse_version_id()?;
+
+    // Generate a new log entry based on the existing log entries
+    // TODO: If we need to consider updates that change the URL (domain) included in the DID, this part will need to be modified
+    // The current implementation assumes that the DID itself included in the existing log entry will not change
+    let mut new_entry = latest_entry.generate_next_log_entry()?;
+
+    let rotated_keying = keyring.rotate_keypair(OsRng);
+    let update_keypair = rotated_keying.didwebvh_update.clone();
+    let update_sec_key = update_keypair.get_secret_key().to_bytes();
+    let update_pub_key = multibase_encode(&update_keypair.get_public_key().to_bytes());
+
+    let update_keys = vec![update_pub_key.clone()];
+
+    // verify prerotaion_keys, if next_key_hashes exists in previous log entry,
+    // compare with calculated next_key_hashes from update_keys of current log entry.
+    if let Some(mut previous_next_key_hashes) = latest_entry.parameters.next_key_hashes {
+        // compare calculated_prerotation_keys and next_key_hashes
+        let mut calc_key_hash_from_current_update_key =
+            new_entry.calc_next_key_hash(&update_keys)?;
+        calc_key_hash_from_current_update_key.sort();
+        previous_next_key_hashes.sort();
+        if calc_key_hash_from_current_update_key != previous_next_key_hashes {
+            return Err(UpdateIdentifierError::PrerotationKeys);
+        }
+    }
+
+    // Do not add update_keys to the deactivation entry
+    new_entry.parameters.update_keys = None;
+    // Similarly, do not add next key hashes to the deactivation entry
+    new_entry.parameters.next_key_hashes = None;
+
+    let mut deactivate_entry = new_entry.deactivate();
+    let vms = &rotated_keying.to_verification_methods(&deactivate_entry.state.id)?;
+    deactivate_entry.state.verification_method = None;
+    for vm in vms {
+        deactivate_entry.state.add_verification_method(vm.clone());
+    }
+    deactivate_entry.state = deactivate_entry.state.deactivate();
+
+    let entry_hash = deactivate_entry.calc_entry_hash()?;
+    let current_id = previous_id + 1;
+    deactivate_entry.version_id = format!("{}-{}", current_id, entry_hash);
+
+    deactivate_entry.generate_proof(&update_sec_key, &update_pub_key)?;
+
+    let mut new_log_entries = log_entries.to_owned();
+    new_log_entries.push(deactivate_entry);
+
+    Ok(new_log_entries)
 }
 
 impl<C> DidWebvhControllerService for DidWebvhServiceImpl<C>
@@ -55,100 +248,69 @@ where
     C: DidWebvhDataStore + Send + Sync,
     C::Error: Send + Sync,
 {
-    type DidWebvhIdentifierError = DidWebvhIdentifierError<C::Error>;
+    type DidWebvhControllerError = DidWebvhControllerError<C::Error>;
 
     async fn create_identifier(
-        &self,
+        &mut self,
         path: &str,
         enable_prerotation: bool,
         keyring: KeyPairing,
-    ) -> Result<DidDocument, Self::DidWebvhIdentifierError> {
-        let sign_key_jwk: Jwk = keyring.sign.get_public_key().try_into().map_err(|_| {
-            DidWebvhIdentifierError::Jwk(crate::keyring::jwk::K256ToJwkError::PointsInvalid)
-        })?;
-        let encrypt_key_jwk: Jwk =
-            <x25519_dalek::PublicKey as Into<Jwk>>::into(keyring.encrypt.get_public_key());
-
-        let mut log_entry = DidLogEntry::new(path)?;
-        let update_keypair = keyring.update;
-        let update_sec_key = update_keypair.get_secret_key().to_bytes();
-        let update_pub_key = multibase_encode(&update_keypair.get_public_key().to_sec1_bytes());
-        let update_keys = vec![update_pub_key.clone()];
-        log_entry.parameters.update_keys = Some(update_keys);
-
-        // if prerotation is enabled, add the prerotation key to the next_key_hashes
-        if enable_prerotation {
-            let prerotation_pub_key =
-                multibase_encode(&keyring.recovery.get_public_key().to_sec1_bytes());
-            let prerotation_keys = vec![prerotation_pub_key];
-            let next_key_hases = log_entry.calc_next_key_hash(&prerotation_keys)?;
-            log_entry.parameters.next_key_hashes = Some(next_key_hases);
-        }
-
-        let sign_verification_method = VerificationMethod {
-            id: format!("{}#{}", log_entry.state.id, "signingKey"),
-            r#type: "EcdsaSecp256k1VerificationKey2019".to_string(),
-            controller: log_entry.state.id.clone(),
-            public_key_jwk: Some(sign_key_jwk),
-            blockchain_account_id: None,
-            public_key_multibase: None,
-        };
-        log_entry
-            .state
-            .add_verification_method(sign_verification_method);
-
-        let encrypt_verification_method = VerificationMethod {
-            id: format!("{}#{}", log_entry.state.id, "encryptionKey"),
-            r#type: "X25519KeyAgreementKey2019".to_string(),
-            controller: log_entry.state.id.clone(),
-            public_key_jwk: Some(encrypt_key_jwk),
-            blockchain_account_id: None,
-            public_key_multibase: None,
-        };
-        log_entry
-            .state
-            .add_verification_method(encrypt_verification_method);
-
-        let scid = log_entry.calc_entry_hash()?;
-        log_entry.replace_placeholder_to_id(&scid)?;
-
-        log_entry.generate_proof(&update_sec_key, &update_pub_key)?;
-
-        // convert log entry to jsonl file format
-        let entry = serde_json::to_string(&log_entry)?
-            .replace("\n", "")
-            .replace(" ", "");
-
-        let body = format!("{}\n", entry);
-
+    ) -> Result<DidDocument, Self::DidWebvhControllerError> {
+        let entries = generate_log_entry(path, enable_prerotation, keyring)?;
         let response = self
             .data_store
-            .post(path, &body)
+            .create(path, &entries)
             .await
-            .map_err(|e| DidWebvhIdentifierError::DidWebvhRequestFailed(e.to_string()))?;
-        if response.status_code.is_success() {
-            let did_document: DidDocument = serde_json::from_str(&response.body)?;
-            Ok(did_document)
-        } else {
-            Err(DidWebvhIdentifierError::DidWebvhRequestFailed(
-                response.body,
-            ))
-        }
+            .map_err(|e| DidWebvhControllerError::DidWebvhRequestFailed(e.to_string()))?;
+        Ok(response)
     }
 
     async fn update_identifier(
-        &self,
-        _path: &str,
-        _keyring: KeyPairing,
-    ) -> Result<DidDocument, Self::DidWebvhIdentifierError> {
-        unimplemented!()
+        &mut self,
+        did: &DidWebvh,
+        enable_prerotation: bool,
+        keyring: &mut KeyPairing,
+    ) -> Result<DidDocument, Self::DidWebvhControllerError> {
+        let log_entries = self
+            .data_store
+            .get(did.get_uri())
+            .await
+            .map_err(|e| DidWebvhControllerError::DidWebvhRequestFailed(e.to_string()))?;
+        let _ = verify_entries(&log_entries)?;
+
+        let new_log_entries = append_new_entry(&log_entries, enable_prerotation, keyring)?;
+
+        let uri = did.get_uri();
+        let response = self
+            .data_store
+            .update(uri, &new_log_entries)
+            .await
+            .map_err(|e| DidWebvhControllerError::DidWebvhRequestFailed(e.to_string()))?;
+
+        Ok(response)
     }
 
     async fn deactivate_identifier(
-        &self,
-        _path: &str,
-        _keyring: KeyPairing,
-    ) -> Result<DidDocument, Self::DidWebvhIdentifierError> {
-        unimplemented!()
+        &mut self,
+        did: &DidWebvh,
+        keyring: &mut KeyPairing,
+    ) -> Result<DidDocument, Self::DidWebvhControllerError> {
+        let log_entries = self
+            .data_store
+            .get(did.get_uri())
+            .await
+            .map_err(|e| DidWebvhControllerError::DidWebvhRequestFailed(e.to_string()))?;
+        let _ = verify_entries(&log_entries)?;
+
+        let deactivate_log_entries = append_deactivation_entry(&log_entries, keyring)?;
+
+        let uri = did.get_uri();
+        let response = self
+            .data_store
+            .deactivate(uri, &deactivate_log_entries)
+            .await
+            .map_err(|e| DidWebvhControllerError::DidWebvhRequestFailed(e.to_string()))?;
+
+        Ok(response)
     }
 }

@@ -19,7 +19,7 @@ const messageJson = {
         },
         iv: "RpaVklPAfk4GXdowdx1uebLTUWxB2mOq",
         key_ops: [],
-        kid: "did:nodex:test:DummyDummyDummyDummyDummyDummyDummyDummyDummyD",
+        kid: "did:webvh:DummyDummyDummyDummyDummyDummyDummyDummyDummyD",
         tag: "qtDLeiqWsmx2W-J1RFrRmg",
       },
     },

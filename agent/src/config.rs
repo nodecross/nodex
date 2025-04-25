@@ -1,6 +1,6 @@
 use home_config::HomeConfig;
 use protocol::keyring::keypair::{
-    K256KeyPair, KeyPair, KeyPairHex, KeyPairing, KeyPairingError, X25519KeyPair,
+    Ed25519KeyPair, K256KeyPair, KeyPair, KeyPairHex, KeyPairing, KeyPairingError, X25519KeyPair,
 };
 use serde::Deserialize;
 use serde::Serialize;
@@ -14,15 +14,20 @@ use std::{
 };
 use std::{fs::OpenOptions, sync::MutexGuard};
 use thiserror::Error;
+use url::Url;
 
 use crate::nodex::utils::UnwrapLog;
 
 #[derive(Clone, Deserialize, Serialize)]
 struct KeyPairsConfig {
     sign: Option<KeyPairHex>,
+    encrypt: Option<KeyPairHex>,
+    sign_time_series: Option<KeyPairHex>,
     update: Option<KeyPairHex>,
     recovery: Option<KeyPairHex>,
-    encrypt: Option<KeyPairHex>,
+
+    didwebvh_update: Option<KeyPairHex>,
+    didwebvh_recovery: Option<KeyPairHex>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -78,9 +83,12 @@ impl Default for ConfigRoot {
             did: None,
             key_pairs: KeyPairsConfig {
                 sign: None,
+                sign_time_series: None,
                 update: None,
                 recovery: None,
                 encrypt: None,
+                didwebvh_update: None,
+                didwebvh_recovery: None,
             },
             extensions: ExtensionsConfig {
                 trng: None,
@@ -231,22 +239,27 @@ impl AppConfig {
         load_key_pair(&self.root.key_pairs.sign)
     }
 
-    pub fn load_keyring(&self) -> Option<KeyPairing> {
-        let sign = self.load_sign_key_pair()?;
-        let update = self.load_update_key_pair()?;
-        let recovery = self.load_recovery_key_pair()?;
-        let encrypt = self.load_encrypt_key_pair()?;
-        Some(KeyPairing {
-            sign,
-            update,
-            recovery,
-            encrypt,
-        })
+    pub fn load_sign_time_series_key_pair(&self) -> Option<Ed25519KeyPair> {
+        load_key_pair(&self.root.key_pairs.sign_time_series)
     }
 
-    pub fn save_sign_key_pair(&mut self, value: &K256KeyPair) {
-        self.root.key_pairs.sign = Some(value.to_hex_key_pair());
-        self.write().unwrap();
+    pub fn load_keyring(&self) -> Option<KeyPairing> {
+        let sign = self.load_sign_key_pair()?;
+        let encrypt = self.load_encrypt_key_pair()?;
+        let sign_time_series = self.load_sign_time_series_key_pair()?;
+        let update = self.load_update_key_pair()?;
+        let recovery = self.load_recovery_key_pair()?;
+        let didwebvh_update = self.load_didwebvh_update_key_pair()?;
+        let didwebvh_recovery = self.load_didwebvh_recovery_key_pair()?;
+        Some(KeyPairing {
+            sign,
+            encrypt,
+            sign_time_series,
+            update,
+            recovery,
+            didwebvh_update,
+            didwebvh_recovery,
+        })
     }
 
     pub fn load_update_key_pair(&self) -> Option<K256KeyPair> {
@@ -255,7 +268,9 @@ impl AppConfig {
 
     pub fn save_update_key_pair(&mut self, value: &K256KeyPair) {
         self.root.key_pairs.update = Some(value.to_hex_key_pair());
-        self.write().unwrap();
+        self.write()
+            .map_err(|e| log::error!("{:?}", e))
+            .expect("failed to save update key pair");
     }
 
     pub fn load_recovery_key_pair(&self) -> Option<K256KeyPair> {
@@ -264,7 +279,45 @@ impl AppConfig {
 
     pub fn save_recovery_key_pair(&mut self, value: &K256KeyPair) {
         self.root.key_pairs.recovery = Some(value.to_hex_key_pair());
-        self.write().unwrap();
+        self.write()
+            .map_err(|e| log::error!("{:?}", e))
+            .expect("failed to save recovery key pair");
+    }
+
+    pub fn save_sign_key_pair(&mut self, value: &K256KeyPair) {
+        self.root.key_pairs.sign = Some(value.to_hex_key_pair());
+        self.write()
+            .map_err(|e| log::error!("{:?}", e))
+            .expect("failed to save sign key pair");
+    }
+
+    pub fn save_sign_time_series_key_pair(&mut self, value: &Ed25519KeyPair) {
+        self.root.key_pairs.sign_time_series = Some(value.to_hex_key_pair());
+        self.write()
+            .map_err(|e| log::error!("{:?}", e))
+            .expect("failed to save sign time series key pair");
+    }
+
+    pub fn load_didwebvh_update_key_pair(&self) -> Option<Ed25519KeyPair> {
+        load_key_pair(&self.root.key_pairs.didwebvh_update)
+    }
+
+    pub fn save_didwebvh_update_key_pair(&mut self, value: &Ed25519KeyPair) {
+        self.root.key_pairs.didwebvh_update = Some(value.to_hex_key_pair());
+        self.write()
+            .map_err(|e| log::error!("{:?}", e))
+            .expect("failed to save didwebvh update key pair");
+    }
+
+    pub fn load_didwebvh_recovery_key_pair(&self) -> Option<Ed25519KeyPair> {
+        load_key_pair(&self.root.key_pairs.didwebvh_recovery)
+    }
+
+    pub fn save_didwebvh_recovery_key_pair(&mut self, value: &Ed25519KeyPair) {
+        self.root.key_pairs.didwebvh_recovery = Some(value.to_hex_key_pair());
+        self.write()
+            .map_err(|e| log::error!("{:?}", e))
+            .expect("failed to save didwebvh recovery key pair");
     }
 
     pub fn load_encrypt_key_pair(&self) -> Option<X25519KeyPair> {
@@ -273,7 +326,9 @@ impl AppConfig {
 
     pub fn save_encrypt_key_pair(&mut self, value: &X25519KeyPair) {
         self.root.key_pairs.encrypt = Some(value.to_hex_key_pair());
-        self.write().unwrap();
+        self.write()
+            .map_err(|e| log::error!("{:?}", e))
+            .expect("failed to save encrypt key pair");
     }
 
     pub fn get_did(&self) -> Option<String> {
@@ -282,7 +337,9 @@ impl AppConfig {
 
     pub fn save_did(&mut self, value: &str) {
         self.root.did = Some(value.to_string());
-        self.write().unwrap_log()
+        self.write()
+            .map_err(|e| log::error!("{:?}", e))
+            .expect("failed to save did");
     }
 
     pub fn get_didcomm_body_size(&self) -> usize {
@@ -327,46 +384,58 @@ impl AppConfig {
     }
 }
 
+#[derive(Debug, Error, Clone)]
+pub enum ServerConfigError {
+    #[error("failed to parse url: {0}")]
+    Parse(#[from] url::ParseError),
+}
+
 #[derive(Debug)]
 pub struct ServerConfig {
-    did_http_endpoint: String,
-    did_attachment_link: String,
-    studio_http_endpoint: String,
+    did_http_endpoint: Url,
+    did_attachment_link: Url,
+    studio_http_endpoint: Url,
 }
 
 impl Default for ServerConfig {
     fn default() -> Self {
-        Self::new()
+        Self::new().unwrap_log()
     }
 }
 
 impl ServerConfig {
-    pub fn new() -> ServerConfig {
-        let did_endpoint =
-            env::var("NODEX_DID_HTTP_ENDPOINT").unwrap_or("https://did.nodecross.io".to_string());
-        let link =
-            env::var("NODEX_DID_ATTACHMENT_LINK").unwrap_or("https://did.getnodex.io".to_string());
-        let studio_endpoint = env::var("NODEX_STUDIO_HTTP_ENDPOINT")
-            .unwrap_or("https://http.hub.nodecross.io".to_string());
+    pub fn new() -> Result<Self, ServerConfigError> {
+        let did_endpoint = Url::parse(
+            &env::var("NODEX_DID_HTTP_ENDPOINT").unwrap_or("https://did.nodecross.io".to_string()),
+        )?;
 
-        ServerConfig {
+        let link = Url::parse(
+            &env::var("NODEX_DID_ATTACHMENT_LINK").unwrap_or("https://did.getnodex.io".to_string()),
+        )?;
+
+        let studio_endpoint = Url::parse(
+            &env::var("NODEX_STUDIO_HTTP_ENDPOINT")
+                .unwrap_or("https://http.hub.nodecross.io".to_string()),
+        )?;
+
+        Ok(ServerConfig {
             did_http_endpoint: did_endpoint,
             did_attachment_link: link,
             studio_http_endpoint: studio_endpoint,
-        }
+        })
     }
-    pub fn did_http_endpoint(&self) -> String {
+    pub fn did_http_endpoint(&self) -> Url {
         self.did_http_endpoint.clone()
     }
-    pub fn did_attachment_link(&self) -> String {
+    pub fn did_attachment_link(&self) -> Url {
         self.did_attachment_link.clone()
     }
-    pub fn studio_http_endpoint(&self) -> String {
+    pub fn studio_http_endpoint(&self) -> Url {
         self.studio_http_endpoint.clone()
     }
 }
 
-pub fn server_config() -> ServerConfig {
+pub fn server_config() -> Result<ServerConfig, ServerConfigError> {
     ServerConfig::new()
 }
 

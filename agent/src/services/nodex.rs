@@ -1,15 +1,14 @@
 use crate::nodex::extension::secure_keystore::FileBaseKeyStore;
 use crate::nodex::keyring;
-use crate::nodex::utils::sidetree_client::SideTreeClient;
+use crate::nodex::utils::webvh_client::DidWebvhDataStoreImpl;
 use crate::{app_config, server_config};
 use anyhow;
-use controller::managers::{
-    resource::ResourceManagerTrait,
-    runtime::{RuntimeManagerImpl, RuntimeManagerWithoutAsync, State},
-};
-use controller::validator::storage::check_storage;
-use protocol::did::did_repository::{DidRepository, DidRepositoryImpl};
-use protocol::did::sidetree::payload::DidResolutionResponse;
+use protocol::did_webvh::domain::did::{Did, DidWebvh};
+use protocol::did_webvh::domain::did_document::DidDocument;
+use protocol::did_webvh::service::controller::controller_service::DidWebvhControllerService;
+use protocol::did_webvh::service::resolver::resolver_service::DidWebvhResolverService;
+use protocol::did_webvh::service::service_impl::DidWebvhServiceImpl;
+use std::str::FromStr;
 
 #[cfg(windows)]
 mod windows_imports {
@@ -20,24 +19,21 @@ mod windows_imports {
 use windows_imports::*;
 
 pub struct NodeX {
-    did_repository: DidRepositoryImpl<SideTreeClient>,
+    webvh: DidWebvhServiceImpl<DidWebvhDataStoreImpl>,
+    baseurl: url::Url,
 }
 
 impl NodeX {
     pub fn new() -> Self {
-        let server_config = server_config();
-        let sidetree_client = SideTreeClient::new(&server_config.did_http_endpoint()).unwrap();
-        let did_repository = DidRepositoryImpl::new(sidetree_client);
+        let server_config = server_config().expect("Failed to get server config");
+        let baseurl = server_config.did_http_endpoint();
+        let datastore = DidWebvhDataStoreImpl::new(baseurl.clone());
+        let webvh = DidWebvhServiceImpl::new(datastore);
 
-        NodeX { did_repository }
+        NodeX { webvh, baseurl }
     }
 
-    pub fn did_repository(&self) -> &DidRepositoryImpl<SideTreeClient> {
-        &self.did_repository
-    }
-
-    pub async fn create_identifier(&self) -> anyhow::Result<DidResolutionResponse> {
-        // NOTE: find did
+    pub async fn create_identifier(&mut self) -> anyhow::Result<DidDocument> {
         let config = app_config();
         let keystore = FileBaseKeyStore::new(config.clone());
         if let Some(did) =
@@ -45,70 +41,82 @@ impl NodeX {
                 .ok()
                 .and_then(|v| v.get_identifier().ok())
         {
-            if let Some(json) = self.find_identifier(&did).await? {
+            let did = Did::from_str(&did)?;
+            if let Some(json) = self.webvh.resolve_identifier(&did).await? {
                 return Ok(json);
             }
         }
 
         let mut keyring_with_config =
             keyring::keypair::KeyPairingWithConfig::create_keyring(config, keystore);
+        let id = uuid::Uuid::new_v4();
+
+        let host = self
+            .baseurl
+            .host_str()
+            .ok_or(anyhow::anyhow!("Failed to get host"))?;
+        let port = self.baseurl.port();
+        let base = match port {
+            Some(port) => &format!("{}:{}", host, port),
+            None => host,
+        };
+        let path = format!("{}/webvh/v1/{}", base, id);
+
         let res = self
-            .did_repository
-            .create_identifier(keyring_with_config.get_keyring())
+            .webvh
+            .create_identifier(&path, true, keyring_with_config.get_keyring())
             .await?;
-        keyring_with_config.save(&res.did_document.id);
+        keyring_with_config.save(&res.id);
 
         Ok(res)
     }
 
-    pub async fn find_identifier(
-        &self,
-        did: &str,
-    ) -> anyhow::Result<Option<DidResolutionResponse>> {
-        let res = self.did_repository.find_identifier(did).await?;
+    #[allow(dead_code)]
+    pub async fn rotate_identifier(&mut self) -> anyhow::Result<DidDocument> {
+        let config = app_config();
+        let keystore = FileBaseKeyStore::new(config.clone());
+
+        let did =
+            keyring::keypair::KeyPairingWithConfig::load_keyring(config.clone(), keystore.clone())
+                .ok()
+                .and_then(|v| v.get_identifier().ok())
+                .ok_or(anyhow::anyhow!("Failed to get identifier"))?;
+        let did = DidWebvh::from_str(&did)?;
+
+        let mut keyring_with_config =
+            keyring::keypair::KeyPairingWithConfig::create_keyring(config, keystore);
+        let mut keyring = keyring_with_config.get_keyring();
+
+        let res = self
+            .webvh
+            .update_identifier(&did, true, &mut keyring)
+            .await?;
+        keyring_with_config.update_keyring(keyring);
+        keyring_with_config.save(&res.id);
 
         Ok(res)
     }
 
-    pub async fn update_version(&self, binary_url: &str) -> anyhow::Result<()> {
-        #[cfg(windows)]
-        {
-            unimplemented!();
-        }
+    #[allow(dead_code)]
+    pub async fn revoke_identifier(&mut self) -> anyhow::Result<DidDocument> {
+        let config = app_config();
+        let keystore = FileBaseKeyStore::new(config.clone());
 
-        #[cfg(unix)]
-        {
-            let handler =
-                controller::managers::mmap_storage::MmapHandler::new("nodex_runtime_info")?;
-            let mut runtime_manager = RuntimeManagerImpl::new_by_agent(
-                handler,
-                controller::managers::unix_process_manager::UnixProcessManager,
-            );
-            let agent_path = &runtime_manager.get_runtime_info()?.exec_path;
-            let output_path = agent_path
-                .parent()
-                .ok_or(anyhow::anyhow!("Failed to get path of parent directory"))?;
-            if !check_storage(output_path) {
-                log::error!("Not enough storage space: {:?}", output_path);
-                anyhow::bail!("Not enough storage space");
-            }
-            let resource_manager =
-                controller::managers::resource::UnixResourceManager::new(agent_path);
+        let did =
+            keyring::keypair::KeyPairingWithConfig::load_keyring(config.clone(), keystore.clone())
+                .ok()
+                .and_then(|v| v.get_identifier().ok())
+                .ok_or(anyhow::anyhow!("Failed to get identifier"))?;
+        let did = DidWebvh::from_str(&did)?;
 
-            resource_manager.backup().map_err(|e| {
-                log::error!("Failed to backup: {}", e);
-                anyhow::anyhow!(e)
-            })?;
+        let mut keyring_with_config =
+            keyring::keypair::KeyPairingWithConfig::create_keyring(config, keystore);
+        let mut keyring = keyring_with_config.get_keyring();
 
-            resource_manager
-                .download_update_resources(binary_url, Some(output_path))
-                .await
-                .map_err(|e| anyhow::anyhow!(e))?;
+        let res = self.webvh.deactivate_identifier(&did, &mut keyring).await?;
+        keyring_with_config.update_keyring(keyring);
+        keyring_with_config.save(&res.id);
 
-            runtime_manager.launch_controller(agent_path)?;
-            runtime_manager.update_state(State::Update)?;
-        }
-
-        Ok(())
+        Ok(res)
     }
 }

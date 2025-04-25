@@ -1,3 +1,4 @@
+use chrono::serde::ts_milliseconds;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use std::{
@@ -13,6 +14,7 @@ pub struct Metric {
 
 #[derive(Debug, Serialize, Clone)]
 pub struct MetricsWithTimestamp {
+    #[serde(with = "ts_milliseconds")]
     pub timestamp: DateTime<Utc>,
     pub metrics: Vec<Metric>,
 }

@@ -197,14 +197,6 @@ pub fn make_router() -> Router {
             get(controllers::public::nodex_find_identifier::handler),
         )
         .route(
-            "/create-verifiable-message",
-            post(controllers::public::nodex_create_verifiable_message::handler),
-        )
-        .route(
-            "/verify-verifiable-message",
-            post(controllers::public::nodex_verify_verifiable_message::handler),
-        )
-        .route(
             "/create-didcomm-message",
             post(controllers::public::nodex_create_didcomm_message::handler),
         )
@@ -215,6 +207,7 @@ pub fn make_router() -> Router {
         )
         .layer(DefaultBodyLimit::max(body_limit))
         .route("/events", post(controllers::public::send_event::handler))
+        .route("/logs", post(controllers::public::send_log::handler))
         .route(
             "/custom-metrics",
             post(controllers::public::send_custom_metric::handler),
@@ -227,13 +220,5 @@ pub fn make_router() -> Router {
         .route(
             "/internal/version/get",
             get(controllers::internal::version::handler_get),
-        )
-        .route(
-            "/internal/version/update",
-            post(controllers::internal::version::handler_update),
-        )
-        .route(
-            "/internal/network",
-            post(controllers::internal::network::handler),
         )
 }
