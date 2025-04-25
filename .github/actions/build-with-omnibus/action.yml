@@ -33,12 +33,12 @@ runs:
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
         cache: ${{ inputs.use-cache }}
-        cache-key: ${{ inputs.target }}
+        cache-key: ${{ inputs.arch }}
         rustflags: "" # override default rustflags
 
     - name: add toolchain
       shell: bash
-      run: rustup target add ${{ inputs.target }}
+      run: rustup target add ${{ inputs.arch }}
 
     - name: (setup) sccache
       uses: mozilla-actions/sccache-action@v0.0.8
