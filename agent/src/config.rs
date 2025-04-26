@@ -406,7 +406,7 @@ impl Default for ServerConfig {
 impl ServerConfig {
     pub fn new() -> Result<Self, ServerConfigError> {
         let did_endpoint = Url::parse(
-            &env::var("NODEX_DID_HTTP_ENDPOINT").unwrap_or("https://did.nodecross.io".to_string()),
+            &env::var("NODEX_DID_HTTP_ENDPOINT").unwrap_or("https://nodecross.app".to_string()),
         )?;
 
         let link = Url::parse(
@@ -415,7 +415,7 @@ impl ServerConfig {
 
         let studio_endpoint = Url::parse(
             &env::var("NODEX_STUDIO_HTTP_ENDPOINT")
-                .unwrap_or("https://http.hub.nodecross.io".to_string()),
+                .unwrap_or("https://agent.nodecross.app".to_string()),
         )?;
 
         Ok(ServerConfig {
