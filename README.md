@@ -5,7 +5,6 @@
 <h2 align="center">
   NodeX - E2E Secure Messaging Platform<br />
   <a href="https://github.com/nodecross/nodex/actions/workflows/release.yml">
-    <img src="https://github.com/nodecross/nodex/actions/workflows/release.yml/badge.svg?branch=main" alt="Release Pipeline" />
   </a>
   <a href="https://github.com/semantic-release/semantic-release">
     <img src="https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release" alt="Semantic Release" />
