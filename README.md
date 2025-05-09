@@ -30,7 +30,7 @@ This repo where we develop libraries to be installed into your devices. It enabl
 ## Developer's Document
 
 - NodeX Official Website<br />
-  https://nodecross.inc
+  https://nodex.inc
 
 - NodeX Developers Portal<br />
   https://docs.nodex.inc/manual
