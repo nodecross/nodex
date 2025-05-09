@@ -15,7 +15,7 @@ NodeX is an open-source toolkit for building end-to-end secure messaging between
 
 This repo where we develop libraries to be installed into your devices. It enables device's IDs and keys management with root of trust (RoT), automated provisioning, mutual authentication, and end-to-end secure messaging across network boundary.
 
-[Explore NodeX Docs](https://docs.nodecross.io)
+[Explore NodeX Docs](https://docs.nodex.inc/manual)
 
 ## Features
 
@@ -30,10 +30,10 @@ This repo where we develop libraries to be installed into your devices. It enabl
 ## Developer's Document
 
 - NodeX Official Website<br />
-  https://nodecross.io
+  https://nodecross.inc
 
 - NodeX Developers Portal<br />
-  https://docs.nodecross.io
+  https://docs.nodex.inc/manual
 
 ## Contribution
 
