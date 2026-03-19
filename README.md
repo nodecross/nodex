@@ -48,4 +48,4 @@ First off, thank you for considering making contributions. It's people like you 
 
 ## License
 
-[Apache License 2.0](LICENSE)
+Proprietary
