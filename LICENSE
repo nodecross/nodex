@@ -1,0 +1,289 @@
+NodeX Agent Binary Software License Agreement
+
+Copyright (C) 2026 NodeX, Inc. All rights reserved.
+
+IMPORTANT - READ CAREFULLY. This is a proprietary license. It is NOT an open
+source license and it is NOT a free software license. The software in binary
+form made available in this repository (the "Software") is licensed, not sold,
+and may be used ONLY by parties that have entered into a separate written
+license agreement with NodeX, Inc. ("NodeX") covering the Software. If you have
+not entered into such an agreement, you are granted no rights of any kind in the
+Software, and you must not download, install, execute, copy, or otherwise use
+it. Downloading or possessing a copy of the Software does not by itself grant
+any license.
+
+By downloading, installing, copying, executing, or otherwise using the Software,
+you accept and agree to be bound by this Agreement. If you do not agree, do not
+use the Software.
+
+--------------------------------------------------------------------------------
+1. DEFINITIONS
+--------------------------------------------------------------------------------
+
+1.1 "Agreement" means this NodeX Agent Binary Software License Agreement.
+
+1.2 "Software" means the software in object code (binary) form made available by
+    NodeX in this repository, including any accompanying files, configuration
+    data, sample files, and documentation, and any updates, upgrades, patches,
+    or new versions of the foregoing that NodeX makes available under this
+    Agreement. The Software does not include Third-Party Components as defined
+    in Section 6.
+
+1.3 "Separate Agreement" means a written license, subscription, evaluation,
+    proof-of-concept, distribution, or other agreement executed between NodeX
+    and a party that expressly covers the Software.
+
+1.4 "Licensee" means the legal entity that has entered into a Separate Agreement
+    and is thereby authorized to use the Software, together with its employees
+    and contractors acting within the scope of that Separate Agreement.
+
+1.5 "Permitted Use" means the use of the Software expressly authorized by the
+    Separate Agreement, including any limits it imposes on purpose, environment,
+    number of instances, nodes, devices, users, sites, term, or territory.
+
+--------------------------------------------------------------------------------
+2. LICENSE GRANT
+--------------------------------------------------------------------------------
+
+2.1 Grant. Subject to Licensee's continuing compliance with this Agreement and
+    the Separate Agreement, NodeX grants Licensee a limited, non-exclusive,
+    non-transferable, non-sublicensable, revocable license, for the term of the
+    Separate Agreement, to install and execute the Software in object code form
+    solely for the Permitted Use, and to make a reasonable number of copies
+    solely for backup and archival purposes.
+
+2.2 No Other Rights. All rights not expressly granted in Section 2.1 are
+    reserved by NodeX. No license is granted by implication, estoppel, or
+    otherwise. No rights are granted to any source code of the Software.
+
+2.3 No License Without a Separate Agreement. A party that has not entered into a
+    Separate Agreement receives no license whatsoever, including no license to
+    download, install, execute, evaluate, benchmark, or copy the Software.
+
+2.4 Conflicts. If any term of the Separate Agreement conflicts with this
+    Agreement, the Separate Agreement governs with respect to that conflict for
+    the parties to it.
+
+--------------------------------------------------------------------------------
+3. RESTRICTIONS
+--------------------------------------------------------------------------------
+
+Except to the extent expressly permitted by the Separate Agreement or by
+mandatory applicable law that cannot lawfully be excluded by agreement, Licensee
+shall not, and shall not permit or assist any third party to:
+
+ (a) distribute, redistribute, publish, transmit, lease, rent, lend, sell,
+     resell, assign, or otherwise transfer or make the Software available to any
+     third party, whether or not for a fee;
+
+ (b) sublicense the Software, or provide the Software or its functionality to
+     third parties by way of service bureau, hosting, managed service,
+     time-sharing, software-as-a-service, or any similar arrangement;
+
+ (c) modify, adapt, translate, or create derivative works of the Software, or
+     merge or incorporate it into other software;
+
+ (d) reverse engineer, decompile, disassemble, or otherwise attempt to derive
+     the source code, algorithms, protocols, file formats, or underlying
+     structure, ideas, or organization of the Software;
+
+ (e) circumvent, disable, or interfere with any licensing, security,
+     authentication, telemetry, usage-measurement, or copy-protection mechanism
+     of the Software;
+
+ (f) perform, publish, or disclose any benchmark, performance test, security
+     test, penetration test, vulnerability scan, or comparative analysis of the
+     Software, without NodeX's prior written consent;
+
+ (g) remove, obscure, or alter any copyright, trademark, patent, or other
+     proprietary notice, marking, or attribution contained in or displayed by
+     the Software or in this Agreement;
+
+ (h) use the Software to develop, train, or improve any product or service that
+     competes with the Software or with any NodeX product; or
+
+ (i) use the Software other than for the Permitted Use, or in excess of any
+     quantitative or temporal limit stated in the Separate Agreement.
+
+--------------------------------------------------------------------------------
+4. OWNERSHIP
+--------------------------------------------------------------------------------
+
+The Software is licensed, not sold. NodeX and its licensors retain all right,
+title, and interest in and to the Software, including all copyrights, patents,
+trade secrets, trademarks, and other intellectual property rights therein. The
+Software constitutes confidential information and a trade secret of NodeX, and
+Licensee shall protect it with no less than the degree of care it applies to its
+own confidential information of comparable importance, and in any event with no
+less than reasonable care.
+
+--------------------------------------------------------------------------------
+5. NO SUPPORT; UPDATES
+--------------------------------------------------------------------------------
+
+This Agreement does not entitle Licensee to any maintenance, support, updates,
+upgrades, service levels, or professional services. Any such services are
+provided only if, and on the terms, expressly stated in the Separate Agreement.
+Any update, upgrade, patch, or new version of the Software that NodeX makes
+available is governed by this Agreement unless NodeX provides different terms
+with it.
+
+--------------------------------------------------------------------------------
+6. THIRD-PARTY COMPONENTS
+--------------------------------------------------------------------------------
+
+The Software may incorporate or be distributed with software components owned by
+third parties, including open source components ("Third-Party Components").
+Third-Party Components are licensed to Licensee under the terms of their
+respective licenses and not under this Agreement, and to the extent any such
+license grants Licensee rights broader than, or imposes obligations
+inconsistent with, this Agreement, that license governs solely with respect to
+the applicable Third-Party Component. Applicable notices, license texts, and
+attributions are set out in the NOTICE or THIRD_PARTY_NOTICES file distributed
+with the Software, where provided. NodeX provides no warranty or indemnity with
+respect to Third-Party Components except as expressly stated in the Separate
+Agreement.
+
+--------------------------------------------------------------------------------
+7. EXPORT CONTROL AND COMPLIANCE
+--------------------------------------------------------------------------------
+
+7.1 Licensee shall comply with all applicable export control and economic
+    sanctions laws and regulations, including the Foreign Exchange and Foreign
+    Trade Act of Japan (外国為替及び外国貿易法) and its implementing orders and
+    ministerial ordinances, the U.S. Export Administration Regulations (EAR),
+    the U.S. International Traffic in Arms Regulations (ITAR) where applicable,
+    and the sanctions programs administered by the U.S. Office of Foreign Assets
+    Control (OFAC) and equivalent authorities in other jurisdictions
+    (collectively, "Export Laws").
+
+7.2 Licensee shall not export, re-export, transfer, release, or otherwise make
+    the Software available, directly or indirectly, to any country, entity,
+    person, or end use that is prohibited or restricted under the Export Laws,
+    including any use connected with the development, production, or deployment
+    of weapons of mass destruction or their delivery systems, without having
+    obtained all licenses, permissions, and approvals required in advance.
+
+7.3 Licensee shall provide NodeX, promptly upon request, with the information
+    reasonably necessary for NodeX to perform export classification and end
+    user / end use screening (該非判定および需要者・用途確認), including the
+    identity of the end user, the country of installation, and the intended end
+    use.
+
+7.4 Licensee shall not use the Software in violation of applicable laws
+    governing the Licensee's activities, and shall be solely responsible for
+    obtaining any authorization required for its own use of the Software.
+
+--------------------------------------------------------------------------------
+8. DISCLAIMER OF WARRANTY
+--------------------------------------------------------------------------------
+
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OR
+CONDITION OF ANY KIND, EXPRESS, IMPLIED, OR STATUTORY, INCLUDING BUT NOT LIMITED
+TO ANY WARRANTIES OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, ACCURACY, OR THAT THE OPERATION OF
+THE SOFTWARE WILL BE UNINTERRUPTED, SECURE, OR ERROR-FREE. NODEX DOES NOT
+WARRANT THAT THE SOFTWARE IS SUITABLE FOR USE IN ANY HIGH-RISK OR
+SAFETY-CRITICAL ENVIRONMENT. THIS SECTION APPLIES EXCEPT TO THE EXTENT THE
+SEPARATE AGREEMENT EXPRESSLY PROVIDES OTHERWISE.
+
+--------------------------------------------------------------------------------
+9. LIMITATION OF LIABILITY
+--------------------------------------------------------------------------------
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL NODEX OR
+ITS OFFICERS, EMPLOYEES, OR LICENSORS BE LIABLE FOR ANY INDIRECT, INCIDENTAL,
+SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES, OR FOR ANY LOSS OF
+PROFITS, REVENUE, DATA, BUSINESS, GOODWILL, OR ANTICIPATED SAVINGS, ARISING OUT
+OF OR IN CONNECTION WITH THE SOFTWARE OR THIS AGREEMENT, WHETHER IN CONTRACT,
+TORT (INCLUDING NEGLIGENCE), STRICT LIABILITY, OR OTHERWISE, AND WHETHER OR NOT
+NODEX HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+WHERE THE SOFTWARE IS PROVIDED WITHOUT CHARGE, NODEX'S TOTAL AGGREGATE LIABILITY
+SHALL NOT EXCEED TEN THOUSAND JAPANESE YEN (JPY 10,000). WHERE FEES ARE PAYABLE
+UNDER THE SEPARATE AGREEMENT, THE LIABILITY CAP AND ALLOCATION OF RISK STATED IN
+THE SEPARATE AGREEMENT SHALL APPLY IN PLACE OF THE FOREGOING CAP.
+
+NOTHING IN THIS AGREEMENT EXCLUDES OR LIMITS LIABILITY THAT CANNOT LAWFULLY BE
+EXCLUDED OR LIMITED, INCLUDING LIABILITY ARISING FROM WILFUL MISCONDUCT OR GROSS
+NEGLIGENCE.
+
+--------------------------------------------------------------------------------
+10. TERM AND TERMINATION
+--------------------------------------------------------------------------------
+
+10.1 Term. This Agreement takes effect when Licensee first downloads, installs,
+     copies, or uses the Software and continues until terminated in accordance
+     with this Section or until the Separate Agreement expires or terminates,
+     whichever occurs first.
+
+10.2 Automatic Termination. The license granted in Section 2.1 terminates
+     automatically, without notice and without prejudice to any other remedy, if
+     Licensee breaches any provision of this Agreement or of the Separate
+     Agreement, or if the Separate Agreement expires or is terminated for any
+     reason.
+
+10.3 Termination for Convenience by NodeX. Where the Software has been made
+     available without charge and no Separate Agreement specifies a fixed term,
+     NodeX may terminate this Agreement at any time upon thirty (30) days'
+     written notice.
+
+10.4 Effect of Termination. Upon termination or expiration, Licensee shall
+     immediately cease all use of the Software and, within thirty (30) days,
+     delete or destroy all copies of the Software in its possession or control,
+     including copies on backup media to the extent technically practicable, and
+     shall certify such deletion or destruction in writing upon NodeX's request.
+
+10.5 Survival. Sections 1, 2.2, 3, 4, 6, 7, 8, 9, 10.4, 10.5, 11, and 12 survive
+     termination or expiration of this Agreement.
+
+--------------------------------------------------------------------------------
+11. GOVERNING LAW AND JURISDICTION
+--------------------------------------------------------------------------------
+
+This Agreement is governed by and construed in accordance with the laws of
+Japan, without regard to its conflict of laws principles. The United Nations
+Convention on Contracts for the International Sale of Goods does not apply. The
+parties submit to the exclusive jurisdiction of the Tokyo District Court (東京地方
+裁判所) as the court of first instance for any dispute arising out of or in
+connection with this Agreement or the Software.
+
+--------------------------------------------------------------------------------
+12. GENERAL
+--------------------------------------------------------------------------------
+
+12.1 Assignment. Licensee may not assign or transfer this Agreement or any
+     rights under it, in whole or in part, by operation of law or otherwise,
+     without NodeX's prior written consent. Any purported assignment in
+     violation of this Section is void.
+
+12.2 Severability. If any provision of this Agreement is held invalid or
+     unenforceable, that provision shall be modified to the minimum extent
+     necessary to make it enforceable, and the remaining provisions shall remain
+     in full force and effect.
+
+12.3 No Waiver. Failure or delay by NodeX to enforce any provision is not a
+     waiver of that or any other provision.
+
+12.4 Equitable Relief. Licensee acknowledges that a breach of Section 3 or
+     Section 4 may cause NodeX irreparable harm for which monetary damages are
+     an inadequate remedy, and that NodeX is entitled to seek injunctive and
+     other equitable relief in addition to any other remedy.
+
+12.5 Entire Agreement. This Agreement, together with the Separate Agreement,
+     constitutes the entire agreement between the parties regarding the Software
+     and supersedes all prior or contemporaneous understandings regarding its
+     subject matter.
+
+12.6 Language. This Agreement is executed in the English language. Any
+     translation is provided for convenience only, and the English text governs.
+
+--------------------------------------------------------------------------------
+CONTACT
+--------------------------------------------------------------------------------
+
+For licensing inquiries, including requests to enter into a Separate Agreement:
+
+  NodeX, Inc.
+  contact@nodex.inc
+  https://nodex.inc
