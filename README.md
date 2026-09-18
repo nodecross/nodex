@@ -3,17 +3,12 @@
 </p>
 
 <h2 align="center">
-  NodeX - E2E Secure Messaging Platform<br />
-  <a href="https://github.com/nodecross/nodex/actions/workflows/release.yml">
-  </a>
-  <a href="https://github.com/semantic-release/semantic-release">
-    <img src="https://img.shields.io/badge/semantic--release-rust-B7410E?logo=semantic-release" alt="Semantic Release" />
-  </a>
+  NodeX - E2E Secure Messaging Platform
 </h2>
 
-NodeX is an open-source toolkit for building end-to-end secure messaging between all devices including IoT, micro services, and on-premise servers, using features of [decentralized identifiers (DIDs)](https://www.w3.org/TR/did-core/) as a basis of security and privacy. Build atop [DIDComm messaging protocol](https://github.com/decentralized-identity/didcomm-messaging) which works over any transports, it makes end-to-end messaging reliable, secure, and easy.
+NodeX is a commercial toolkit for building end-to-end secure messaging between all devices including IoT, micro services, and on-premise servers, using features of [decentralized identifiers (DIDs)](https://www.w3.org/TR/did-core/) as a basis of security and privacy. Built atop [DIDComm messaging protocol](https://github.com/decentralized-identity/didcomm-messaging) which works over any transports, it makes end-to-end messaging reliable, secure, and easy.
 
-This repo where we develop libraries to be installed into your devices. It enables device's IDs and keys management with root of trust (RoT), automated provisioning, mutual authentication, and end-to-end secure messaging across network boundary.
+This repository distributes the NodeX Agent binaries through its [Releases](https://github.com/nodecross/nodex/releases) page; the source code is not published here. The agent provides device's IDs and keys management with root of trust (RoT), automated provisioning, mutual authentication, and end-to-end secure messaging across network boundary.
 
 [Explore NodeX Docs](https://docs.nodex.inc/manual)
 
@@ -35,13 +30,10 @@ This repo where we develop libraries to be installed into your devices. It enabl
 - NodeX Developers Portal<br />
   https://docs.nodex.inc/manual
 
-## Contribution
+## Support
 
-First off, thank you for considering making contributions. It's people like you that make NodeX better. There are many ways in which you can participate in the project, for example:
-
-- File a bug report. Be sure to include information like what version of NodeX you are using, what your operating system and CPU is, and steps to recreate the bug.
-- Suggest a new feature.
+Issues are not tracked in this repository. For bug reports, feature requests, and licensing inquiries, contact contact@nodex.inc or refer to the [NodeX Developers Portal](https://docs.nodex.inc/manual).
 
 ## License
 
-Proprietary
+Proprietary. Use of the NodeX Agent binaries requires a separate written license agreement with NodeX, Inc. See [LICENSE](LICENSE) for the full terms, including the treatment of third-party components.
