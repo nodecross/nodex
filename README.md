@@ -3,32 +3,36 @@
 </p>
 
 <h2 align="center">
-  NodeX - E2E Secure Messaging Platform
+  NodeX - Verifiable Identity and Secure Messaging for Every Device
 </h2>
 
-NodeX is a commercial toolkit for building end-to-end secure messaging between all devices including IoT, micro services, and on-premise servers, using features of [decentralized identifiers (DIDs)](https://www.w3.org/TR/did-core/) as a basis of security and privacy. Built atop [DIDComm messaging protocol](https://github.com/decentralized-identity/didcomm-messaging) which works over any transports, it makes end-to-end messaging reliable, secure, and easy.
+NodeX is a commercial platform that gives every device — IoT, edge, and on-premise servers — an identity that others can verify for themselves. Built on [decentralized identifiers (DIDs)](https://www.w3.org/TR/did-core/) with verifiable history, NodeX shifts the basis of trust from "trust the server" to "verify the record".
 
-This repository distributes the NodeX Agent binaries through its [Releases](https://github.com/nodecross/nodex/releases) page; the source code is not published here. The agent provides device's IDs and keys management with root of trust (RoT), automated provisioning, mutual authentication, and end-to-end secure messaging across network boundary.
+This repository distributes the NodeX Agent binaries through its [Releases](https://github.com/nodecross/nodex/releases) page; the source code is not published here. The agent handles device identity, provisioning, mutual verification, and secure messaging.
 
 [Explore NodeX Docs](https://docs.nodex.inc/manual)
 
+## Our Approach to Trust
+
+- **Trust Anchor** — A device's identifier is derived from its own history, making the identifier itself the starting point for verification.
+- **Root of Trust** — Verification runs on the device itself, without delegating it to anyone else.
+- **Trustless Verification** — Every change to an identity is recorded as a signed, tamper-evident entry, verifiable by anyone regardless of where it is retrieved from.
+
 ## Features
 
-- Device's IDs and keys management with RoT
-- Automated provisioning without centralized servers and certificate authorities and intermediaries
-- Mutual authentication and end-to-end secure messaging while ensuring confidentiality, integrity, and authenticity
-- Attribute based access control and dynamic policy management
-- Rust library with multiple language extensions for python and nodejs
-- Mutiple OS support for Linux kernel x86(32bit) & x86-64(64bit), FreeRTOS ARM Cortex-M33(32bit)
-- RoT extensions for TPM, ARM TrustZone, and Renesas SCE
+- DID-based device identity with verifiable history
+- Remote key rotation without changing the identity, with every rotation recorded in its verifiable history
+- Provisioning without reliance on certificate authorities
+- Mutual verification between devices and the NodeX cloud
+- End-to-end encrypted messaging over [DIDComm](https://github.com/decentralized-identity/didcomm-messaging)
+- Policy-based access control for messaging
+- Support for on-premise and offline environments
+- Supported operating systems: Linux (x86_64, aarch64), macOS (Apple silicon), and Windows (x86_64)
 
 ## Developer's Document
 
 - NodeX Official Website<br />
   https://nodex.inc
-
-- NodeX Developers Portal<br />
-  https://docs.nodex.inc/manual
 
 ## Support
 
@@ -36,4 +40,4 @@ Issues are not tracked in this repository. For bug reports, feature requests, an
 
 ## License
 
-Proprietary. Use of the NodeX Agent binaries requires a separate written license agreement with NodeX, Inc. See [LICENSE](LICENSE) for the full terms, including the treatment of third-party components.
+Proprietary. Use of the NodeX Agent binaries requires a separate written license agreement with NodeX, Inc. See [LICENSE](LICENSE) for the full terms, including the treatment of third-party components. Third-party license notices are attached to each release as `THIRD_PARTY_NOTICES.md`.
